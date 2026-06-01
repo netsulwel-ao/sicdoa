@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/pauta/<int:pk>/encerrar-votacao/', views.api_encerrar_votacao, name='governanca_api_encerrar_votacao'),
     path('api/pauta/<int:pk>/votar/', views.api_votar, name='governanca_api_votar'),
     path('api/pauta/<int:pk>/resultados/', views.api_resultados_pauta, name='governanca_api_resultados_pauta'),
+    path('api/pauta/<int:pk>/votos/', views.api_votos_pauta, name='governanca_api_votos_pauta'),
     path('api/pauta/<int:pk>/verificar/', views.api_verificar_voto, name='governanca_api_verificar_voto'),
 
     # API: Assembleia

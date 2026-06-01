@@ -22,7 +22,7 @@ class Command(BaseCommand):
         if not config:
             self.stderr.write(f'Sem configuração de quota para {mes:02d}/{ano}')
             return
-        despachantes = Usuario.objects.filter(papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
+        despachantes = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')
         criadas = 0
         for d in despachantes:
             if QuotaGerada.objects.filter(despachante=d, ano=ano, mes=mes).exists():

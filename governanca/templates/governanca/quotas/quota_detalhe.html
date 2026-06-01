@@ -17,6 +17,7 @@
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
         <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Detalhes da Fatura</h2>
         <dl class="grid grid-cols-2 gap-4 text-sm">
+          <div><dt class="text-gray-500">Despachante</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.despachante.nome }}</dd></div>
           <div><dt class="text-gray-500">Período</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.mes|stringformat:"02d" }}/{{ quota.ano }}</dd></div>
           <div><dt class="text-gray-500">Valor</dt><dd class="font-semibold text-[#111418]">Kz {{ quota.valor|floatformat:2 }}</dd></div>
           <div><dt class="text-gray-500">Vencimento</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.data_vencimento|date:"d/m/Y" }}</dd></div>

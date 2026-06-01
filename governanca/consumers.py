@@ -164,6 +164,9 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
     async def votacao_reaberta(self, event):
         await self.send(text_data=json.dumps({'action': 'votacao_reaberta', **event['data']}))
 
+    async def voto_registado(self, event):
+        await self.send(text_data=json.dumps(event['data']))
+
     # ─── Chat ─────────────────────────────────────────────────────────────────
 
     async def _handle_raise_hand(self, data):

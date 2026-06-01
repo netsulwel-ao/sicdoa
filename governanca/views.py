@@ -868,6 +868,25 @@ def api_votar(request, pk):
         'em_delegacao': em_delegacao, 'opcao': opcao,
     }, ip=_get_client_ip(request))
 
+    if pauta.tipo_votacao == 'Aberta':
+        _broadcast_ws(assembleia.id, 'voto_registado', {
+            'action': 'voto_registado',
+            'pauta_id': pauta.id,
+            'nome': request.usuario_obj.nome,
+            'opcao': opcao,
+            'tipo_votacao': 'Aberta',
+        })
+
+    _broadcast_ws(assembleia.id, 'resultados_update', {
+        'pauta_id': pauta.id,
+        'titulo': pauta.titulo,
+        'favor': pauta.votos_favor,
+        'contra': pauta.votos_contra,
+        'abstencao': pauta.votos_abstencao,
+        'total': pauta.total_votos,
+        'status': pauta.status,
+    })
+
     return JsonResponse({
         'status': 'ok',
         'hash_auditoria': voto.hash_auditoria,
@@ -891,6 +910,30 @@ def api_resultados_pauta(request, pk):
         'total': pauta.total_votos,
         'votos_delegados': pauta.votos_delegados,
         'tipo_votacao': pauta.tipo_votacao,
+    })
+
+
+@_requer_login
+def api_votos_pauta(request, pk):
+    pauta = get_object_or_404(PautaVotacao, pk=pk)
+    votos = Voto.objects.filter(pauta=pauta, em_delegacao=False).select_related('usuario').order_by('votado_em')
+    data = []
+    for v in votos:
+        item = {'votado_em': v.votado_em.isoformat()}
+        if pauta.tipo_votacao == 'Aberta':
+            item['nome'] = v.usuario.nome
+            item['opcao'] = v.opcao
+        else:
+            item['nome'] = '***'
+            item['opcao'] = ''
+        data.append(item)
+    return JsonResponse({
+        'votos': data,
+        'tipo_votacao': pauta.tipo_votacao,
+        'total': pauta.total_votos,
+        'favor': pauta.votos_favor,
+        'contra': pauta.votos_contra,
+        'abstencao': pauta.votos_abstencao,
     })
 
 

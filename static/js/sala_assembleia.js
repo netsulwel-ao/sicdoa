@@ -34,6 +34,7 @@
     sideAba: 'chat',
     mensagensChat: [],
     chatNaoLidas: 0,
+    votosIndividuais: [],
     maosLevantadas: {},
     speakerId: null,
     screenShareAtiva: false,
@@ -188,6 +189,9 @@
       case 'assembleia_iniciada':
         mostrarToast('Assembleia iniciada automaticamente!', '#22c55e');
         setTimeout(function() { location.reload(); }, 2000);
+        break;
+      case 'voto_registado':
+        adicionarVotoRegistado(msg);
         break;
       case 'chat_historico':
         carregarHistoricoChat(msg.mensagens);
@@ -837,6 +841,7 @@
   // ── VOTAÇÃO ────────────────────────────────────────────────
   function abrirVotacao(msg) {
     state.votacaoAtiva = msg;
+    carregarVotosPauta(msg.pauta_id);
     if (state.sideAba === 'voting' && state.chatAberto) {
       renderVotingPanel();
     }
@@ -893,6 +898,53 @@
     mostrarToast('🔄 Votação reaberta: ' + (msg.titulo || ''), '#22c55e');
   }
 
+  function adicionarVotoRegistado(msg) {
+    state.votosIndividuais.push(msg);
+    if (state.sideAba === 'voting' && state.chatAberto) {
+      renderVotosIndividuais();
+    }
+  }
+
+  function carregarVotosPauta(pautaId) {
+    state.votosIndividuais = [];
+    fetch('/governanca/api/pauta/' + pautaId + '/votos/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.votos) {
+          state.votosIndividuais = data.votos;
+          if (state.sideAba === 'voting' && state.chatAberto) {
+            renderVotosIndividuais();
+          }
+        }
+      })
+      .catch(function() {});
+  }
+
+  function renderVotosIndividuais() {
+    if (!DOM.panelBody) return;
+    var votos = state.votosIndividuais || [];
+    if (votos.length === 0) return;
+    var seletor = document.getElementById('votos-individuais');
+    if (!seletor) return;
+    var html = '';
+    var isAberta = state.votacaoAtiva && state.votacaoAtiva.tipo_votacao !== 'Secreta';
+    votos.forEach(function(v) {
+      if (isAberta && v.opcao) {
+        var icone = v.opcao === 'Favor' ? '✅' : v.opcao === 'Contra' ? '❌' : '⬜';
+        html += '<div class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-800/40 border border-gray-700/30 text-sm">' +
+          '<span class="text-gray-200">' + escapeHtml(v.nome || '***') + '</span>' +
+          '<span>' + icone + ' <span class="' + (v.opcao === 'Favor' ? 'text-green-400' : v.opcao === 'Contra' ? 'text-red-400' : 'text-yellow-400') + '">' + v.opcao + '</span></span>' +
+        '</div>';
+      } else if (!isAberta) {
+        html += '<div class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-800/40 border border-gray-700/30 text-sm">' +
+          '<span class="text-gray-400 text-xs">Voto registado</span>' +
+          '<span class="text-gray-500">🔒</span>' +
+        '</div>';
+      }
+    });
+    seletor.innerHTML = html;
+  }
+
   function votar(opcao) {
     if (!state.votacaoAtiva) return;
     var pautaId = state.votacaoAtiva.pauta_id;
@@ -944,7 +996,11 @@
           '<button class="vote-contra" onclick="window.MEET_VOTAR(\'Contra\')"><i class="fas fa-thumbs-down mr-1"></i> Não</button>' +
           '<button class="vote-abst" onclick="window.MEET_VOTAR(\'Abstencao\')"><i class="fas fa-minus-circle mr-1"></i> Abstenção</button>' +
         '</div>' +
+        '<hr class="my-3 border-gray-600">' +
+        '<div class="text-xs text-gray-400 font-medium mb-2">Votos registados</div>' +
+        '<div id="votos-individuais" class="space-y-1"></div>' +
       '</div>';
+    renderVotosIndividuais();
   }
 
   function renderProxyVoting(procs) {
@@ -975,7 +1031,11 @@
     DOM.panelBody.innerHTML =
       '<div class="voting-panel">' +
         '<div class="voting-confirmed"><i class="fas fa-check-circle mr-1"></i> Voto registado com sucesso!</div>' +
+        '<hr class="my-3 border-gray-600">' +
+        '<div class="text-xs text-gray-400 font-medium mb-2">Votos registados</div>' +
+        '<div id="votos-individuais" class="space-y-1"></div>' +
       '</div>';
+    renderVotosIndividuais();
   }
 
   function renderVotingResults(msg) {
@@ -994,7 +1054,11 @@
           '<div class="voting-result-row"><span class="result-label">Contra</span><div class="result-bar"><div class="bar-fill bg-red-500" style="width:' + pContra + '%"></div></div><span class="result-count">' + (msg.contra || 0) + '</span></div>' +
           '<div class="voting-result-row"><span class="result-label">Abstenção</span><div class="result-bar"><div class="bar-fill bg-yellow-500" style="width:' + pAbst + '%"></div></div><span class="result-count">' + (msg.abstencao || 0) + '</span></div>' +
         '</div>' +
+        '<hr class="my-3 border-gray-600">' +
+        '<div class="text-xs text-gray-400 font-medium mb-2">Votos registados</div>' +
+        '<div id="votos-individuais" class="space-y-1"></div>' +
       '</div>';
+    renderVotosIndividuais();
   }
 
   function verificarVotacaoAtivaAPI() {
