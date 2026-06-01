@@ -55,16 +55,6 @@
               </label>
               <input type="datetime-local" name="data_hora" id="id_data_hora" required class="form-input" />
             </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Local</label>
-              <input type="text" name="local" class="form-input" placeholder="Sala Virtual CDOA" value="Sala Virtual CDOA" />
-              <p class="text-xs text-gray-400 mt-1.5">Local físico ou virtual da reunião</p>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nome da Sala (LiveKit)</label>
-              <input type="text" name="livekit_room" class="form-input" placeholder="auto-gerado se vazio" />
-              <p class="text-xs text-gray-400 mt-1.5">Videoconferência será ativada automaticamente</p>
-            </div>
             <div class="flex items-end">
               <label class="relative inline-flex items-center gap-3 cursor-pointer group">
                 <input type="checkbox" name="iniciar_agora" id="id_iniciar_agora" class="sr-only peer">
@@ -78,30 +68,7 @@
           </div>
         </div>
 
-        <!-- Quórum & Procurações -->
-        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-          <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-            <i class="fas fa-users text-primary"></i>
-            <h2 class="font-semibold text-gray-900 dark:text-white">Quórum &amp; Procurações</h2>
-          </div>
-          <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Quórum Mínimo</label>
-              <input type="number" name="quorum_minimo" class="form-input" value="10" min="1" />
-              <p class="text-xs text-gray-400 mt-1.5">Nº mínimo de presentes para quórum</p>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Total de Eleitores</label>
-              <input type="number" name="total_eleitores" class="form-input" value="0" min="0" placeholder="0 = todos" />
-              <p class="text-xs text-gray-400 mt-1.5">0 = total de despachantes ativos</p>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Máx. Procurações</label>
-              <input type="number" name="max_procuracao" class="form-input" value="1" min="1" />
-              <p class="text-xs text-gray-400 mt-1.5">Limite de procurações por membro</p>
-            </div>
-          </div>
-        </div>
+
 
         <!-- Pautas de Votação -->
         <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">

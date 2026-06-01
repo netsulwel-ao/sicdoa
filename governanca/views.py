@@ -231,12 +231,7 @@ def nova_assembleia(request):
         titulo = request.POST.get('titulo', '').strip()
         descricao = request.POST.get('descricao', '').strip()
         data_hora_str = request.POST.get('data_hora', '').strip()
-        link_streaming = request.POST.get('link_streaming', '').strip()
-        local = request.POST.get('local', '').strip() or 'Sala Virtual CDOA'
         livekit_room = request.POST.get('livekit_room', '').strip()
-        quorum = int(request.POST.get('quorum_minimo') or 0)
-        total_eleitores = int(request.POST.get('total_eleitores') or 0)
-        max_procuracao = int(request.POST.get('max_procuracao') or 1)
         iniciar_agora = request.POST.get('iniciar_agora') == 'on'
 
         if not titulo:
@@ -269,17 +264,18 @@ def nova_assembleia(request):
         else:
             status = 'Agendada'
 
+        total_ativos = Usuario.objects.filter(status='Ativo').count()
+
         assembleia = Assembleia.objects.create(
             titulo=titulo,
             descricao=descricao,
             data_hora=data_hora,
             status=status,
-            link_streaming=link_streaming,
-            local=local,
+            local='Sala Virtual CDOA',
             livekit_room=livekit_room,
-            quorum_minimo=quorum,
-            total_eleitores=total_eleitores or Usuario.objects.filter(status='Ativo').count(),
-            max_procuracao=max_procuracao,
+            quorum_minimo=total_ativos,
+            total_eleitores=total_ativos,
+            max_procuracao=1,
             created_by=request.usuario_obj,
         )
 

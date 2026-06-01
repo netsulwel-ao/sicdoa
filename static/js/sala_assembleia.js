@@ -120,6 +120,7 @@
       ws = new WebSocket(CONFIG.WS_URL);
 
       ws.onopen = function() {
+        console.log('[WS] Conectado a', CONFIG.WS_URL);
         if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
       };
 
@@ -137,8 +138,8 @@
         }
       };
 
-      ws.onerror = function() {
-        // ws.onclose será chamado a seguir
+      ws.onerror = function(e) {
+        console.error('[WS] Erro de conexão:', CONFIG.WS_URL, e);
       };
     } catch(e) {
       wsReconnectTimer = setTimeout(conectarWebSocket, 5000);
