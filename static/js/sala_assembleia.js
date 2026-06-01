@@ -1196,7 +1196,6 @@
 
   // ── RAISE HAND ─────────────────────────────────────────────
   function toggleHand() {
-    if (!state.room) return;
     var identity = CONFIG.USER_NOME;
     var isRaised = !!state.maosLevantadas[identity];
 
@@ -1207,7 +1206,7 @@
         atualizarTile(identity);
       }
       if (DOM.btnHand) DOM.btnHand.classList.remove('meet-btn-warn');
-      enviarWS({ action: 'chat_reaction', reacao: 'mao' });
+      enviarWS({ action: 'lower_hand', nome: identity });
     } else {
       state.maosLevantadas[identity] = true;
       if (state.participantes[identity]) {
@@ -1215,7 +1214,7 @@
         atualizarTile(identity);
       }
       if (DOM.btnHand) DOM.btnHand.classList.add('meet-btn-warn');
-      enviarWS({ action: 'chat_reaction', reacao: 'mao' });
+      enviarWS({ action: 'raise_hand' });
     }
   }
 

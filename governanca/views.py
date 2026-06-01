@@ -495,7 +495,7 @@ def sala_assembleia(request, pk):
         'pautas_voto_delegado': pautas_voto_delegado,
         'livekit_token': livekit_token,
         'livekit_url': settings.LIVEKIT_URL,
-        'ws_url': f'{settings.SITE_URL.replace("http", "ws")}/ws/assembleia/{pk}/',
+        'ws_url': f'{"ws" if not request.is_secure() else "wss"}://{request.get_host()}/ws/assembleia/{pk}/',
         'presentes': assembleia.presencas.filter(presente_em__isnull=False).select_related('usuario'),
         'mesa': MembroMesa.objects.filter(assembleia=assembleia).select_related('usuario'),
         'despachantes': Usuario.objects.filter(
