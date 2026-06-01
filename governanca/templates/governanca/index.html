@@ -1,0 +1,223 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    {# ── Cabeçalho ─────────────────────────────────────────────────────── #}
+    <div class="mb-8">
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl lg:text-4xl font-black leading-tight">
+        CDOA Governança Digital
+      </h1>
+      <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm md:text-base max-w-3xl">
+        O módulo CDOA Governança Digital é o coração político e administrativo do portal. Ele foi desenhado para digitalizar a relação do Despachante Oficial com a Câmara, eliminando a necessidade de deslocações físicas para votações, regularização de status ou prova de vida profissional. O módulo transforma o portal numa ferramenta de cidadania corporativa e compliance associativo.
+      </p>
+    </div>
+
+    {# ── Banner notificações ───────────────────────────────────────────── #}
+    {% if notificacoes_nao_lidas > 0 %}
+    <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center gap-3">
+      <i class="fas fa-bell text-blue-600 dark:text-blue-400"></i>
+      <span class="text-sm text-blue-800 dark:text-blue-200 font-medium">
+        {{ notificacoes_nao_lidas }} notificaç{{ notificacoes_nao_lidas|pluralize:"ão,ções" }} não lida{{ notificacoes_nao_lidas|pluralize:"s" }}
+      </span>
+      <a href="{% url 'governanca_notificacoes' %}" class="ml-auto text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline">Ver</a>
+    </div>
+    {% endif %}
+
+    {# ── Stats Rápidos ─────────────────────────────────────────────────── #}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 bg-primary/10 rounded-lg"><i class="fas fa-vote-yea text-primary text-xl"></i></div>
+          <div><p class="text-xl font-bold text-[#111418] dark:text-gray-200">{{ total_assembleias }}</p><p class="text-xs text-gray-500 dark:text-gray-400">Assembleias</p></div>
+        </div>
+        <a href="{% url 'governanca_assembleias' %}" class="mt-3 block text-xs text-primary font-medium hover:underline">Ver todas <i class="fas fa-arrow-right text-xs"></i></a>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 bg-green-50 dark:bg-green-900/20 rounded-lg"><i class="fas fa-calendar-check text-green-600 dark:text-green-400 text-xl"></i></div>
+          <div><p class="text-xl font-bold text-[#111418] dark:text-gray-200">{{ proximas|length }}</p><p class="text-xs text-gray-500 dark:text-gray-400">Próximas</p></div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg"><i class="fas fa-file-alt text-amber-600 dark:text-amber-400 text-xl"></i></div>
+          <div><p class="text-xl font-bold text-[#111418] dark:text-gray-200">{{ atas_count }}</p><p class="text-xs text-gray-500 dark:text-gray-400">Atas Publicadas</p></div>
+        </div>
+        <a href="{% url 'governanca_atas' %}" class="mt-3 block text-xs text-primary font-medium hover:underline">Repositório <i class="fas fa-arrow-right text-xs"></i></a>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 {% if quotas_pendentes > 0 %}bg-red-50 dark:bg-red-900/20{% else %}bg-green-50 dark:bg-green-900/20{% endif %} rounded-lg">
+            <i class="fas fa-wallet {% if quotas_pendentes > 0 %}text-red-600 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %} text-xl"></i>
+          </div>
+          <div>
+            <p class="text-xl font-bold text-[#111418] dark:text-gray-200">
+              <span class="text-green-600 dark:text-green-400">{{ quotas_pagas }}</span>/
+              <span class="{% if quotas_pendentes > 0 %}text-red-600 dark:text-red-400{% endif %}">{{ quotas_pendentes }}</span>
+            </p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Quotas pagas/pendentes</p>
+          </div>
+        </div>
+        <a href="{% url 'governanca_quotas_dashboard' %}" class="mt-3 block text-xs text-primary font-medium hover:underline">Gerir <i class="fas fa-arrow-right text-xs"></i></a>
+      </div>
+    </div>
+
+    {# ── Objetivos Estratégicos ────────────────────────────────────────── #}
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 mb-6">
+      <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 mb-3 flex items-center gap-2">
+        <i class="fas fa-bullseye text-primary"></i> Objetivos Estratégicos
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400">
+        <div class="flex gap-3">
+          <span class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</span>
+          <div>
+            <strong class="text-gray-900 dark:text-gray-100">Inovação</strong><br>
+            Votação digital segura para Assembleias Gerais com verificação de identidade e auditoria de quórum em tempo real.
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <span class="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</span>
+          <div>
+            <strong class="text-gray-900 dark:text-gray-100">Indispensabilidade</strong><br>
+            Nenhum despachante pode exercer sem a Cédula Profissional regularizada. O módulo automatiza o aviso, pagamento de quotas e emissão da certidão de regularidade em segundos.
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <span class="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</span>
+          <div>
+            <strong class="text-gray-900 dark:text-gray-100">Transparência</strong><br>
+            Centralização de atas, orçamentos e deliberações da Direção Nacional com acesso indexado e pesquisável.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ── Três Pilares ─────────────────────────────────────────────────── #}
+    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Pilares do Módulo</h2>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
+
+      {# Pilar 1 — Democracia Digital #}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="h-1.5 bg-primary"></div>
+        <div class="p-5">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><i class="fas fa-vote-yea text-primary text-lg"></i></div>
+            <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">Democracia Digital &amp; Assembleias Gerais</h3>
+          </div>
+          <ul class="space-y-2.5 text-xs text-gray-600 dark:text-gray-400">
+            <li class="flex gap-2"><i class="fas fa-video text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Transmissão e Plenário Virtual</strong> — Sala de streaming integrada diretamente no portal para assistência em tempo real das Assembleias Gerais (Ordinárias, Extraordinárias e Eleitorais).</span></li>
+            <li class="flex gap-2"><i class="fas fa-users text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Controlo de Quórum Eletrónico</strong> — Registo automático de presença e validação de quórum legal (conforme os estatutos da CDOA) assim que o despachante entra na sessão.</span></li>
+            <li class="flex gap-2"><i class="fas fa-lock text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Votação Criptografada em Tempo Real</strong> — Sistema de votação nominal ou secreta (com anonimato garantido por criptografia) para aprovação de orçamentos, relatórios de contas ou novos regulamentos.</span></li>
+            <li class="flex gap-2"><i class="fas fa-file-signature text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Central de Procurações (Delegação de Voto)</strong> — Permite que um despachante impossibilitado de comparecer delegue legalmente o seu direito de voto a outro colega. O processo é assinado digitalmente no portal e validado via código OTP (SMS).</span></li>
+            <li class="flex gap-2"><i class="fas fa-check-double text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Manifesto de Integridade</strong> — Geração de um relatório matemático auditável no final de cada votação para provar a transparência dos resultados à Mesa da Assembleia.</span></li>
+          </ul>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <a href="{% url 'governanca_assembleias' %}" class="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-lg hover:bg-primary/20 transition-colors">Assembleias</a>
+            <a href="{% url 'governanca_atas' %}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Atas</a>
+          </div>
+        </div>
+      </div>
+
+      {# Pilar 2 — Gestão Financeira #}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="h-1.5 bg-green-500"></div>
+        <div class="p-5">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center"><i class="fas fa-wallet text-green-600 dark:text-green-400 text-lg"></i></div>
+            <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">Gestão Financeira de Quotas &amp; Carteira Profissional</h3>
+          </div>
+          <ul class="space-y-2.5 text-xs text-gray-600 dark:text-gray-400">
+            <li class="flex gap-2"><i class="fas fa-bell text-green-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Faturação e Alertas Automáticos</strong> — Geração mensal automática de quotas com notificações diretas por SMS e Email para o telemóvel do despachante.</span></li>
+            <li class="flex gap-2"><i class="fas fa-credit-card text-green-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Pagamento Multicaixa e GPO</strong> — Integração de gateway de pagamento para liquidação de quotas por Referência Bancária, Aplicações Multicaixa ou GPO (Gestão de Pagamentos Eletrónicos).</span></li>
+            <li class="flex gap-2"><i class="fas fa-certificate text-green-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Emissão Instantânea de Certidões</strong> — Emissão automática da Guia de Regularidade Financeira e declarações de conformidade em segundos, eliminando as deslocações físicas à sede da CDOA.</span></li>
+            <li class="flex gap-2"><i class="fas fa-toggle-on text-green-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Desativação e Reabilitação de Status</strong> — Mudança em tempo real do estado do membro (REGULAR, IRREGULAR, SUSPENSO) com base no histórico financeiro, impactando imediatamente as suas permissões no portal.</span></li>
+          </ul>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <a href="{% url 'governanca_quotas_dashboard' %}" class="px-3 py-1.5 bg-green-600/10 text-green-700 dark:text-green-400 text-xs font-medium rounded-lg hover:bg-green-600/20 transition-colors">Dashboard Financeiro</a>
+            <a href="{% url 'governanca_quotas_faturas' %}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Faturas</a>
+          </div>
+        </div>
+      </div>
+
+      {# Pilar 3 — Escuta Activa #}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="h-1.5 bg-amber-500"></div>
+        <div class="p-5">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center"><i class="fas fa-comments text-amber-600 dark:text-amber-400 text-lg"></i></div>
+            <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">Escuta Activa, Fórum &amp; Transparência</h3>
+          </div>
+          <ul class="space-y-2.5 text-xs text-gray-600 dark:text-gray-400">
+            <li class="flex gap-2"><i class="fas fa-comments text-amber-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Fórum de Consulta Pública</strong> — Espaço onde a Direção Nacional publica minutas de novas leis ou alterações na Tabela de Honorários, permitindo que a classe comente, sugira e vote artigo por artigo antes da aprovação final.</span></li>
+            <li class="flex gap-2"><i class="fas fa-archive text-amber-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Repositório Digital de Atas e Decretos</strong> — Arquivo histórico, indexado e com motor de busca de todas as decisões, atas de assembleias e comunicados emitidos pela Câmara, todos autenticados com Assinatura Digital Qualificada.</span></li>
+          </ul>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <a href="{% url 'governanca_atas' %}" class="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-xs font-medium rounded-lg hover:bg-amber-600/20 transition-colors">Repositório de Atas</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ── Próximas Assembleias ─────────────────────────────────────────── #}
+    {% if proximas %}
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm mb-6">
+      <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+        <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+          <i class="fas fa-calendar-alt text-primary"></i> Próximas Assembleias
+        </h2>
+        <a href="{% url 'governanca_assembleias' %}" class="text-xs text-primary font-medium hover:underline">Ver todas</a>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        {% for a in proximas %}
+        <a href="{% url 'governanca_detalhe' a.pk %}" class="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <i class="fas fa-calendar-alt text-primary"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ a.titulo }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ a.data_hora|date:"d/m/Y H:i" }}</p>
+          </div>
+          <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shrink-0">
+            {{ a.total_pautas }} pauta{{ a.total_pautas|pluralize:"s" }}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── Assembleias em Curso ─────────────────────────────────────────── #}
+    {% if assembleias_em_curso %}
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="p-5 border-b border-gray-200 dark:border-gray-800">
+        <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+          <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Assembleias em Curso
+        </h2>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        {% for a in assembleias_em_curso %}
+        <a href="{% url 'governanca_sala' a.pk %}" class="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center shrink-0">
+            <i class="fas fa-play-circle text-green-600 dark:text-green-400"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ a.titulo }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ a.presentes_count }} presente{{ a.presentes_count|pluralize:"s" }}</p>
+          </div>
+          <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 animate-pulse">
+            Ao Vivo
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+{% include 'includes/footer.html' %}

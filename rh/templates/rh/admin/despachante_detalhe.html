@@ -1,0 +1,199 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'admin_despachantes' %}" class="hover:text-primary transition-colors">Despachantes</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">{{ despachante.nome }}</span>
+{% endblock %}
+
+{% block conteudo %}
+
+<!-- Header do Despachante -->
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-6">
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-user text-primary text-3xl"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <h1 class="text-2xl font-black text-gray-900 dark:text-white">{{ despachante.nome }}</h1>
+          {% if despachante.status == 'Ativo' %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Ativo</span>
+          {% elif despachante.status == 'Suspenso' %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Bloqueado</span>
+          {% else %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Inativo</span>
+          {% endif %}
+        </div>
+        <div class="flex flex-wrap gap-4 mt-1 text-sm text-gray-500">
+          <span class="flex items-center gap-1">
+            <i class="fas fa-envelope text-base"></i>{{ despachante.email }}
+          </span>
+          {% if despachante.telefone %}
+          <span class="flex items-center gap-1">
+            <i class="fas fa-phone text-base"></i>{{ despachante.telefone }}
+          </span>
+          {% endif %}
+          {% if despachante.nif %}
+          <span class="flex items-center gap-1">
+            <i class="fas fa-id-badge text-base"></i>NIF: {{ despachante.nif }}
+          </span>
+          {% endif %}
+          {% if despachante.cedula %}
+          <span class="flex items-center gap-1">
+            <i class="fas fa-award text-base"></i>Cédula: {{ despachante.cedula }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+      <a href="{% url 'admin_despachantes' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-all">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+
+      <!-- Editar -->
+      <a href="{% url 'admin_despachante_editar' despachante.id %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-xl font-semibold text-sm hover:bg-blue-100 transition-all">
+        <i class="fas fa-edit text-base"></i>Editar
+      </a>
+
+      <!-- Enviar Credenciais -->
+      <form method="POST" action="{% url 'admin_despachante_enviar_credenciais' despachante.id %}" class="inline">
+        {% csrf_token %}
+        <button type="button"
+                onclick="confirmarFormPost(this.closest('form'), {tipo:'info',titulo:'Enviar Credenciais',mensagem:'Será gerada uma nova senha e enviada por email para {{ despachante.email|escapejs }}. A senha anterior deixará de funcionar.',textoBotao:'Enviar'})"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-xl font-semibold text-sm hover:bg-green-100 transition-all">
+          <i class="fas fa-paper-plane text-base"></i>Enviar Credenciais
+        </button>
+      </form>
+
+      <!-- Bloquear / Desbloquear -->
+      <form method="POST" action="{% url 'admin_despachante_toggle' despachante.id %}" class="inline">
+        {% csrf_token %}
+        {% if despachante.status == 'Ativo' %}
+        <button type="button"
+                onclick="confirmarFormPost(this.closest('form'), {tipo:'danger',titulo:'Bloquear Despachante',mensagem:'Bloquear {{ despachante.nome|escapejs }}? O utilizador não conseguirá iniciar sessão.',textoBotao:'Bloquear'})"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-xl font-semibold text-sm hover:bg-red-100 transition-all">
+          <i class="fas fa-ban text-base"></i>Bloquear
+        </button>
+        {% else %}
+        <button type="button"
+                onclick="confirmarFormPost(this.closest('form'), {tipo:'success',titulo:'Desbloquear Despachante',mensagem:'Desbloquear {{ despachante.nome|escapejs }}? O utilizador voltará a ter acesso ao sistema.',textoBotao:'Desbloquear'})"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-xl font-semibold text-sm hover:bg-green-100 transition-all">
+          <i class="fas fa-lock-open text-base"></i>Desbloquear
+        </button>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Estatísticas -->
+<div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+  <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-blue-100 text-sm font-medium">Total de Bancas</p>
+    <p class="text-3xl font-black mt-1">{{ total_bancas }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-green-100 text-sm font-medium">Colaboradores</p>
+    <p class="text-3xl font-black mt-1">{{ total_colaboradores }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-purple-100 text-sm font-medium">Membro desde</p>
+    <p class="text-xl font-black mt-1">{{ despachante.created_at|date:"d/m/Y" }}</p>
+  </div>
+</div>
+
+<!-- Bancas do Despachante -->
+{% if bancas_info %}
+  {% for info in bancas_info %}
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm mb-6 overflow-hidden">
+
+    <!-- Header da Banca -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-3">
+        {% if info.banca.logo %}
+        <img src="{{ info.banca.logo.url }}" alt="{{ info.banca.nome }}" class="w-10 h-10 rounded-lg object-cover">
+        {% else %}
+        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <i class="fas fa-store text-primary text-lg"></i>
+        </div>
+        {% endif %}
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="font-bold text-gray-900 dark:text-white">{{ info.banca.nome }}</h2>
+            {% if info.banca.ativa %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Ativa</span>
+            {% else %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Inativa</span>
+            {% endif %}
+          </div>
+          <div class="flex flex-wrap gap-3 text-xs text-gray-500 mt-0.5">
+            {% if info.banca.nif %}<span>NIF: {{ info.banca.nif }}</span>{% endif %}
+            {% if info.banca.provincia %}<span>{{ info.banca.provincia }}</span>{% endif %}
+            {% if info.banca.licenca_cdoa %}<span>CDOA: {{ info.banca.licenca_cdoa }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{% url 'admin_banca_detalhe' info.banca.id %}"
+           class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">
+          <i class="fas fa-external-link-alt text-base"></i>Ver Banca
+        </a>
+      </div>
+    </div>
+
+    <!-- Estatísticas da Banca -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-gray-100 dark:divide-gray-800 border-b border-gray-100 dark:border-gray-800">
+      <div class="px-6 py-4 text-center">
+        <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ info.total_colaboradores }}</p>
+        <p class="text-xs text-gray-500 mt-0.5">Colaboradores</p>
+      </div>
+      <div class="px-6 py-4 text-center">
+        <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ info.total_filiais }}</p>
+        <p class="text-xs text-gray-500 mt-0.5">Filiais</p>
+      </div>
+      <div class="px-6 py-4 text-center">
+        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ info.banca.get_tipo_display }}</p>
+        <p class="text-xs text-gray-500 mt-0.5">Tipo</p>
+      </div>
+      <div class="px-6 py-4 text-center">
+        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ info.banca.criado_em|date:"d/m/Y" }}</p>
+        <p class="text-xs text-gray-500 mt-0.5">Criada em</p>
+      </div>
+    </div>
+
+    <!-- Filiais -->
+    {% if info.filiais %}
+    <div class="px-6 py-4">
+      <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+        <i class="fas fa-building text-base text-primary"></i>Filiais
+      </h3>
+      <div class="flex flex-wrap gap-2">
+        {% for filial in info.filiais %}
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-sm border border-blue-200 dark:border-blue-800">
+          <i class="fas fa-map-marker-alt text-xs"></i>
+          {{ filial.provincia }}
+          {% if filial.responsavel %}<span class="text-blue-500">· {{ filial.responsavel }}</span>{% endif %}
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+{% else %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-16 text-center">
+  <i class="fas fa-store-alt text-gray-300 text-6xl mb-4 block"></i>
+  <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhuma banca registada</h3>
+  <p class="text-gray-500 text-sm">Este despachante ainda não criou nenhuma banca.</p>
+</div>
+{% endif %}
+
+{% endblock %}

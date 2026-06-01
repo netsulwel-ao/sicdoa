@@ -1,0 +1,270 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+{% include 'includes/header.html' %}
+{% csrf_token %}
+<main class="p-4 md:p-6 lg:p-8">
+  <div class="mb-6 flex items-center gap-4">
+    <a href="{% url 'governanca_quotas_dashboard' %}" class="text-gray-500 hover:text-[#111418]"><i class="fas fa-arrow-left"></i></a>
+    <div>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Administração de Quotas</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Gestão global do sistema de quotas</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ total_quotas }}</p>
+      <p class="text-sm text-gray-500">Total de Quotas</p>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <p class="text-2xl font-bold text-yellow-600">{{ pendentes }}</p>
+      <p class="text-sm text-gray-500">Pendentes / Atrasadas</p>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <p class="text-2xl font-bold text-green-600">{{ pagas }}</p>
+      <p class="text-sm text-gray-500">Pagas</p>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <p class="text-2xl font-bold text-orange-600">{{ pagamentos_pendentes }}</p>
+      <p class="text-sm text-gray-500">Pagamentos p/ Confirmar</p>
+    </div>
+  </div>
+
+  {% if config %}
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 mb-6">
+    <p class="text-sm text-gray-500">Valor da quota vigente</p>
+    <p class="text-xl font-bold text-[#111418] dark:text-gray-200">Kz {{ config.valor|floatformat:2 }} <span class="text-sm font-normal text-gray-500">({{ config.mes|stringformat:"02d" }}/{{ config.ano }})</span></p>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <a href="{% url 'governanca_quotas_admin_config' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+      <div class="flex items-center gap-4">
+        <div class="p-3 bg-primary/10 rounded-lg"><i class="fas fa-cog text-primary text-xl"></i></div>
+        <div><p class="font-bold text-[#111418] dark:text-gray-200">Configurar Valores</p><p class="text-sm text-gray-500">Definir valor, vencimento e multa</p></div>
+      </div>
+    </a>
+    <a href="{% url 'governanca_quotas_admin_pagamentos' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+      <div class="flex items-center gap-4">
+        <div class="p-3 bg-orange-50 rounded-lg"><i class="fas fa-hand-holding-usd text-orange-600 text-xl"></i></div>
+        <div><p class="font-bold text-[#111418] dark:text-gray-200">Pagamentos Pendentes</p><p class="text-sm text-gray-500">Confirmar ou rejeitar ({{ pagamentos_pendentes }})</p></div>
+      </div>
+    </a>
+    <a href="{% url 'governanca_quotas_admin_relatorios' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+      <div class="flex items-center gap-4">
+        <div class="p-3 bg-emerald-50 rounded-lg"><i class="fas fa-chart-bar text-emerald-600 text-xl"></i></div>
+        <div><p class="font-bold text-[#111418] dark:text-gray-200">Relatórios</p><p class="text-sm text-gray-500">Total arrecadado, atrasos e inadimplentes</p></div>
+      </div>
+    </a>
+    <a href="{% url 'governanca_quotas_faturas' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+      <div class="flex items-center gap-4">
+        <div class="p-3 bg-blue-50 rounded-lg"><i class="fas fa-list text-blue-600 text-xl"></i></div>
+        <div><p class="font-bold text-[#111418] dark:text-gray-200">Todas as Faturas</p><p class="text-sm text-gray-500">Lista completa de todas as quotas</p></div>
+      </div>
+    </a>
+  </div>
+
+  <!-- Geração Manual -->
+  <div class="mt-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-2 flex items-center gap-2">
+      <i class="fas fa-plus-circle text-primary"></i> Geração Manual de Quotas
+    </h2>
+    <p class="text-sm text-gray-500 mb-4">Gerar quotas retroativamente para períodos específicos, um despachante ou todos.</p>
+    <button type="button" onclick="abrirModalRetroativo()"
+            class="px-5 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
+      <i class="fas fa-play"></i> Gerar Quotas Retroativas
+    </button>
+  </div>
+
+  <!-- Modal Geração Retroativa -->
+  <div id="modal-retroativo" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 transform transition-all">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+          <i class="fas fa-plus-circle text-primary"></i> Gerar Quotas Retroativas
+        </h3>
+        <button type="button" onclick="fecharModalRetroativo()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none">&times;</button>
+      </div>
+      <form id="form-retroativo" class="space-y-4">
+        <!-- Tipo de seleção -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Período</label>
+          <div class="flex gap-3">
+            <div class="flex-1">
+              <select name="tipo_periodo" id="tipo-periodo" onchange="togglePeriodoRetroativo()"
+                      class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+                <option value="mes">Mês específico</option>
+                <option value="intervalo">Intervalo de datas</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="campos-mes" class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mês</label>
+            <select name="mes" id="input-mes-retro"
+                    class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+              <option value="">—</option>
+              <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+              <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+              <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+              <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Ano</label>
+            <input type="number" name="ano" id="input-ano-retro" value="2026"
+                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+          </div>
+        </div>
+        <div id="campos-intervalo" class="hidden grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data início</label>
+            <input type="date" name="data_inicio" id="input-data-inicio"
+                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data fim</label>
+            <input type="date" name="data_fim" id="input-data-fim"
+                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+          </div>
+        </div>
+        <!-- Despachante -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Despachante</label>
+          <select name="todos" id="input-todos-retro"
+                  class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+            <option value="1">Todos os ativos</option>
+            <option value="0">Selecionar específico</option>
+          </select>
+        </div>
+        <div id="campo-despachante-id" class="hidden">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">ID do Despachante</label>
+          <input type="number" name="despachante_id" id="input-despachante-id"
+                 placeholder="Número de cédula ou ID"
+                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+          <p class="text-xs text-gray-400 mt-1">Use a Gestão de Estado acima para encontrar o ID</p>
+        </div>
+        <!-- Forçar -->
+        <div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="force" id="input-force-retro" value="1"
+                   class="rounded border-gray-300 text-primary focus:ring-primary">
+            <span class="text-sm text-gray-700 dark:text-gray-300">Forçar regeração (substituir quotas existentes)</span>
+          </label>
+        </div>
+        <!-- Botões -->
+        <div class="flex items-center gap-3 pt-2">
+          <button type="submit"
+                  class="px-5 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-play"></i> Gerar Quotas
+          </button>
+          <button type="button" onclick="fecharModalRetroativo()"
+                  class="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </form>
+      <div id="msg-retroativo" class="mt-4 hidden"></div>
+    </div>
+  </div>
+
+  <div class="mt-8 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2">
+      <i class="fas fa-gavel text-red-500"></i> Gestão de Estado Financeiro (SUSPENSÃO)
+    </h2>
+    <p class="text-sm text-gray-500 mb-4">Definir manualmente o estado financeiro de um membro (Regular, Irregular ou Suspenso).</p>
+    <div class="flex flex-col sm:flex-row gap-3 mb-4">
+      <input type="text" id="busca-membro" placeholder="Buscar membro por nome ou cédula..." class="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+      <button onclick="buscarMembros()" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90">Buscar</button>
+    </div>
+    <div id="resultado-membros" class="text-sm text-gray-500">Digite o nome ou cédula e clique em Buscar.</div>
+  </div>
+  {% include 'includes/confirm-modal.html' %}
+  </main>
+</div>
+<script>
+function buscarMembros() {
+  var q = document.getElementById('busca-membro').value.trim();
+  if (!q) return;
+  var el = document.getElementById('resultado-membros');
+  el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A buscar...';
+  fetch('{% url "governanca_api_quotas_buscar_membros" %}?q=' + encodeURIComponent(q))
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (!d.membros || d.membros.length === 0) { el.innerHTML = '<span class="text-gray-500">Nenhum membro encontrado.</span>'; return; }
+      var html = '<div class="space-y-2">';
+      d.membros.forEach(function(m) {
+        html += '<div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-800 rounded-lg">';
+        html += '<div><p class="text-sm font-semibold text-[#111418] dark:text-gray-200">' + m.nome + '</p><p class="text-xs text-gray-500">' + (m.cedula || '—') + ' | ' + (m.estado_financeiro || 'Regular') + '</p></div>';
+        html += '<div class="flex items-center gap-2">';
+        html += '<select id="estado-' + m.id + '" class="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs">';
+        html += '<option value="Regular">Regular</option><option value="Irregular">Irregular</option><option value="Suspenso">Suspenso</option>';
+        html += '</select>';
+        html += '<button onclick="definirEstado(' + m.id + ')" class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700"><i class="fas fa-gavel"></i></button>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+      el.innerHTML = html;
+    }).catch(function() { el.innerHTML = '<span class="text-red-500">Erro ao buscar membros.</span>'; });
+}
+async function definirEstado(pk) {
+  var estado = document.getElementById('estado-' + pk).value;
+  const ok = await showConfirm('Definir Estado', 'Definir estado para ' + estado + '?'); if (!ok) return;
+  var fd = new FormData(); fd.append('estado', estado);
+  try {
+    const res = await fetch('{% url "governanca_api_quotas_definir_estado" pk=0 %}'.replace('/0/', '/' + pk + '/'), { method: 'POST', body: fd, headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value } });
+    await res.json();
+    alert('Estado atualizado!'); buscarMembros();
+  } catch(e) { alert('Erro ao atualizar estado'); }
+}
+
+// ─── Retroativo ────────────────────────────────────────────────────
+function abrirModalRetroativo() {
+  document.getElementById('modal-retroativo').classList.remove('hidden');
+  var hoje = new Date();
+  document.getElementById('input-ano-retro').value = hoje.getFullYear();
+  document.getElementById('input-mes-retro').value = hoje.getMonth();
+}
+function fecharModalRetroativo() {
+  document.getElementById('modal-retroativo').classList.add('hidden');
+  document.getElementById('msg-retroativo').classList.add('hidden');
+}
+function togglePeriodoRetroativo() {
+  var tipo = document.getElementById('tipo-periodo').value;
+  document.getElementById('campos-mes').classList.toggle('hidden', tipo !== 'mes');
+  document.getElementById('campos-intervalo').classList.toggle('hidden', tipo !== 'intervalo');
+}
+document.getElementById('input-todos-retro')?.addEventListener('change', function() {
+  document.getElementById('campo-despachante-id').classList.toggle('hidden', this.value === '1');
+});
+document.getElementById('form-retroativo')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  var btn = this.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A gerar...';
+  var fd = new FormData(this);
+  fetch('{% url "governanca_api_quotas_gerar_retroativo" %}', {
+    method: 'POST', body: fd,
+    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var el = document.getElementById('msg-retroativo');
+    el.classList.remove('hidden');
+    el.className = 'mt-4 p-4 rounded-xl text-sm flex items-center gap-2 ' + (d.erro ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700');
+    el.innerHTML = (d.erro ? '<i class="fas fa-exclamation-circle"></i> ' + d.erro : '<i class="fas fa-check-circle"></i> ' + d.mensagem);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play"></i> Gerar Quotas';
+  })
+  .catch(function() {
+    var el = document.getElementById('msg-retroativo');
+    el.classList.remove('hidden');
+    el.className = 'mt-4 p-4 rounded-xl text-sm flex items-center gap-2 bg-red-50 border border-red-200 text-red-700';
+    el.innerHTML = '<i class="fas fa-exclamation-circle"></i> Erro de conexão. Tente novamente.';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play"></i> Gerar Quotas';
+  });
+});
+</script>
+{% include 'includes/footer.html' %}

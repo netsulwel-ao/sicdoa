@@ -1,0 +1,96 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'rh_banca' %}" class="hover:text-primary transition-colors">Minha Banca</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Editar</span>
+{% endblock %}
+
+{% block conteudo %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Editar Banca</h1>
+    <p class="text-gray-500 mt-1 text-sm">{{ banca.nome }}</p>
+  </div>
+  <a href="{% url 'rh_banca' %}"
+     class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+    <i class="fas fa-arrow-left text-base"></i>Voltar
+  </a>
+</div>
+
+{% if erro %}
+<div class="mb-5 flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+  <i class="fas fa-times-circle text-red-600"></i>
+  <p class="text-sm font-medium">{{ erro }}</p>
+</div>
+{% endif %}
+
+<form method="POST" enctype="multipart/form-data" class="space-y-6">
+  {% csrf_token %}
+
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-store text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Dados da Banca</h2>
+    </div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="lg:col-span-2">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome da Banca <span class="text-red-500">*</span></label>
+        <input type="text" name="nome" required value="{{ form.nome }}" placeholder="Ex: CDOA Ramos & Associados"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">NIF <span class="text-red-500">*</span></label>
+        <input type="text" name="nif" required value="{{ form.nif }}" placeholder="NIF da Banca"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+        <select name="tipo" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+          {% for val, label in banca_tipos %}<option value="{{ val }}" {% if form.tipo == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nº Licença CDOA</label>
+        <input type="text" name="licenca_cdoa" value="{{ form.licenca_cdoa }}" placeholder="Licença CDOA"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Email</label>
+        <input type="email" name="email" value="{{ form.email }}" placeholder="email@banca.ao"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+        <input type="text" name="telefone" value="{{ form.telefone }}" placeholder="+244 923 456 789"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Província</label>
+        <select name="provincia" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+          <option value="">Selecione...</option>
+          {% for p in provincias %}<option value="{{ p }}" {% if form.provincia == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Município</label>
+        <input type="text" name="municipio" value="{{ form.municipio }}" placeholder="Município"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div class="lg:col-span-3">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
+        <textarea name="endereco" rows="2" placeholder="Endereço físico..."
+                  class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ form.endereco }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-3">
+    <a href="{% url 'rh_banca' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>
+    <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+      <i class="fas fa-save text-lg"></i>Guardar Alterações
+    </button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,59 @@
+<div id="confirm-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/50 p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full p-6 transform transition-all">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+        <i class="fas fa-exclamation-triangle text-amber-600 text-lg"></i>
+      </div>
+      <div>
+        <h3 id="confirm-modal-title" class="text-base font-bold text-[#111418] dark:text-gray-200">Confirmar</h3>
+        <p id="confirm-modal-message" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5"></p>
+      </div>
+    </div>
+    <div class="flex gap-2 justify-end">
+      <button id="confirm-modal-cancel"
+              class="px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer">
+        Cancelar
+      </button>
+      <button id="confirm-modal-ok"
+              class="px-5 py-2 rounded-xl bg-red-600 text-white font-medium text-sm hover:bg-red-700 transition-all shadow-sm cursor-pointer">
+        Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const modal = document.getElementById('confirm-modal');
+  const titleEl = document.getElementById('confirm-modal-title');
+  const msgEl = document.getElementById('confirm-modal-message');
+  const btnOk = document.getElementById('confirm-modal-ok');
+  const btnCancel = document.getElementById('confirm-modal-cancel');
+
+  let resolveCallback = null;
+
+  window.showConfirm = function(title, message, okLabel) {
+    return new Promise(function(resolve) {
+      titleEl.textContent = title || 'Confirmar';
+      msgEl.textContent = message || 'Tem certeza?';
+      btnOk.textContent = okLabel || 'Confirmar';
+      modal.classList.remove('hidden');
+      resolveCallback = resolve;
+    });
+  };
+
+  function fechar(result) {
+    modal.classList.add('hidden');
+    if (resolveCallback) {
+      resolveCallback(result);
+      resolveCallback = null;
+    }
+  }
+
+  btnOk.addEventListener('click', function() { fechar(true); });
+  btnCancel.addEventListener('click', function() { fechar(false); });
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) fechar(false);
+  });
+})();
+</script>

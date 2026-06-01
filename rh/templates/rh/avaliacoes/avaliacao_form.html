@@ -1,0 +1,72 @@
+﻿{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+  <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <a href="{% url 'rh_ciclo_detalhe' ciclo.pk %}" class="hover:text-primary transition-colors">{{ ciclo.nome }}</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <span class="text-gray-700 dark:text-gray-300 font-medium">{% if aval %}Editar{% else %}Nova{% endif %} Avaliação</span>
+</div>
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">{% if aval %}Editar Avaliação{% else %}Nova Avaliação{% endif %}</h1>
+    <p class="text-gray-500 mt-1 text-sm">{{ ciclo.nome }}</p>
+  </div>
+  <a href="{% url 'rh_ciclo_detalhe' ciclo.pk %}"
+     class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+    <i class="fas fa-arrow-left text-base"></i>Voltar
+  </a>
+</div>
+<form method="POST" class="space-y-6">{% csrf_token %}
+  {% if not col %}
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-user text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Seleccionar Colaborador</h2>
+    </div>
+    <div class="p-6">
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Colaborador <span class="text-red-500">*</span></label>
+      <select name="colaborador" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+        <option value="">Selecione...</option>{% for f in colaboradores %}<option value="{{ f.pk }}">{{ f.nome }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
+    <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center"><span class="text-primary font-bold">{{ col.nome|slice:":1"|upper }}</span></div>
+    <div><p class="font-bold text-gray-900 dark:text-white">{{ col.nome }}</p><p class="text-sm text-gray-500">{{ col.cargo_label }}</p></div>
+  </div>
+  {% endif %}
+
+  <!-- KPIs -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><i class="fas fa-trophy text-primary"></i><h2 class="font-semibold text-gray-900 dark:text-white">KPIs de Avaliação (1 = Insuficiente, 5 = Excelente)</h2></div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for kpi_name, kpi_label, kpi_val in kpis_list %}
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{{ kpi_label }}</label>
+        <div class="flex gap-2">
+          {% for i in "12345" %}
+          <label class="flex-1 cursor-pointer">
+            <input type="radio" name="{{ kpi_name }}" value="{{ i }}" class="sr-only peer" {% if kpi_val|stringformat:"s" == i %}checked{% endif %} />
+            <div class="text-center py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-bold text-sm peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white transition-all hover:border-primary/50 cursor-pointer">{{ i }}</div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Comentários -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><i class="fas fa-comment text-primary"></i><h2 class="font-semibold text-gray-900 dark:text-white">Comentários e Plano de Desenvolvimento</h2></div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Pontos Fortes</label><textarea name="pontos_fortes" rows="4" placeholder="Descreva os pontos fortes..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.pontos_fortes|default:'' }}</textarea></div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Pontos a Melhorar</label><textarea name="pontos_melhoria" rows="4" placeholder="Áreas de melhoria..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.pontos_melhoria|default:'' }}</textarea></div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Plano de Desenvolvimento</label><textarea name="plano_desenvolvimento" rows="4" placeholder="Acções de desenvolvimento..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.plano_desenvolvimento|default:'' }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-3"><a href="{% url 'rh_ciclo_detalhe' ciclo.pk %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a><button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2"><i class="fas fa-save text-lg"></i>{% if aval %}Actualizar{% else %}Guardar Avaliação{% endif %}</button></div>
+</form></main></div>{% include 'includes/footer.html' %}

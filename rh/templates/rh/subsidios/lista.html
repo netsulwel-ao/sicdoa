@@ -1,0 +1,154 @@
+﻿{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'rh_banca' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-primary font-medium">Subsídios</span>
+    </div>
+
+    <!-- Cabeçalho -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Subsídios Configuráveis</h1>
+        <p class="text-gray-500 mt-1 text-sm">
+          Gerencie os tipos de subsídios para processamento salarial
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="{% url 'rh_salarios' %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+          <i class="fas fa-arrow-left text-base"></i>Voltar
+        </a>
+        <a href="{% url 'rh_subsidio_novo' %}"
+           class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm">
+          <i class="fas fa-plus"></i>Novo Subsídio
+        </a>
+      </div>
+    </div>
+
+    {% if not subsidios %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center">
+      <i class="fas fa-credit-card text-gray-400 text-5xl mb-4 block"></i>
+      <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300">Nenhum subsídio configurado</h3>
+      <p class="text-gray-500 text-sm mb-5">Crie o primeiro tipo de subsídio para sua banca.</p>
+      <a href="{% url 'rh_subsidio_novo' %}" 
+         class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">
+        <i class="fas fa-plus"></i>Criar Subsídio
+      </a>
+    </div>
+    {% else %}
+
+    <!-- Lista de Subsídios -->
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Código</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo Cálculo</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Valor Padrão</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for subsidio in subsidios %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+              <td class="px-4 py-3 font-mono text-sm font-semibold text-gray-900 dark:text-white">
+                {{ subsidio.codigo }}
+              </td>
+              <td class="px-4 py-3">
+                <div class="font-medium text-gray-900 dark:text-white">{{ subsidio.nome }}</div>
+                {% if subsidio.descricao %}
+                <div class="text-xs text-gray-500 mt-1">{{ subsidio.descricao|truncatechars:50 }}</div>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                  {% if subsidio.tipo_calculo == 'FIXO' %}bg-blue-100 text-blue-800
+                  {% elif subsidio.tipo_calculo == 'PERCENTUAL' %}bg-green-100 text-green-800
+                  {% elif subsidio.tipo_calculo == 'DIAS_TRABALHO' %}bg-purple-100 text-purple-800
+                  {% else %}bg-amber-100 text-amber-800{% endif %}">
+                  {{ subsidio.get_tipo_calculo_display }}
+                </span>
+                {% if subsidio.percentual %}
+                <div class="text-xs text-gray-500 mt-1">{{ subsidio.percentual }}%</div>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-right font-medium">
+                {% if subsidio.tipo_calculo == 'PERCENTUAL' %}
+                <span class="text-gray-500">-</span>
+                {% else %}
+                {{ subsidio.valor_padrao|floatformat:2 }} Kz
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-center">
+                <div class="flex items-center justify-center gap-2">
+                  {% if subsidio.ativo %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <i class="fas fa-check-circle text-xs mr-1"></i>Ativo
+                  </span>
+                  {% else %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    <i class="fas fa-ban text-xs mr-1"></i>Inativo
+                  </span>
+                  {% endif %}
+                  {% if subsidio.obrigatorio %}
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    Obrigatório
+                  </span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center justify-center gap-2">
+                  <a href="{% url 'rh_subsidio_editar' subsidio.pk %}"
+                     class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                     title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <a href="{% url 'rh_subsidio_apagar' subsidio.pk %}"
+                     class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                     title="Apagar">
+                    <i class="fas fa-trash"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+      {% include 'includes/pagination.html' %}
+    </div>
+    {% endif %}
+
+    <!-- Legenda -->
+    <div class="mt-5 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-start gap-3">
+      <i class="fas fa-info-circle text-blue-600 flex-shrink-0"></i>
+      <div class="text-sm text-blue-800 dark:text-blue-300">
+        <p class="font-semibold mb-1">Tipos de Cálculo:</p>
+        <ul class="space-y-0.5 text-blue-700 dark:text-blue-400">
+          <li> <strong>Fixo:</strong> Valor fixo definido manualmente</li>
+          <li> <strong>Percentual:</strong> Percentual do salário base</li>
+          <li> <strong>Dias Trabalho:</strong> Valor multiplicado por dias trabalhados</li>
+          <li> <strong>Dependentes:</strong> Valor por número de dependentes</li>
+        </ul>
+      </div>
+    </div>
+
+    {% endif %}
+
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}

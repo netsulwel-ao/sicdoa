@@ -1,0 +1,57 @@
+﻿{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'rh_avaliacoes' %}" class="hover:text-primary">Avaliações</a><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">{{ ciclo.nome }}</span></div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+  <div><h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">{{ ciclo.nome }}</h1><p class="text-gray-500 mt-1 text-sm">{{ ciclo.periodo_inicio|date:"d/m/Y" }} → {{ ciclo.periodo_fim|date:"d/m/Y" }}</p></div>
+  <a href="{% url 'rh_avaliacao_nova' ciclo.pk %}" class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm"><i class="fas fa-plus"></i>Nova Avaliação</a>
+</div>
+
+{% if cols_pendentes %}
+<div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 mb-6">
+  <h3 class="font-semibold text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2"><i class="fas fa-clock"></i>Colaboradores por avaliar ({{ cols_pendentes|length }})</h3>
+  <div class="flex flex-wrap gap-2">{% for f in cols_pendentes %}<a href="{% url 'rh_avaliacao_editar' ciclo.pk f.pk %}" class="px-3 py-1.5 bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-all">{{ f.nome }}</a>{% endfor %}</div>
+</div>
+{% endif %}
+
+{% if not avaliacoes %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center">
+  <i class="fas fa-chart-bar text-gray-400 text-5xl mb-4 block"></i>
+  <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhuma avaliação registada</h3>
+</div>
+{% else %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto"><table class="w-full">
+    <thead class="bg-gray-50 dark:bg-gray-800/60"><tr>
+      <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Colaborador</th>
+      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Pontualidade</th>
+      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Produtividade</th>
+      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Qualidade</th>
+      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Equipa</th>
+      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Iniciativa</th>
+      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Nota Global</th>
+      <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acção</th>
+    </tr></thead>
+    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+    {% for a in avaliacoes %}
+    {% with cls=a.classificacao %}
+    <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+      <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white text-sm">{{ a.colaborador.nome }}</td>
+      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.pontualidade }}</span></td>
+      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.produtividade }}</span></td>
+      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.qualidade_trabalho }}</span></td>
+      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.trabalho_equipa }}</span></td>
+      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.iniciativa }}</span></td>
+      <td class="px-5 py-4 text-center">
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xl font-black text-gray-900 dark:text-white">{{ a.nota_global }}</span>
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-{{ cls.1 }}-100 text-{{ cls.1 }}-700">{{ cls.0 }}</span>
+        </div>
+      </td>
+      <td class="px-5 py-4 text-right"><a href="{% url 'rh_avaliacao_editar' ciclo.pk a.colaborador.pk %}" class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all inline-flex"><i class="fas fa-edit text-lg"></i></a></td>
+    </tr>
+    {% endwith %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+</main></div>{% include 'includes/footer.html' %}

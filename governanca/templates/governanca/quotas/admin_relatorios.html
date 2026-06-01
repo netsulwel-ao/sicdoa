@@ -1,0 +1,191 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+{% include 'includes/header.html' %}
+{% csrf_token %}
+<main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+  <!-- Header -->
+  <div>
+    <a href="{% url 'governanca_quotas_admin' %}" class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+      <i class="fas fa-arrow-left text-xs"></i>
+      <span>Administração de Quotas</span>
+    </a>
+    <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-1">Relatórios de Quotas</h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Visão global da arrecadação, inadimplência e histórico de pagamentos</p>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
+          <i class="fas fa-coins text-emerald-600 dark:text-emerald-400 text-xl"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">Kz {{ total_arrecadado|floatformat:2 }}</p>
+          <p class="text-xs text-gray-500">Total Arrecadado</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/30">
+          <i class="fas fa-clock text-amber-600 dark:text-amber-400 text-xl"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ quotas_pendentes }}</p>
+          <p class="text-xs text-gray-500">Quotas Pendentes</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-red-100 dark:bg-red-900/30">
+          <i class="fas fa-exclamation-triangle text-red-600 dark:text-red-400 text-xl"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ quotas_em_atraso }}</p>
+          <p class="text-xs text-gray-500">Quotas em Atraso</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/30">
+          <i class="fas fa-users text-blue-600 dark:text-blue-400 text-xl"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ inadimplentes|length }}</p>
+          <p class="text-xs text-gray-500">Inadimplentes</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumo Mensal -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+        <i class="fas fa-chart-bar text-primary"></i> Resumo Mensal
+      </h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
+            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Período</th>
+            <th class="text-center py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+            <th class="text-center py-3 px-4 text-xs font-bold text-emerald-600 uppercase tracking-wider">Pagas</th>
+            <th class="text-center py-3 px-4 text-xs font-bold text-amber-600 uppercase tracking-wider">Pendentes</th>
+            <th class="text-center py-3 px-4 text-xs font-bold text-red-600 uppercase tracking-wider">Atrasadas</th>
+            <th class="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Valor Total</th>
+            <th class="text-right py-3 px-4 text-xs font-bold text-emerald-600 uppercase tracking-wider">Arrecadado</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+          {% for r in resumo_mensal %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+            <td class="py-3 px-4 font-semibold text-[#111418] dark:text-gray-200 whitespace-nowrap">{{ r.mes|stringformat:"02d" }}/{{ r.ano }}</td>
+            <td class="py-3 px-4 text-center text-gray-700 dark:text-gray-300">{{ r.total }}</td>
+            <td class="py-3 px-4 text-center font-medium text-emerald-600 dark:text-emerald-400">{{ r.pagas }}</td>
+            <td class="py-3 px-4 text-center font-medium text-amber-600 dark:text-amber-400">{{ r.pendentes }}</td>
+            <td class="py-3 px-4 text-center font-medium text-red-600 dark:text-red-400">{{ r.atrasadas }}</td>
+            <td class="py-3 px-4 text-right text-gray-700 dark:text-gray-300 font-medium">Kz {{ r.valor_total|floatformat:2|default:"0.00" }}</td>
+            <td class="py-3 px-4 text-right font-medium text-emerald-600 dark:text-emerald-400">Kz {{ r.arrecadado|floatformat:2|default:"0.00" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="py-8 text-center text-gray-400">Nenhum dado disponível</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Inadimplentes -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+      <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+        <i class="fas fa-exclamation-circle text-red-500"></i> Despachantes Inadimplentes
+      </h2>
+      <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">{{ inadimplentes|length }}</span>
+    </div>
+    {% if inadimplentes %}
+    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+      {% for d in inadimplentes %}
+      <div class="px-5 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+            <i class="fas fa-user text-red-500 text-sm"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-[#111418] dark:text-gray-200 truncate">{{ d.nome }}</p>
+            <p class="text-xs text-gray-500">{{ d.cedula|default:"—" }}</p>
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="text-sm font-bold text-red-600 dark:text-red-400">{{ d.quotas_pend }} pendente{{ d.quotas_pend|pluralize }}</p>
+          <p class="text-xs text-gray-500">Kz {{ d.total_devido|floatformat:2|default:"0.00" }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-8 text-center">
+      <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+        <i class="fas fa-check-circle text-emerald-500 text-xl"></i>
+      </div>
+      <p class="text-sm font-medium text-gray-900 dark:text-gray-200">Nenhum inadimplente</p>
+      <p class="text-xs text-gray-500 mt-1">Todos os despachantes estão em dia com as quotas</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Histórico de Pagamentos -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+        <i class="fas fa-receipt text-gray-400"></i> Últimos Pagamentos Confirmados
+      </h2>
+    </div>
+    {% if historico %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
+            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Data</th>
+            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Despachante</th>
+            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Período</th>
+            <th class="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Valor</th>
+            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Método</th>
+            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Confirmado por</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+          {% for p in historico %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+            <td class="py-3 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.confirmado_em|date:"d/m/Y H:i" }}</td>
+            <td class="py-3 px-4 font-semibold text-[#111418] dark:text-gray-200 whitespace-nowrap">{{ p.despachante.nome }}</td>
+            <td class="py-3 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.quota.mes|stringformat:"02d" }}/{{ p.quota.ano }}</td>
+            <td class="py-3 px-4 text-right font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap">Kz {{ p.valor_pago|floatformat:2 }}</td>
+            <td class="py-3 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.metodo }}</td>
+            <td class="py-3 px-4 text-gray-500 whitespace-nowrap">{{ p.confirmado_por.nome|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-8 text-center">
+      <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+        <i class="fas fa-receipt text-gray-300 dark:text-gray-600 text-xl"></i>
+      </div>
+      <p class="text-sm font-medium text-gray-900 dark:text-gray-200">Nenhum pagamento registado</p>
+      <p class="text-xs text-gray-500 mt-1">Os pagamentos confirmados aparecerão aqui</p>
+    </div>
+    {% endif %}
+  </div>
+
+</main>
+</div>
+{% include 'includes/footer.html' %}

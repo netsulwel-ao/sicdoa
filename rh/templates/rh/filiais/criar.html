@@ -1,0 +1,78 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'rh_banca' %}" class="hover:text-primary transition-colors">Minha Banca</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Nova Filial</span>
+{% endblock %}
+
+{% block conteudo %}
+<div class="max-w-xl mx-auto">
+  <div class="mb-6">
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Nova Filial</h1>
+    <p class="text-gray-500 mt-1 text-sm">{{ banca.nome }}</p>
+  </div>
+
+  <form method="POST" class="space-y-5">
+    {% csrf_token %}
+
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-building text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Dados da Filial</h2>
+      </div>
+      <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Província <span class="text-red-500">*</span></label>
+          <select name="provincia" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            <option value="">Selecione...</option>
+            {% for p in provincias %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Município</label>
+          <input type="text" name="municipio" placeholder="Ex: Benguela"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
+          <textarea name="endereco" rows="2" placeholder="Endereço completo da filial"
+                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+          <input type="text" name="telefone" placeholder="+244 923 456 789"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <input type="email" name="email" placeholder="filial@banca.ao"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div class="md:col-span-2">
+          <div class="flex items-center gap-3 mb-3">
+            <input type="checkbox" id="tem_responsavel" name="tem_responsavel" 
+                   class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-2"
+                   onchange="toggleResponsavelForm()">
+            <label for="tem_responsavel" class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              Deseja designar um responsável para esta filial?
+            </label>
+          </div>
+          
+          <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            Se selecionar, será redirecionado para criar o colaborador responsável após criar a filial.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'rh_banca' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>
+      <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+        <i class="fas fa-save text-lg"></i>Criar Filial
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidatura - {{ vaga.titulo }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-effect { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .hover-lift { transition: all 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); }
+        .fade-in { animation: fadeIn 0.6s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .input-focus { transition: all 0.3s ease; }
+        .input-focus:focus { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15); }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: all 0.3s ease; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); }
+        .step-indicator { transition: all 0.3s ease; }
+        .step-indicator.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-6 px-4 shadow-lg">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-briefcase text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">{{ vaga.titulo }}</h1>
+                        <p class="text-white/80 text-sm">{{ vaga.banca.nome }}</p>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center gap-4 text-white/80 text-sm">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-map-marker-alt text-lg"></i>
+                        {% if vaga.filial %}{{ vaga.filial.provincia }}{% else %}Sede{% endif %}
+                    </div>
+                    {% if vaga.salario_min or vaga.salario_max %}
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-credit-card text-lg"></i>
+                        {% if vaga.salario_min %}{{ vaga.salario_min|floatformat:0 }}{% endif %}
+                        {% if vaga.salario_min and vaga.salario_max %} - {% endif %}
+                        {% if vaga.salario_max %}{{ vaga.salario_max|floatformat:0 }}{% endif %} Kz
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Progress Steps -->
+        <div class="mb-8 fade-in">
+            <div class="flex items-center justify-center space-x-4">
+                <div class="step-indicator active w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold">1</div>
+                <div class="h-1 w-16 bg-gray-200 rounded"></div>
+                <div class="step-indicator w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-semibold">2</div>
+                <div class="h-1 w-16 bg-gray-200 rounded"></div>
+                <div class="step-indicator w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-semibold">3</div>
+            </div>
+            <div class="flex justify-between mt-2 text-xs text-gray-500">
+                <span class="flex-1 text-center">Informações Pessoais</span>
+                <span class="flex-1 text-center">Documentos</span>
+                <span class="flex-1 text-center">Revisão</span>
+            </div>
+        </div>
+
+        <!-- Form Card -->
+        <div class="glass-effect rounded-2xl shadow-xl p-8 fade-in hover-lift">
+            {% if erro %}
+            <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-times-circle text-red-600"></i>
+                    <span class="text-red-700 font-medium">{{ erro }}</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data" class="space-y-6">
+                {% csrf_token %}
+                
+                <!-- Personal Information Section -->
+                <div class="space-y-4">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fas fa-user text-indigo-600"></i>
+                        <h2 class="text-lg font-semibold text-gray-900">Informações Pessoais</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="nome" class="block text-sm font-medium text-gray-700 mb-2">Nome Completo *</label>
+                            <input type="text" id="nome" name="nome" 
+                                   value="{{ form_data.nome }}" required
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 input-focus"
+                                   placeholder="Digite seu nome completo">
+                        </div>
+                        
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                            <input type="email" id="email" name="email" 
+                                   value="{{ form_data.email }}" required
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 input-focus"
+                                   placeholder="seu@email.com">
+                        </div>
+                        
+                        <div>
+                            <label for="telefone" class="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
+                            <input type="tel" id="telefone" name="telefone" 
+                                   value="{{ form_data.telefone }}"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 input-focus"
+                                   placeholder="+244 923 456 789">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documents Section -->
+                <div class="space-y-4 pt-6 border-t border-gray-200">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fas fa-file-alt text-indigo-600"></i>
+                        <h2 class="text-lg font-semibold text-gray-900">Documentos</h2>
+                    </div>
+                    
+                    <div>
+                        <label for="cv" class="block text-sm font-medium text-gray-700 mb-2">Curriculum Vitae *</label>
+                        <div class="relative">
+                            <input type="file" id="cv" name="cv" 
+                                   accept=".pdf,.doc,.docx" required
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 input-focus">
+                            <div class="mt-2 text-xs text-gray-500">
+                                <i class="fas fa-info-circle text-sm align-middle"></i>
+                                Formatos aceites: PDF, DOC, DOCX (máx. 5MB)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Motivation Section -->
+                <div class="space-y-4 pt-6 border-t border-gray-200">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fas fa-edit text-indigo-600"></i>
+                        <h2 class="text-lg font-semibold text-gray-900">Carta de Motivação</h2>
+                    </div>
+                    
+                    <div>
+                        <label for="carta_motivacao" class="block text-sm font-medium text-gray-700 mb-2">Por que você é o candidato ideal?</label>
+                        <textarea id="carta_motivacao" name="carta_motivacao" 
+                                  rows="6" 
+                                  placeholder="Fale-nos sobre si, suas experiências e porque você se candidata a esta vaga..."
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 input-focus resize-none">{{ form_data.carta_motivacao }}</textarea>
+                        <div class="mt-2 text-xs text-gray-500">
+                            <span id="charCount">0</span> caracteres
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Job Details -->
+                {% if vaga.descricao or vaga.requisitos %}
+                <div class="space-y-4 pt-6 border-t border-gray-200">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="fas fa-info-circle text-indigo-600"></i>
+                        <h2 class="text-lg font-semibold text-gray-900">Sobre a Vaga</h2>
+                    </div>
+                    
+                    {% if vaga.descricao %}
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <h3 class="font-medium text-gray-900 mb-2">Descrição</h3>
+                        <div class="text-sm text-gray-600">{{ vaga.descricao|linebreaks }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if vaga.requisitos %}
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <h3 class="font-medium text-gray-900 mb-2">Requisitos</h3>
+                        <div class="text-sm text-gray-600">{{ vaga.requisitos|linebreaks }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3 pt-6">
+                    <button type="button" onclick="history.back()" 
+                            class="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all">
+                        <i class="fas fa-arrow-left text-lg align-middle"></i>
+                        Voltar
+                    </button>
+                    <button type="submit" 
+                            class="flex-1 sm:flex-none px-8 py-3 rounded-xl btn-primary text-white font-medium">
+                        <i class="fas fa-paper-plane text-lg align-middle"></i>
+                        Enviar Candidatura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 py-6 border-t border-gray-200">
+        <div class="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
+            <p>&copy; 2024 SICDOA - Sistema Integrado de Gestão de Recursos Humanos</p>
+            <p class="mt-1">Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Character counter
+        const textarea = document.getElementById('carta_motivacao');
+        const charCount = document.getElementById('charCount');
+        
+        if (textarea && charCount) {
+            textarea.addEventListener('input', function() {
+                charCount.textContent = this.value.length;
+            });
+            
+            // Initialize counter
+            charCount.textContent = textarea.value.length;
+        }
+
+        // File input validation
+        const fileInput = document.getElementById('cv');
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const maxSize = 5 * 1024 * 1024; // 5MB
+                    if (file.size > maxSize) {
+                        // Toast em vez de alert nativo
+                        var msg = 'O arquivo não pode ser maior que 5MB.';
+                        if (window.toast) {
+                            window.toast.warning(msg);
+                        } else {
+                            var t = document.createElement('div');
+                            t.className = 'fixed top-4 right-4 z-[9999] bg-amber-500 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2';
+                            t.innerHTML = '<span>' + msg + '</span>';
+                            document.body.appendChild(t);
+                            setTimeout(function(){ t.remove(); }, 4000);
+                        }
+                        this.value = '';
+                    }
+                }
+            });
+        }
+
+        // Add smooth scroll behavior
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

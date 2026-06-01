@@ -1,0 +1,94 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6">
+      <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+        <a href="{% url 'governanca_consultas' %}" class="hover:text-primary transition-colors">Consultas Públicas</a>
+        <i class="fas fa-chevron-right text-xs"></i>
+        <a href="{% url 'governanca_consulta_detalhe' consulta.id %}" class="hover:text-primary transition-colors">{{ consulta.titulo }}</a>
+        <i class="fas fa-chevron-right text-xs"></i>
+        <span class="text-gray-900 dark:text-gray-200 font-medium">Relatório</span>
+      </div>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Relatório da Consulta</h1>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">{{ consulta.titulo }}</p>
+    </div>
+
+    <div class="max-w-4xl space-y-6">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+        <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2">
+          <i class="fas fa-chart-bar text-primary"></i> Resultados da Votação
+        </h2>
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 text-center">
+            <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ resultados.Favor|default:0 }}</p>
+            <p class="text-xs text-green-700 dark:text-green-300 font-medium mt-1">Favor</p>
+          </div>
+          <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 text-center">
+            <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ resultados.Contra|default:0 }}</p>
+            <p class="text-xs text-red-700 dark:text-red-300 font-medium mt-1">Contra</p>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 text-center">
+            <p class="text-2xl font-bold text-gray-600 dark:text-gray-400">{{ resultados.Abstencao|default:0 }}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">Abstenção</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+        <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2">
+          <i class="fas fa-comments text-primary"></i> Sugestões Consolidadas
+        </h2>
+        {% for artigo in consulta.artigos.all %}
+        <div class="mb-4 pb-4 border-b border-gray-100 dark:border-gray-800 last:border-0 last:mb-0 last:pb-0">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Artigo {{ artigo.numero }}{% if artigo.titulo %} — {{ artigo.titulo }}{% endif %}</h3>
+          {% for comentario in artigo.comentarios.all %}
+          <div class="ml-4 mb-2 text-sm">
+            <p class="text-xs text-gray-500"><strong class="text-gray-900 dark:text-gray-100">{{ comentario.autor.nome }}</strong> — {{ comentario.created_at|date:"d/m/Y H:i" }}</p>
+            <p class="text-gray-600 dark:text-gray-400">{{ comentario.texto }}</p>
+          </div>
+          {% empty %}
+          <p class="ml-4 text-xs text-gray-400">Nenhum comentário.</p>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if papel == 'Administrador' and consulta.status == 'Encerrada' %}
+      <div class="flex items-center gap-3">
+        <button id="btn-aprovar" data-id="{{ consulta.id }}" class="px-6 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+          <i class="fas fa-check-circle"></i> Aprovar e Publicar Versão Final
+        </button>
+        <button id="btn-rejeitar" data-id="{{ consulta.id }}" class="px-6 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
+          <i class="fas fa-times-circle"></i> Rejeitar
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+  </main>
+</div>
+
+<script>
+(function() {
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+  document.getElementById('btn-aprovar')?.addEventListener('click', async function() {
+    const id = this.dataset.id;
+    const res = await fetch('/governanca/api/consulta/' + id + '/versao-final/', { method:'POST', headers:{'X-CSRFToken': csrf} });
+    if (res.ok) location.reload();
+    else alert('Erro');
+  });
+  document.getElementById('btn-rejeitar')?.addEventListener('click', async function() {
+    const id = this.dataset.id;
+    const res = await fetch('/governanca/api/consulta/' + id + '/rejeitar/', { method:'POST', headers:{'X-CSRFToken': csrf} });
+    if (res.ok) location.reload();
+    else alert('Erro');
+  });
+})();
+</script>
+
+{% include 'includes/footer.html' %}

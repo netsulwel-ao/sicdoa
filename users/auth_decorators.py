@@ -1,0 +1,134 @@
+"""
+Decoradores customizados para autenticação com sessão expirável de 1 hora.
+"""
+from django.shortcuts import redirect
+from django.utils import timezone
+from datetime import timedelta
+
+
+def sessao_expirada(request):
+    """
+    Verifica se a sessão do usuário expirou (2 horas).
+    Retorna True se expirou, False caso contrário.
+    """
+    if not request.session.get('usuario_id'):
+        return True
+    
+    # Verificar timestamp da sessão
+    login_time = request.session.get('login_time')
+    if not login_time:
+        return True
+    
+    # Converter string para datetime se necessário
+    if isinstance(login_time, str):
+        try:
+            from datetime import datetime
+            login_time = datetime.fromisoformat(login_time)
+        except (ValueError, TypeError):
+            return True
+    
+    # Verificar se passou 2 horas
+    agora = timezone.now()
+    if agora - login_time > timedelta(hours=2):
+        return True
+    
+    return False
+
+
+def requer_sessao_ativa(view_func):
+    """
+    Decorador que requer sessão ativa e não expirada.
+    Se a sessão expirou, limpa a sessão e redireciona para login.
+    """
+    def wrapper(request, *args, **kwargs):
+        # Verificar se há sessão
+        if not request.session.get('usuario_id'):
+            return redirect('login')
+        
+        # Verificar se a sessão expirou
+        if sessao_expirada(request):
+            # Limpar sessão expirada
+            request.session.flush()
+            return redirect('login')
+        
+        # Atualizar timestamp da sessão (renovar por mais 2 horas)
+        request.session['login_time'] = timezone.now().isoformat()
+        request.session.modified = True
+        
+        return view_func(request, *args, **kwargs)
+    
+    wrapper.__name__ = view_func.__name__
+    wrapper.__doc__ = view_func.__doc__
+    return wrapper
+
+
+def tempo_restante_sessao(request):
+    """
+    Retorna o tempo restante da sessão em minutos.
+    Se não houver sessão ou estiver expirada, retorna 0.
+    """
+    if not request.session.get('login_time'):
+        return 0
+    
+    try:
+        from datetime import datetime
+        login_time_str = request.session['login_time']
+        if isinstance(login_time_str, str):
+            login_time = datetime.fromisoformat(login_time_str)
+        else:
+            login_time = login_time_str
+        
+        agora = timezone.now()
+        tempo_decorrido = agora - login_time
+        tempo_total = timedelta(hours=2)  # 2 horas
+        tempo_restante = tempo_total - tempo_decorrido
+        
+        # Retornar minutos restantes (mínimo 0)
+        return max(0, int(tempo_restante.total_seconds() / 60))
+    except (ValueError, TypeError, KeyError):
+        return 0
+
+
+def criar_sessao_usuario(request, usuario):
+    """
+    Cria uma nova sessão para o usuário com timestamp de expiração.
+    """
+    # Limpar sessão anterior
+    request.session.flush()
+    
+    # Guardar informações do utilizador na sessão
+    request.session['usuario_id'] = usuario.id
+    request.session['usuario'] = {
+        'id': usuario.id,
+        'nome': usuario.nome,
+        'email': usuario.email,
+        'papel': usuario.papel,
+        'nif': usuario.nif or '',
+        'cedula': usuario.cedula or '',
+        'telefone': usuario.telefone or '',
+        'username': usuario.username,
+    }
+    
+    # Guardar tipo de usuário (usuario ou colaborador)
+    if hasattr(usuario, 'tipo'):
+        request.session['tipo_usuario'] = usuario.tipo
+        if usuario.tipo == 'colaborador' and hasattr(usuario, 'colaborador_id'):
+            request.session['colaborador_id'] = usuario.colaborador_id
+    else:
+        request.session['tipo_usuario'] = 'usuario'
+    
+    # Guardar timestamp de login
+    request.session['login_time'] = timezone.now().isoformat()
+    
+    # Configurar sessão para expirar em 2h
+    request.session.set_expiry(7200)  # 2 horas em segundos
+    
+    return request.session
+
+
+def limpar_sessao(request):
+    """
+    Limpa completamente a sessão do usuário.
+    """
+    request.session.flush()
+    return request.session

@@ -1,0 +1,1108 @@
+/* ═══════════════════════════════════════════════════════════════
+   MEET-GRID.CSS — Google Meet-like grid + layout
+   Suporta 1 a 500+ participantes com scroll/paginação
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Container principal da grelha ─────────────────────────── */
+.meet-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  overflow-y: auto;
+  transition: all 0.3s ease;
+}
+
+.meet-grid.has-sidepanel {
+  width: calc(100% - 360px);
+}
+
+/* ── Tile individual de participante ───────────────────────── */
+.meet-tile {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #2d2d3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.meet-tile video {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  border-radius: 12px;
+  z-index: 2;
+}
+
+/* Layouts por número de participantes */
+.layout-1  .meet-tile { width: 100%; height: 100%; }
+.layout-2  .meet-tile { width: calc(50% - 4px); height: 100%; }
+.layout-3  .meet-tile,
+.layout-4  .meet-tile { width: calc(50% - 4px); height: calc(50% - 4px); }
+.layout-5  .meet-tile,
+.layout-6  .meet-tile { width: calc(33.333% - 6px); height: calc(50% - 4px); }
+.layout-7  .meet-tile,
+.layout-8  .meet-tile,
+.layout-9  .meet-tile { width: calc(33.333% - 6px); height: calc(33.333% - 6px); }
+.layout-10 .meet-tile,
+.layout-11 .meet-tile,
+.layout-12 .meet-tile { width: calc(25% - 6px); height: calc(33.333% - 6px); }
+.layout-13 .meet-tile,
+.layout-14 .meet-tile,
+.layout-15 .meet-tile,
+.layout-16 .meet-tile { width: calc(25% - 6px); height: calc(25% - 6px); }
+.layout-17 .meet-tile,
+.layout-18 .meet-tile,
+.layout-19 .meet-tile,
+.layout-20 .meet-tile,
+.layout-21 .meet-tile,
+.layout-22 .meet-tile,
+.layout-23 .meet-tile,
+.layout-24 .meet-tile,
+.layout-25 .meet-tile { width: calc(20% - 7px); height: calc(20% - 7px); }
+
+/* 26-49: grids de 6 colunas */
+.layout-26 .meet-tile,
+.layout-27 .meet-tile,
+.layout-28 .meet-tile,
+.layout-29 .meet-tile,
+.layout-30 .meet-tile,
+.layout-31 .meet-tile,
+.layout-32 .meet-tile,
+.layout-33 .meet-tile,
+.layout-34 .meet-tile,
+.layout-35 .meet-tile,
+.layout-36 .meet-tile { width: calc(16.666% - 7px); height: calc(16.666% - 7px); }
+
+/* 37-64: grids de 8 colunas */
+.layout-37 .meet-tile,
+.layout-38 .meet-tile,
+.layout-39 .meet-tile,
+.layout-40 .meet-tile,
+.layout-41 .meet-tile,
+.layout-42 .meet-tile,
+.layout-43 .meet-tile,
+.layout-44 .meet-tile,
+.layout-45 .meet-tile,
+.layout-46 .meet-tile,
+.layout-47 .meet-tile,
+.layout-48 .meet-tile,
+.layout-49 .meet-tile,
+.layout-50 .meet-tile,
+.layout-51 .meet-tile,
+.layout-52 .meet-tile,
+.layout-53 .meet-tile,
+.layout-54 .meet-tile,
+.layout-55 .meet-tile,
+.layout-56 .meet-tile,
+.layout-57 .meet-tile,
+.layout-58 .meet-tile,
+.layout-59 .meet-tile,
+.layout-60 .meet-tile,
+.layout-61 .meet-tile,
+.layout-62 .meet-tile,
+.layout-63 .meet-tile,
+.layout-64 .meet-tile { width: calc(12.5% - 7px); height: calc(12.5% - 7px); }
+
+/* 65-100: grids de 10 colunas */
+.layout-100 .meet-tile { width: calc(10% - 8px); height: calc(10% - 8px); }
+
+/* 100+ : grids de 12 colunas (tiles miniatura) */
+.layout-max .meet-tile { width: calc(8.333% - 8px); height: calc(8.333% - 8px); }
+
+/* ── Tile: video ───────────────────────────────────────────── */
+.meet-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.meet-tile .tile-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #9ca3af;
+  pointer-events: none;
+  z-index: 1;
+  background: #2d2d3a;
+  border-radius: 12px;
+}
+
+.meet-tile .tile-placeholder[style*="display: none"] {
+  display: none !important;
+}
+
+.meet-tile .tile-placeholder .avatar-circle {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.layout-1  .tile-placeholder .avatar-circle { width: 120px; height: 120px; font-size: 48px; }
+.layout-2  .tile-placeholder .avatar-circle { width: 96px; height: 96px; font-size: 36px; }
+.layout-3  .tile-placeholder .avatar-circle,
+.layout-4  .tile-placeholder .avatar-circle { width: 72px; height: 72px; font-size: 28px; }
+.layout-5  .tile-placeholder .avatar-circle,
+.layout-6  .tile-placeholder .avatar-circle { width: 56px; height: 56px; font-size: 22px; }
+.layout-7  .tile-placeholder .avatar-circle,
+.layout-8  .tile-placeholder .avatar-circle,
+.layout-9  .tile-placeholder .avatar-circle { width: 48px; height: 48px; font-size: 18px; }
+.layout-10 .tile-placeholder .avatar-circle,
+.layout-11 .tile-placeholder .avatar-circle,
+.layout-12 .tile-placeholder .avatar-circle { width: 40px; height: 40px; font-size: 16px; }
+.layout-13 .tile-placeholder .avatar-circle,
+.layout-14 .tile-placeholder .avatar-circle,
+.layout-15 .tile-placeholder .avatar-circle,
+.layout-16 .tile-placeholder .avatar-circle { width: 36px; height: 36px; font-size: 14px; }
+.layout-17 .tile-placeholder .avatar-circle { width: 32px; height: 32px; font-size: 12px; }
+.layout-26 .tile-placeholder .avatar-circle,
+.layout-37 .tile-placeholder .avatar-circle,
+.layout-100 .tile-placeholder .avatar-circle,
+.layout-max .tile-placeholder .avatar-circle { width: 28px; height: 28px; font-size: 10px; }
+
+.tile-placeholder .avatar-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #d1d5db;
+  text-align: center;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layout-7 .avatar-name,
+.layout-10 .avatar-name,
+.layout-13 .avatar-name,
+.layout-17 .avatar-name,
+.layout-26 .avatar-name,
+.layout-37 .avatar-name,
+.layout-100 .avatar-name,
+.layout-max .avatar-name { font-size: 10px; }
+
+.layout-26 .avatar-name,
+.layout-37 .avatar-name,
+.layout-100 .avatar-name,
+.layout-max .avatar-name { display: none; }
+
+/* ── Overlay inferior do tile (nome + badges) ──────────────── */
+.meet-tile .tile-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 10px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.layout-26 .tile-info,
+.layout-37 .tile-info,
+.layout-100 .tile-info,
+.layout-max .tile-info { padding: 3px 6px; }
+
+.layout-17 .tile-name,
+.layout-26 .tile-name,
+.layout-37 .tile-name,
+.layout-100 .tile-name,
+.layout-max .tile-name { font-size: 9px; }
+
+.layout-26 .tile-badge,
+.layout-37 .tile-badge,
+.layout-100 .tile-badge,
+.layout-max .tile-badge { display: none; }
+
+.meet-tile .tile-info .tile-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meet-tile .tile-info .tile-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.meet-tile .tile-info .tile-icon {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  flex-shrink: 0;
+}
+
+/* ── Indicadores de estado no tile ─────────────────────────── */
+.meet-tile.tile-speaking {
+  box-shadow: 0 0 0 3px #22c55e;
+  z-index: 2;
+}
+
+.meet-tile.tile-muted::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(239,68,68,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.layout-26 .tile-muted::after,
+.layout-37 .tile-muted::after,
+.layout-100 .tile-muted::after,
+.layout-max .tile-muted::after { width: 16px; height: 16px; top: 4px; right: 4px; }
+
+.tile-raise-hand {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 18px;
+  animation: hand-wave 0.6s ease-in-out infinite alternate;
+  z-index: 3;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+@keyframes hand-wave {
+  from { transform: rotate(-10deg) scale(1); }
+  to   { transform: rotate(10deg) scale(1.1); }
+}
+
+/* ── Indicador "A falar" (waveform) ────────────────────────── */
+.speaking-indicator {
+  position: absolute;
+  bottom: 36px;
+  right: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+}
+
+.speaking-indicator span {
+  width: 3px;
+  background: #22c55e;
+  border-radius: 2px;
+  animation: sound-wave 0.8s ease-in-out infinite;
+}
+
+.speaking-indicator span:nth-child(1) { height: 6px; animation-delay: 0s; }
+.speaking-indicator span:nth-child(2) { height: 12px; animation-delay: 0.15s; }
+.speaking-indicator span:nth-child(3) { height: 8px; animation-delay: 0.3s; }
+.speaking-indicator span:nth-child(4) { height: 14px; animation-delay: 0.45s; }
+
+@keyframes sound-wave {
+  0%, 100% { transform: scaleY(0.5); }
+  50%      { transform: scaleY(1); }
+}
+
+/* ── Ecrã partilhado (screen share) ────────────────────────── */
+.meet-screen-share {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #1a1a2e;
+}
+
+.meet-screen-share video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.meet-screen-share .screen-share-info {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+/* ── Layout screen share ───────────────────────────────────── */
+.meet-layout-share {
+  display: grid;
+  grid-template: 1fr / 1fr 320px;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  position: absolute;
+  inset: 0;
+}
+
+.meet-layout-share .share-main {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #1a1a2e;
+}
+
+.meet-layout-share .share-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.meet-layout-share .share-sidebar .meet-tile {
+  min-height: 120px;
+  flex-shrink: 0;
+  width: 100%;
+  height: auto;
+}
+
+/* ── Top bar ───────────────────────────────────────────────── */
+.meet-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #1e1e2e;
+  color: #e5e7eb;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.meet-topbar .meet-title {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meet-topbar .meet-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.meet-topbar .meet-status .status-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.scheduled { background: #f59e0b20; color: #f59e0b; border: 1px solid #f59e0b40; }
+.status-badge.live      { background: #22c55e20; color: #22c55e; border: 1px solid #22c55e40; }
+.status-badge.ended     { background: #6b728020; color: #6b7280; border: 1px solid #6b728040; }
+
+/* ── Bottom bar (controlos Google Meet style) ────────────────── */
+.meet-bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 16px;
+  background: #1e1e2e;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 10;
+}
+
+.meet-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.08);
+  color: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 18px;
+  position: relative;
+}
+
+.meet-btn:hover { background: rgba(255,255,255,0.15); }
+.meet-btn:active { transform: scale(0.92); }
+.meet-btn.meet-btn-active { background: #22c55e; color: #fff; }
+.meet-btn.meet-btn-danger { background: #ef4444; color: #fff; }
+.meet-btn.meet-btn-danger:hover { background: #dc2626; }
+.meet-btn.meet-btn-warn { background: #f59e0b; color: #fff; }
+
+.meet-btn .btn-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.meet-btn-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.meet-btn-label span.label-text {
+  font-size: 10px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.meet-btn.meet-btn-end {
+  width: auto;
+  padding: 0 20px;
+  border-radius: 24px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.meet-btn.meet-btn-end:hover { background: #dc2626; }
+.meet-btn.meet-btn-end i { font-size: 15px; }
+
+/* Separador vertical */
+.meet-sep {
+  width: 1px;
+  height: 32px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 4px;
+}
+
+/* ── Side panel (chat/participantes/pautas) ─────────────────── */
+.meet-sidepanel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 360px;
+  height: 100%;
+  background: #252536;
+  border-left: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  transform: translateX(0);
+  transition: transform 0.25s ease;
+}
+
+.meet-sidepanel.hidden-panel {
+  transform: translateX(100%);
+}
+
+.meet-sidepanel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.meet-sidepanel .panel-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.meet-sidepanel .panel-header button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.meet-sidepanel .panel-header button:hover { background: rgba(255,255,255,0.08); }
+
+.meet-sidepanel .panel-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.meet-sidepanel .panel-tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+.meet-sidepanel .panel-tab:hover { color: #e5e7eb; background: rgba(255,255,255,0.04); }
+.meet-sidepanel .panel-tab.active { color: #22c55e; border-bottom-color: #22c55e; }
+
+.meet-sidepanel .panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+/* Chat messages */
+.chat-msg {
+  margin-bottom: 12px;
+}
+
+.chat-msg .chat-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin-bottom: 2px;
+}
+
+.chat-msg .chat-text {
+  font-size: 13px;
+  color: #d1d5db;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-msg .chat-time {
+  font-size: 10px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.chat-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 16px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #d1d5db;
+}
+
+.chat-input-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.chat-input-area input {
+  flex: 1;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #e5e7eb;
+  font-size: 13px;
+  outline: none;
+}
+
+.chat-input-area input::placeholder { color: #6b7280; }
+.chat-input-area input:focus { border-color: #22c55e60; }
+
+.chat-input-area button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #22c55e;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-input-area button:hover { background: #16a34a; }
+
+/* Participant list in side panel */
+.participant-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.participant-row .part-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.participant-row .part-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.participant-row .part-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e5e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.participant-row .part-role {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.participant-row .part-icons {
+  display: flex;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ── Voting panel ──────────────────────────────────────────── */
+.voting-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.voting-panel .voting-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.voting-panel .voting-desc {
+  font-size: 13px;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.voting-panel .voting-options {
+  display: flex;
+  gap: 8px;
+}
+
+.voting-panel .voting-options button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: #e5e7eb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.voting-panel .voting-options button:hover {
+  border-color: #22c55e;
+  background: rgba(34,197,94,0.1);
+}
+
+.voting-panel .voting-options button.vote-favor { border-color: #22c55e40; }
+.voting-panel .voting-options button.vote-favor:hover,
+.voting-panel .voting-options button.vote-favor.selected { border-color: #22c55e; background: rgba(34,197,94,0.15); }
+
+.voting-panel .voting-options button.vote-contra { border-color: #ef444440; }
+.voting-panel .voting-options button.vote-contra:hover,
+.voting-panel .voting-options button.vote-contra.selected { border-color: #ef4444; background: rgba(239,68,68,0.15); }
+
+.voting-panel .voting-options button.vote-abst { border-color: #f59e0b40; }
+.voting-panel .voting-options button.vote-abst:hover,
+.voting-panel .voting-options button.vote-abst.selected { border-color: #f59e0b; background: rgba(245,158,11,0.15); }
+
+.voting-panel .voting-confirmed {
+  padding: 10px;
+  background: rgba(34,197,94,0.1);
+  border: 1px solid #22c55e40;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 13px;
+  color: #22c55e;
+}
+
+.voting-panel .voting-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voting-panel .voting-result-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voting-panel .voting-result-row .result-label {
+  width: 80px;
+  font-size: 12px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.voting-panel .voting-result-row .result-bar {
+  flex: 1;
+  height: 20px;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  background: rgba(255,255,255,0.06);
+}
+
+.voting-panel .voting-result-row .result-bar .bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.voting-panel .voting-result-row .result-count {
+  width: 30px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+/* ── Toast / notificações flutuantes ────────────────────────── */
+.meet-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.meet-toast-item {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  animation: toast-in 0.3s ease;
+  pointer-events: auto;
+}
+
+.meet-toast-item.leave {
+  animation: toast-in 0.3s ease, toast-out 0.3s ease 3s forwards;
+}
+
+@keyframes toast-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-out {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(100%); opacity: 0; }
+}
+
+/* ── Overlay de confirmação tipo Google ─────────────────────── */
+.meet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.2s;
+}
+
+.meet-overlay .overlay-box {
+  background: #252536;
+  border-radius: 16px;
+  padding: 24px 32px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.meet-overlay .overlay-box h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin-bottom: 8px;
+}
+
+.meet-overlay .overlay-box p {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-bottom: 20px;
+}
+
+.meet-overlay .overlay-box .overlay-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.meet-overlay .overlay-box .overlay-buttons button {
+  padding: 8px 24px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meet-overlay .overlay-box .overlay-buttons .btn-cancel {
+  background: rgba(255,255,255,0.08);
+  color: #e5e7eb;
+}
+
+.meet-overlay .overlay-box .overlay-buttons .btn-confirm {
+  background: #ef4444;
+  color: #fff;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Votação Banner (persistente na área de vídeo) ──────────── */
+.votacao-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  animation: slideDown 0.3s ease;
+}
+
+.votacao-banner.hidden {
+  display: none !important;
+}
+
+.votacao-banner.minimized {
+  height: auto;
+}
+
+.votacao-banner.minimized .votacao-banner-content {
+  padding: 4px 12px;
+}
+
+.votacao-banner.minimized .votacao-banner-text .votacao-banner-title,
+.votacao-banner.minimized .votacao-banner-timer {
+  font-size: 11px;
+}
+
+.votacao-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  color: #fff;
+}
+
+.votacao-banner-icon {
+  font-size: 20px;
+  animation: pulse-vote 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-vote {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.8; }
+}
+
+.votacao-banner-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.votacao-banner-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
+
+.votacao-banner-pauta {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.votacao-banner-timer {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.15);
+  padding: 2px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.votacao-banner-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.votacao-banner-close:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+.votacao-banner-progress {
+  height: 2px;
+  background: rgba(255,255,255,0.2);
+}
+
+.votacao-banner-bar {
+  height: 100%;
+  background: #fff;
+  width: 100%;
+  animation: progress-indeterminate 2s ease-in-out infinite;
+  transform-origin: left;
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ── Connection quality indicator ───────────────────────────── */
+.quality-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  z-index: 2;
+}
+.quality-excellent { background: #22c55e; }
+.quality-good      { background: #f59e0b; }
+.quality-poor      { background: #ef4444; }
+.quality-lost      { background: #6b7280; }
+
+/* ── Admins only: participant count badge on grid ───────────── */
+.meet-grid .grid-count-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* ── Responsivo ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .meet-sidepanel { width: 100%; }
+  .meet-layout-share { grid-template: 1fr / 1fr; }
+  .meet-layout-share .share-sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+    height: 120px;
+  }
+  .meet-layout-share .share-sidebar .meet-tile {
+    min-width: 160px;
+    min-height: 100%;
+  }
+  .meet-btn { width: 38px; height: 38px; font-size: 15px; }
+  .meet-btn.meet-btn-end { padding: 0 14px; font-size: 12px; }
+  .meet-bottombar { gap: 2px; padding: 8px; }
+  .meet-topbar .meet-status .meet-clock { display: none; }
+  .meet-grid { gap: 4px; padding: 4px; }
+  .meet-grid.has-sidepanel { width: 100%; }
+}

@@ -1,0 +1,201 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <a href="{% url 'governanca_assembleias' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary flex items-center gap-1 mb-1">
+          <i class="fas fa-arrow-left text-xs"></i> Voltar às assembleias
+        </a>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Nova Assembleia</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Configure os detalhes da assembleia geral</p>
+      </div>
+    </div>
+
+    <div class="max-w-4xl">
+      <form method="POST" class="space-y-6">
+        {% csrf_token %}
+
+        {% if messages %}
+        {% for msg in messages %}
+        <div class="flex items-center gap-3 p-4 rounded-xl border text-sm font-medium
+          {% if msg.tags == 'error' %}bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300
+          {% elif msg.tags == 'success' %}bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300
+          {% else %}bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300{% endif %}">
+          <i class="fas fa-{% if msg.tags == 'error' %}times-circle{% elif msg.tags == 'success' %}check-circle{% else %}info-circle{% endif %}"></i>
+          <p>{{ msg }}</p>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Informações Gerais -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+            <i class="fas fa-info-circle text-primary"></i>
+            <h2 class="font-semibold text-gray-900 dark:text-white">Informações Gerais</h2>
+          </div>
+          <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="md:col-span-2">
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Título <span class="text-red-500">*</span>
+              </label>
+              <input type="text" name="titulo" required placeholder="Ex: Assembleia Geral Ordinária — 2º Semestre 2026"
+                     class="form-input" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Descrição</label>
+              <textarea name="descricao" rows="3" class="form-input resize-none" placeholder="Descrição da assembleia..."></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Data e Hora <span class="text-red-500">*</span>
+              </label>
+              <input type="datetime-local" name="data_hora" id="id_data_hora" required class="form-input" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Local</label>
+              <input type="text" name="local" class="form-input" placeholder="Sala Virtual CDOA" value="Sala Virtual CDOA" />
+              <p class="text-xs text-gray-400 mt-1.5">Local físico ou virtual da reunião</p>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nome da Sala (LiveKit)</label>
+              <input type="text" name="livekit_room" class="form-input" placeholder="auto-gerado se vazio" />
+              <p class="text-xs text-gray-400 mt-1.5">Videoconferência será ativada automaticamente</p>
+            </div>
+            <div class="flex items-end">
+              <label class="relative inline-flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" name="iniciar_agora" id="id_iniciar_agora" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-primary transition-colors">
+                  <i class="fas fa-bolt text-primary mr-1.5"></i>
+                  Iniciar Agora <span class="text-gray-400 font-normal">(conferência instantânea)</span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quórum & Procurações -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+            <i class="fas fa-users text-primary"></i>
+            <h2 class="font-semibold text-gray-900 dark:text-white">Quórum &amp; Procurações</h2>
+          </div>
+          <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Quórum Mínimo</label>
+              <input type="number" name="quorum_minimo" class="form-input" value="10" min="1" />
+              <p class="text-xs text-gray-400 mt-1.5">Nº mínimo de presentes para quórum</p>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Total de Eleitores</label>
+              <input type="number" name="total_eleitores" class="form-input" value="0" min="0" placeholder="0 = todos" />
+              <p class="text-xs text-gray-400 mt-1.5">0 = total de despachantes ativos</p>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Máx. Procurações</label>
+              <input type="number" name="max_procuracao" class="form-input" value="1" min="1" />
+              <p class="text-xs text-gray-400 mt-1.5">Limite de procurações por membro</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pautas de Votação -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+            <i class="fas fa-vote-yea text-primary"></i>
+            <h2 class="font-semibold text-gray-900 dark:text-white">Pautas de Votação</h2>
+          </div>
+          <div class="p-6">
+            <div id="pautas-container" class="space-y-3">
+              <div class="pauta-row p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
+                <div class="flex items-center gap-3 mb-3">
+                  <span class="text-xs font-bold text-gray-400 shrink-0">#1</span>
+                  <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Título da pauta</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="sm:col-span-2">
+                    <input type="text" name="pauta_titulo[]" class="form-input" placeholder="Título da pauta">
+                  </div>
+                  <div>
+                    <select name="pauta_tipo[]" class="form-input">
+                      <option value="Aberta">Aberta</option>
+                      <option value="Secreta">Secreta</option>
+                    </select>
+                  </div>
+                  <div class="sm:col-span-3">
+                    <input type="text" name="pauta_descricao[]" class="form-input" placeholder="Descrição (opcional)">
+                  </div>
+                </div>
+                <button type="button" class="remove-pauta mt-3 text-xs font-medium text-red-500 hover:text-red-700 transition-colors hidden">
+                  <i class="fas fa-trash-alt mr-1"></i> Remover pauta
+                </button>
+              </div>
+            </div>
+            <button type="button" id="add-pauta-btn"
+                    class="mt-4 w-full px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/5 rounded-xl transition-colors flex items-center justify-center gap-2 border-2 border-dashed border-primary/30 hover:border-primary/60">
+              <i class="fas fa-plus"></i> Adicionar Pauta
+            </button>
+            <p class="text-xs text-gray-400 mt-3">As pautas serão ordenadas pela sequência de criação.</p>
+          </div>
+        </div>
+
+        <!-- Ações -->
+        <div class="flex items-center justify-between gap-4 pt-2 pb-8">
+          <a href="{% url 'governanca_assembleias' %}"
+             class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+            <i class="fas fa-arrow-left"></i>
+            Cancelar
+          </a>
+          <button type="submit"
+                  class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+            <i class="fas fa-check-circle"></i>
+            Criar Assembleia
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var container = document.getElementById('pautas-container');
+  var addBtn = document.getElementById('add-pauta-btn');
+  var chkIniciarAgora = document.getElementById('id_iniciar_agora');
+  var inputDataHora = document.getElementById('id_data_hora');
+
+  if (chkIniciarAgora && inputDataHora) {
+    chkIniciarAgora.addEventListener('change', function() {
+      inputDataHora.disabled = this.checked;
+      if (this.checked) {
+        inputDataHora.value = '';
+        inputDataHora.required = false;
+      } else {
+        inputDataHora.required = true;
+      }
+    });
+  }
+
+  if (addBtn && container) {
+    addBtn.addEventListener('click', function() {
+      var rows = container.querySelectorAll('.pauta-row');
+      var count = rows.length + 1;
+      var template = rows[0].cloneNode(true);
+      template.querySelectorAll('input').forEach(function(i) { i.value = ''; });
+      var removeBtn = template.querySelector('.remove-pauta');
+      removeBtn.classList.remove('hidden');
+      var numSpan = template.querySelector('span.text-xs.font-bold');
+      if (numSpan) numSpan.textContent = '#' + count;
+      removeBtn.addEventListener('click', function() { template.remove(); });
+      container.appendChild(template);
+    });
+  }
+});
+</script>
+
+{% include 'includes/footer.html' %}

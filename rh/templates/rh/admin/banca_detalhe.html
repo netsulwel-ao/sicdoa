@@ -1,0 +1,205 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'admin_bancas' %}" class="hover:text-primary transition-colors">Bancas</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">{{ banca.nome }}</span>
+{% endblock %}
+
+{% block conteudo %}
+
+<!-- Header da Banca -->
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-6">
+  <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+    <div class="flex items-start gap-4">
+      {% if banca.logo %}
+      <img src="{{ banca.logo.url }}" alt="{{ banca.nome }}" class="w-16 h-16 rounded-xl object-cover flex-shrink-0">
+      {% else %}
+      <div class="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-store text-primary text-3xl"></i>
+      </div>
+      {% endif %}
+      <div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <h1 class="text-2xl font-black text-gray-900 dark:text-white">{{ banca.nome }}</h1>
+          {% if banca.ativa %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Ativa</span>
+          {% else %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Inativa</span>
+          {% endif %}
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ banca.get_tipo_display }}</span>
+        </div>
+        <div class="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+          {% if banca.nif %}
+          <span class="flex items-center gap-1"><i class="fas fa-id-badge text-base"></i>NIF: {{ banca.nif }}</span>
+          {% endif %}
+          {% if banca.provincia %}
+          <span class="flex items-center gap-1"><i class="fas fa-map-marker-alt text-base"></i>{{ banca.provincia }}{% if banca.municipio %}, {{ banca.municipio }}{% endif %}</span>
+          {% endif %}
+          {% if banca.licenca_cdoa %}
+          <span class="flex items-center gap-1"><i class="fas fa-award text-base"></i>CDOA: {{ banca.licenca_cdoa }}</span>
+          {% endif %}
+          {% if banca.email %}
+          <span class="flex items-center gap-1"><i class="fas fa-envelope text-base"></i>{{ banca.email }}</span>
+          {% endif %}
+          {% if banca.telefone %}
+          <span class="flex items-center gap-1"><i class="fas fa-phone text-base"></i>{{ banca.telefone }}</span>
+          {% endif %}
+        </div>
+        {% if dono %}
+        <div class="mt-2 flex items-center gap-2 text-sm">
+          <span class="text-gray-500">Despachante:</span>
+          <a href="{% url 'admin_despachante_detalhe' dono.id %}"
+             class="font-semibold text-primary hover:underline flex items-center gap-1">
+            <i class="fas fa-user text-base"></i>{{ dono.nome }}
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <a href="{% url 'admin_bancas' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-all">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+      <form method="POST" action="{% url 'admin_banca_toggle' banca.id %}" class="inline">
+        {% csrf_token %}
+        <button type="button"
+                onclick="confirmarFormPost(this.closest('form'), {
+                  tipo: '{% if banca.ativa %}danger{% else %}success{% endif %}',
+                  titulo: '{% if banca.ativa %}Desativar Banca{% else %}Ativar Banca{% endif %}',
+                  mensagem: '{% if banca.ativa %}Desativar a banca {{ banca.nome|escapejs }}? Os despachantes não conseguirão aceder ao RH.{% else %}Ativar a banca {{ banca.nome|escapejs }}?{% endif %}',
+                  textoBotao: '{% if banca.ativa %}Desativar{% else %}Ativar{% endif %}'
+                })"
+                class="inline-flex items-center gap-2 px-4 py-2.5 {% if banca.ativa %}bg-red-50 text-red-600 hover:bg-red-100{% else %}bg-green-50 text-green-600 hover:bg-green-100{% endif %} rounded-xl font-semibold text-sm transition-all">
+          <i class="fas {% if banca.ativa %}fa-ban{% else %}fa-check-circle{% endif %} text-base"></i>
+          {% if banca.ativa %}Desativar{% else %}Ativar{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Estatísticas -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-blue-100 text-sm font-medium">Colaboradores</p>
+    <p class="text-3xl font-black mt-1">{{ total_colaboradores }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-green-100 text-sm font-medium">Ativos</p>
+    <p class="text-3xl font-black mt-1">{{ total_ativos }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-gray-500 to-gray-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-gray-200 text-sm font-medium">Inativos/Outros</p>
+    <p class="text-3xl font-black mt-1">{{ total_inativos }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-purple-100 text-sm font-medium">Filiais</p>
+    <p class="text-3xl font-black mt-1">{{ total_filiais }}</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Filiais -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-building text-primary text-base"></i>Filiais
+      </h2>
+      <span class="text-sm text-gray-500">{{ total_filiais }} filial{{ total_filiais|pluralize:"is" }}</span>
+    </div>
+    {% if filiais %}
+    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+      {% for filial in filiais %}
+      <div class="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+              <i class="fas fa-map-marker-alt text-primary text-base"></i>
+              {{ filial.provincia }}
+              {% if filial.municipio %}<span class="text-gray-500 font-normal text-sm">· {{ filial.municipio }}</span>{% endif %}
+            </p>
+            {% if filial.responsavel %}
+            <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-1">
+              <i class="fas fa-user text-xs"></i>Resp: {{ filial.responsavel }}
+            </p>
+            {% endif %}
+            {% if filial.email or filial.telefone %}
+            <div class="flex gap-3 text-xs text-gray-400 mt-1">
+              {% if filial.email %}<span>{{ filial.email }}</span>{% endif %}
+              {% if filial.telefone %}<span>{{ filial.telefone }}</span>{% endif %}
+            </div>
+            {% endif %}
+          </div>
+          <div class="text-right flex-shrink-0">
+            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ filial.colaboradores.count }}</p>
+            <p class="text-xs text-gray-500">colaboradores</p>
+            {% if filial.ativa %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 mt-1 inline-block">Ativa</span>
+            {% else %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 mt-1 inline-block">Inativa</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-10 text-center">
+      <i class="fas fa-map-marker-slash text-gray-300 text-4xl mb-3 block"></i>
+      <p class="text-gray-500 text-sm">Nenhuma filial registada.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Colaboradores -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-users text-primary text-base"></i>Colaboradores
+      </h2>
+      <span class="text-sm text-gray-500">{{ total_colaboradores }} total</span>
+    </div>
+    {% if colaboradores %}
+    <div class="divide-y divide-gray-100 dark:divide-gray-800 max-h-96 overflow-y-auto">
+      {% for col in colaboradores %}
+      <div class="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+        <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+          {% if col.foto %}
+          <img src="{{ col.foto.url }}" alt="{{ col.nome }}" class="w-9 h-9 rounded-full object-cover">
+          {% else %}
+          <i class="fas fa-user text-primary text-base"></i>
+          {% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ col.nome }}</p>
+          <p class="text-xs text-gray-500">{{ col.cargo_label }} · {{ col.local_trabalho }}</p>
+        </div>
+        {% if col.estado == 'Ativo' %}
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex-shrink-0">Ativo</span>
+        {% elif col.estado == 'Ferias' %}
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 flex-shrink-0">Férias</span>
+        {% elif col.estado == 'Suspenso' %}
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 flex-shrink-0">Suspenso</span>
+        {% else %}
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 flex-shrink-0">{{ col.estado }}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-10 text-center">
+      <i class="fas fa-users-slash text-gray-300 text-4xl mb-3 block"></i>
+      <p class="text-gray-500 text-sm">Nenhum colaborador registado.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}

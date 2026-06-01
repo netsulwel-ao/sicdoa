@@ -1,0 +1,181 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block title %}Gestor - {{ filial.provincia }}{% endblock %}
+
+{% block breadcrumb_extra %}
+<li class="breadcrumb-item"><a href="{% url 'rh_banca' %}">Minha Banca</a></li>
+<li class="breadcrumb-item"><a href="{% url 'rh_filial_detalhe' filial.pk %}">{{ filial.provincia }}</a></li>
+<li class="breadcrumb-item active">Gestor</li>
+{% endblock %}
+
+{% block rh_content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12">
+            <a href="{% url 'rh_filial_detalhe' filial.pk %}"
+               class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+              <i class="fas fa-arrow-left text-base"></i>Voltar à Filial
+            </a>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-tie me-2"></i>Gestor da Filial - {{ filial.provincia }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Gestor Atual -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Gestor Atual</h6>
+                        {% if gestor_atual %}
+                            <div class="alert alert-success">
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
+                                        <i class="fas fa-user" style="font-size: 2rem;"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ gestor_atual.nome }}</h6>
+                                        <p class="mb-0 text-muted">
+                                            {{ gestor_atual.get_cargo_display }} - 
+                                            {% if gestor_atual.email %}{{ gestor_atual.email }}{% endif %}
+                                        </p>
+                                    </div>
+                                    <form method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="remover">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                onclick="showToastConfirm('Remover Gestor', 'Tem certeza que deseja remover este gestor? Esta ação não pode ser desfeita.', () => this.form.submit(), null, {type: 'danger', confirmText: 'Remover', cancelText: 'Cancelar'}); return false;">
+                                            <i class="fas fa-user-minus me-1"></i>Remover
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-exclamation-triangle me-3 fs-4"></i>
+                                    <div>
+                                        <h6 class="mb-1">Nenhum gestor designado</h6>
+                                        <p class="mb-0">Esta filial não tem um gestor designado atualmente.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Designar Novo Gestor -->
+                    <div>
+                        <h6 class="mb-3">Designar Novo Gestor</h6>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="designar">
+                            
+                            <div class="mb-3">
+                                <label for="colaborador_id" class="form-label">Selecione um Colaborador</label>
+                                <select class="form-select" id="colaborador_id" name="colaborador_id" required>
+                                    <option value="">Escolha um colaborador...</option>
+                                    {% for col in colaboradores_disponiveis %}
+                                        <option value="{{ col.pk }}" 
+                                                {% if gestor_atual and col.pk == gestor_atual.pk %}disabled{% endif %}>
+                                            {{ col.nome }} - {{ col.get_cargo_display }}
+                                            {% if gestor_atual and col.pk == gestor_atual.pk %} (Atual){% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'rh_filial_detalhe' filial.pk %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-user-plus me-1"></i>Designar Gestor
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Informações da Filial -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informações da Filial
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2"><strong>Local:</strong> {{ filial.provincia }}</p>
+                    {% if filial.municipio %}<p class="mb-2"><strong>Município:</strong> {{ filial.municipio }}</p>{% endif %}
+                    <p class="mb-2"><strong>Total Colaboradores:</strong> {{ filial.colaboradores.count }}</p>
+                    <p class="mb-0"><strong>Estado:</strong> 
+                        <span class="badge bg-{{ filial.ativa|yesno:'success,secondary' }}">
+                            {{ filial.ativa|yesno:"Ativa,Inativa" }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Permissões do Gestor -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>Permissões do Gestor
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">
+                        O gestor da filial terá as seguintes permissões:
+                    </p>
+                    <ul class="small">
+                        <li><i class="fas fa-check text-success me-2"></i>Gestão de colaboradores da filial</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Controlo de presenças</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Aprovação de presenças</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Recrutamento para a filial</li>
+                        <li><i class="fas fa-times text-danger me-2"></i>Processamento salarial (apenas despachante)</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Avaliação de desempenho</li>
+                    </ul>
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>Nota:</strong> O despachante principal mantém acesso total a todas as filiais.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colaboradores Disponíveis -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-users me-2"></i>Colaboradores Disponíveis
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if colaboradores_disponiveis %}
+                        <p class="small text-muted mb-2">
+                            {{ colaboradores_disponiveis|length }} colaboradores podem ser designados como gestores:
+                        </p>
+                        {% for col in colaboradores_disponiveis %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small">{{ col.nome }}</span>
+                                <span class="badge bg-secondary">{{ col.get_cargo_display }}</span>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="small text-muted">
+                            Não há colaboradores disponíveis para serem designados como gestores.
+                        </p>
+                        <a href="{% url 'rh_colaborador_novo' %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-plus me-1"></i>Adicionar Colaborador
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

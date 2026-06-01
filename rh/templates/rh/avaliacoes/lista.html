@@ -1,0 +1,36 @@
+﻿{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a><i class="fas fa-chevron-right text-xs"></i><span class="text-primary">RH</span><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">Avaliação de Desempenho</span></div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+  <div><h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Avaliação de Desempenho</h1><p class="text-gray-500 mt-1 text-sm">Ciclos de avaliação com KPIs personalizáveis</p></div>
+  {% if is_despachante %}<a href="{% url 'rh_ciclo_novo' %}" class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm"><i class="fas fa-plus"></i>Novo Ciclo</a>{% endif %}
+</div>
+{% if not ciclos %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center">
+  <i class="fas fa-trophy text-gray-400 text-5xl mb-4 block"></i>
+  <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhum ciclo de avaliação criado</h3>
+  {% if is_despachante %}<a href="{% url 'rh_ciclo_novo' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all mt-4"><i class="fas fa-plus"></i>Criar Ciclo</a>{% else %}<p class="text-sm text-gray-500 mt-4">Os ciclos são criados pelo despachante. Avalie a sua equipa dentro de cada ciclo activo.</p>{% endif %}
+</div>
+{% else %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+{% for c in ciclos %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
+  <div class="p-5">
+    <div class="flex items-start justify-between mb-3">
+      <div><h3 class="font-bold text-gray-900 dark:text-white">{{ c.nome }}</h3><p class="text-xs text-gray-500 mt-0.5">{{ c.periodo_inicio|date:"d/m/Y" }} → {{ c.periodo_fim|date:"d/m/Y" }}</p></div>
+      {% if c.estado == 'Encerrado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 flex-shrink-0">Encerrado</span>
+      {% elif c.estado == 'Em Curso' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 flex-shrink-0">Em Curso</span>
+      {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex-shrink-0">Aberto</span>{% endif %}
+    </div>
+    <div class="flex items-center gap-2 text-sm text-gray-600 mb-4"><i class="fas fa-chart-bar text-base"></i>{{ c.avaliacoes.count }} avaliação{{ c.avaliacoes.count|pluralize:"ões" }}</div>
+    <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="w-full text-center block px-4 py-2.5 bg-primary/10 text-primary rounded-xl text-sm font-semibold hover:bg-primary/20 transition-all">Ver Detalhes</a>
+  </div>
+</div>
+{% endfor %}
+</div>
+{% if page_obj.has_other_pages %}
+<div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+  {% include 'includes/pagination.html' %}
+</div>
+{% endif %}
+{% endif %}
+</main></div>{% include 'includes/footer.html' %}

@@ -1,0 +1,105 @@
+﻿{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_vagas' %}" class="hover:text-primary transition-colors">Vagas</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300 font-medium">{% if vaga %}Editar{% else %}Nova{% endif %} Vaga</span>
+    </div>
+
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">{% if vaga %}Editar Vaga{% else %}Nova Vaga{% endif %}</h1>
+        <p class="text-gray-500 mt-1 text-sm">{% if vaga %}{{ vaga.titulo }}{% else %}Criar nova oportunidade de emprego{% endif %}</p>
+      </div>
+      <a href="{% url 'rh_vagas' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+    </div>
+
+    {% if erro %}
+    <div class="mb-5 flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+      <i class="fas fa-exclamation-circle text-red-600"></i>
+      <p class="text-sm font-medium">{{ erro }}</p>
+    </div>
+    {% endif %}
+
+    <form method="POST" class="space-y-6">
+      {% csrf_token %}
+
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-briefcase text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Detalhes da Vaga</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div class="lg:col-span-2">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Título da Vaga <span class="text-red-500">*</span></label>
+            <input type="text" name="titulo" required value="{{ vaga.titulo|default:'' }}" placeholder="Ex: Assistente de Despacho"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nº de Vagas</label>
+            <input type="number" name="vagas_numero" value="{{ vaga.vagas_numero|default:1 }}" min="1"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Departamento</label>
+            <input type="text" name="departamento" value="{{ vaga.departamento|default:'' }}" placeholder="Ex: Operações"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Salário Mínimo (KZ)</label>
+            <input type="number" name="salario_min" value="{{ vaga.salario_min|default:'' }}" step="0.01" placeholder="0.00"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Salário Máximo (KZ)</label>
+            <input type="number" name="salario_max" value="{{ vaga.salario_max|default:'' }}" step="0.01" placeholder="0.00"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data de Encerramento</label>
+            <input type="date" name="data_encerramento" value="{{ vaga.data_encerramento|date:'Y-m-d'|default:'' }}"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+          {% if vaga %}
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+            <select name="estado" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+              <option value="Aberta" {% if vaga.estado == 'Aberta' %}selected{% endif %}>Aberta</option>
+              <option value="Em Análise" {% if vaga.estado == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+              <option value="Encerrada" {% if vaga.estado == 'Encerrada' %}selected{% endif %}>Encerrada</option>
+              <option value="Cancelada" {% if vaga.estado == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+            </select>
+          </div>
+          {% endif %}
+          <div class="lg:col-span-3">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
+            <textarea name="descricao" rows="4" placeholder="Descreva a função e responsabilidades..."
+                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ vaga.descricao|default:'' }}</textarea>
+          </div>
+          <div class="lg:col-span-3">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Requisitos</label>
+            <textarea name="requisitos" rows="3" placeholder="Formação, experiência, competências..."
+                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ vaga.requisitos|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3">
+        <a href="{% url 'rh_vagas' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>
+        <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+          <i class="fas fa-save text-lg"></i>{% if vaga %}Actualizar{% else %}Criar Vaga{% endif %}
+        </button>
+      </div>
+    </form>
+  </main>
+</div>
+{% include 'includes/footer.html' %}

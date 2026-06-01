@@ -1,0 +1,1253 @@
+{
+  "regime_aduaneiro": [
+    {
+      "regime_cod": "EX3",
+      "regime": "Reexportaçäo"
+    },
+    {
+      "regime_cod": "EX1",
+      "regime": "Exportaçäo definitiva"
+    },
+    {
+      "regime_cod": "EX2",
+      "regime": "Exportaçäo temporária"
+    },
+    {
+      "regime_cod": "EXS1",
+      "regime": "Exportação Simplificada "
+    },
+    {
+      "regime_cod": "EXS2",
+      "regime": "Exportação Temporária Simplificada de Veículo"
+    },
+    {
+      "regime_cod": "EXS3",
+      "regime": "Reexportação Simplificada de Veículo"
+    },
+    {
+      "regime_cod": "EXS2",
+      "regime": "Exportação Temporária Simplificada de Veículo/Mercadorias"
+    },
+    {
+      "regime_cod": "EXV3",
+      "regime": "Reexportação Simplicada de Bens de Viajantes"
+    },
+    {
+      "regime_cod": "EXV2",
+      "regime": "Exportação Temporária Simplicada de Bens de Viajantes"
+    },
+    {
+      "regime_cod": "EXV1",
+      "regime": "Exportação Simplificada de Bens de Viajantes"
+    },
+    {
+      "regime_cod": "IM7",
+      "regime": "Armazenagem "
+    },
+    {
+      "regime_cod": "IM8",
+      "regime": "Trânsito e Transbordo"
+    },
+    {
+      "regime_cod": "IM4",
+      "regime": "Importação definitiva "
+    },
+    {
+      "regime_cod": "IM5",
+      "regime": "Importaçäo temporária"
+    },
+    {
+      "regime_cod": "IM6",
+      "regime": "Reimportaçäo"
+    },
+    {
+      "regime_cod": "IMS4",
+      "regime": "Importação Simplificada "
+    },
+    {
+      "regime_cod": "IMS6",
+      "regime": "Reimportação Simplificada de Veículo"
+    },
+    {
+      "regime_cod": "IMS6",
+      "regime": "Reimportação Simplificada de Veículo/Mercadorias"
+    },
+    {
+      "regime_cod": "IMS5",
+      "regime": "Importação Temporária Simplificada de Veículo"
+    },
+    {
+      "regime_cod": "IMV4",
+      "regime": "Importação Simplificada de Bens de Viajantes"
+    },
+    {
+      "regime_cod": "IMV6",
+      "regime": "Reimportação Simplicada de Bens de Viajantes"
+    },
+    {
+      "regime_cod": "IMV5",
+      "regime": "Importação Temporária Simplicada de Bens de Viajantes"
+    }
+  ],
+  "estancias": [
+    {
+      "cuo_cod": "1DLMA",
+      "cuo_nam": "Delegação Aduaneira do Malongo",
+      "type": "Martime Port",
+      "regiao_tributaria": "1ª ",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "1DLMS",
+      "cuo_nam": "Del. Ad. do Piquete de Massabi",
+      "type": "Border Post",
+      "regiao_tributaria": "1ª ",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "1DLSY",
+      "cuo_nam": "Delegação  Aduaneira do Soyo",
+      "type": "Martime Port",
+      "regiao_tributaria": "1ª ",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "1DLYE",
+      "cuo_nam": "Delegação Aduaneira do Yema",
+      "type": "Border Post",
+      "regiao_tributaria": "1ª ",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "1PAAE",
+      "cuo_nam": "Posto Ad do Piquete Aeroporto",
+      "type": "Airport",
+      "regiao_tributaria": "1ª ",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "1PALV",
+      "cuo_nam": "Posto Aduaneiro do Luvo",
+      "type": "Border Post",
+      "regiao_tributaria": "1ª ",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "1PANQ",
+      "cuo_nam": "Posto Aduaneiro do Noqui",
+      "type": "Border Post",
+      "regiao_tributaria": "1ª ",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "1POCA",
+      "cuo_nam": "Del. Ad. do Porto de Cabinda",
+      "type": "Martime Port",
+      "regiao_tributaria": "1ª ",
+      "delegacao_aduaneira": "SIM "
+    },
+    {
+      "cuo_cod": "2PAMZ",
+      "cuo_nam": "Posto Aduaneiro de Maquela do Zombo",
+      "type": "Border Post",
+      "regiao_tributaria": "2ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "3DLAE",
+      "cuo_nam": "Del Ad do Aeroporto Int Luanda Enco",
+      "type": "Airport",
+      "regiao_tributaria": "3ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "3DLSL",
+      "cuo_nam": "Delegação Aduaneira da Sonils",
+      "type": "Martime Port",
+      "regiao_tributaria": "3ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "3POLA",
+      "cuo_nam": "Del. Ad. do Porto de Luanda",
+      "type": "Martime Port",
+      "regiao_tributaria": "3ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "4DLAC",
+      "cuo_nam": "Del. Ad. do Aeroporto da Catumbela",
+      "type": "Airport",
+      "regiao_tributaria": "4ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "4DLHO",
+      "cuo_nam": "Delegação Aduaneira do Huambo",
+      "type": "Airport",
+      "regiao_tributaria": "4ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "4POLB",
+      "cuo_nam": "Del. Ad. do Porto do Lobito",
+      "type": "Martime Port",
+      "regiao_tributaria": "4ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "4POPA",
+      "cuo_nam": "Posto Aduaneiro do Porto Amboim",
+      "type": "Martime Port",
+      "regiao_tributaria": "4ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "5DLLO",
+      "cuo_nam": "Delegação Aduaneira do Lubango",
+      "type": "Airport",
+      "regiao_tributaria": "5ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "5PONE",
+      "cuo_nam": "Del. Ad. do Porto do Namibe",
+      "type": "Martime Port",
+      "regiao_tributaria": "5ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "6DLKT",
+      "cuo_nam": "Delegação Aduaneira de Katwitwi",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "6DLSC",
+      "cuo_nam": "Delegação Aduaneira de Santa Clara",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "6PABT",
+      "cuo_nam": "Posto Aduaneiro de Buabuata",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PACG",
+      "cuo_nam": "Posto Aduaneiro Cuangar",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PACL",
+      "cuo_nam": "Posto Aduaneiro do Calai",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PACQ",
+      "cuo_nam": "Posto Aduaneiro do Calueque",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PADC",
+      "cuo_nam": "Posto Aduaneiro do Dirico",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PAMD",
+      "cuo_nam": "Posto Aduaneiro do Marco 12.5",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PAMN",
+      "cuo_nam": "Posto Aduaneiro do Marco 9.0",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PAMS",
+      "cuo_nam": "Posto Aduaneiro do Mucusso",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PARO",
+      "cuo_nam": "Posto Aduaneiro do Rivungo",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PASC",
+      "cuo_nam": "Posto Aduaneiro de Santa Clara",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "6PAXO",
+      "cuo_nam": "Posto Aduaneiro de Xangongo",
+      "type": "Border Post",
+      "regiao_tributaria": "6ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "7DLDD",
+      "cuo_nam": "Delegação Aduaneira do Dundo",
+      "type": "Border Post",
+      "regiao_tributaria": "7ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "7DLLA",
+      "cuo_nam": "Delegação Aduaneira do Luau",
+      "type": "Border Post",
+      "regiao_tributaria": "7ª",
+      "delegacao_aduaneira": "SIM"
+    },
+    {
+      "cuo_cod": "7PAFT",
+      "cuo_nam": "Posto Aduaneiro do Furi 3",
+      "type": "Border Post",
+      "regiao_tributaria": "7ª",
+      "Postos Aduaneiros": "SIM"
+    },
+    {
+      "cuo_cod": "7PATC",
+      "cuo_nam": "Posto Aduaneiro de Tchicolondo",
+      "type": "Border Post",
+      "regiao_tributaria": "7ª",
+      "Postos Aduaneiros": "SIM"
+    }
+  ],
+  "incoterm": [
+    {
+      "incoterm": "CFR",
+      "descricao": "Custo e frete"
+    },
+    {
+      "incoterm": "CIF",
+      "descricao": "Custo, seguros e frete"
+    },
+    {
+      "incoterm": "CIP",
+      "descricao": "Frete e seguro pagos até "
+    },
+    {
+      "incoterm": "CPT",
+      "descricao": "Transporte pago até"
+    },
+    {
+      "incoterm": "DAF",
+      "descricao": "Entregue na fronteira"
+    },
+    {
+      "incoterm": "DAF",
+      "descricao": "Entregue na fronteira"
+    },
+    {
+      "incoterm": "DAP",
+      "descricao": "Entregue no local"
+    },
+    {
+      "incoterm": "DAT",
+      "descricao": "Entregue no terminal"
+    },
+    {
+      "incoterm": "DCP",
+      "descricao": "Frete pago até o porto"
+    },
+    {
+      "incoterm": "DDP",
+      "descricao": "Entrega com direitos pagos"
+    },
+    {
+      "incoterm": "DDU",
+      "descricao": "Entregue sem direitos pagos"
+    },
+    {
+      "incoterm": "DDU",
+      "descricao": "Entregue sem direitos pagos"
+    },
+    {
+      "incoterm": "DEQ",
+      "descricao": "Entregue no cais"
+    },
+    {
+      "incoterm": "DEQ",
+      "descricao": "Entregue no cais"
+    },
+    {
+      "incoterm": "DES",
+      "descricao": "Entregue no navio"
+    },
+    {
+      "incoterm": "DES",
+      "descricao": "Entregue no navio"
+    },
+    {
+      "incoterm": "DIF",
+      "descricao": "Pagamento diferido"
+    },
+    {
+      "incoterm": "EXQ",
+      "descricao": "No cais"
+    },
+    {
+      "incoterm": "EXS",
+      "descricao": "Ex Ship"
+    },
+    {
+      "incoterm": "EXW",
+      "descricao": "A porta da fábrica"
+    },
+    {
+      "incoterm": "FAS",
+      "descricao": "Franco ao longo do navio"
+    },
+    {
+      "incoterm": "FCA",
+      "descricao": "Franco transportador"
+    },
+    {
+      "incoterm": "FOA",
+      "descricao": "FOB aeroporto"
+    },
+    {
+      "incoterm": "FOB",
+      "descricao": "Franco a bordo"
+    },
+    {
+      "incoterm": "FOR",
+      "descricao": "Franco wagon"
+    },
+    {
+      "incoterm": "FRC",
+      "descricao": "Franco transportador"
+    },
+    {
+      "incoterm": "TXU",
+      "descricao": "Taxa única"
+    }
+  ],
+  "natureza_transacao": [
+    {
+      "codigo": 1,
+      "descricao": "Compra/venda"
+    },
+    {
+      "codigo": 2,
+      "descricao": "Empréstimo sujeito a compensaçäo"
+    },
+    {
+      "codigo": 3,
+      "descricao": "Operaçäo p/efeito de processto"
+    },
+    {
+      "codigo": 4,
+      "descricao": "Operaçäo pós-processamento"
+    },
+    {
+      "codigo": 5,
+      "descricao": "Fornec. de bens (proceso produtivo)"
+    },
+    {
+      "codigo": 6,
+      "descricao": "Transacçäo sem compensaçäo"
+    },
+    {
+      "codigo": 7,
+      "descricao": "Devoluçäo de produtos consignados"
+    },
+    {
+      "codigo": 8,
+      "descricao": "Permuta simples"
+    },
+    {
+      "codigo": 9,
+      "descricao": "Outros"
+    }
+  ],
+  "modo_transporte": [
+    {
+      "cod": 1,
+      "descricao": "Maritimo"
+    },
+    {
+      "cod": 2,
+      "descricao": "Ferroviário"
+    },
+    {
+      "cod": 3,
+      "descricao": "Rodoviário"
+    },
+    {
+      "cod": 4,
+      "descricao": "Aéreo"
+    },
+    {
+      "cod": 5,
+      "descricao": "Correio"
+    },
+    {
+      "cod": 6,
+      "descricao": "Multimodal"
+    },
+    {
+      "cod": 7,
+      "descricao": "Instalação transporte Fixo (Pipe, P"
+    },
+    {
+      "cod": 8,
+      "descricao": "Fluvial"
+    }
+  ],
+  "codigo_procedimento": [
+    {
+      "codigo": 0,
+      "descricao": "Descrição"
+    },
+    {
+      "codigo": 1000,
+      "descricao": "Exportação definitiva "
+    },
+    {
+      "codigo": 1020,
+      "descricao": "Exportação definitiva após exportação temporária "
+    },
+    {
+      "codigo": 1021,
+      "descricao": "Exportaç defini. após exportação temporária p/ aperfeiçoame. passivo "
+    },
+    {
+      "codigo": 1022,
+      "descricao": "Exportação definitiva após exportação temporária não suj. caução"
+    },
+    {
+      "codigo": 1024,
+      "descricao": "Exportação Definitiva Após Exportação Temporária - Encerramento"
+    },
+    {
+      "codigo": 1044,
+      "descricao": "Exportação definitiva após importação temporária embalag. uso repetido"
+    },
+    {
+      "codigo": 1070,
+      "descricao": "Exportação definitiva após armazenagem aduaneira"
+    },
+    {
+      "codigo": 1100,
+      "descricao": "Exportação Incompleta"
+    },
+    {
+      "codigo": 1200,
+      "descricao": "Consumo à bordo"
+    },
+    {
+      "codigo": 1400,
+      "descricao": "Exportação Definitiva - Encerramento de Processos dos Sistemas Legados"
+    },
+    {
+      "codigo": 1500,
+      "descricao": "Exportação definitiva de Derivados"
+    },
+    {
+      "codigo": 2000,
+      "descricao": "Exportação temporária "
+    },
+    {
+      "codigo": 2100,
+      "descricao": "Exportação temporária para aperfeiçoamento passivo  "
+    },
+    {
+      "codigo": 2200,
+      "descricao": "Exportação Temporária de mercadorias não sujeita a caução de valores"
+    },
+    {
+      "codigo": 2300,
+      "descricao": "Exportação Temp. Simplificada não Sujeita a Caução"
+    },
+    {
+      "codigo": 2400,
+      "descricao": "Exportação Temporária Caução Patrimonio/Termo/Carta Bancaria"
+    },
+    {
+      "codigo": 3000,
+      "descricao": "Reexportação"
+    },
+    {
+      "codigo": 3050,
+      "descricao": "Reexportação após importação temporária "
+    },
+    {
+      "codigo": 3051,
+      "descricao": "Reexportação após aperfeiçoamento activo "
+    },
+    {
+      "codigo": 3052,
+      "descricao": "Reexportação após importação temporária contrato aluguer/loc. fin-com"
+    },
+    {
+      "codigo": 3053,
+      "descricao": "Reexportação após importação temporária contrato de aluguer/loc. fin"
+    },
+    {
+      "codigo": 3054,
+      "descricao": "Reexportação após imp. temp. de aluguer não sujeita a caição de valor"
+    },
+    {
+      "codigo": 3055,
+      "descricao": "Reexportação Simplificada de Veículo"
+    },
+    {
+      "codigo": 3056,
+      "descricao": "Reexportação - Encerramento de Processos dos Sistemas Legados"
+    },
+    {
+      "codigo": 3070,
+      "descricao": "Reexportação após armazenagem aduaneira"
+    },
+    {
+      "codigo": 3400,
+      "descricao": "Reexportação - Encerramento de Processos dos Sistemas Legados"
+    },
+    {
+      "codigo": 4000,
+      "descricao": "Importação Definitiva"
+    },
+    {
+      "codigo": 4050,
+      "descricao": "Importação definitiva após importação temporária "
+    },
+    {
+      "codigo": 4051,
+      "descricao": "Importação definitiva após aperfeiçoamento activo "
+    },
+    {
+      "codigo": 4052,
+      "descricao": "Importação Definitiva após imp. temp. contr. de aluguer/ locação finan"
+    },
+    {
+      "codigo": 4053,
+      "descricao": "Imp Definitiva apos Imp  temp cont de aluguer/locação financ -Próprio"
+    },
+    {
+      "codigo": 4054,
+      "descricao": "Impotação Defin. ´pós imp. temp. ñ sujei. caução "
+    },
+    {
+      "codigo": 4056,
+      "descricao": "Importação Definitva após Importação Temp. Sist. Legado"
+    },
+    {
+      "codigo": 4070,
+      "descricao": "Importação definitiva após armazenagem aduaneira "
+    },
+    {
+      "codigo": 4071,
+      "descricao": "Importação definitiva apó entreposto aduaneiro"
+    },
+    {
+      "codigo": 4080,
+      "descricao": "Importação Definitiva Após Trânsito Nacional"
+    },
+    {
+      "codigo": 4081,
+      "descricao": "Importação definitiva Após Trânsito Internacional"
+    },
+    {
+      "codigo": 4100,
+      "descricao": "Importação incompleta "
+    },
+    {
+      "codigo": 4200,
+      "descricao": "Mercadorias Apreendidas e/ ou destruídas "
+    },
+    {
+      "codigo": 4300,
+      "descricao": "Mercadorias Leiloadas "
+    },
+    {
+      "codigo": 4400,
+      "descricao": "Importação temporária embalag. uso repetido"
+    },
+    {
+      "codigo": 4600,
+      "descricao": "Importação Definitiva - Encerramento de Processos dos Sistemas Legados"
+    },
+    {
+      "codigo": 5000,
+      "descricao": "Importação temporária "
+    },
+    {
+      "codigo": 5100,
+      "descricao": "Importação temporária para aperfeiçoamento passivo "
+    },
+    {
+      "codigo": 5200,
+      "descricao": "Importação temporária contrato de aluguer/locação financeira- Comercia"
+    },
+    {
+      "codigo": 5300,
+      "descricao": "Importação temporária contrato de aluguer/ locação financeira -Próprio"
+    },
+    {
+      "codigo": 5400,
+      "descricao": "Importação Temporária de mercadorias não sujeita a caução de valores"
+    },
+    {
+      "codigo": 5500,
+      "descricao": "Importação Temp. Simplificada não Sujeita à Caucão"
+    },
+    {
+      "codigo": 5600,
+      "descricao": "Importação Temporária Caução Patrimonio/Termo/Carta Bancaria"
+    },
+    {
+      "codigo": 6000,
+      "descricao": "Reimportação directa"
+    },
+    {
+      "codigo": 6020,
+      "descricao": "Reimportação no mesmo estado "
+    },
+    {
+      "codigo": 6021,
+      "descricao": "Reimportação após aperfeiçoamento passivo "
+    },
+    {
+      "codigo": 6022,
+      "descricao": "Reimportação de mercadoria não sujeita a caução"
+    },
+    {
+      "codigo": 6023,
+      "descricao": "Reimportação Simplificada de Veículo"
+    },
+    {
+      "codigo": 6024,
+      "descricao": "Reimportação - Encerramento de Processos dos Sistemas Legados"
+    },
+    {
+      "codigo": 6600,
+      "descricao": "Reimportação - Encerramento de Processos dos Sistemas Legados"
+    },
+    {
+      "codigo": 7000,
+      "descricao": "Armazenagem aduaneira "
+    },
+    {
+      "codigo": 7100,
+      "descricao": "Entreposto Aduaneiro"
+    },
+    {
+      "codigo": 7600,
+      "descricao": "Armazenagem - Encerramento de Processos dos Sistemas Legados"
+    },
+    {
+      "codigo": 8000,
+      "descricao": "Trânsito Nacional "
+    },
+    {
+      "codigo": 8100,
+      "descricao": "Trânsito Internacional "
+    },
+    {
+      "codigo": 8170,
+      "descricao": "Trânsito internacional após armazenagem aduaneira "
+    },
+    {
+      "codigo": 8200,
+      "descricao": "Trânsito Internacional Especial não sujeita caução"
+    },
+    {
+      "codigo": 8300,
+      "descricao": "Trânsito com passagem por armazenagem "
+    },
+    {
+      "codigo": 8600,
+      "descricao": "Trânsito - Encerramento de Processos dos Sistemas Legados"
+    }
+  ],
+  "isencao": [
+    {
+      "codigo_insencao": "codigo_ise",
+      "descricao": "descrição"
+    },
+    {
+      "codigo_insencao": "CNP",
+      "descricao": "Código não sujeito a pagamento de direito"
+    },
+    {
+      "codigo_insencao": "CQP",
+      "descricao": "Código sujeito a pagamento de direitos valor <= 880.000,00 Kz"
+    },
+    {
+      "codigo_insencao": "DOC",
+      "descricao": "Isenção em documentos, envelopes, cartões e postais"
+    },
+    {
+      "codigo_insencao": "FOR",
+      "descricao": "Aplica. taxa fixa de 16% sobre a rubrica (Imposto de Importação)"
+    },
+    {
+      "codigo_insencao": "1",
+      "descricao": "Sector Petrolífero"
+    },
+    {
+      "codigo_insencao": "2",
+      "descricao": "Sector Mineiro"
+    },
+    {
+      "codigo_insencao": "3",
+      "descricao": "Projeto ALNG"
+    },
+    {
+      "codigo_insencao": "4",
+      "descricao": "LIANZI Com Isenção"
+    },
+    {
+      "codigo_insencao": "5",
+      "descricao": "Importação e exportação de mercadorias com Provisões de Bordo de produ"
+    },
+    {
+      "codigo_insencao": "6",
+      "descricao": "Projecto SONAREF Importação artigos usados"
+    },
+    {
+      "codigo_insencao": "7",
+      "descricao": "Projecto SONAREF Importação artigos novos"
+    },
+    {
+      "codigo_insencao": "9",
+      "descricao": "Missões Dipl. e Consulares, Agentes Diplomáticos acreditados em Angola"
+    },
+    {
+      "codigo_insencao": "11",
+      "descricao": "Importação incompleta para o Sector Petrolifero "
+    },
+    {
+      "codigo_insencao": "12",
+      "descricao": "Isenção aos Féretros"
+    },
+    {
+      "codigo_insencao": "13",
+      "descricao": "Regime Especial de Cabinda"
+    },
+    {
+      "codigo_insencao": "14",
+      "descricao": "Passe de Importação/Exportação Temporária de Veículo "
+    },
+    {
+      "codigo_insencao": "15",
+      "descricao": "Pagamento da diferença do Regime Especial de Cabinda"
+    },
+    {
+      "codigo_insencao": "16",
+      "descricao": "Importação e exportação de mercadorias com Provisões de Bordo de produ"
+    },
+    {
+      "codigo_insencao": "17",
+      "descricao": "Importação e exportação de mercadorias com Provisões de produtos"
+    },
+    {
+      "codigo_insencao": "18",
+      "descricao": "A importação de bens destinados a ofertas para atenuar calamidades"
+    },
+    {
+      "codigo_insencao": "19",
+      "descricao": "Os bens destinados a fins laboratoriais e de investigação científica"
+    },
+    {
+      "codigo_insencao": "20",
+      "descricao": "Isenção Casuística Total"
+    },
+    {
+      "codigo_insencao": "21",
+      "descricao": "Isenção Casuística Parcial"
+    },
+    {
+      "codigo_insencao": "22",
+      "descricao": "Regime Jurídico das Zonas Económicas Especiais - ZEE"
+    },
+    {
+      "codigo_insencao": "23",
+      "descricao": "Empresas com certificado de registo de investimento Privado"
+    },
+    {
+      "codigo_insencao": "24",
+      "descricao": "Produtos que beneficiem da aplicação de um regime suspensivo de direit"
+    },
+    {
+      "codigo_insencao": "25",
+      "descricao": "Produtos vendidos em Lojas Francas"
+    },
+    {
+      "codigo_insencao": "26",
+      "descricao": "Preparações para alimentação de lactentes e crianças de tenra idade"
+    },
+    {
+      "codigo_insencao": "27",
+      "descricao": "Import. prod. classif. cód. pautal 3926.90.90 (com excepção palhinhas)"
+    },
+    {
+      "codigo_insencao": "28",
+      "descricao": "Material Hospitalar"
+    },
+    {
+      "codigo_insencao": "29",
+      "descricao": "Material Hospitalar"
+    },
+    {
+      "codigo_insencao": "30",
+      "descricao": "Isenção da Taxa de 20% na Exportação das Mercadorias Nacionalizadas"
+    },
+    {
+      "codigo_insencao": "31",
+      "descricao": "Retorno em Estado Inalterado"
+    },
+    {
+      "codigo_insencao": "32",
+      "descricao": "Isenção para o combate a pandemia Covid-19"
+    },
+    {
+      "codigo_insencao": "33",
+      "descricao": "Financiamento Externo ou Investimento Público"
+    },
+    {
+      "codigo_insencao": "34",
+      "descricao": "Estado e Empresas Públicas, que importam Financ. ou Investimento"
+    },
+    {
+      "codigo_insencao": "35",
+      "descricao": "Crédito Fiscal (Isenção do IVA)"
+    },
+    {
+      "codigo_insencao": "36",
+      "descricao": "Crédito Fiscal (Isenção IVA e Direitos Aduaneiros)"
+    },
+    {
+      "codigo_insencao": "37",
+      "descricao": "Empresa com CRIP e Adesão ao Crédito Fiscal"
+    },
+    {
+      "codigo_insencao": "38",
+      "descricao": "Empresas com CRIP contendo Isenção de Direitos e Adesão ao Crédito Fis"
+    },
+    {
+      "codigo_insencao": "40",
+      "descricao": "Isenção Igreja ONG Arquidiocese Equi. Rodoviários"
+    },
+    {
+      "codigo_insencao": "41",
+      "descricao": "Isenção Entidades Públicas e Privadas Sector Agrícola"
+    },
+    {
+      "codigo_insencao": "42",
+      "descricao": "Sector Produtivo"
+    },
+    {
+      "codigo_insencao": "43",
+      "descricao": "Investimento Privado"
+    },
+    {
+      "codigo_insencao": "44",
+      "descricao": "Igreja Católica abrigo acordo entre Republica de Angola e a Santa Sé"
+    },
+    {
+      "codigo_insencao": "45",
+      "descricao": "Isenção de Direitos de Importação, IEC e IVA"
+    },
+    {
+      "codigo_insencao": "46",
+      "descricao": "Entidades Privadas Mat. Prevenção e Con. Covid 19"
+    },
+    {
+      "codigo_insencao": "47",
+      "descricao": "Isenção Insumos Agricolas para Sector Produtivo"
+    },
+    {
+      "codigo_insencao": "48",
+      "descricao": "Insumos agrícolas para o Investimento Privado"
+    },
+    {
+      "codigo_insencao": "49",
+      "descricao": "IVA Cativo – Estado e E.P,  mercadorias import. emp. privada"
+    },
+    {
+      "codigo_insencao": "50",
+      "descricao": "Projecto Refinaria de Cabinda / Cabinda Oil Refinary, Limitada"
+    },
+    {
+      "codigo_insencao": "51",
+      "descricao": "Projecto Refinaria de Cabinda / Cabinda Oil Refinary, Limitada"
+    },
+    {
+      "codigo_insencao": "52",
+      "descricao": "Doações ao Estado"
+    },
+    {
+      "codigo_insencao": "53",
+      "descricao": "Projecto Refinaria de Cabinda / Cabinda Oil Refinary, Limitada"
+    },
+    {
+      "codigo_insencao": "54",
+      "descricao": "Projecto Refinaria de Cabinda / Cabinda Oil Refinary, Limitada"
+    },
+    {
+      "codigo_insencao": "55",
+      "descricao": "Empresas Privadas com Declaração de Exclusividade Emitidas pelo Minsa"
+    },
+    {
+      "codigo_insencao": "57",
+      "descricao": "Acordo Serv Aéreos entre o Gov da República de Angola e Gov Alemanha"
+    },
+    {
+      "codigo_insencao": "58",
+      "descricao": "Isenção para Instituições Públicas em representação do Estado Angolano"
+    },
+    {
+      "codigo_insencao": "59",
+      "descricao": "Outros bens designados na lista anexa"
+    },
+    {
+      "codigo_insencao": "60",
+      "descricao": "Indústria Nacional na importação de Matéria-Prima"
+    },
+    {
+      "codigo_insencao": "61",
+      "descricao": "Acordo entre a República Popular de Angola e a Mission Aviation Fellow"
+    },
+    {
+      "codigo_insencao": "62",
+      "descricao": "Isenção do Terminal do Porto Caio de Cabinda"
+    },
+    {
+      "codigo_insencao": "63",
+      "descricao": "Direcção Nacional Das Águas do MINEA"
+    },
+    {
+      "codigo_insencao": "64",
+      "descricao": "Financiamento Externo ou Investimento Público "
+    },
+    {
+      "codigo_insencao": "65",
+      "descricao": "Código Casuístico para Exportação Definitiva"
+    },
+    {
+      "codigo_insencao": "66",
+      "descricao": "Trânsito Internacional Especifico"
+    },
+    {
+      "codigo_insencao": "67",
+      "descricao": "Pagamento diferido do Imposto Sobre o Valor Acrescentado"
+    },
+    {
+      "codigo_insencao": "68",
+      "descricao": "Pagamento diferido do Imposto Sobre o Valor Acrescentado"
+    },
+    {
+      "codigo_insencao": "69",
+      "descricao": "Pagamento em prestações do Imposto sobre o Valor Acrescentado"
+    },
+    {
+      "codigo_insencao": "70",
+      "descricao": "Pagamento em prestações do Imposto sobre o Valor Acrescentado"
+    },
+    {
+      "codigo_insencao": "71",
+      "descricao": "Pagamento em prestações do Imposto sobre o Valor Acrescentado"
+    },
+    {
+      "codigo_insencao": "72",
+      "descricao": "Investimento Privado, com diferimento do IVA"
+    },
+    {
+      "codigo_insencao": "73",
+      "descricao": "Investimento Privado com taxa reduzida"
+    },
+    {
+      "codigo_insencao": "74",
+      "descricao": "Investimento Privado, com diferimento do IVA"
+    },
+    {
+      "codigo_insencao": "75",
+      "descricao": "Sector Produtivo com diferimento do IVA"
+    },
+    {
+      "codigo_insencao": "76",
+      "descricao": "Doação de bens destinados a fins laborat e de investigação científica"
+    },
+    {
+      "codigo_insencao": "77",
+      "descricao": "Suspensão da contagem de prazos e cobrança"
+    },
+    {
+      "codigo_insencao": "400",
+      "descricao": "Isenção p/ o BNA "
+    },
+    {
+      "codigo_insencao": "401",
+      "descricao": "Isentas do IVA Instituições Financeiras Bancarias, nos termos BNA"
+    },
+    {
+      "codigo_insencao": "402",
+      "descricao": "Estado-isenção imposto de selo"
+    },
+    {
+      "codigo_insencao": "404",
+      "descricao": "Partidos Políticos com Assentos na Assembleia Nacional "
+    },
+    {
+      "codigo_insencao": "405",
+      "descricao": "Organização Não-Governamentais e Igrejas"
+    },
+    {
+      "codigo_insencao": "406",
+      "descricao": "Derivados de Petróleo destinados ao Mercado Subvencionado"
+    },
+    {
+      "codigo_insencao": "407",
+      "descricao": "Projectos de Investimento Privado com Isenção de direitos"
+    },
+    {
+      "codigo_insencao": "408",
+      "descricao": "Isenção de 50% p/ os invest = 50 mil USD e <= 250 mil USD, em empreend"
+    },
+    {
+      "codigo_insencao": "409",
+      "descricao": "Isenção 75% p/ equipamentos usados "
+    },
+    {
+      "codigo_insencao": "410",
+      "descricao": "Isenção de 50% p/ os invest = USD 50 mil USD e <= 250 mil USD"
+    },
+    {
+      "codigo_insencao": "411",
+      "descricao": "Isenção sobre as mercadorias que forem incorporadas ou consumidas"
+    },
+    {
+      "codigo_insencao": "413",
+      "descricao": "Projectos de Invest. Privado Isenção dos direitos e demais imposições"
+    },
+    {
+      "codigo_insencao": "416",
+      "descricao": "Isenção para o acordo Angola e URSS"
+    },
+    {
+      "codigo_insencao": "421",
+      "descricao": "Isenção p/ projecto Sonaref "
+    },
+    {
+      "codigo_insencao": "422",
+      "descricao": "Construção de Habitações Sociais"
+    },
+    {
+      "codigo_insencao": "423",
+      "descricao": "Isenção p/ Instituições ou Empresas Públicas "
+    },
+    {
+      "codigo_insencao": "427",
+      "descricao": "Isenção p/ os Antigos combatentes "
+    },
+    {
+      "codigo_insencao": "428",
+      "descricao": "Isenção na alienação de viaturas com menos de 5 anos"
+    },
+    {
+      "codigo_insencao": "429",
+      "descricao": "Isenção na Alienação de viaturas com mais de 5 anos"
+    },
+    {
+      "codigo_insencao": "432",
+      "descricao": "Isenção Bens e equipamentos e peças sobressalentes"
+    },
+    {
+      "codigo_insencao": "435",
+      "descricao": "Isenção defesa, segurança, ordem interna, protecção civil e bombeiros "
+    },
+    {
+      "codigo_insencao": "440",
+      "descricao": "Isenção a pessoas com deficiência"
+    },
+    {
+      "codigo_insencao": "441",
+      "descricao": "Mercadorias Importadas para serem utilizadas em eventos "
+    },
+    {
+      "codigo_insencao": "443",
+      "descricao": "Mercadorias Importadas pelas Associações e Federações Desportivas"
+    },
+    {
+      "codigo_insencao": "444",
+      "descricao": "Mercadorias importadas por habitantes de Zonas Fronteiriças"
+    },
+    {
+      "codigo_insencao": "453",
+      "descricao": "Import. e export. de Mercad. por Agên. especial. Nações Unidas"
+    },
+    {
+      "codigo_insencao": "454",
+      "descricao": "Mercadorias importadas para fins industriais"
+    },
+    {
+      "codigo_insencao": "455",
+      "descricao": "Isenção Pag. Direitos Aduaneiros, Mercadorias import Estado e Privadas"
+    },
+    {
+      "codigo_insencao": "458",
+      "descricao": "Cidadoes Ango. Diploma., estuda., Emigran. e trabalhadores"
+    },
+    {
+      "codigo_insencao": "461",
+      "descricao": "Importação temporária de veículos automoveis"
+    },
+    {
+      "codigo_insencao": "466",
+      "descricao": "Imp Merc Isentas do IEC e Direitos de Importação"
+    },
+    {
+      "codigo_insencao": "470",
+      "descricao": "Regularização de DUs de Representante de Declarante"
+    },
+    {
+      "codigo_insencao": "471",
+      "descricao": "DU’s encontram-se Fora do Prazo no Sistema Legado"
+    },
+    {
+      "codigo_insencao": "472",
+      "descricao": "DU’s encontram-se no Sistema Legado Sem Documentação"
+    },
+    {
+      "codigo_insencao": "473",
+      "descricao": "Aperfeiçoamento Activo"
+    },
+    {
+      "codigo_insencao": "474",
+      "descricao": "Aperfeiçoamento Passivo"
+    },
+    {
+      "codigo_insencao": "475",
+      "descricao": "Aperfeiçoamento Passivo"
+    },
+    {
+      "codigo_insencao": "480",
+      "descricao": "Importação e Exportação de Mercadorias Isentas do IEC"
+    }
+  ]
+}

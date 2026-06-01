@@ -1,0 +1,57 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6">
+      <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+        <a href="{% url 'governanca_consultas' %}" class="hover:text-primary transition-colors">Consultas Públicas</a>
+        <i class="fas fa-chevron-right text-xs"></i>
+        <span class="text-gray-900 dark:text-gray-200 font-medium">Editar: {{ consulta.titulo }}</span>
+      </div>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Editar Consulta</h1>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="max-w-3xl space-y-6">
+      {% csrf_token %}
+
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
+          <input type="text" name="titulo" value="{{ consulta.titulo }}" required maxlength="300"
+                 class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
+          <textarea name="descricao" rows="4"
+                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">{{ consulta.descricao }}</textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Documento (substituir se novo)</label>
+          <input type="file" name="documento" accept=".pdf,.doc,.docx"
+                 class="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+          {% if consulta.documento %}
+          <p class="text-xs text-gray-400 mt-1">Atual: <a href="{{ consulta.documento.url }}" target="_blank" class="text-primary hover:underline">{{ consulta.documento.name }}</a></p>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prazo</label>
+          <input type="datetime-local" name="prazo_fim" value="{{ consulta.prazo_fim|date:'Y-m-d\\TH:i' }}"
+                 class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button type="submit" class="px-6 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
+          <i class="fas fa-save"></i> Guardar Alterações
+        </button>
+        <a href="{% url 'governanca_consulta_detalhe' consulta.id %}" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">Cancelar</a>
+      </div>
+    </form>
+
+  </main>
+</div>
+{% include 'includes/footer.html' %}

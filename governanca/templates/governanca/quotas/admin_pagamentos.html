@@ -1,0 +1,93 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+{% include 'includes/header.html' %}
+{% csrf_token %}
+<main class="p-4 md:p-6 lg:p-8">
+  <div class="mb-6 flex items-center gap-4">
+    <a href="{% url 'governanca_quotas_admin' %}" class="text-gray-500 hover:text-[#111418]"><i class="fas fa-arrow-left"></i></a>
+    <div>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Pagamentos Pendentes</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Confirmar ou rejeitar pagamentos de quotas</p>
+    </div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+            <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Despachante</th>
+            <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Período</th>
+            <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Valor</th>
+            <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Multa</th>
+            <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Método</th>
+            <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Data</th>
+            <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Comprovativo</th>
+            <th class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+          {% for item in pagamentos_com_multa %}
+          {% with pag=item.pagamento %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors" id="pag-{{ pag.id }}">
+            <td class="px-4 py-3 font-semibold text-[#111418] dark:text-gray-200">{{ pag.despachante.nome }}</td>
+            <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ pag.quota.mes|stringformat:"02d" }}/{{ pag.quota.ano }}</td>
+            <td class="px-4 py-3 text-gray-700 dark:text-gray-300">Kz {{ pag.valor_pago|floatformat:2 }}</td>
+            <td class="px-4 py-3">
+              {% if item.dias_atraso > 0 %}
+              <span class="text-xs text-red-600 dark:text-red-400 font-medium">
+                {{ item.dias_atraso }}d &middot; +Kz {{ item.multa_valor|floatformat:2 }}
+              </span>
+              <span class="text-xs text-gray-400 block">Sugerido: Kz {{ item.total_sugerido|floatformat:2 }}</span>
+              {% else %}
+              <span class="text-xs text-emerald-600">Sem atraso</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-gray-500">{{ pag.metodo }}</td>
+            <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ pag.data_pagamento|date:"d/m/Y H:i" }}</td>
+            <td class="px-4 py-3">
+              {% if pag.comprovativo %}
+              <a href="{{ pag.comprovativo.url }}" target="_blank" class="text-primary text-sm hover:underline"><i class="fas fa-eye"></i> Ver</a>
+              {% else %}<span class="text-xs text-gray-400">—</span>{% endif %}
+            </td>
+            <td class="px-4 py-3 text-center">
+              {% if pag.status == 'Pendente Confirmacao' %}
+              <div class="flex items-center justify-center gap-2">
+                <button onclick="confirmarPagamento({{ pag.id }}, 'confirmar')" class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700"><i class="fas fa-check"></i></button>
+                <button onclick="confirmarPagamento({{ pag.id }}, 'rejeitar')" class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700"><i class="fas fa-times"></i></button>
+              </div>
+              {% elif pag.status == 'Confirmado' %}
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Confirmado</span>
+              {% else %}
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">{{ pag.status }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500">Nenhum pagamento encontrado</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+      {% include 'includes/pagination.html' %}
+    </div>
+    {% endif %}
+  </div>
+  {% include 'includes/confirm-modal.html' %}
+  </main>
+</div>
+<script>
+var CONFIRMAR_URL = '{% url "governanca_api_quotas_confirmar" pk=0 %}';
+async function confirmarPagamento(pk, acao) {
+  const msg = acao === 'confirmar' ? 'Confirmar este pagamento?' : 'Rejeitar este pagamento?';
+  const ok = await showConfirm(acao === 'confirmar' ? 'Confirmar Pagamento' : 'Rejeitar Pagamento', msg); if (!ok) return;
+  var fd = new FormData(); fd.append('acao', acao);
+  fetch(CONFIRMAR_URL.replace('/0/', '/' + pk + '/'), { method: 'POST', body: fd, headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value } })
+  .then(r => r.json()).then(function() { location.reload(); }).catch(function() { location.reload(); });
+}
+</script>
+{% include 'includes/footer.html' %}

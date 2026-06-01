@@ -1,0 +1,132 @@
+﻿{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a><i class="fas fa-chevron-right text-xs"></i><span class="text-primary">RH</span><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">Controlo de Presenças</span></div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+  <div><h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Controlo de Presenças</h1><p class="text-gray-500 mt-1 text-sm">Faltas, férias, horas extras e turnos</p></div>
+  <div class="flex gap-2">
+    <button onclick="document.getElementById('modalPresenca').classList.remove('hidden')" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm"><i class="fas fa-plus text-base"></i>Registar</button>
+    <button onclick="document.getElementById('modalFerias').classList.remove('hidden')" class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm"><i class="fas fa-umbrella-beach text-base"></i>Pedir Férias</button>
+  </div>
+</div>
+
+<!-- Filtro de mês -->
+<form method="GET" class="flex items-center gap-3 mb-6">
+  <select name="mes" class="px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm">
+    {% for m in meses %}<option value="{{ forloop.counter }}" {% if forloop.counter == mes %}selected{% endif %}>{{ m }}</option>{% endfor %}
+  </select>
+  <input type="number" name="ano" value="{{ ano }}" min="2020" max="2050" class="w-24 px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm" />
+  <button type="submit" class="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">Filtrar</button>
+</form>
+
+<!-- Pedidos de férias pendentes -->
+{% if pedidos %}
+<div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 mb-6">
+  <h3 class="font-semibold text-amber-800 dark:text-amber-300 mb-3 flex items-center gap-2"><i class="fas fa-umbrella-beach"></i>Pedidos de Férias Pendentes ({{ pedidos|length }})</h3>
+  <div class="space-y-2">
+    {% for p in pedidos %}
+    <div class="flex items-center justify-between bg-white dark:bg-gray-900 rounded-xl p-3 border border-amber-200 dark:border-amber-800">
+      <div><p class="font-semibold text-gray-900 dark:text-white text-sm">{{ p.colaborador.nome }}</p><p class="text-xs text-gray-500">{{ p.data_inicio|date:"d/m/Y" }} → {{ p.data_fim|date:"d/m/Y" }} ({{ p.dias }} dias)</p></div>
+      <div class="flex gap-2">
+        <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-all">Aprovar</button></form>
+        <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-all">Rejeitar</button></form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Tabela de registos -->
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+  {% if not registos %}
+  <div class="p-12 text-center"><i class="fas fa-calendar-times text-gray-400 text-5xl mb-4 block"></i><h3 class="text-lg font-bold text-gray-700 dark:text-gray-300">Nenhum registo para este período</h3></div>
+  {% else %}
+  <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-800/60"><tr>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Colaborador</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Entrada / Saída</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">H. Extra</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
+    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acção</th>
+  </tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+  {% for r in registos %}
+  <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+    <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white text-sm">{{ r.colaborador.nome }}</td>
+    <td class="px-5 py-4 text-sm text-gray-600">{{ r.data|date:"d/m/Y" }}</td>
+    <td class="px-5 py-4">
+      {% if r.tipo == 'Presenca' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Presença</span>
+      {% elif r.tipo == 'Falta' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Falta</span>
+      {% elif r.tipo == 'Falta_Justificada' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Falta Just.</span>
+      {% elif r.tipo == 'Ferias' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Férias</span>
+      {% elif r.tipo == 'Hora_Extra' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">H. Extra</span>
+      {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ r.get_tipo_display }}</span>{% endif %}
+    </td>
+    <td class="px-5 py-4 text-sm text-gray-600">{{ r.hora_entrada|default:"—" }} / {{ r.hora_saida|default:"—" }}</td>
+    <td class="px-5 py-4 text-sm text-gray-600">{{ r.horas_extras|default:"0" }}h</td>
+    <td class="px-5 py-4">
+      {% if r.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aprovado</span>
+      {% elif r.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
+      {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
+    </td>
+    <td class="px-5 py-4 text-right">
+      {% if r.estado == 'Pendente' %}
+      <div class="flex items-center justify-end gap-1">
+        <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
+        <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
+      </div>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody></table></div>
+  {% if page_obj.has_other_pages %}
+  <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+    {% include 'includes/pagination.html' %}
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+
+<!-- Modal Registar Presença -->
+<div id="modalPresenca" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="font-bold text-gray-900 dark:text-white">Registar Presença / Falta</h3>
+      <button onclick="document.getElementById('modalPresenca').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="POST" action="{% url 'rh_presenca_registar' %}" class="p-6 space-y-4">{% csrf_token %}
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Colaborador</label><select name="colaborador" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none"><option value="">Selecione...</option>{% for f in colaboradores %}<option value="{{ f.pk }}">{{ f.nome }}</option>{% endfor %}</select></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data</label><input type="date" name="data" value="{{ hoje|date:'Y-m-d' }}" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
+        <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Tipo</label><select name="tipo" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none"><option value="Presenca">Presença</option><option value="Falta">Falta</option><option value="Falta_Justificada">Falta Justificada</option><option value="Ferias">Férias</option><option value="Hora_Extra">Hora Extra</option></select></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Hora Entrada</label><input type="time" name="hora_entrada" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
+        <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Hora Saída</label><input type="time" name="hora_saida" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
+      </div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Horas Extras</label><input type="number" name="horas_extras" value="0" step="0.5" min="0" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Justificação</label><textarea name="justificacao" rows="2" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"></textarea></div>
+      <div class="flex justify-end gap-3"><button type="button" onclick="document.getElementById('modalPresenca').classList.add('hidden')" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button><button type="submit" class="px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">Registar</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Pedir Férias -->
+<div id="modalFerias" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="font-bold text-gray-900 dark:text-white">Pedido de Férias</h3>
+      <button onclick="document.getElementById('modalFerias').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="POST" action="{% url 'rh_ferias_pedir' %}" class="p-6 space-y-4">{% csrf_token %}
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Colaborador</label><select name="colaborador" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none"><option value="">Selecione...</option>{% for f in colaboradores %}<option value="{{ f.pk }}">{{ f.nome }}</option>{% endfor %}</select></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data Início</label><input type="date" name="data_inicio" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
+        <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data Fim</label><input type="date" name="data_fim" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
+      </div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Motivo</label><textarea name="motivo" rows="2" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"></textarea></div>
+      <div class="flex justify-end gap-3"><button type="button" onclick="document.getElementById('modalFerias').classList.add('hidden')" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button><button type="submit" class="px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">Submeter</button></div>
+    </form>
+  </div>
+</div>
+</main></div>{% include 'includes/footer.html' %}

@@ -1,0 +1,471 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Mesa da Assembleia</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ assembleia.titulo }}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{% url 'governanca_logs' assembleia.pk %}" class="px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
+          <i class="fas fa-history text-xs"></i> Logs
+        </a>
+        <a href="{% url 'governanca_sala' assembleia.pk %}" class="px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          Sala
+        </a>
+        {% if assembleia.status == 'Agendada' and papel == 'Administrador' %}
+        <button id="btn-iniciar" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 cursor-pointer">
+          <i class="fas fa-play text-base"></i> Iniciar Assembleia
+        </button>
+        {% elif assembleia.status == 'Em Curso' and papel == 'Administrador' %}
+        <button id="btn-concluir" class="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-1 cursor-pointer">
+          <i class="fas fa-stop text-base"></i> Concluir Assembleia
+        </button>
+        <button id="btn-cancelar" class="px-3 py-2 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors cursor-pointer">
+          Cancelar
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div class="xl:col-span-2 space-y-6">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Pautas de Votação</h2>
+          <div class="space-y-4" id="pautas-lista">
+            {% for pauta in pautas %}
+            <div class="p-4 border border-gray-100 dark:border-gray-800 rounded-xl" data-pauta-id="{{ pauta.id }}">
+              <div class="flex items-center justify-between gap-4">
+                <div class="min-w-0 flex-1">
+                  <span class="text-xs text-gray-500 font-medium">Pauta #{{ pauta.ordem }}</span>
+                  <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">{{ pauta.titulo }}
+                    {% if pauta.tipo_votacao == 'Secreta' %}
+                    <span class="text-xs text-purple-500 font-medium"><i class="fas fa-lock mr-1"></i> Secreta</span>
+                    {% endif %}
+                  </h3>
+                </div>
+                <span class="pauta-status-badge text-xs font-medium px-2 py-0.5 rounded-full shrink-0
+                  {% if pauta.status == 'Pendente' %}bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400
+                  {% elif pauta.status == 'Em Votacao' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+                  {% else %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}">
+                  {{ pauta.get_status_display }}
+                </span>
+              </div>
+              <div class="pauta-actions">
+                {% if pauta.status == 'Pendente' and assembleia.status == 'Em Curso' and papel == 'Administrador' %}
+                <button class="btn-iniciar-votacao px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
+                        data-pauta-id="{{ pauta.id }}">
+                  <i class="fas fa-vote-yea text-base align-text-bottom"></i>
+                  Iniciar Votação
+                </button>
+                {% endif %}
+                {% if pauta.status == 'Em Votacao' %}
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-primary font-medium flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
+                    Votação em curso
+                  </span>
+                  {% if papel == 'Administrador' %}
+                  <button class="btn-encerrar-votacao px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600 transition-colors cursor-pointer"
+                          data-pauta-id="{{ pauta.id }}">
+                    Encerrar Votação
+                  </button>
+                  {% endif %}
+                </div>
+                {% endif %}
+                {% if pauta.status == 'Concluida' %}
+                <div class="mt-2 flex items-center gap-4 text-sm pauta-resultados">
+                  {% if assembleia.status == 'Em Curso' and papel == 'Administrador' %}
+                  <button class="btn-reabrir-votacao px-2 py-1 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors cursor-pointer"
+                          data-pauta-id="{{ pauta.id }}">
+                    <i class="fas fa-redo text-xs mr-1"></i> Reabrir
+                  </button>
+                  {% endif %}
+                  <span class="text-green-600 font-medium">{{ pauta.votos_favor }} Favor</span>
+                  <span class="text-red-600 font-medium">{{ pauta.votos_contra }} Contra</span>
+                  <span class="text-gray-500 font-medium">{{ pauta.votos_abstencao }} Abstenção</span>
+                  <span class="font-bold {% if pauta.resultado_final == 'Aprovada' %}text-green-700{% elif pauta.resultado_final == 'Rejeitada' %}text-red-700{% else %}text-gray-500{% endif %}">
+                    <i class="fas fa-arrow-right text-xs mx-1"></i> {{ pauta.resultado_final }}
+                  </span>
+                  <button class="btn-ver-resultados px-2 py-1 text-xs text-primary font-medium hover:bg-primary/10 rounded-lg transition-colors" data-pauta-id="{{ pauta.id }}">
+                    Detalhes
+                  </button>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Documentos</h2>
+          <div class="space-y-3" id="documentos-list">
+            {% for doc in documentos %}
+            <div class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/30">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <i class="fas {% if doc.tipo == 'ata' %}fa-file-alt{% elif doc.tipo == 'relatorio' %}fa-chart-bar{% else %}fa-file-alt{% endif %} text-gray-400 text-lg"></i>
+                <span class="text-sm text-gray-700 dark:text-gray-300 truncate">{{ doc.titulo }}</span>
+                <span class="text-xs px-1.5 py-0.5 rounded-full {% if doc.publicado %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                  {% if doc.publicado %}Publicado{% else %}Rascunho{% endif %}
+                </span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                {% if doc.arquivo %}
+                <a href="{{ doc.arquivo.url }}" target="_blank" class="p-1.5 text-gray-400 hover:text-primary transition-colors" title="Descarregar">
+                  <i class="fas fa-download text-base"></i>
+                </a>
+                {% endif %}
+                {% if not doc.publicado %}
+                <button class="btn-publicar-doc p-1.5 text-gray-400 hover:text-green-500 transition-colors cursor-pointer" data-doc-id="{{ doc.id }}" title="Publicar">
+                  <i class="fas fa-check-circle text-base"></i>
+                </button>
+                {% endif %}
+                <button class="btn-remover-doc p-1.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer" data-doc-id="{{ doc.id }}" title="Remover">
+                  <i class="fas fa-trash text-base"></i>
+                </button>
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-400 text-center py-4">Nenhum documento carregado</p>
+            {% endfor %}
+          </div>
+          <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3">Carregar novo documento</h3>
+            <form id="upload-doc-form" enctype="multipart/form-data" class="space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Tipo</label>
+                  <select name="tipo" class="form-input text-sm py-1.5">
+                    <option value="ata">Ata</option>
+                    <option value="relatorio">Relatório</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Título *</label>
+                  <input type="text" name="titulo" required class="form-input text-sm py-1.5" placeholder="Título do documento">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Ficheiro *</label>
+                  <input type="file" name="arquivo" required class="form-input text-sm py-1.5 file:mr-2 file:py-0.5 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary/10 file:text-primary">
+                </div>
+              </div>
+              <button type="submit" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
+                Carregar Documento
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Presenças</h2>
+          <div class="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl font-black text-[#111418] dark:text-gray-200" id="gerir-presentes-count">{{ presentes|length }}</span>
+              <div>
+                <p class="text-xs text-gray-500 flex items-center gap-1">
+                  <i class="fas fa-users text-xs"></i>
+                  {{ assembleia.total_eleitores }} eleitores
+                </p>
+                <p class="text-xs {% if assembleia.quorum_atingido %}text-green-600/70{% else %}text-amber-600/70{% endif %}">Quórum</p>
+              </div>
+            </div>
+          </div>
+          <div class="max-h-60 overflow-y-auto space-y-1" id="gerir-presentes-lista">
+            {% for p in presentes %}
+            <div class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30">
+              <span class="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <i class="fas fa-user text-primary text-xs"></i>
+              </span>
+              <span class="text-sm text-gray-700 dark:text-gray-300">{{ p.usuario.nome }}</span>
+              <span class="ml-auto text-xs text-gray-400">{{ p.presente_em|date:"H:i:s" }}</span>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-400 text-center py-4" id="gerir-sem-presentes">Ninguém presente ainda</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+            <i class="fas fa-gavel text-base"></i>
+            Mesa da Assembleia
+          </h2>
+          <div id="mesa-lista" class="space-y-2 mb-4">
+            {% for m in mesa %}
+            <div class="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/30" data-mesa-id="{{ m.id }}">
+              <span class="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <i class="fas fa-user-tie text-primary text-xs"></i>
+              </span>
+              <div class="flex-1 min-w-0">
+                <span class="text-sm text-gray-700 dark:text-gray-300 truncate block leading-tight">{{ m.usuario.nome }}</span>
+                <span class="text-xs text-gray-400 block leading-tight">{{ m.funcao }}</span>
+              </div>
+              <button class="btn-remover-mesa p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer" data-mesa-id="{{ m.id }}" title="Remover">
+                <i class="fas fa-times text-sm"></i>
+              </button>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-400 text-center py-2" id="mesa-vazia">Nenhum membro designado</p>
+            {% endfor %}
+          </div>
+          <div class="pt-3 border-t border-gray-200 dark:border-gray-800">
+            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3">Adicionar membro</h3>
+            <form id="add-mesa-form" class="flex flex-col gap-2">
+              <select name="usuario_id" class="form-input text-sm py-1.5" required>
+                <option value="">Selecionar despachante...</option>
+                {% for d in despachantes %}
+                <option value="{{ d.id }}">{{ d.nome }}</option>
+                {% endfor %}
+              </select>
+              <select name="funcao" class="form-input text-sm py-1.5" required>
+                <option value="">Função...</option>
+                <option value="Presidente">Presidente</option>
+                <option value="Vice-Presidente">Vice-Presidente</option>
+                <option value="1º Secretário">1º Secretário</option>
+                <option value="2º Secretário">2º Secretário</option>
+                <option value="Secretário">Secretário</option>
+                <option value="Vogal">Vogal</option>
+              </select>
+              <button type="submit" class="px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors">
+                <i class="fas fa-plus text-xs mr-1"></i> Adicionar
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Procurações</h2>
+          <div id="gerir-procuracao-lista">
+            {% for p in procuracao %}
+            <div class="flex items-center justify-between py-2 text-sm border-b border-gray-100 dark:border-gray-800 last:border-0">
+              <div>
+                <span class="text-gray-700 dark:text-gray-300">{{ p.outorgante.nome }}</span>
+                <i class="fas fa-arrow-right text-gray-400 text-xs mx-1"></i>
+                <span class="text-gray-700 dark:text-gray-300">{{ p.outorgado.nome }}</span>
+              </div>
+              <span class="text-xs px-1.5 py-0.5 rounded-full
+                {% if p.status == 'Confirmada' %}bg-green-100 text-green-700{% elif p.status == 'Cancelada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                {{ p.get_status_display }}
+              </span>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-400 text-center py-4">Nenhuma procuração</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultados-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 p-4">
+      <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6">
+        <h3 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Resultados da Votação</h3>
+        <div id="resultados-content" class="space-y-3"></div>
+        <button onclick="document.getElementById('resultados-modal').classList.add('hidden')" class="mt-4 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full cursor-pointer">
+          Fechar
+        </button>
+      </div>
+    </div>
+
+  {% include 'includes/confirm-modal.html' %}
+  </main>
+</div>
+
+<script>
+(function() {
+  const ASSEMBLEIA_ID = {{ assembleia.id }};
+  const csrfToken = document.getElementById('csrf-token')?.value || '';
+
+  document.getElementById('btn-iniciar')?.addEventListener('click', async function() {
+    const ok = await showConfirm('Iniciar Assembleia', 'Iniciar a assembleia?'); if (!ok) return;
+    const res = await fetch('{% url "governanca_api_iniciar" assembleia.pk %}', {
+      method: 'POST', headers: {'X-CSRFToken': csrfToken}
+    });
+    const data = await res.json();
+    if (data.status === 'ok') { location.reload(); }
+    else { alert(data.message || 'Erro'); }
+  });
+
+  document.getElementById('btn-concluir')?.addEventListener('click', async function() {
+    const ok = await showConfirm('Concluir Assembleia', 'Concluir a assembleia? As votações abertas serão encerradas.'); if (!ok) return;
+    const res = await fetch('{% url "governanca_api_concluir" assembleia.pk %}', {
+      method: 'POST', headers: {'X-CSRFToken': csrfToken}
+    });
+    const data = await res.json();
+    if (data.status === 'ok') { location.reload(); }
+    else { alert(data.message || 'Erro'); }
+  });
+
+  document.getElementById('btn-cancelar')?.addEventListener('click', async function() {
+    const ok = await showConfirm('Cancelar Assembleia', 'Cancelar a assembleia?'); if (!ok) return;
+    const res = await fetch('{% url "governanca_api_cancelar" assembleia.pk %}', {
+      method: 'POST', headers: {'X-CSRFToken': csrfToken}
+    });
+    const data = await res.json();
+    if (data.status === 'ok') { location.reload(); }
+    else { alert(data.message || 'Erro'); }
+  });
+
+  document.querySelectorAll('.btn-iniciar-votacao').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const pautaId = this.dataset.pautaId;
+      const ok = await showConfirm('Iniciar Votação', 'Iniciar votação desta pauta?'); if (!ok) return;
+      const res = await fetch(`/governanca/api/pauta/${pautaId}/iniciar-votacao/`, {
+        method: 'POST', headers: {'X-CSRFToken': csrfToken}
+      });
+      const data = await res.json();
+      if (data.status === 'ok') { location.reload(); }
+      else { alert(data.message || 'Erro'); }
+    });
+  });
+
+  async function encerrarVotacao() {
+    const pautaId = this.dataset.pautaId;
+    const ok = await showConfirm('Encerrar Votação', 'Encerrar a votação?'); if (!ok) return;
+    const res = await fetch(`/governanca/api/pauta/${pautaId}/encerrar-votacao/`, {
+      method: 'POST', headers: {'X-CSRFToken': csrfToken}
+    });
+    const data = await res.json();
+    if (data.status === 'ok') { location.reload(); }
+    else { alert(data.message || 'Erro'); }
+  }
+
+  document.querySelectorAll('.btn-encerrar-votacao').forEach(btn => {
+    btn.addEventListener('click', encerrarVotacao);
+  });
+
+  document.querySelectorAll('.btn-ver-resultados').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const pautaId = this.dataset.pautaId;
+      const res = await fetch(`/governanca/api/pauta/${pautaId}/resultados/`);
+      const data = await res.json();
+      const modal = document.getElementById('resultados-modal');
+      const content = document.getElementById('resultados-content');
+      content.innerHTML = `
+        <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
+          <span class="text-sm font-medium text-green-700 dark:text-green-300">Favor</span>
+          <span class="text-lg font-black text-green-700 dark:text-green-300">${data.favor}</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg">
+          <span class="text-sm font-medium text-red-700 dark:text-red-300">Contra</span>
+          <span class="text-lg font-black text-red-700 dark:text-red-300">${data.contra}</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Abstenção</span>
+          <span class="text-lg font-black text-gray-500 dark:text-gray-400">${data.abstencao}</span>
+        </div>
+        <div class="pt-2 text-center">
+          <span class="text-sm text-gray-500">Total: ${data.total} votos</span>
+        </div>
+      `;
+      modal.classList.remove('hidden');
+    });
+  });
+
+  // Mesa da Assembleia
+  const mesaForm = document.getElementById('add-mesa-form');
+  if (mesaForm) {
+    mesaForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const fd = new FormData(this);
+      const res = await fetch('/governanca/api/assembleia/{{ assembleia.pk }}/mesa/adicionar/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({ usuario_id: parseInt(fd.get('usuario_id')), funcao: fd.get('funcao') }),
+      });
+      const data = await res.json();
+      if (data.status === 'ok') { location.reload(); }
+      else { alert(data.message || 'Erro'); }
+    });
+  }
+
+  document.querySelectorAll('.btn-remover-mesa').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const ok = await showConfirm('Remover Membro', 'Remover este membro da mesa?'); if (!ok) return;
+      const mesaId = this.dataset.mesaId;
+      const res = await fetch(`/governanca/api/assembleia/{{ assembleia.pk }}/mesa/remover/${mesaId}/`, {
+        method: 'POST', headers: {'X-CSRFToken': csrfToken},
+      });
+      const data = await res.json();
+      if (data.status === 'ok') { location.reload(); }
+      else { alert(data.message || 'Erro'); }
+    });
+  });
+
+  // Upload documento
+  const uploadForm = document.getElementById('upload-doc-form');
+  if (uploadForm) {
+    uploadForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const fd = new FormData(this);
+      const res = await fetch('/governanca/api/assembleia/{{ assembleia.pk }}/documentos/upload/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+        body: fd,
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        location.reload();
+      } else {
+        alert(data.message || 'Erro ao carregar documento.');
+      }
+    });
+  }
+
+  // Publicar documento
+  document.querySelectorAll('.btn-publicar-doc').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const docId = this.dataset.docId;
+      const ok = await showConfirm('Publicar Documento', 'Publicar este documento? Os despachantes receberão notificação.'); if (!ok) return;
+      const res = await fetch(`/governanca/api/assembleia/{{ assembleia.pk }}/documentos/${docId}/publicar/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+      });
+      const data = await res.json();
+      if (data.status === 'ok') { location.reload(); }
+      else { alert(data.message || 'Erro'); }
+    });
+  });
+
+  // Reabrir votação
+  document.querySelectorAll('.btn-reabrir-votacao').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const pautaId = this.dataset.pautaId;
+      const ok = await showConfirm('Reabrir Votação', 'Reabrir a votação desta pauta? Todos os votos anteriores serão apagados.'); if (!ok) return;
+      const res = await fetch(`/governanca/api/pauta/${pautaId}/reabrir-votacao/`, {
+        method: 'POST', headers: {'X-CSRFToken': csrfToken}
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        alert(data.message);
+        location.reload();
+      } else { alert(data.message || 'Erro'); }
+    });
+  });
+
+  // Remover documento
+  document.querySelectorAll('.btn-remover-doc').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const docId = this.dataset.docId;
+      const ok = await showConfirm('Remover Documento', 'Remover este documento?'); if (!ok) return;
+      const res = await fetch(`/governanca/api/assembleia/{{ assembleia.pk }}/documentos/${docId}/remover/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+      });
+      const data = await res.json();
+      if (data.status === 'ok') { location.reload(); }
+      else { alert(data.message || 'Erro'); }
+    });
+  });
+})();
+</script>
+
+{% include 'includes/footer.html' %}

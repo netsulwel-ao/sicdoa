@@ -1,0 +1,125 @@
+
+<div style="min-height: 500px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; padding: 2rem 0;">
+  <div style="background: #ffffff; border-radius: 8px; padding: 2.5rem 2.5rem 2rem; width: 100%; max-width: 540px; box-sizing: border-box;">
+    <h1 style="text-align: center; font-size: 28px; font-weight: 400; color: #1a1a1a; margin: 0 0 1.8rem; font-family: var(--font-sans);">Login Portal</h1>
+    <p style="font-size: 20px; font-weight: 700; color: #1a1a1a; margin: 0 0 0.25rem; font-family: var(--font-sans);">Olá! Vamos começar</p>
+    <p style="font-size: 15px; color: #555; margin: 0 0 1.25rem; font-family: var(--font-sans);">Entre com suas credenciais do portal.</p>
+    
+    <form id="portalLoginForm">
+      <div style="margin-bottom: 1rem;">
+        <input
+          type="email"
+          id="portal_email"
+          name="email"
+          placeholder="Email"
+          required
+          style="width: 100%; box-sizing: border-box; padding: 14px 16px; font-size: 15px; border: 1.5px solid #d0d0d0; border-radius: 6px; outline: none; color: #333; background: #fff; font-family: var(--font-sans);"
+          onfocus="this.style.borderColor='#3a3adb'"
+          onblur="this.style.borderColor='#d0d0d0'"
+        />
+      </div>
+      <div style="margin-bottom: 1.25rem; position: relative;">
+        <input
+          id="portal_pwd"
+          name="password"
+          type="password"
+          placeholder="Password"
+          required
+          style="width: 100%; box-sizing: border-box; padding: 14px 48px 14px 16px; font-size: 15px; border: 1.5px solid #d0d0d0; border-radius: 6px; outline: none; color: #333; background: #fff; font-family: var(--font-sans);"
+          onfocus="this.style.borderColor='#3a3adb'"
+          onblur="this.style.borderColor='#d0d0d0'"
+        />
+        <button
+          type="button"
+          onclick="var p=document.getElementById('portal_pwd'); var icon=this.querySelector('i'); if(p.type==='password'){p.type='text'; icon.className='ti ti-eye-off';}else{p.type='password'; icon.className='ti ti-eye';}"
+          aria-label="Mostrar ou esconder senha"
+          style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; color: #888;"
+        >
+          <i class="ti ti-eye" style="font-size: 20px;" aria-hidden="true"></i>
+        </button>
+      </div>
+      <button
+        type="submit"
+        id="portalSubmitBtn"
+        style="width: 100%; padding: 15px; background: #3a3adb; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; font-family: var(--font-sans); margin-bottom: 1.1rem;"
+        onmouseover="this.style.background='#2f2fc0'"
+        onmouseout="this.style.background='#3a3adb'"
+      >ENTRAR</button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('portalLoginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('portalSubmitBtn');
+    const originalText = submitBtn.innerHTML;
+    
+    // Desabilitar botão e mostrar loading
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span style="display: flex; align-items: center; justify-content: center; gap: 8px;"><svg style="animation: spin 1s linear infinite; width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24"><circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>AUTENTICANDO...</span>';
+    
+    const email = document.getElementById('portal_email').value;
+    const password = document.getElementById('portal_pwd').value;
+    
+    try {
+        // Enviar credenciais para o endpoint do portal
+        const response = await fetch('/login-portal/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // Fechar modal
+            document.getElementById('portalModal').classList.add('hidden');
+            
+            // Verificar se é login direto (usuário já existe ou foi criado)
+            if (data.direct_login) {
+                // Redirecionar direto para o dashboard
+                window.location.href = '/dashboard/';
+            } else {
+                // Fallback: preencher formulário de login principal (não deve acontecer)
+                document.getElementById('email').value = data.email;
+                document.getElementById('password').value = data.password;
+                document.getElementById('loginForm').submit();
+            }
+        } else {
+            // Mostrar mensagem de erro
+            if (window.toast) {
+                window.toast.error(data.message || 'Credenciais inválidas do portal.');
+            } else {
+                alert(data.message || 'Credenciais inválidas do portal.');
+            }
+            
+            // Restaurar botão
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    } catch (error) {
+        console.error('Erro ao autenticar:', error);
+        if (window.toast) {
+            window.toast.error('Erro ao conectar com o portal. Tente novamente.');
+        } else {
+            alert('Erro ao conectar com o portal. Tente novamente.');
+        }
+        
+        // Restaurar botão
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+});
+</script>
+
+<style>
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>

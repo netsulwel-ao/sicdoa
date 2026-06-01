@@ -1,0 +1,56 @@
+/* ===========================================
+   RESPONSIVE UTILITY CLASSES - CDOA SYSTEM
+   Apenas classes utilitárias próprias — não
+   sobrescreve classes do Tailwind CSS.
+   =========================================== */
+
+/* Tabelas com scroll horizontal no mobile */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Wrapper de tabela responsiva */
+.table-responsive-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0.5rem;
+}
+
+/* Ocultar em mobile */
+@media (max-width: 639px) {
+  .hide-mobile { display: none !important; }
+}
+
+/* Ocultar em tablet */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .hide-tablet { display: none !important; }
+}
+
+/* Ocultar em desktop */
+@media (min-width: 1024px) {
+  .hide-desktop { display: none !important; }
+}
+
+/* Safe area para dispositivos com notch */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

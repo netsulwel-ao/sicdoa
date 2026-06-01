@@ -1,0 +1,259 @@
+{% include 'includes/head.html' %}
+{% include 'colaboradores/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'colaboradores/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+    {# ── Boas-vindas ─────────────────────────────────────────────────────── #}
+    <div class="bg-gradient-to-r from-primary to-blue-700 rounded-2xl p-6 text-white shadow-lg">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+            {% if colaborador.foto %}
+            <img src="{{ colaborador.foto.url }}" alt="{{ colaborador.nome }}"
+              class="w-14 h-14 rounded-full object-cover">
+            {% else %}
+            <i class="fas fa-user text-white text-3xl"></i>
+            {% endif %}
+          </div>
+          <div>
+            <p class="text-blue-100 text-sm font-medium">Bem-vindo(a) de volta,</p>
+            <h1 class="text-xl md:text-2xl font-bold">{{ colaborador.nome }}</h1>
+            <p class="text-blue-200 text-sm mt-0.5">{{ colaborador.cargo_label }} · {{ colaborador.local_trabalho }}</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="text-blue-200 text-xs">Sessão activa</p>
+          <p class="text-white font-semibold text-sm">{{ tempo_restante_sessao }} min restantes</p>
+          <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-white/20 text-xs text-white">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-300 inline-block"></span>
+            Online
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Resumo rápido ───────────────────────────────────────────────────── #}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Estado -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <i class="fas fa-check-circle text-green-600 dark:text-green-400 text-xl"></i>
+          </div>
+          <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estado</span>
+        </div>
+        <p class="text-lg font-bold text-gray-800 dark:text-gray-200">
+          {% if colaborador.estado == 'Ativo' %}
+          <span class="text-green-600 dark:text-green-400">Activo</span>
+          {% elif colaborador.estado == 'Ferias' %}
+          <span class="text-orange-500">De Férias</span>
+          {% else %}
+          {{ colaborador.estado }}
+          {% endif %}
+        </p>
+      </div>
+
+      <!-- Cargo -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <i class="fas fa-id-badge text-blue-600 dark:text-blue-400 text-xl"></i>
+          </div>
+          <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cargo</span>
+        </div>
+        <p class="text-sm font-bold text-gray-800 dark:text-gray-200 leading-tight">{{ colaborador.cargo_label }}</p>
+      </div>
+
+      <!-- Local -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+            <i class="fas fa-map-marker-alt text-purple-600 dark:text-purple-400 text-xl"></i>
+          </div>
+          <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Local</span>
+        </div>
+        <p class="text-sm font-bold text-gray-800 dark:text-gray-200">{{ colaborador.local_trabalho }}</p>
+      </div>
+
+      <!-- Admissão -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+            <i class="fas fa-calendar-alt text-orange-600 dark:text-orange-400 text-xl"></i>
+          </div>
+          <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Admissão</span>
+        </div>
+        <p class="text-sm font-bold text-gray-800 dark:text-gray-200">
+          {% if colaborador.data_admissao %}{{ colaborador.data_admissao|date:"d/m/Y" }}{% else %}—{% endif %}
+        </p>
+      </div>
+    </div>
+
+    {# ── Acções rápidas ──────────────────────────────────────────────────── #}
+    <div>
+      <h2 class="text-gray-800 dark:text-gray-200 text-lg font-semibold mb-4">Acções Rápidas</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <!-- Meu Perfil -->
+        <a href="{% url 'colaborador_perfil' %}"
+          class="group bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200">
+          <div class="flex items-center justify-between mb-4">
+            <div
+              class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
+              <i class="fas fa-user text-blue-600 dark:text-blue-400 text-2xl"></i>
+            </div>
+            <i
+              class="fas fa-arrow-right text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors"></i>
+          </div>
+          <h3 class="text-gray-800 dark:text-gray-200 font-semibold mb-1">Meu Perfil</h3>
+          <p class="text-gray-500 dark:text-gray-400 text-sm">Ver e editar informações pessoais</p>
+        </a>
+
+        <!-- Marcar Presença -->
+        <a href="{% url 'colaborador_presenca' %}"
+          class="group bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-green-300 dark:hover:border-green-700 transition-all duration-200">
+          <div class="flex items-center justify-between mb-4">
+            <div
+              class="p-3 bg-green-50 dark:bg-green-900/20 rounded-xl group-hover:bg-green-100 dark:group-hover:bg-green-900/40 transition-colors">
+              <i class="fas fa-calendar-check text-green-600 dark:text-green-400 text-2xl"></i>
+            </div>
+            <i
+              class="fas fa-arrow-right text-gray-300 dark:text-gray-600 group-hover:text-green-400 transition-colors"></i>
+          </div>
+          <h3 class="text-gray-800 dark:text-gray-200 font-semibold mb-1">Marcar Presença</h3>
+          <p class="text-gray-500 dark:text-gray-400 text-sm">Registar ponto de entrada e saída</p>
+        </a>
+
+        <!-- Processo Salarial -->
+        <a href="{% url 'colaborador_salario' %}"
+          class="group bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-purple-300 dark:hover:border-purple-700 transition-all duration-200">
+          <div class="flex items-center justify-between mb-4">
+            <div
+              class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors">
+              <i class="fas fa-credit-card text-purple-600 dark:text-purple-400 text-2xl"></i>
+            </div>
+            <i
+              class="fas fa-arrow-right text-gray-300 dark:text-gray-600 group-hover:text-purple-400 transition-colors"></i>
+          </div>
+          <h3 class="text-gray-800 dark:text-gray-200 font-semibold mb-1">Processo Salarial</h3>
+          <p class="text-gray-500 dark:text-gray-400 text-sm">Ver salário e histórico de pagamentos</p>
+        </a>
+
+        <!-- Pedir Férias -->
+        <a href="{% url 'colaborador_ferias' %}"
+          class="group bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-orange-300 dark:hover:border-orange-700 transition-all duration-200">
+          <div class="flex items-center justify-between mb-4">
+            <div
+              class="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl group-hover:bg-orange-100 dark:group-hover:bg-orange-900/40 transition-colors">
+              <i class="fas fa-umbrella-beach text-orange-600 dark:text-orange-400 text-2xl"></i>
+            </div>
+            <i
+              class="fas fa-arrow-right text-gray-300 dark:text-gray-600 group-hover:text-orange-400 transition-colors"></i>
+          </div>
+          <h3 class="text-gray-800 dark:text-gray-200 font-semibold mb-1">Pedir Férias</h3>
+          <p class="text-gray-500 dark:text-gray-400 text-sm">Solicitar período de férias e ausências</p>
+        </a>
+
+      </div>
+    </div>
+
+    {# ── Informações pessoais + Documentos ───────────────────────────────── #}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Informações Pessoais -->
+      <div
+        class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-info-circle text-primary text-xl"></i>
+            <h3 class="text-gray-800 dark:text-gray-200 font-semibold">Informações Pessoais</h3>
+          </div>
+          <a href="{% url 'colaborador_perfil' %}" class="text-primary text-sm hover:underline">Ver tudo</a>
+        </div>
+        <div class="divide-y divide-gray-50 dark:divide-gray-800">
+          <div class="flex items-center justify-between px-5 py-3">
+            <span class="text-gray-500 dark:text-gray-400 text-sm">Nome</span>
+            <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">{{ colaborador.nome }}</span>
+          </div>
+          <div class="flex items-center justify-between px-5 py-3">
+            <span class="text-gray-500 dark:text-gray-400 text-sm">Email</span>
+            <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">{{ colaborador.email|default:"—"
+              }}</span>
+          </div>
+          <div class="flex items-center justify-between px-5 py-3">
+            <span class="text-gray-500 dark:text-gray-400 text-sm">Telefone</span>
+            <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">{{ colaborador.telefone|default:"—"
+              }}</span>
+          </div>
+          <div class="flex items-center justify-between px-5 py-3">
+            <span class="text-gray-500 dark:text-gray-400 text-sm">NIF</span>
+            <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">{{ colaborador.nif|default:"—" }}</span>
+          </div>
+          <div class="flex items-center justify-between px-5 py-3">
+            <span class="text-gray-500 dark:text-gray-400 text-sm">Departamento</span>
+            <span class="text-gray-800 dark:text-gray-200 text-sm font-medium">{{ colaborador.departamento|default:"—"
+              }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acesso Rápido a Documentos -->
+      <div
+        class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-folder-open text-primary text-xl"></i>
+            <h3 class="text-gray-800 dark:text-gray-200 font-semibold">Meus Documentos</h3>
+          </div>
+          <a href="{% url 'colaborador_documentos' %}" class="text-primary text-sm hover:underline">Ver todos</a>
+        </div>
+        <div class="p-5">
+          {% if colaborador.documentos.exists %}
+          <div class="space-y-3">
+            {% for doc in colaborador.documentos.all|slice:":4" %}
+            <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
+                <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-base"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-gray-800 dark:text-gray-200 text-sm font-medium truncate">{{ doc.get_tipo_display }}</p>
+                <p class="text-gray-500 dark:text-gray-400 text-xs">{{ doc.criado_em|date:"d/m/Y" }}</p>
+              </div>
+              <a href="{{ doc.arquivo.url }}" target="_blank"
+                class="p-1.5 text-gray-400 hover:text-primary transition-colors flex-shrink-0">
+                <i class="fas fa-download text-base"></i>
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center py-8">
+            <div
+              class="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+              <i class="fas fa-file-alt text-gray-400 text-2xl"></i>
+            </div>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">Nenhum documento disponível</p>
+            <p class="text-gray-400 dark:text-gray-500 text-xs mt-1">Os seus documentos aparecerão aqui</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Contador regressivo da sessão
+  let tempoRestante = {{ tempo_restante_sessao }};
+  function atualizarContador() {
+    if (tempoRestante <= 0) { window.location.href = '/login/'; return; }
+    tempoRestante--;
+    setTimeout(atualizarContador, 60000);
+  }
+  setTimeout(atualizarContador, 60000);
+</script>
+{% include 'includes/footer.html' %}

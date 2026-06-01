@@ -1,0 +1,66 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <a href="{% url 'governanca_gerir' assembleia.pk %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary mb-2 flex items-center gap-1">
+          <i class="fas fa-arrow-left text-base"></i> Voltar à gestão
+        </a>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-2">Logs da Assembleia</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ assembleia.titulo }}</p>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-800/50 text-left">
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Data/Hora</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Usuário</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Ação</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Detalhes</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">IP</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for log in logs %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+              <td class="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">{{ log.created_at|date:"d/m/Y H:i:s" }}</td>
+              <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ log.usuario.nome|default:"Sistema" }}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-0.5 text-xs font-medium rounded-full
+                  {% if log.acao == 'entrada' or log.acao == 'assembleia_iniciada' %}bg-green-100 text-green-700
+                  {% elif log.acao == 'saida' or log.acao == 'assembleia_cancelada' %}bg-red-100 text-red-700
+                  {% elif log.acao == 'votacao' %}bg-blue-100 text-blue-700
+                  {% elif log.acao == 'votacao_aberta' or log.acao == 'votacao_reaberta' %}bg-purple-100 text-purple-700
+                  {% else %}bg-gray-100 text-gray-600{% endif %}">
+                  {{ log.get_acao_display }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 max-w-xs truncate">{{ log.detalhes|default:"" }}</td>
+              <td class="px-4 py-3 text-xs text-gray-400 font-mono">{{ log.ip|default:"---" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" class="px-4 py-12 text-center text-gray-400">Nenhum log registado</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if page_obj.has_other_pages %}
+      <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+    </div>
+
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}

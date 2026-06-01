@@ -1,0 +1,3739 @@
+﻿{% load static %}
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<link href="{% static 'du/style.css' %}" rel="stylesheet" />
+<style>
+  /* ============================================================
+   ADIÇÕES — Estilos dos cards dinâmicos
+   Adicione em du/css.css
+============================================================ */
+
+/* ── form-grid-5: 5 colunas no desktop, 1 coluna por campo no mobile ── */
+.form-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+@media (max-width: 640px) {
+  .form-grid-5 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card wrapper */
+.adicao-card-wrapper {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  background: #fff;
+}
+
+.dark .adicao-card-wrapper {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.adicao-card-wrapper:hover {
+  box-shadow: 0 4px 18px rgba(19, 127, 236, 0.08);
+}
+
+.adicao-card-wrapper.active-adicao {
+  border-color: #137fec;
+  box-shadow: 0 0 0 3px rgba(19, 127, 236, 0.1);
+}
+
+/* Cabeçalho */
+.adicao-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 18px;
+  background: #f8fafc;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1.5px solid #e2e8f0;
+  transition: background 0.15s;
+}
+
+.dark .adicao-card-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.adicao-card-header:hover {
+  background: #f1f5f9;
+}
+
+.dark .adicao-card-header:hover {
+  background: #263349;
+}
+
+.adicao-card-wrapper.active-adicao .adicao-card-header {
+  background: #eff6ff;
+  border-bottom-color: #bfdbfe;
+}
+
+.dark .adicao-card-wrapper.active-adicao .adicao-card-header {
+  background: #172554;
+  border-bottom-color: #1e40af;
+}
+
+/* Badge número */
+.adicao-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #137fec;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Título e subtítulo */
+.adicao-card-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #1e293b;
+}
+
+.dark .adicao-card-title {
+  color: #f1f5f9;
+}
+
+.adicao-card-subtitle {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  margin-left: 4px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chevron */
+.adicao-chevron {
+  color: #94a3b8;
+  font-size: 20px;
+  transition: transform 0.2s;
+}
+
+/* Corpo — oculto por defeito, visível com .expanded */
+.adicao-card-body {
+  display: none;
+  padding: 4px 0;
+}
+
+.adicao-card-body.expanded {
+  display: block;
+  animation: slideDown 0.22s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Botões de acção (duplicar / remover) */
+.adicao-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #64748b;
+  transition: background 0.15s, color 0.15s;
+}
+
+.adicao-btn-icon:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.adicao-btn-icon.danger {
+  color: #94a3b8;
+}
+
+.adicao-btn-icon.danger:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.adicao-btn-icon .fas {
+  font-size: 17px;
+}
+
+/* ============================================================
+   RADIO TOGGLE MODERNO — "Há contentores?"
+============================================================ */
+.radio-toggle-group {
+  display: inline-flex;
+  background: #f1f5f9;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.dark .radio-toggle-group {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.radio-toggle-group .radio-option {
+  position: relative;
+}
+
+.radio-toggle-group input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.radio-toggle-group .radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  transition: all 0.18s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.radio-toggle-group .radio-label .fas {
+  font-size: 17px;
+}
+
+.radio-toggle-group input[type="radio"]:checked + .radio-label {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
+  font-weight: 600;
+}
+
+.dark .radio-toggle-group input[type="radio"]:checked + .radio-label {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+.radio-toggle-group input[type="radio"]:checked + .radio-label.sim-label {
+  color: #137fec;
+  box-shadow: 0 1px 4px rgba(19, 127, 236, 0.2), 0 0 0 1.5px rgba(19, 127, 236, 0.25);
+}
+
+.radio-toggle-group input[type="radio"]:checked + .radio-label.nao-label {
+  color: #475569;
+}
+
+.radio-toggle-group .radio-label:hover {
+  background: #e8edf5;
+}
+
+.dark .radio-toggle-group .radio-label:hover {
+  background: #263349;
+}
+
+.radio-toggle-group input[type="radio"]:checked + .radio-label:hover {
+  background: #ffffff;
+}
+
+.dark .radio-toggle-group input[type="radio"]:checked + .radio-label:hover {
+  background: #0f172a;
+}
+
+/* Repartição select — dark mode */
+.dark select[name="reparticao_seguro"],
+.dark select[name="reparticao_frete"] {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}</style>
+<div class="flex-1 ml-0 lg:ml-64 min-w-0 overflow-x-hidden aduaneiro-page">
+{% include 'includes/header.html' %}
+
+<main class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-6">
+  <!-- Header Section -->
+  <div class="max-w-7xl mx-auto">
+    <!-- Page Title & Breadcrumb -->
+    <div class="mb-8">
+      <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <span>Gestão Aduaneira</span>
+        <span class="fas fa-chevron-right text-xs"></span>
+        <span class="text-primary font-medium">Declaração Única</span>
+      </div>
+      <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+        Declaração Única (DU)
+      </h1>
+      <p class="text-gray-600 dark:text-gray-300">
+        Sistema de Emissão de Declarações Únicas - ASYCUDAWorld Angola
+      </p>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Progresso da Declaração</h2>
+        <span class="text-sm text-gray-500 dark:text-gray-400">
+          Passo <span id="currentStepDisplay">1</span> de 4
+        </span>
+      </div>
+      
+      <div class="relative">
+        <!-- Progress Bar -->
+        <div class="flex items-center justify-between mb-2">
+          <div class="step-indicator-modern">
+            <div class="step-item active" data-step="1" onclick="goToStep(1)" style="cursor:pointer;" title="Ir para Geral">
+              <div class="step-circle-modern">
+                <i class="fas fa-file-alt"></i>
+              </div>
+              <span class="step-label-modern">Geral</span>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item" data-step="2" onclick="goToStep(2)" style="cursor:pointer;" title="Ir para Adição">
+              <div class="step-circle-modern">
+                <i class="fas fa-box"></i>
+              </div>
+              <span class="step-label-modern">Adição</span>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item" data-step="3" onclick="goToStep(3)" style="cursor:pointer;" title="Ir para Transporte">
+              <div class="step-circle-modern">
+                <i class="fas fa-truck"></i>
+              </div>
+              <span class="step-label-modern">Transporte</span>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item" data-step="4" onclick="goToStep(4)" style="cursor:pointer;" title="Ir para Finalizar">
+              <div class="step-circle-modern">
+                <i class="fas fa-calculator"></i>
+              </div>
+              <span class="step-label-modern">Finalizar</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Progress Line -->
+        <div class="progress-line-bg">
+          <div class="progress-line-fill" id="progressLineFill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-4 gap-8">
+      
+      <!-- Form Content (3/4 width) -->
+      <div class="xl:col-span-3">
+        <form id="formDU" class="space-y-8">
+          {% csrf_token %}
+          <input type="hidden" id="du_uuid_hidden" value="{{ du.du_uuid|default:'' }}" />
+          
+          <!-- ==================== STEP 1: GERAL ==================== -->
+          <div class="form-step-modern active" data-step="1">
+            <div class="step-header">
+              <div class="step-icon">
+                <i class="fas fa-file-alt"></i>
+              </div>
+              <div>
+                <h3 class="step-title">Informações Gerais</h3>
+                <p class="step-subtitle">Identificação da declaração e intervenientes</p>
+              </div>
+            </div>
+
+            <!-- Identificação Básica -->
+            <div class="form-card">
+              <div class="form-card-header">
+                <i class="fas fa-id-badge"></i>
+                <h4>Identificação da Declaração</h4>
+              </div>
+              <div class="form-card-content">
+                <div class="form-grid-3">
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Estância
+                      <span class="field-code">Campo 6</span>
+                    </label>
+                    <select name="estancia" id="estancia" class="form-input select2-field" required>
+                      <option value="">Selecione a estância...</option>
+                      <option value="">Carregando estância...</option>
+                    </select>
+                    <p class="field-hint">Digite para pesquisar a estância</p>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Regime Aduaneiro
+                      <span class="field-code">Campo 1</span>
+                    </label>
+                    <select name="regime_aduaneiro" id="regime_aduaneiro" class="form-input" required onchange="atualizarCamposDestinatario()">
+                      <option value="">Carregando regimes...</option>
+                    </select>
+                    <div id="regime_error" class="field-status hidden" style="color: #ef4444; margin-top: 0.5rem;">
+                      <i class="fas fa-times-circle" style="font-size: 16px;"></i>
+                      <span>Erro ao carregar regimes aduaneiros</span>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Referência Interna
+                      <span class="field-code">Campo 7</span>
+                    </label>
+                    <input type="text" name="ref_despachante" class="form-input" placeholder="REF-2024-XXX" required />
+                  </div>
+                </div>
+                
+                <div class="form-grid-1 mt-4">
+                  <div class="form-field">
+                    <label class="form-label">
+                      Vinheta
+                      <span class="field-code">Campo 9</span>
+                    </label>
+
+                    <div class="input-group">
+                      <input type="text" id="vinheta_sufixo" class="form-input"
+                             value="CDOA{{ usuario.cedula|default:'' }}"
+                             oninput="filtrarVinhetas()"
+                             autocomplete="off" spellcheck="false" />
+                      <button type="button" id="vinheta_btn_consultar" class="btn-secondary" onclick="consultarVinhetas()">
+                        <i class="fas fa-search"></i>
+                        Consultar
+                      </button>
+                    </div>
+
+                    <!-- Campo hidden enviado no form -->
+                    <input type="hidden" name="vinheta" id="vinheta_input" />
+
+                    <!-- Lista de resultados — inline, empurra o conteúdo (sem position:absolute) -->
+                    <div id="vinheta_dropdown" style="display:none;margin-top:6px;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.08);">
+                    </div>
+
+                    <p class="field-hint" id="vinheta_hint">Clique em Consultar para carregar as suas vinhetas</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Exportador -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-building"></i>
+                <h4>Exportador</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-field">
+                  <label class="form-label" id="exportador_codigo_label">
+                    Código do Exportador (NIF)
+                    <span class="field-code">Campo 2</span>
+                  </label>
+                  <div class="input-group">
+                    <input type="text" name="exportador_codigo" id="exportador_codigo" class="form-input" placeholder="Digite o NIF" />
+                    <button type="button" id="consultar_nif_btn" class="btn-secondary" onclick="consultarNIF()">
+                      <i class="fas fa-search"></i>
+                      Consultar
+                    </button>
+                  </div>
+                  <div id="nif_consulta_status" class="field-status hidden"></div>
+                </div>
+                
+                <div class="form-field mt-4">
+                  <label class="form-label" id="exportador_nome_label">
+                    Nome do Exportador
+                    <span class="field-code">Campo 2</span>
+                  </label>
+                  <input type="text" name="exportador_nome" id="exportador_nome" class="form-input" />
+                </div>
+                
+                <div class="form-field mt-4">
+                  <label class="form-label" id="exportador_endereco_label">
+                    Endereço Completo
+                    <span class="field-code">Campo 2</span>
+                  </label>
+                  <textarea name="exportador_endereco" id="exportador_endereco" class="form-input" rows="2" placeholder="Endereço completo do exportador"></textarea>
+                </div>
+              </div>
+            </div>
+            <!-- Destinatário -->
+            <div class="form-card collapsible" id="destinatario_section">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-user"></i>
+                <h4>Destinatário / Consignatário</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-field">
+                  <label class="form-label" id="destinatario_nif_label">
+                    NIF
+                    <span class="field-code">Campo 8</span>
+                  </label>
+                  <div class="input-group">
+                    <input type="text" name="destinatario_nif" id="destinatario_nif" class="form-input" placeholder="Digite o NIF" />
+                    <button type="button" id="btn_consultar_destinatario" class="btn-secondary" onclick="consultarNIFDestinatario()">
+                      <i class="fas fa-search"></i>
+                      Consultar
+                    </button>
+                  </div>
+                  <div id="nif_destinatario_status" class="field-status hidden"></div>
+                </div>
+                
+                <div class="form-field mt-4">
+                  <label class="form-label" id="destinatario_nome_label">
+                    Nome do Destinatário
+                    <span class="field-code">Campo 8</span>
+                  </label>
+                  <input type="text" name="destinatario_nome" id="destinatario_nome" class="form-input" />
+                </div>
+                
+                <div class="form-field mt-4">
+                  <label class="form-label">
+                    Número de Telefone
+                    <span class="field-code">Campo 8</span>
+                  </label>
+                  <input type="text" name="destinatario_telefone" id="destinatario_telefone" class="form-input" placeholder="+244..." />
+                </div>
+                
+                <div class="form-field mt-4">
+                  <label class="form-label" id="destinatario_endereco_label">
+                    Endereço Completo
+                    <span class="field-code">Campo 8</span>
+                  </label>
+                  <textarea name="destinatario_endereco" id="destinatario_endereco" class="form-input" rows="2" placeholder="Endereço completo do destinatário"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Despachante -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-user-check"></i>
+                <h4>Despachante / Representante</h4>
+                {% if is_admin_editando %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 ml-auto mr-2">
+                  <i class="fas fa-lock" style="font-size:13px;"></i>
+                  Dados do proprietário — só leitura
+                </span>
+                {% endif %}
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                {% if is_admin_editando %}
+                <!-- Admin a editar DU de outro utilizador: campos do proprietário bloqueados -->
+                <div class="mb-4 flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                  <i class="fas fa-info-circle text-amber-600 flex-shrink-0 mt-0.5" style="font-size:18px;"></i>
+                  <p class="text-sm text-amber-700 dark:text-amber-400">
+                    Está a editar uma DU de <strong>{{ dono_du.nome }}</strong>. Os dados do despachante pertencem ao proprietário da DU e não podem ser alterados.
+                  </p>
+                </div>
+                <div class="form-grid-3">
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Nome
+                      <span class="field-code">Campo 14</span>
+                    </label>
+                    <input type="text" name="despachante_nome" class="form-input" required disabled value="{{ dono_du.nome }}" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Nº Licença CDOA
+                      <span class="field-code">Campo 14</span>
+                    </label>
+                    <input type="text" name="despachante_licenca" class="form-input" required disabled value="{{ dono_du.cedula|default:'—' }}" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label required">
+                      NIF
+                      <span class="field-code">Campo 14</span>
+                    </label>
+                    <input type="text" name="despachante_nif" class="form-input" required disabled value="{{ dono_du.nif|default:'—' }}" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Papel / Função</label>
+                    <input type="text" class="form-input" disabled value="{{ dono_du.papel }}" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Email</label>
+                    <input type="text" class="form-input" disabled value="{{ dono_du.email|default:'—' }}" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Telefone</label>
+                    <input type="text" class="form-input" disabled value="{{ dono_du.telefone|default:'—' }}" />
+                  </div>
+                </div>
+                {% else %}
+                <!-- Utilizador normal: os seus próprios dados -->
+                <div class="form-grid-3">
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Nome
+                      <span class="field-code">Campo 14</span>
+                    </label>
+                    <input type="text" name="despachante_nome" class="form-input" required disabled value="{{ usuario.nome }}" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Nº Licença CDOA
+                      <span class="field-code">Campo 14</span>
+                    </label>
+                    <input type="text" name="despachante_licenca" class="form-input" required disabled value="{{ usuario.cedula|default:'CDOA-2024-001' }}" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label required">
+                      NIF
+                      <span class="field-code">Campo 14</span>
+                    </label>
+                    <input type="text" name="despachante_nif" class="form-input" required disabled value="{{ usuario.nif|default:'5410003284' }}" />
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            <!-- Dados Contabilisticos -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-credit-card"></i>
+                <h4>Dados contabilísticos</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label">
+                      Conta de Credito
+                      <span class="field-code">Campo 14</span>
+                    </label>
+                    <input type="number" name="conta_credito" class="form-input"/>
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label">
+                      Conta de Garantia
+                      <span class="field-code">Campo 14</span>
+                    </label>
+                    <input type="number" name="conta_garantias" class="form-input" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+             <!-- Localização e Armazém da mercadoria -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-credit-card"></i>
+                <h4>Localização e Armazém da mercadoria</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label">
+                      Localização da mercadoria
+                      <span class="field-code">Campo 15</span>
+                    </label>
+                    <input type="text" name="localizacao_mercadoria" class="form-input"/>
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label">
+                      Identificação do Armazém
+                      <span class="field-code">Campo 15</span>
+                    </label>
+                    <input type="text" name="identificacao_armzem" class="form-input" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Informações Comerciais (Colapsável) -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-credit-card"></i>
+                <h4>Informações Comerciais e Financeiras</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label required">
+                      INCOTERM
+                      <span class="field-code">Campo 20</span>
+                    </label>
+                    <select name="incoterm" id="incoterm" class="form-input" required>
+                      <option value="">Selecione...</option>
+                      <option value="CFR">CFR - Custo e Frete</option>
+                      <option value="CIF">CIF - Custo, Seguro e Frete</option>
+                      <option value="FOB">FOB - Franco a Bordo</option>
+                      <option value="EXW">EXW - À Porta da Fábrica</option>
+                      <option value="DDP">DDP - Entrega com Direitos Pagos</option>
+                    </select>
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Natureza da Transação
+                      <span class="field-code">Campo 24</span>
+                    </label>
+                    <select name="natureza_transacao" id="natureza_transacao" class="form-input" required>
+                      <option value="">A carregar...</option>
+                    </select>
+                  </div>
+                  
+                  <!--<div class="form-field">
+                    <label class="form-label required">
+                      Localização das Mercadorias
+                      <span class="field-code">Campo 30</span>
+                    </label>
+                    <select name="localizacao_mercadorias" class="form-input" required>
+                      <option value="">Selecione a localização...</option>
+                      <optgroup label="Luanda">
+                        <option value="LUANDA_A1">Luanda - Armazém A1 (Porto de Luanda)</option>
+                        <option value="LUANDA_A2">Luanda - Armazém A2 (Porto de Luanda)</option>
+                        <option value="LUANDA_A3">Luanda - Armazém A3 (Porto de Luanda)</option>
+                        <option value="LUANDA_AEROPORTO">Luanda - Aeroporto Internacional</option>
+                        <option value="LUANDA_ZONA_FRANCA">Luanda - Zona Franca</option>
+                      </optgroup>
+                      <optgroup label="Lobito">
+                        <option value="LOBITO_B1">Lobito - Armazém B1 (Porto do Lobito)</option>
+                        <option value="LOBITO_B2">Lobito - Armazém B2 (Porto do Lobito)</option>
+                        <option value="LOBITO_TERMINAL">Lobito - Terminal de Contentores</option>
+                      </optgroup>
+                      <optgroup label="Cabinda">
+                        <option value="CABINDA_C1">Cabinda - Armazém C1 (Porto de Cabinda)</option>
+                        <option value="CABINDA_C2">Cabinda - Armazém C2 (Porto de Cabinda)</option>
+                      </optgroup>
+                      <optgroup label="Namibe">
+                        <option value="NAMIBE_D1">Namibe - Armazém D1 (Porto do Namibe)</option>
+                        <option value="NAMIBE_TERMINAL">Namibe - Terminal Pesqueiro</option>
+                      </optgroup>
+                      <optgroup label="Soyo">
+                        <option value="SOYO_E1">Soyo - Armazém E1 (Porto do Soyo)</option>
+                        <option value="SOYO_PETROLEO">Soyo - Terminal Petrolífero</option>
+                      </optgroup>
+                      <optgroup label="Outros">
+                        <option value="MALANJE_F1">Malanje - Armazém Terrestre F1</option>
+                        <option value="HUAMBO_G1">Huambo - Armazém Terrestre G1</option>
+                        <option value="BENGUELA_H1">Benguela - Armazém Terrestre H1</option>
+                      </optgroup>
+                    </select>
+                  </div>-->
+                </div>
+                
+                <!-- Valor FOB -->
+                <div class="mt-6">
+                  <!--<h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Valor FOB</h5>-->
+                  <div class="form-grid-4">
+                    <div class="form-field">
+                      <label class="form-label required">Valor FOB</label>
+                      <input type="number" name="valor_fob" id="valor_fob" class="form-input calc-field" placeholder="0.00" step="0.01"  title="Agregado automaticamente das adições" />
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label">Moeda</label>
+                      <select name="moeda_fob" id="moeda_fob" class="form-input" >
+                        <option value="AOA" selected>AOA - Kwanza</option>
+                        <option value="USD">USD - Dólar Americano</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="CNY">CNY - Yuan Chinês</option>
+
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label">Câmbio</label>
+                      <input type="number" name="cambio_fob" id="cambio_fob" class="form-input calc-field" placeholder="—" readonly />
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label">Valor FOB em (KZ)</label>
+                      <input type="number" name="valor_fob_kz" id="valor_fob_kz" class="form-input calc-field" placeholder="0.00" step="0.01" readonly  />
+                    </div>
+                  </div>
+                  <p class="field-hint mt-1" style="color:#137fec;">
+                    <i class="fas fa-info-circle" style="font-size:13px;vertical-align:middle;"></i>
+                    Agregado automaticamente a partir dos valores FOB de cada adição
+                  </p>
+                </div>
+                
+                <!-- Seguro -->
+                <div class="mt-6">
+                  <!--<h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Seguro</h5>-->
+                  <div class="form-grid-5">
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Valor Seguro</label>
+                      <input type="number" name="valor_seguro" id="valor_seguro" class="form-input calc-field" placeholder="0.00" step="0.01" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" title="Agregado automaticamente das adições" />
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Modo de Repartição</label>
+                      <select name="reparticao_seguro" id="reparticao_seguro" class="form-input" style="font-size:0.78rem; padding:5px 6px; height:34px; box-sizing:border-box;">
+                        <option value="sem_reparticao">Sem Repartição</option>
+                        <option value="valor">Valor</option>
+                        <option value="peso">Peso</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Moeda</label>
+                      <select name="moeda_seguro" id="moeda_seguro" class="form-input" style="font-size:0.78rem; padding:5px 6px; height:34px; box-sizing:border-box;">
+                        <option value="AOA" selected>AOA - Kwanza</option>
+                        <option value="USD">USD - Dólar Americano</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="CNY">CNY - Yuan Chinês</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Câmbio</label>
+                      <input type="number" name="cambio_seguro" id="cambio_seguro" class="form-input calc-field" placeholder="—" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" readonly />
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Valor do Seguro em (KZ)</label>
+                      <input type="number" name="valor_seguro_kz" id="valor_seguro_kz" class="form-input calc-field" placeholder="0.00" step="0.01" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" readonly />
+                    </div>
+                  </div>
+                  <p class="field-hint mt-1" style="color:#137fec;">
+                    <i class="fas fa-info-circle" style="font-size:13px;vertical-align:middle;"></i>
+                    Agregado automaticamente a partir dos valores de seguro de cada adição
+                  </p>
+                </div>
+                
+                <!-- Frete -->
+                <div class="mt-6">
+                  <!--<h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Frete</h5>-->
+                  <div class="form-grid-5">
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Valor Frete</label>
+                      <input type="number" name="valor_frete" id="valor_frete" class="form-input calc-field" placeholder="0.00" step="0.01" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" title="Agregado automaticamente das adições" />
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Modo de Repartição</label>
+                      <select name="reparticao_frete" id="reparticao_frete" class="form-input" style="font-size:0.78rem; padding:5px 6px; height:34px; box-sizing:border-box;">
+                        <option value="sem_reparticao">Sem Repartição</option>
+                        <option value="valor">Valor</option>
+                        <option value="peso">Peso</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Moeda</label>
+                      <select name="moeda_frete" id="moeda_frete" class="form-input" style="font-size:0.78rem; padding:5px 6px; height:34px; box-sizing:border-box;">
+                        <option value="AOA" selected>AOA - Kwanza</option>
+                        <option value="USD">USD - Dólar Americano</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="CNY">CNY - Yuan Chinês</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Câmbio</label>
+                      <input type="number" name="cambio_frete" id="cambio_frete" class="form-input calc-field" placeholder="—" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" readonly />
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" style="font-size:0.75rem;">Valor do Frete em (KZ)</label>
+                      <input type="number" name="valor_frete_kz" id="valor_frete_kz" class="form-input calc-field" placeholder="0.00" step="0.01" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" readonly />
+                    </div>
+                  </div>
+                  <p class="field-hint mt-1" style="color:#137fec;">
+                    <i class="fas fa-info-circle" style="font-size:13px;vertical-align:middle;"></i>
+                    Agregado automaticamente a partir dos valores de frete de cada adição
+                  </p>
+                </div>
+                
+                <!-- Montante Aduaneiro -->
+                <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+                  <div class="form-grid-2">
+                    <div class="form-field">
+                      <label class="form-label font-semibold text-blue-900 dark:text-blue-100">
+                        Montante Aduaneiro (KZ)
+                        <span class="field-code">Calculado Automaticamente</span>
+                      </label>
+                      <input type="number" name="montante_aduaneiro_kz" id="montante_aduaneiro_kz" class="form-input calc-field font-bold text-lg" placeholder="0.00" step="0.01" readonly />
+                    </div>
+                  </div>
+                  <p class="field-hint mt-2">Soma de: FOB (KZ) + Seguro (KZ) + Frete (KZ)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ==================== STEP 2: ADIÇÃO ==================== -->
+          <div class="form-step-modern" data-step="2">
+            <div class="step-header">
+                <div class="step-icon">
+                  <i class="fas fa-box"></i>
+                </div>
+                <div>
+                  <h3 class="step-title">Mercadoria e Classificação</h3>
+                  <p class="step-subtitle">Detalhes da mercadoria, código pautal e valores</p>
+                </div>
+              </div>
+            <div id="adicoes_wrapper">
+            </div>
+            <!-- Área Adicionar Nova Adição -->
+            <div class="mt-6">
+              <button
+                type="button"
+                onclick="adicionarNovaAdicao()"
+                class="w-full border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 transition-colors rounded-lg py-10 flex flex-col items-center justify-center text-blue-600 cursor-pointer"
+              >
+                <!-- Linha do ícone + título -->
+                <div class="flex items-center gap-2 font-medium">
+                  <i class="fas fa-plus-circle text-3xl"></i>
+                  <span>Adicionar Nova Adição</span>
+                </div>
+
+                <!-- Texto secundário -->
+                <span class="text-sm text-blue-400 mt-1">
+                  Clique para adicionar mais itens à declaração
+                </span>
+              </button>
+            </div>
+
+          </div>
+          <!-- ==================== STEP 3: TRANSPORTE ==================== -->
+          <div class="form-step-modern" data-step="3">
+            <div class="step-header">
+              <div class="step-icon">
+                <i class="fas fa-truck"></i>
+              </div>
+              <div>
+                <h3 class="step-title">Transporte e Logística</h3>
+                <p class="step-subtitle">Informações sobre meio de transporte e localização</p>
+              </div>
+            </div>
+
+            <!-- Meio de Transporte -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-ship"></i>
+                <h4>Meio de Transporte</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Modo Transporte Fronteira
+                      <span class="field-code">Campo 25</span>
+                    </label>
+                    <select name="modo_transporte_fronteira" id="modo_transporte_fronteira" class="form-input" required>
+                      <option value="">A carregar...</option>
+                    </select>
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label">
+                      Modo Transporte Interior
+                      <span class="field-code">Campo 26</span>
+                    </label>
+                    <select name="modo_transporte_interior" id="modo_transporte_interior" class="form-input">
+                      <option value="">A carregar...</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-grid-2 mt-4">
+                  <div class="form-field">
+                    <label class="form-label required">
+                      Identidade Meio Transporte
+                      <span class="field-code">Campo 21</span>
+                    </label>
+                    <input type="text" name="transporte_identidade" class="form-input" placeholder="Ex: Navio MV ATLANTIC" required />
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label">
+                      Nacionalidade Meio Transporte
+                      <span class="field-code">Campo 21</span>
+                    </label>
+                    <input type="text" name="transporte_nacionalidade" class="form-input" placeholder="Ex: Panamá" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Secção de Contentores -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-boxes"></i>
+                <h4>Secção de Contentores</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-field">
+                  <label class="form-label required">
+                    Há contentores?
+                    <span class="field-code">Campo 19</span>
+                  </label>
+                  <div class="radio-toggle-group">
+                    <div class="radio-option">
+                      <input type="radio" id="container_sim" name="container" value="1" onchange="toggleContainerRadio(this)" />
+                      <label for="container_sim" class="radio-label sim-label">
+                        <i class="fas fa-box"></i> Sim
+                      </label>
+                    </div>
+                    <div class="radio-option">
+                      <input type="radio" id="container_nao" name="container" value="0" onchange="toggleContainerRadio(this)" checked />
+                      <label for="container_nao" class="radio-label nao-label">
+                        Não <i class="fas fa-ban"></i>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                
+                <div id="containerNumDiv" class="hidden mt-6">
+                  <div class="form-card-header mb-4">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <i class="fas fa-boxes"></i>
+                        <h5>Lista de Contentores</h5>
+                        <span class="text-sm text-gray-500" id="container_count">(0 contentores)</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button type="button" class="btn-secondary" onclick="adicionarContainer()">
+                          <i class="fas fa-plus"></i>
+                          Adicionar Container
+                        </button>
+                        <button type="button" class="btn-secondary" onclick="toggleContainerList()" id="toggle_containers_btn">
+                          <i class="fas fa-eye-slash"></i>
+                          Ocultar Todos
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="container_list" class="space-y-4">
+                    <!-- Containers serão adicionados dinamicamente aqui -->
+                  </div>
+                  <div class="alert-info mt-4">
+                    <i class="fas fa-info-circle"></i>
+                    <span><strong>Gestão de Contentores:</strong> Novos contentores aparecem no topo da lista. Use "Ocultar/Mostrar Todos" para controlar a visibilidade.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Estância e Local -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-map-marker-alt"></i>
+                <h4>Estância de Destino e Local</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label">
+                      Estância de Destino
+                      <span class="field-code">Campo 53</span>
+                    </label>
+                    <input type="text" name="estancia_destino" class="form-input" placeholder="Ex: Luanda" />
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label">
+                      País de Destino (Automático)
+                      <span class="field-code">Campo 53</span>
+                    </label>
+                    <input type="text" name="pais_destino_campo53" id="pais_destino_auto" class="form-input calc-field" placeholder="Automático baseado no regime" readonly />
+                  </div>
+                </div>
+                
+                <div class="form-grid-2 mt-4">
+                  <div class="form-field">
+                    <label class="form-label">
+                      Local (Preenchido Automaticamente)
+                      <span class="field-code">Campo 54</span>
+                    </label>
+                    <input type="text" name="local_campo54" class="form-input calc-field" value="Luanda, Angola" readonly />
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label">
+                      Data (Preenchida Automaticamente)
+                      <span class="field-code">Campo 54</span>
+                    </label>
+                    <input type="date" name="data_campo54" class="form-input calc-field" id="data_campo54" readonly />
+                  </div>
+                </div>
+                
+                <div class="alert-info mt-4">
+                  <i class="fas fa-info-circle"></i>
+                  <span><strong>Automático:</strong> O país de destino é preenchido automaticamente baseado no regime (IM=Angola, EX=País de destino). Local e data são preenchidos automaticamente e não são editáveis.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ==================== STEP 4: FINALIZAR ==================== -->
+          <div class="form-step-modern" data-step="4">
+            <div class="step-header">
+              <div class="step-icon">
+                <i class="fas fa-calculator"></i>
+              </div>
+              <div>
+                <h3 class="step-title">Cálculos e Finalização</h3>
+                <p class="step-subtitle">Cálculos automáticos de taxação e resumo final</p>
+              </div>
+            </div>
+
+            <!-- Cálculos de Taxação -->
+            <div class="form-card">
+              <div class="form-card-header">
+                <i class="fas fa-receipt"></i>
+                <h4>Cálculos de Taxação</h4>
+                <button type="button" class="btn-primary ml-auto" onclick="calcularTaxas()">
+                  <i class="fas fa-sync"></i>
+                  Recalcular
+                </button>
+              </div>
+              <div class="form-card-content">
+                <style>
+                  .tax-summary-table { width: 100%; border-collapse: collapse; }
+                  .tax-summary-table tr { border-bottom: 1px solid #e2e8f0; }
+                  .dark .tax-summary-table tr { border-bottom-color: #334155; }
+                  .tax-summary-table tr:last-child { border-bottom: none; }
+                  .tax-summary-table td { padding: 14px 12px; font-size: 0.9rem; }
+                  .tax-summary-table .tax-name { color: #475569; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+                  .dark .tax-summary-table .tax-name { color: #94a3b8; }
+                  .tax-summary-table .tax-amount { text-align: right; font-weight: 600; font-size: 0.95rem; color: #1e293b; font-variant-numeric: tabular-nums; }
+                  .dark .tax-summary-table .tax-amount { color: #f1f5f9; }
+                  .tax-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+                  .total-pagar-row { background: linear-gradient(135deg, #137fec 0%, #0f6fd4 100%); border-radius: 12px; margin-top: 8px; }
+                  .total-pagar-row td { padding: 18px 16px !important; border-bottom: none !important; }
+                  .total-pagar-row .tax-name { color: #fff !important; font-size: 1rem; font-weight: 700; }
+                  .total-pagar-row .tax-amount { color: #fff !important; font-size: 1.25rem; font-weight: 800; }
+                </style>
+
+                <!-- Inputs hidden para manter compatibilidade com script.js -->
+                <input type="hidden" id="taxa_direitos" /><input type="hidden" id="base_direitos" />
+                <input type="hidden" id="taxa_iec" /><input type="hidden" id="base_iec" />
+                <input type="hidden" id="taxa_emolumentos" /><input type="hidden" id="base_emolumentos" />
+                <input type="hidden" id="taxa_direxp" /><input type="hidden" id="base_direxp" />
+                <input type="hidden" id="taxa_iva" /><input type="hidden" id="base_iva" />
+
+                <table class="tax-summary-table">
+                  <tbody>
+                    <tr id="row_derimp">
+                      <td><span class="tax-name"><span class="tax-dot" style="background:#3b82f6;"></span>Direitos de Importação (DERIMP)</span></td>
+                      <td><span class="tax-amount" id="valor_direitos">0,00 KZ</span></td>
+                    </tr>
+                    <tr id="row_iec">
+                      <td><span class="tax-name"><span class="tax-dot" style="background:#ef4444;"></span>Imposto Especial de Consumo (IEC)</span></td>
+                      <td><span class="tax-amount" id="valor_iec">0,00 KZ</span></td>
+                    </tr>
+                    <tr id="row_emgead">
+                      <td><span class="tax-name"><span class="tax-dot" style="background:#8b5cf6;"></span>Emolumentos Gerais (05M)</span></td>
+                      <td><span class="tax-amount" id="valor_emolumentos">0,00 KZ</span></td>
+                    </tr>
+                    <tr id="row_direxp">
+                      <td><span class="tax-name"><span class="tax-dot" style="background:#f97316;"></span>Direitos de Exportação (DIREXP)</span></td>
+                      <td><span class="tax-amount" id="valor_direxp">0,00 KZ</span></td>
+                    </tr>
+                    <tr id="row_iva">
+                      <td><span class="tax-name"><span class="tax-dot" style="background:#22c55e;"></span>IVA (<span id="label_taxa_iva_tabela">14</span>%)</span></td>
+                      <td><span class="tax-amount" id="valor_iva">0,00 KZ</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- Total a Pagar — destaque -->
+                <div class="total-pagar-row" style="display:flex; align-items:center; justify-content:space-between; padding:18px 16px; border-radius:12px; margin-top:12px; background:linear-gradient(135deg,#137fec,#0f6fd4);">
+                  <span style="color:#fff; font-size:1rem; font-weight:700; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-credit-card" style="font-size:22px;"></i>
+                    Total a Pagar
+                  </span>
+                  <span id="total_geral" style="color:#fff; font-size:1.35rem; font-weight:800; font-variant-numeric:tabular-nums;">0,00 KZ</span>
+                </div>
+                <input type="hidden" id="total_geral_aoa" />
+              </div>
+            </div>
+
+            <!-- Dados Contabilísticos -->
+            <div class="form-card">
+              <div class="form-card-header">
+                <i class="fas fa-wallet"></i>
+                <h4>Dados Contabilísticos</h4>
+              </div>
+              <div class="form-card-content">
+                <div class="form-grid-3">
+                  <div class="form-field">
+                    <label class="form-label required">Forma de Pagamento</label>
+                    <select name="forma_pagamento" class="form-input" required>
+                      <option value="">Selecione...</option>
+                      <option value="PRONTO">Pronto Pagamento</option>
+                      <option value="CREDITO">Crédito</option>
+                      <option value="GARANTIA">Garantia</option>
+                      <option value="CAUCAO">Caução</option>
+                    </select>
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label">Nº de Liquidação</label>
+                    <input type="text" name="num_liquidacao" class="form-input" placeholder="Nº da liquidação" />
+                  </div>
+                  
+                  <div class="form-field">
+                    <label class="form-label">Nº do Recibo</label>
+                    <input type="text" name="num_recibo" class="form-input" placeholder="Nº do recibo" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Assinatura Digital -->
+            <div class="form-card">
+              <div class="form-card-header">
+                <i class="fas fa-file-edit"></i>
+                <h4>Assinatura Digital</h4>
+              </div>
+              <div class="form-card-content">
+                <div class="signature-info">
+                  <div class="signature-icon">
+                    <i class="fas fa-check-circle"></i>
+                  </div>
+                  <div class="signature-details">
+                    <h5>Assinatura Automática</h5>
+                    <p>A assinatura digital será aplicada automaticamente ao submeter a declaração.</p>
+                    <div class="signature-user">
+                      <strong>Despachante:</strong> {{ usuario.nome }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Navigation Buttons -->
+          <div class="form-navigation">
+            <button type="button" id="btnPrevious" class="btn-secondary" onclick="previousStep()" style="display: none;">
+              <i class="fas fa-arrow-left"></i>
+              Anterior
+            </button>
+            
+            <div class="nav-actions">
+              <button type="button" class="btn-outline" onclick="guardarRascunho()">
+                <i class="fas fa-save"></i>
+                Guardar Rascunho
+              </button>
+              
+              <button type="button" id="btnNext" class="btn-primary" onclick="nextStep()">
+                Próximo
+                <i class="fas fa-arrow-right"></i>
+              </button>
+              
+              <button type="button" id="btnSubmit" class="btn-success" style="display: none;" onclick="_submeterDU(true)">
+                <i class="fas fa-paper-plane"></i>
+                Submeter DU
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <!-- Sidebar (1/4 width) -->
+      <div class="xl:col-span-1">
+        <div class="sticky top-6 space-y-6">
+          
+          <!-- Progress Summary -->
+          <div class="sidebar-card">
+            <div class="sidebar-header">
+              <i class="fas fa-chart-line"></i>
+              <h3>Progresso</h3>
+            </div>
+            <div class="sidebar-content">
+              <div class="progress-summary">
+                <div class="progress-text">
+                  <span>Passo <span id="currentStepNum">1</span> de 4</span>
+                  <span class="progress-percent"><span id="progressPercent">25</span>%</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div class="progress-bar" id="progressBar" style="width: 25%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Calculations -->
+          <div class="sidebar-card" id="painel_calculos">
+            <div class="sidebar-header">
+              <i class="fas fa-calculator"></i>
+              <h3>Cálculo de Direitos</h3>
+              <button type="button" class="sidebar-toggle" onclick="togglePainelCalculos()">
+                <i class="fas fa-minus" id="toggle_icon"></i>
+              </button>
+            </div>
+            <div class="sidebar-content" id="conteudo_calculos">
+              <div class="calculation-list">
+                <div class="calc-item">
+                  <span class="calc-label">DERIMP</span>
+                  <span class="calc-value" id="painel_direitos">0,00 KZ</span>
+                </div>
+                <div class="calc-item">
+                  <span class="calc-label">IEC</span>
+                  <span class="calc-value" id="painel_iec">0,00 KZ</span>
+                </div>
+                <div class="calc-item">
+                  <span class="calc-label">05M (EMGEAD)</span>
+                  <span class="calc-value" id="painel_emolumentos">0,00 KZ</span>
+                </div>
+                <div class="calc-item">
+                  <span class="calc-label">DIREXP</span>
+                  <span class="calc-value" id="painel_direxp">0,00 KZ</span>
+                </div>
+                <div class="calc-item">
+                  <span class="calc-label" id="label_painel_iva">IVA</span>
+                  <span class="calc-value" id="painel_iva">0,00 KZ</span>
+                </div>
+                <div class="calc-total">
+                  <span class="calc-label">Total a Pagar</span>
+                  <span class="calc-value total" id="painel_total">0,00 KZ</span>
+                </div>
+              </div>
+              
+              <button type="button" class="btn-recalculate" onclick="calcularTaxas()">
+                <i class="fas fa-sync"></i>
+                Recalcular Taxas
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Guide -->
+          <div class="sidebar-card">
+            <div class="sidebar-header">
+              <i class="fas fa-question-circle"></i>
+              <h3>Guia Rápido</h3>
+            </div>
+            <div class="sidebar-content">
+              <div class="guide-list">
+                <div class="guide-item">
+                  <i class="fas fa-check-circle"></i>
+                  <span>Preencha todos os campos obrigatórios (*)</span>
+                </div>
+                <div class="guide-item">
+                  <i class="fas fa-check-circle"></i>
+                  <span>Código Pautal: 10 dígitos (0000.00.00.00)</span>
+                </div>
+                <div class="guide-item">
+                  <i class="fas fa-check-circle"></i>
+                  <span>Valor CIF = FOB + Frete + Seguro</span>
+                </div>
+                <div class="guide-item">
+                  <i class="fas fa-check-circle"></i>
+                  <span>Pode guardar rascunho a qualquer momento</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent DUs -->
+          <div class="sidebar-card">
+            <div class="sidebar-header">
+              <i class="fas fa-history"></i>
+              <h3>DUs Recentes</h3>
+            </div>
+            <div class="sidebar-content">
+              <div class="recent-list">
+                <div class="recent-item">
+                  <div class="recent-info">
+                    <div class="recent-number">DU-2024-1234</div>
+                    <div class="recent-date">28/11/2024</div>
+                  </div>
+                  <div class="recent-status approved">Aprovada</div>
+                </div>
+                <div class="recent-item">
+                  <div class="recent-info">
+                    <div class="recent-number">DU-2024-1233</div>
+                    <div class="recent-date">27/11/2024</div>
+                  </div>
+                  <div class="recent-status pending">Em Análise</div>
+                </div>
+                <div class="recent-item">
+                  <div class="recent-info">
+                    <div class="recent-number">DU-2024-1232</div>
+                    <div class="recent-date">26/11/2024</div>
+                  </div>
+                  <div class="recent-status rejected">Rejeitada</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="{% static 'du/documento.js' %}?v={% now 'U' %}"></script>
+<script src="{% static 'du/script.js' %}?v={% now 'U' %}"></script>
+
+<!-- Select2 Custom Styles -->
+<style>
+.select2-container--default .select2-selection--single {
+  height: 46px !important;
+  padding: 0.875rem 1rem !important;
+  font-size: 0.9375rem !important;
+  line-height: 1.5 !important;
+  border: 2px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  background-color: white !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  line-height: 28px !important;
+  padding-left: 0 !important;
+  color: #111827 !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: 44px !important;
+  right: 8px !important;
+}
+
+.select2-container--default.select2-container--open .select2-selection--single {
+  border-color: #137fec !important;
+  box-shadow: 0 0 0 3px rgba(19, 127, 236, 0.1) !important;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+  background-color: #137fec !important;
+}
+
+.select2-dropdown {
+  border: 2px solid #137fec !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1) !important;
+}
+
+.select2-search--dropdown .select2-search__field {
+  border: 2px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem !important;
+  font-size: 0.875rem !important;
+}
+
+.select2-search--dropdown .select2-search__field:focus {
+  border-color: #137fec !important;
+  outline: none !important;
+}
+
+.select2-results__option {
+  padding: 0.75rem 1rem !important;
+  font-size: 0.9375rem !important;
+}
+
+/* Dark mode support */
+.dark .select2-container--default .select2-selection--single {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .select2-container--default .select2-selection--single .select2-selection__rendered {
+  color: #f3f4f6 !important;
+}
+
+.dark .select2-dropdown {
+  background-color: #374151 !important;
+  border-color: #137fec !important;
+}
+
+.dark .select2-results__option {
+  background-color: #374151 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .select2-results__option--highlighted[aria-selected] {
+  background-color: #137fec !important;
+  color: white !important;
+}
+
+.dark .select2-search--dropdown .select2-search__field {
+  background-color: #4b5563 !important;
+  border-color: #6b7280 !important;
+  color: #f3f4f6 !important;
+}
+</style>
+
+<!-- Script para carregar Regimes Aduaneiros da API -->
+<script>
+// Função para atualizar campos baseado no regime selecionado
+function atualizarCamposDestinatario() {
+  const regimeSelect = document.getElementById('regime_aduaneiro');
+  const regimeCod = regimeSelect.value;
+  
+  // Campos do exportador
+  const exportadorCodigoLabel = document.getElementById('exportador_codigo_label');
+  const exportadorNomeLabel = document.getElementById('exportador_nome_label');
+  const exportadorEnderecoLabel = document.getElementById('exportador_endereco_label');
+  const exportadorNomeInput = document.getElementById('exportador_nome');
+  const exportadorEnderecoInput = document.getElementById('exportador_endereco');
+  const exportadorCodigoInput = document.getElementById('exportador_codigo');
+  const btnConsultarExportador = document.getElementById('consultar_nif_btn');
+  
+  // Campos do destinatário
+  const destinatarioNifLabel = document.getElementById('destinatario_nif_label');
+  const destinatarioNomeLabel = document.getElementById('destinatario_nome_label');
+  const destinatarioEnderecoLabel = document.getElementById('destinatario_endereco_label');
+  const destinatarioNifInput = document.getElementById('destinatario_nif');
+  const destinatarioNomeInput = document.getElementById('destinatario_nome');
+  const destinatarioEnderecoInput = document.getElementById('destinatario_endereco');
+  const destinatarioTelefoneInput = document.getElementById('destinatario_telefone');
+  const btnConsultarDestinatario = document.getElementById('btn_consultar_destinatario');
+  
+  // Verificar se é regime de importação (começa com IM) ou exportação (começa com EX)
+  const isImportacao = regimeCod.startsWith('IM');
+  const isExportacao = regimeCod.startsWith('EX');
+  
+  if (isExportacao) {
+    // ===== EXPORTAÇÃO =====
+    // Exportador: Apenas NIF habilitado (consulta preenche os outros)
+    exportadorCodigoLabel.classList.add('required');
+    exportadorNomeLabel.classList.remove('required');
+    exportadorEnderecoLabel.classList.remove('required');
+    
+    exportadorCodigoInput.removeAttribute('required');
+    exportadorCodigoInput.removeAttribute('readonly');
+    exportadorCodigoInput.classList.remove('readonly-field');
+    exportadorNomeInput.removeAttribute('required');
+    exportadorNomeInput.setAttribute('readonly', 'readonly');
+    exportadorNomeInput.classList.add('readonly-field');
+    exportadorEnderecoInput.removeAttribute('required');
+    exportadorEnderecoInput.setAttribute('readonly', 'readonly');
+    exportadorEnderecoInput.classList.add('readonly-field');
+    
+    // Mostrar botão consultar do exportador
+    if (btnConsultarExportador) {
+      btnConsultarExportador.style.display = 'inline-flex';
+    }
+    
+    // Limpar campos do exportador (exceto NIF)
+    exportadorNomeInput.value = '';
+    exportadorEnderecoInput.value = '';
+    
+    // Destinatário: Todos os campos editáveis, Nome e Endereço obrigatórios
+    destinatarioNifLabel.classList.remove('required');
+    destinatarioNomeLabel.classList.add('required');
+    destinatarioEnderecoLabel.classList.add('required');
+    
+    destinatarioNifInput.removeAttribute('required');
+    destinatarioNifInput.removeAttribute('readonly');
+    destinatarioNifInput.classList.remove('readonly-field');
+    destinatarioNomeInput.setAttribute('required', 'required');
+    destinatarioNomeInput.removeAttribute('readonly');
+    destinatarioNomeInput.classList.remove('readonly-field');
+    destinatarioEnderecoInput.setAttribute('required', 'required');
+    destinatarioEnderecoInput.removeAttribute('readonly');
+    destinatarioEnderecoInput.classList.remove('readonly-field');
+    destinatarioTelefoneInput.removeAttribute('readonly');
+    destinatarioTelefoneInput.classList.remove('readonly-field');
+    
+    // Ocultar botão consultar do destinatário
+    if (btnConsultarDestinatario) {
+      btnConsultarDestinatario.style.display = 'none';
+    }
+    
+    console.log('Regime de Exportação detectado:');
+    console.log('- Exportador: Apenas NIF habilitado, botão consultar visível');
+    console.log('- Destinatário: Todos editáveis, Nome e Endereço obrigatórios, botão consultar oculto');
+    
+  } else if (isImportacao) {
+    // ===== IMPORTAÇÃO =====
+    // Exportador: Nome e Endereço obrigatórios, NIF opcional
+    exportadorCodigoLabel.classList.remove('required');
+    exportadorNomeLabel.classList.add('required');
+    exportadorEnderecoLabel.classList.add('required');
+    
+    exportadorCodigoInput.removeAttribute('required');
+    exportadorCodigoInput.removeAttribute('readonly');
+    exportadorCodigoInput.classList.remove('readonly-field');
+    exportadorNomeInput.setAttribute('required', 'required');
+    exportadorNomeInput.removeAttribute('readonly');
+    exportadorNomeInput.classList.remove('readonly-field');
+    exportadorEnderecoInput.setAttribute('required', 'required');
+    exportadorEnderecoInput.removeAttribute('readonly');
+    exportadorEnderecoInput.classList.remove('readonly-field');
+    
+    // Ocultar botão consultar do exportador
+    if (btnConsultarExportador) {
+      btnConsultarExportador.style.display = 'none';
+    }
+    
+    // Destinatário: Apenas NIF obrigatório e editável, resto readonly
+    destinatarioNifLabel.classList.add('required');
+    destinatarioNomeLabel.classList.remove('required');
+    destinatarioEnderecoLabel.classList.remove('required');
+    
+    destinatarioNifInput.setAttribute('required', 'required');
+    destinatarioNifInput.removeAttribute('readonly');
+    destinatarioNifInput.classList.remove('readonly-field');
+    destinatarioNomeInput.removeAttribute('required');
+    destinatarioNomeInput.setAttribute('readonly', 'readonly');
+    destinatarioNomeInput.classList.add('readonly-field');
+    destinatarioEnderecoInput.removeAttribute('required');
+    destinatarioEnderecoInput.setAttribute('readonly', 'readonly');
+    destinatarioEnderecoInput.classList.add('readonly-field');
+    destinatarioTelefoneInput.setAttribute('readonly', 'readonly');
+    destinatarioTelefoneInput.classList.add('readonly-field');
+    
+    // Mostrar botão consultar do destinatário
+    if (btnConsultarDestinatario) {
+      btnConsultarDestinatario.style.display = 'inline-flex';
+    }
+    
+    // Limpar campos readonly do destinatário
+    destinatarioNomeInput.value = '';
+    destinatarioEnderecoInput.value = '';
+    destinatarioTelefoneInput.value = '';
+    
+    console.log('Regime de Importação detectado:');
+    console.log('- Exportador: Nome e Endereço obrigatórios, NIF opcional, botão consultar oculto');
+    console.log('- Destinatário: Apenas NIF obrigatório e editável, demais campos readonly, botão consultar visível');
+    
+  } else {
+    // ===== NENHUM REGIME SELECIONADO =====
+    // Resetar todos os campos
+    exportadorCodigoLabel.classList.remove('required');
+    exportadorNomeLabel.classList.remove('required');
+    exportadorEnderecoLabel.classList.remove('required');
+    destinatarioNifLabel.classList.remove('required');
+    destinatarioNomeLabel.classList.remove('required');
+    destinatarioEnderecoLabel.classList.remove('required');
+    
+    exportadorCodigoInput.removeAttribute('required');
+    exportadorCodigoInput.removeAttribute('readonly');
+    exportadorCodigoInput.classList.remove('readonly-field');
+    exportadorNomeInput.removeAttribute('required');
+    exportadorNomeInput.removeAttribute('readonly');
+    exportadorNomeInput.classList.remove('readonly-field');
+    exportadorEnderecoInput.removeAttribute('required');
+    exportadorEnderecoInput.removeAttribute('readonly');
+    exportadorEnderecoInput.classList.remove('readonly-field');
+    destinatarioNifInput.removeAttribute('required');
+    destinatarioNifInput.removeAttribute('readonly');
+    destinatarioNifInput.classList.remove('readonly-field');
+    destinatarioNomeInput.removeAttribute('required');
+    destinatarioNomeInput.removeAttribute('readonly');
+    destinatarioNomeInput.classList.remove('readonly-field');
+    destinatarioEnderecoInput.removeAttribute('required');
+    destinatarioEnderecoInput.removeAttribute('readonly');
+    destinatarioEnderecoInput.classList.remove('readonly-field');
+    destinatarioTelefoneInput.removeAttribute('readonly');
+    destinatarioTelefoneInput.classList.remove('readonly-field');
+    
+    // Mostrar ambos os botões consultar por padrão
+    if (btnConsultarExportador) {
+      btnConsultarExportador.style.display = 'inline-flex';
+    }
+    if (btnConsultarDestinatario) {
+      btnConsultarDestinatario.style.display = 'inline-flex';
+    }
+  }
+}
+
+// Funções consultarNIF e consultarNIFDestinatario foram movidas para o arquivo script.js
+// para usar dados dinâmicos da tabela clientes via API
+
+// ─── Vinhetas ────────────────────────────────────────────────────────────────
+
+var _vinhetasCache = [];
+var _vinhetaPrefixo = 'CDOA{{ usuario.cedula|default:"" }}';
+
+function consultarVinhetas() {
+  var btn  = document.getElementById('vinheta_btn_consultar');
+  var hint = document.getElementById('vinheta_hint');
+  var drop = document.getElementById('vinheta_dropdown');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner" style="animation:spin 0.8s linear infinite"></i> A consultar...';
+  }
+
+  fetch('/du/api/vinhetas/', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+    credentials: 'same-origin',
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-search"></i> Consultar';
+    }
+
+    if (data.erro) {
+      if (hint) hint.textContent = data.erro;
+      return;
+    }
+
+    // Sem vinhetas disponíveis (404, utilizador não encontrado, etc.)
+    if (data.sem_vinhetas) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Consultar'; }
+      if (hint) hint.textContent = data.mensagem || 'Nenhuma vinheta disponível.';
+      return;
+    }
+
+    _vinhetasCache = data.vinhetas || [];
+
+    if (_vinhetasCache.length === 0) {
+      if (hint) hint.textContent = 'Nenhuma vinheta disponível para a sua cédula.';
+      return;
+    }
+
+    if (hint) hint.textContent = _vinhetasCache.length + ' vinheta(s) disponível(eis) — continue a digitar para filtrar';
+
+    // Garantir prefixo no campo e focar no fim
+    var sufixo = document.getElementById('vinheta_sufixo');
+    if (sufixo && !sufixo.value.toUpperCase().startsWith(_vinhetaPrefixo)) {
+      sufixo.value = _vinhetaPrefixo;
+    }
+    if (sufixo) {
+      sufixo.focus();
+      sufixo.setSelectionRange(sufixo.value.length, sufixo.value.length);
+    }
+
+    // Mostrar lista completa
+    _renderVinhetas(_vinhetasCache);
+    if (drop) drop.style.display = 'block';
+  })
+  .catch(function() {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-search"></i> Consultar';
+    }
+    if (hint) hint.textContent = 'Erro de ligação. Tente novamente.';
+  });
+}
+
+function filtrarVinhetas() {
+  // Só filtra se já tiver vinhetas carregadas
+  if (!_vinhetasCache.length) return;
+
+  var sufixo = document.getElementById('vinheta_sufixo');
+  var drop   = document.getElementById('vinheta_dropdown');
+  var val    = (sufixo ? sufixo.value : '').toUpperCase();
+
+  // Proteger o prefixo — se o utilizador o apagou, restaurar
+  if (!val.startsWith(_vinhetaPrefixo)) {
+    sufixo.value = _vinhetaPrefixo;
+    val = _vinhetaPrefixo;
+  }
+
+  // Parte digitada pelo utilizador (depois do prefixo)
+  var parteDigitada = val.slice(_vinhetaPrefixo.length).trim();
+
+  var lista = _vinhetasCache.filter(function(v) {
+    if (!parteDigitada) return true;
+    var codigo  = (v.vinheta || '').toUpperCase();
+    var parteVar = codigo.startsWith(_vinhetaPrefixo) ? codigo.slice(_vinhetaPrefixo.length) : codigo;
+    return parteVar.includes(parteDigitada);
+  });
+
+  _renderVinhetas(lista);
+  // Manter lista visível sempre (mesmo vazia mostra mensagem)
+  if (drop) drop.style.display = 'block';
+}
+
+function _renderVinhetas(lista) {
+  var drop = document.getElementById('vinheta_dropdown');
+  if (!drop) return;
+
+  if (!lista.length) {
+    drop.innerHTML = '<div style="padding:12px 16px;color:#94a3b8;font-size:0.85rem;text-align:center;">Nenhuma vinheta encontrada</div>';
+    return;
+  }
+
+  drop.innerHTML = lista.map(function(v, idx) {
+    var codigo  = v.vinheta || '';
+    var sufPart = codigo.toUpperCase().startsWith(_vinhetaPrefixo) ? codigo.slice(_vinhetaPrefixo.length) : codigo;
+    var valor   = v.valor ? Number(v.valor).toLocaleString('pt-AO') + ' Kz' : '';
+    var bgBase  = idx % 2 === 0 ? '#fff' : '#f8fafc';
+    return '<div onclick="selecionarVinheta(\'' + codigo + '\')"'
+      + ' style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;background:' + bgBase + ';transition:background 0.12s;"'
+      + ' onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'' + bgBase + '\'">'
+      + '<span style="font-family:monospace;font-size:0.875rem;">'
+      + '<span style="color:#94a3b8;">' + _vinhetaPrefixo + '</span>'
+      + '<span style="color:#0f172a;font-weight:700;">' + sufPart + '</span>'
+      + '</span>'
+      + (valor ? '<span style="font-size:0.78rem;color:#64748b;">' + valor + '</span>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function selecionarVinheta(codigo) {
+  var input  = document.getElementById('vinheta_input');
+  var sufixo = document.getElementById('vinheta_sufixo');
+  var drop   = document.getElementById('vinheta_dropdown');
+  var hint   = document.getElementById('vinheta_hint');
+
+  if (input)  { input.value = codigo; input.dispatchEvent(new Event('change', {bubbles:true})); }
+  if (sufixo) { sufixo.value = codigo; sufixo.readOnly = true; }
+  if (drop)   { drop.style.display = 'none'; }
+
+  if (hint) hint.innerHTML = '<span style="color:#16a34a;font-weight:600;">✓ ' + codigo + '</span>'
+    + '&nbsp;&nbsp;<a href="#" onclick="limparVinheta();return false;" style="color:#94a3b8;font-size:0.75rem;text-decoration:none;">alterar</a>';
+}
+
+function limparVinheta() {
+  var input  = document.getElementById('vinheta_input');
+  var sufixo = document.getElementById('vinheta_sufixo');
+  var drop   = document.getElementById('vinheta_dropdown');
+  var hint   = document.getElementById('vinheta_hint');
+
+  if (input)  input.value = '';
+  if (sufixo) {
+    sufixo.value = _vinhetaPrefixo;
+    sufixo.readOnly = false;
+    sufixo.focus();
+    sufixo.setSelectionRange(sufixo.value.length, sufixo.value.length);
+  }
+  if (hint) hint.textContent = 'Clique em Consultar para carregar as suas vinhetas';
+
+  if (_vinhetasCache.length) {
+    _renderVinhetas(_vinhetasCache);
+    if (drop) drop.style.display = 'block';
+  }
+}
+
+// Proteger o prefixo contra Backspace/Delete/seta esquerda
+document.addEventListener('DOMContentLoaded', function() {
+  var sufixo = document.getElementById('vinheta_sufixo');
+  if (!sufixo) return;
+
+  sufixo.addEventListener('focus', function() {
+    var len = this.value.length;
+    this.setSelectionRange(len, len);
+  });
+
+  sufixo.addEventListener('keydown', function(e) {
+    var pos     = this.selectionStart;
+    var prefLen = _vinhetaPrefixo.length;
+    if ((e.key === 'Backspace' || e.key === 'Delete' || e.key === 'ArrowLeft') && pos <= prefLen) {
+      e.preventDefault();
+    }
+  });
+});
+
+// Animação de spin
+(function() {
+  if (!document.getElementById('spin-keyframes')) {
+    var s = document.createElement('style');
+    s.id = 'spin-keyframes';
+    s.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+  }
+})();
+
+// Função para formatar código pautal automaticamente (0000.00.00.00)
+function formatarCodigoPautal(input) {
+  // Remove tudo que não é número
+  let valor = input.value.replace(/\D/g, '');
+  
+  // Limita a 10 dígitos
+  if (valor.length > 10) {
+    valor = valor.substring(0, 10);
+  }
+  
+  // Adiciona os pontos automaticamente
+  let formatado = '';
+  if (valor.length > 0) {
+    formatado = valor.substring(0, 4); // Primeiros 4 dígitos
+    if (valor.length > 4) {
+      formatado += '.' + valor.substring(4, 6); // Próximos 2 dígitos
+    }
+    if (valor.length > 6) {
+      formatado += '.' + valor.substring(6, 8); // Próximos 2 dígitos
+    }
+    if (valor.length > 8) {
+      formatado += '.' + valor.substring(8, 10); // Últimos 2 dígitos
+    }
+  }
+  
+  input.value = formatado;
+}
+
+// Adicionar event listeners quando o documento carregar
+document.addEventListener('DOMContentLoaded', function() {
+  const codigoPautalInput = document.getElementById('codigo_pautal');
+  
+  if (codigoPautalInput) {
+    // Formatar enquanto digita
+    codigoPautalInput.addEventListener('input', function(e) {
+      formatarCodigoPautal(e.target);
+    });
+    
+    // Bloquear entrada de caracteres não numéricos
+    codigoPautalInput.addEventListener('keypress', function(e) {
+      // Permitir apenas números
+      if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+        e.preventDefault();
+      }
+    });
+  }
+});
+
+
+/* ============================================================
+   ADIÇÕES — Função completa com estrutura exacta do HTML original
+   
+   INSTRUÇÕES DE USO:
+   1. Certifique-se que existe <div id="adicoes_wrapper"> a envolver
+      todo o conteúdo do data-step="2" (exceto o botão de adicionar).
+   2. Cole este script no du.php ou no du/script.js.
+   3. O primeiro card (Adição 1) já está no HTML, as seguintes são
+      geradas dinamicamente com a mesma estrutura.
+============================================================ */
+
+let adicaoCounter = 0; // começa em 1 porque o HTML já tem a adição nº1
+
+/* ----------------------------------------------------------
+   Lista completa de países (igual ao HTML original)
+---------------------------------------------------------- */
+const PAISES_OPTIONS = `
+  <option value="">Selecione o país...</option>
+  <option value="AO">AO - Angola</option>
+  <option value="PT">PT - Portugal</option>
+  <option value="BR">BR - Brasil</option>
+  <option value="US">US - Estados Unidos</option>
+  <option value="CN">CN - China</option>
+  <option value="DE">DE - Alemanha</option>
+  <option value="FR">FR - França</option>
+  <option value="GB">GB - Reino Unido</option>
+  <option value="IT">IT - Itália</option>
+  <option value="ES">ES - Espanha</option>
+  <option value="ZA">ZA - África do Sul</option>
+  <option value="MZ">MZ - Moçambique</option>
+  <option value="CV">CV - Cabo Verde</option>
+  <option value="ST">ST - São Tomé e Príncipe</option>
+  <option value="GW">GW - Guiné-Bissau</option>
+  <option value="TL">TL - Timor-Leste</option>
+  <option value="IN">IN - Índia</option>
+  <option value="JP">JP - Japão</option>
+  <option value="KR">KR - Coreia do Sul</option>
+  <option value="AE">AE - Emirados Árabes Unidos</option>
+  <option value="SA">SA - Arábia Saudita</option>
+  <option value="TR">TR - Turquia</option>
+  <option value="RU">RU - Rússia</option>
+  <option value="CA">CA - Canadá</option>
+  <option value="MX">MX - México</option>
+  <option value="AR">AR - Argentina</option>
+  <option value="CL">CL - Chile</option>
+  <option value="AU">AU - Austrália</option>
+  <option value="NZ">NZ - Nova Zelândia</option>
+  <option value="SG">SG - Singapura</option>
+  <option value="MY">MY - Malásia</option>
+  <option value="TH">TH - Tailândia</option>
+  <option value="VN">VN - Vietnã</option>
+  <option value="ID">ID - Indonésia</option>
+  <option value="PH">PH - Filipinas</option>
+  <option value="EG">EG - Egito</option>
+  <option value="NG">NG - Nigéria</option>
+  <option value="KE">KE - Quênia</option>
+  <option value="GH">GH - Gana</option>
+  <option value="ET">ET - Etiópia</option>
+  <option value="TZ">TZ - Tanzânia</option>
+  <option value="UG">UG - Uganda</option>
+  <option value="ZW">ZW - Zimbábue</option>
+  <option value="BW">BW - Botsuana</option>
+  <option value="NA">NA - Namíbia</option>
+  <option value="ZM">ZM - Zâmbia</option>
+  <option value="CD">CD - República Democrática do Congo</option>
+  <option value="CG">CG - República do Congo</option>
+  <option value="GA">GA - Gabão</option>
+  <option value="CM">CM - Camarões</option>
+  <option value="SN">SN - Senegal</option>
+  <option value="CI">CI - Costa do Marfim</option>
+  <option value="ML">ML - Mali</option>
+  <option value="BF">BF - Burkina Faso</option>
+  <option value="NE">NE - Níger</option>
+  <option value="TD">TD - Chade</option>
+  <option value="SD">SD - Sudão</option>
+  <option value="MA">MA - Marrocos</option>
+  <option value="DZ">DZ - Argélia</option>
+  <option value="TN">TN - Tunísia</option>
+  <option value="LY">LY - Líbia</option>
+`;
+
+/* ----------------------------------------------------------
+   Gerar HTML completo de uma adição
+   Idêntico ao HTML original, com nomes indexados adicao[N][campo]
+---------------------------------------------------------- */
+function gerarHTMLAdicao(n, dados) {
+  dados = dados || {};
+
+  return `
+  <!-- ===== WRAPPER DA ADIÇÃO ${n} ===== -->
+  <div class="adicao-card-wrapper" id="adicao_wrapper_${n}" data-adicao="${n}">
+
+    <!-- Cabeçalho da adição (toggle + acções) -->
+    <div class="adicao-card-header" onclick="toggleAdicao(${n})">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="adicao-badge">${n}</div>
+        <span class="adicao-card-title">Adição Nº ${n}</span>
+        <span class="adicao-card-subtitle" id="adicao_subtitle_${n}">
+          ${dados.codigo_pautal ? dados.codigo_pautal : 'Nova adição'}
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
+        <button type="button" class="adicao-btn-icon" title="Duplicar adição" onclick="duplicarAdicao(${n})">
+          <i class="fas fa-copy"></i>
+        </button>
+        <button type="button" class="adicao-btn-icon danger" title="Remover adição" onclick="removerAdicao(${n})">
+          <i class="fas fa-trash"></i>
+        </button>
+        <i class="fas fa-chevron-up adicao-chevron" id="chevron_${n}" onclick="toggleAdicao(${n})" ></i>
+      </div>
+    </div>
+
+    <!-- Corpo da adição (expansível) -->
+    <div class="adicao-card-body expanded" id="content_adicao_${n}">
+
+      <!-- Identificação da Adição -->
+      <div class="form-card collapsible">
+        <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+          <i class="fas fa-plus-square"></i>
+          <h4>Identificação da Adição</h4>
+          <i class="fas fa-chevron-down collapse-icon"></i>
+        </div>
+        <div class="form-card-content collapse-content">
+          <div class="form-grid-3">
+            <div class="form-field">
+              <label class="form-label">
+                Nº da Adição
+                <span class="field-code">Campo 32</span>
+              </label>
+              <input type="number" name="adicao[${n}][num_adicao]" class="form-input" value="${n}" min="1" readonly />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label required">
+                Código País de Origem
+                <span class="field-code">Campo 34</span>
+              </label>
+              <select name="adicao[${n}][pais_origem]" id="pais_origem_${n}" class="form-input" required
+                onchange="atualizarSubtituloAdicao(${n})">
+                ${PAISES_OPTIONS}
+              </select>
+              <p class="field-hint">Digite para pesquisar o país</p>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label required">
+                Código Pautal
+                <span class="field-code">Campo 33</span>
+              </label>
+              <select name="adicao[${n}][codigo_pautal]" id="codigo_pautal_${n}" class="form-input" required style="width:100%;">
+                ${dados.codigo_pautal
+                  ? `<option value="${dados.codigo_pautal}" selected>${dados.codigo_pautal}${dados.descricao_mercadoria_pauta ? ' — ' + dados.descricao_mercadoria_pauta : ''}</option>`
+                  : '<option value="">Pesquisar código pautal...</option>'}
+              </select>
+              <p class="field-hint" id="pauta_desc_${n}" style="color:#137fec;font-size:12px;margin-top:4px;">${dados.descricao_mercadoria_pauta || ''}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Descrição da Mercadoria -->
+      <div class="form-card collapsible">
+        <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+          <i class="fas fa-file-alt"></i>
+          <h4>Descrição e Volumes</h4>
+          <i class="fas fa-chevron-down collapse-icon"></i>
+        </div>
+        <div class="form-card-content collapse-content">
+
+          <div class="form-field">
+            <label class="form-label required">
+              Designação das Mercadorias
+              <span class="field-code">Campo 31</span>
+            </label>
+            <textarea name="adicao[${n}][descricao_mercadoria]" class="form-input" rows="4"
+              placeholder="Descrição detalhada da mercadoria, incluindo marca, modelo, características técnicas, etc."
+              required
+              onchange="atualizarSubtituloAdicao(${n})">${dados.descricao_mercadoria || ''}</textarea>
+            <p class="field-hint">Descreva de forma clara e completa. Inclua: nome comercial, marca, modelo, especificações técnicas.</p>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-field">
+              <label class="form-label required">
+                Número de volume
+                <span class="field-code">Campo 31</span>
+              </label>
+              <input name="adicao[${n}][numero_volume]" type="number" class="form-input"
+                placeholder="Digite o número de volume." required
+                value="${dados.numero_volume || ''}" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">
+                Tipo de Volume
+                <span class="field-code">Campo 31</span>
+              </label>
+              <select name="adicao[${n}][tipo_volume]" id="tipo_volume_${n}" class="form-input">
+                <option value="">Selecione o tipo...</option>
+                <option value="BX" ${dados.tipo_volume === 'BX' ? 'selected' : ''}>BX - Caixa</option>
+                <option value="SA" ${dados.tipo_volume === 'SA' ? 'selected' : ''}>SA - Saco</option>
+                <option value="DR" ${dados.tipo_volume === 'DR' ? 'selected' : ''}>DR - Barril</option>
+                <option value="TB" ${dados.tipo_volume === 'TB' ? 'selected' : ''}>TB - Tambor</option>
+                <option value="CT" ${dados.tipo_volume === 'CT' ? 'selected' : ''}>CT - Contentor</option>
+                <option value="PL" ${dados.tipo_volume === 'PL' ? 'selected' : ''}>PL - Palete</option>
+                <option value="RL" ${dados.tipo_volume === 'RL' ? 'selected' : ''}>RL - Rolo</option>
+                <option value="FD" ${dados.tipo_volume === 'FD' ? 'selected' : ''}>FD - Fardo</option>
+                <option value="GA" ${dados.tipo_volume === 'GA' ? 'selected' : ''}>GA - Garrafa</option>
+                <option value="LA" ${dados.tipo_volume === 'LA' ? 'selected' : ''}>LA - Lata</option>
+                <option value="PK" ${dados.tipo_volume === 'PK' ? 'selected' : ''}>PK - Pacote</option>
+                <option value="CS" ${dados.tipo_volume === 'CS' ? 'selected' : ''}>CS - Caixa de Papelão</option>
+                <option value="BG" ${dados.tipo_volume === 'BG' ? 'selected' : ''}>BG - Bolsa</option>
+                <option value="BO" ${dados.tipo_volume === 'BO' ? 'selected' : ''}>BO - Garrafa</option>
+                <option value="CR" ${dados.tipo_volume === 'CR' ? 'selected' : ''}>CR - Engradado</option>
+              </select>
+              <p class="field-hint">Digite para pesquisar o tipo</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pesos e Quantidades -->
+      <div class="form-card collapsible">
+        <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+          <i class="fas fa-balance-scale"></i>
+          <h4>Pesos e Quantidades</h4>
+          <i class="fas fa-chevron-down collapse-icon"></i>
+        </div>
+        <div class="form-card-content collapse-content">
+          <div class="form-grid-4">
+            <div class="form-field">
+              <label class="form-label">
+                Peso Bruto (kg)
+                <span class="field-code">Campo 35</span>
+              </label>
+              <input type="number" name="adicao[${n}][peso_bruto]" class="form-input"
+                placeholder="0.00" step="0.01" value="${dados.peso_bruto || ''}" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label">
+                Peso Líquido (kg)
+                <span class="field-code">Campo 38</span>
+              </label>
+              <input type="number" name="adicao[${n}][peso_liquido]" id="peso_liquido_${n}" class="form-input"
+                placeholder="0.00" step="0.01" value="${dados.peso_liquido || ''}"
+                oninput="validarPesoLiquido(${n})" />
+              <p class="field-hint" id="peso_liquido_error_${n}" style="color:#ef4444;display:none;">
+                <i class="fas fa-times-circle" style="font-size:14px;vertical-align:middle;"></i>
+                Peso líquido não pode ser maior que o peso bruto
+              </p>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label">
+                Q. complementar
+                <span class="field-code">Ca. 41</span>
+              </label>
+              <input type="number" name="adicao[${n}][quantidade]" id="quantidade_${n}"
+                class="form-input" placeholder="Selecione o código pautal primeiro"
+                step="0.01" disabled value="${dados.quantidade || ''}" />
+              <p class="field-hint">Ativado automaticamente quando a unidade for diferente de KG</p>
+            </div>
+
+            <div class="form-field">
+              <div class="form-field">
+                <label class="form-label">
+                  Unidade
+                  <span class="field-code">Campo 42</span>
+                </label>
+                <input type="text" name="adicao[${n}][unidade]" id="unidade_${n}"
+                  class="form-input calc-field" placeholder="Preenchido pelo código pautal"
+                  readonly value="${dados.unidade || ''}" />
+                <p class="field-hint">Preenchido automaticamente pelo código pautal</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert-info mt-4">
+            <i class="fas fa-info-circle"></i>
+            <span><strong>Automático:</strong> Quando escolher o código pautal, a unidade aparece automaticamente. Se a unidade for KG, o campo quantidade fica bloqueado. Se for diferente de KG, o campo quantidade fica ativo.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Procedimentos e Preferências -->
+      <div class="form-card collapsible">
+        <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+          <i class="fas fa-cogs"></i>
+          <h4>Procedimentos e Preferências</h4>
+          <i class="fas fa-chevron-down collapse-icon"></i>
+        </div>
+        <div class="form-card-content collapse-content">
+          <div class="form-grid-3">
+            <div class="form-field">
+              <label class="form-label">
+                Preferência
+                <span class="field-code">Campo 36</span>
+              </label>
+              <select name="adicao[${n}][preferencia]" class="form-input">
+                <option value="">Nenhuma</option>
+                <option value="SADC" ${dados.preferencia === 'SADC' ? 'selected' : ''}>SADC</option>
+                <option value="CPLP" ${dados.preferencia === 'CPLP' ? 'selected' : ''}>CPLP</option>
+                <option value="SGP"  ${dados.preferencia === 'SGP'  ? 'selected' : ''}>SGP - Sistema Geral de Preferências</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label required">
+                Código do Procedimento
+                <span class="field-code">Campo 37</span>
+              </label>
+              <select name="adicao[${n}][codigo_procedimento]" required id="codigo_procedimento_${n}"
+                class="form-input" onchange="atualizarCodigoIsencaoDinamico(${n})">
+                <option value="">A carregar...</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label required">
+                Código da Isenção
+                <span class="field-code">Campo 36</span>
+              </label>
+              <select name="adicao[${n}][codigo_isencao]" required id="codigo_isencao_${n}"
+                class="form-input"
+                data-valor-inicial="${dados.codigo_isencao || '000'}">
+                <option value="000">000 - Sem isenção</option>
+              </select>
+              <p class="field-hint">Códigos de isenção disponíveis baseados no procedimento selecionado</p>
+            </div>
+          </div>
+
+          <div class="form-grid-2 mt-4">
+            <div class="form-field">
+              <label class="form-label">
+                Quota
+                <span class="field-code">Campo 39</span>
+              </label>
+              <input type="text" name="adicao[${n}][quota]" class="form-input"
+                placeholder="Se aplicável" value="${dados.quota || ''}" />
+              <p class="field-hint">Preencher apenas se houver quota aplicável</p>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label">
+                Título/Documento Precedente
+                <span class="field-code">Campo 40</span>
+              </label>
+              <input type="text" name="adicao[${n}][documento_precedente]" class="form-input"
+                placeholder="Número de documento" value="${dados.documento_precedente || ''}" />
+              <p class="field-hint">Número do documento precedente, se aplicável</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Valores da Adição -->
+      <div class="form-card collapsible">
+        <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+          <i class="fas fa-credit-card"></i>
+          <h4>Valores Comerciais e Financeiros</h4>
+          <i class="fas fa-chevron-down collapse-icon"></i>
+        </div>
+        <div class="form-card-content">
+
+          <!-- FOB -->
+          <div class="mb-4">
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Valor FOB</p>
+            <div class="form-grid-4">
+              <div class="form-field">
+                <label class="form-label required">Valor FOB</label>
+                <input type="number" name="adicao[${n}][valor_fob]" id="fob_${n}"
+                  class="form-input" placeholder="0.00" step="0.01" required
+                  value="${dados.valor_fob || ''}"
+                  oninput="calcularAdicaoFinanceiro(${n})" />
+              </div>
+              <div class="form-field">
+                <label class="form-label required">Moeda</label>
+                <select name="adicao[${n}][moeda_fob]" id="moeda_fob_${n}" class="form-input" required
+                  onchange="calcularAdicaoFinanceiro(${n})">
+                  <option value="AOA" selected>AOA - Kwanza</option>
+                  <option value="USD">USD - Dólar</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="CNY">CNY - Yuan</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Câmbio</label>
+                <input type="number" name="adicao[${n}][cambio_fob]" id="cambio_fob_${n}"
+                  class="form-input calc-field" placeholder="0.00" step="0.0001" readonly
+                  value="${dados.cambio_fob || ''}" />
+              </div>
+              <div class="form-field">
+                <label class="form-label">FOB em KZ</label>
+                <input type="number" name="adicao[${n}][valor_fob_kz]" id="fob_kz_${n}"
+                  class="form-input calc-field" placeholder="0.00" step="0.01" readonly
+                  value="${dados.valor_fob_kz || ''}" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Seguro -->
+          <div class="mb-4">
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Seguro</p>
+            <div class="form-grid-4">
+              <div class="form-field">
+                <label class="form-label">Valor Seguro</label>
+                <input type="number" name="adicao[${n}][valor_seguro]" id="seguro_${n}"
+                  class="form-input" placeholder="0.00" step="0.01"
+                  value="${dados.valor_seguro || ''}"
+                  oninput="calcularAdicaoFinanceiro(${n})" />
+              </div>
+              <div class="form-field">
+                <label class="form-label">Moeda</label>
+                <select name="adicao[${n}][moeda_seguro]" id="moeda_seguro_${n}" class="form-input"
+                  onchange="calcularAdicaoFinanceiro(${n})">
+                  <option value="AOA" selected>AOA - Kwanza</option>
+                  <option value="USD">USD - Dólar</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="CNY">CNY - Yuan</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Câmbio</label>
+                <input type="number" name="adicao[${n}][cambio_seguro]" id="cambio_seguro_${n}"
+                  class="form-input calc-field" placeholder="0.00" step="0.0001" readonly
+                  value="${dados.cambio_seguro || ''}" />
+              </div>
+              <div class="form-field">
+                <label class="form-label">Seguro em KZ</label>
+                <input type="number" name="adicao[${n}][valor_seguro_kz]" id="seguro_kz_${n}"
+                  class="form-input calc-field" placeholder="0.00" step="0.01"
+                  value="${dados.valor_seguro_kz || ''}" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Frete -->
+          <div class="mb-4">
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Frete</p>
+            <div class="form-grid-4">
+              <div class="form-field">
+                <label class="form-label">Valor Frete</label>
+                <input type="number" name="adicao[${n}][valor_frete]" id="frete_${n}"
+                  class="form-input" placeholder="0.00" step="0.01"
+                  value="${dados.valor_frete || ''}"
+                  oninput="calcularAdicaoFinanceiro(${n})" />
+              </div>
+              <div class="form-field">
+                <label class="form-label">Moeda</label>
+                <select name="adicao[${n}][moeda_frete]" id="moeda_frete_${n}" class="form-input"
+                  onchange="calcularAdicaoFinanceiro(${n})">
+                  <option value="AOA" selected>AOA - Kwanza</option>
+                  <option value="USD">USD - Dólar</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="CNY">CNY - Yuan</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Câmbio</label>
+                <input type="number" name="adicao[${n}][cambio_frete]" id="cambio_frete_${n}"
+                  class="form-input calc-field" placeholder="0.00" step="0.0001" readonly
+                  value="${dados.cambio_frete || ''}" />
+              </div>
+              <div class="form-field">
+                <label class="form-label">Frete em KZ</label>
+                <input type="number" name="adicao[${n}][valor_frete_kz]" id="frete_kz_${n}"
+                  class="form-input calc-field" placeholder="0.00" step="0.01"
+                  value="${dados.valor_frete_kz || ''}" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Montante desta adição -->
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">Montante desta Adição (KZ)</span>
+              <input type="number" name="adicao[${n}][montante_kz]" id="montante_kz_${n}"
+                class="form-input calc-field w-48 text-right font-bold" placeholder="0.00" readonly
+                value="${dados.montante_kz || ''}" />
+            </div>
+            <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">FOB (KZ) + Seguro (KZ) + Frete (KZ)</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /adicao-card-body -->
+  </div><!-- /adicao-card-wrapper -->
+  `;
+}
+
+
+/* ----------------------------------------------------------
+   adicionarNovaAdicao  — função principal
+---------------------------------------------------------- */
+function adicionarNovaAdicao(dadosExistentes) {
+  const wrapper = document.getElementById('adicoes_wrapper');
+  if (!wrapper) {
+    console.error('Elemento #adicoes_wrapper não encontrado no DOM');
+    return;
+  }
+
+  adicaoCounter++;
+  const n = adicaoCounter;
+
+  // Colapsar todas as adições anteriores
+  wrapper.querySelectorAll('.adicao-card-body').forEach(c => c.classList.remove('expanded'));
+  wrapper.querySelectorAll('.adicao-card-wrapper').forEach(c => c.classList.remove('active-adicao'));
+  wrapper.querySelectorAll('.adicao-chevron').forEach(c => c.textContent = 'expand_more');
+
+  // Criar elemento e injetar HTML
+  const temp = document.createElement('div');
+  temp.innerHTML = gerarHTMLAdicao(n, dadosExistentes || {});
+  const card = temp.firstElementChild;
+
+  wrapper.appendChild(card);
+
+  // Inicializar Select2 com AJAX para o campo código pautal
+  if (typeof $.fn.select2 !== 'undefined') {
+    $(`#codigo_pautal_${n}`).select2({
+      placeholder: 'Pesquisar código ou descrição...',
+      allowClear: true,
+      width: '100%',
+      minimumInputLength: 0,
+      language: {
+        searching: () => 'A pesquisar...',
+        noResults: () => 'Nenhum código encontrado',
+        loadingMore: () => 'A carregar mais resultados...'
+      },
+      ajax: {
+        url: 'https://api-sic-fields.netsulwel.tech/pautas',
+        dataType: 'json',
+        delay: 300,
+        cache: true,
+        data: function(params) {
+          // Se não houver termo, buscar todos para mostrar códigos aleatórios
+          const term = params.term || '';
+          return {
+            term: term
+          };
+        },
+        processResults: function(data, params) {
+          const termo = (params.term || '').toLowerCase().replace(/\./g, '');
+          
+          // Se não houver termo, mostrar 4 códigos aleatórios
+          if (!termo) {
+            const embaralhados = [...data].sort(() => Math.random() - 0.5);
+            const aleatorios = embaralhados.slice(0, 4);
+            return {
+              results: aleatorios.map(p => ({
+                id: p.codigo_sh,
+                text: `${p.codigo_sh} — ${p.descricao_mercadoria || ''}`,
+                pauta: p
+              }))
+            };
+          }
+          
+          // Códigos que COMEÇAM com o termo digitado têm prioridade
+          const porCodigo   = data.filter(p => String(p.codigo_sh).replace(/\./g, '').startsWith(termo));
+          // Fallback: descrição contém o termo (quando o utilizador digita texto)
+          const porDescricao = data.filter(p =>
+            !String(p.codigo_sh).replace(/\./g, '').startsWith(termo) &&
+            (p.descricao_mercadoria || '').toLowerCase().includes(termo)
+          );
+          const filtrados = [...porCodigo, ...porDescricao].slice(0, 5);
+          return {
+            results: filtrados.map(p => ({
+              id: p.codigo_sh,
+              text: `${p.codigo_sh} — ${p.descricao_mercadoria || ''}`,
+              pauta: p
+            }))
+          };
+        }
+      },
+      templateResult: function(item) {
+        if (item.loading) return item.text;
+        if (!item.pauta) return item.text;
+        const p = item.pauta;
+        return $(`
+          <div style="padding:4px 0;">
+            <span style="font-weight:600;color:#003366;">${p.codigo_sh}</span>
+            <span style="color:#374151;margin-left:8px;font-size:13px;">${p.descricao_mercadoria || ''}</span>
+            <span style="float:right;color:#6b7280;font-size:11px;background:#f3f4f6;padding:1px 6px;border-radius:4px;">${p.unidade_medida || ''}</span>
+          </div>
+        `);
+      },
+      templateSelection: function(item) {
+        return item.id || item.text;
+      }
+    }).on('select2:select', function(e) {
+      const p = e.params.data.pauta;
+      if (!p) return;
+
+      const unidadeMedida = p.unidade_medida || '';
+
+      // Campo unidade — sempre recebe o valor da unidade_medida (readonly)
+      const unidadeEl = document.getElementById(`unidade_${n}`);
+      if (unidadeEl) unidadeEl.value = unidadeMedida;
+
+      // Campo quantidade — desabilitado se KG, ativo caso contrário
+      const qtdEl = document.getElementById(`quantidade_${n}`);
+      if (qtdEl) {
+        if (unidadeMedida === 'KG' || unidadeMedida === '') {
+          qtdEl.disabled = true;
+          qtdEl.value = '';
+          qtdEl.placeholder = 'Não aplicável (unidade KG)';
+        } else {
+          qtdEl.disabled = false;
+          qtdEl.placeholder = `Quantidade em ${unidadeMedida}`;
+        }
+      }
+
+      // Descrição da mercadoria
+      const descEl = document.getElementById(`descricao_mercadoria_${n}`);
+      const hint   = document.getElementById(`pauta_desc_${n}`);
+      if (descEl && !descEl.value) descEl.value = p.descricao_mercadoria || '';
+      if (hint) hint.textContent = p.descricao_mercadoria || '';
+
+      // Guardar taxas para cálculos
+      this.dataset.direito = p.direito_importacao ?? 0;
+      this.dataset.iec     = p.direito_consumo    ?? 0;
+      this.dataset.iva     = p.iva                ?? 14;
+
+      if (typeof atualizarSubtituloAdicao === 'function') atualizarSubtituloAdicao(n);
+    });
+
+    // Select2 para País de Origem — mostrar código (antes do " - ")
+    $(`#pais_origem_${n}`).select2({
+      placeholder: 'Pesquisar país...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhum país encontrado', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        return data.id ? data.id : data.text;
+      }
+    });
+
+    // Select2 para Tipo de Volume — mostrar código (antes do " - ")
+    $(`#tipo_volume_${n}`).select2({
+      placeholder: 'Selecione o tipo...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhum tipo encontrado', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        return data.id ? data.id : data.text;
+      }
+    });
+
+    // Select2 para Código do Procedimento — mostrar número (antes do " - ")
+    $(`#codigo_procedimento_${n}`).select2({
+      placeholder: 'Selecione...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhum procedimento encontrado', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        return data.id ? data.id : data.text;
+      }
+    }).on('change', function() {
+      atualizarCodigoIsencaoDinamico(n);
+    });
+
+    // Carregar opções do procedimento via API (com cache)
+    carregarCodigosProcedimento(n, dadosExistentes && dadosExistentes.codigo_procedimento ? dadosExistentes.codigo_procedimento : '');
+
+    // Pré-carregar isenções (cache para uso imediato ao mudar procedimento)
+    atualizarCodigoIsencaoDinamico(n);
+
+    // Select2 para Código da Isenção — mostrar código (antes do " - ")
+    $(`#codigo_isencao_${n}`).select2({
+      placeholder: 'Nenhuma isenção...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhuma isenção encontrada', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        return data.id ? data.id : data.text;
+      }
+    });
+
+    // Select2 para Moeda FOB/Seguro/Frete — mostrar código
+    [`moeda_fob_${n}`, `moeda_seguro_${n}`, `moeda_frete_${n}`].forEach(function(selId) {
+      $(`#${selId}`).select2({
+        minimumResultsForSearch: Infinity, // sem campo de pesquisa (poucos itens)
+        width: '100%',
+        templateSelection: function(data) {
+          return data.id ? data.id : data.text;
+        }
+      });
+    });
+  }
+
+  // Animação de entrada
+  card.animate(
+    [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)' }],
+    { duration: 280, easing: 'ease-out', fill: 'forwards' }
+  );
+
+  // Scroll suave até o novo card
+  setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 150);
+
+  console.log(`Adição ${n} criada com sucesso`);
+  sincronizarAdicoesContainers();
+  
+  // Adicionar event listeners para recalcular repartição quando FOB mudar
+  const fobField = document.getElementById(`fob_${n}`);
+  if (fobField) {
+    fobField.addEventListener('input', function() {
+      clearTimeout(fobField._reparticaoTimer);
+      fobField._reparticaoTimer = setTimeout(() => {
+        // Verificar se repartição por valor está ativa para frete ou seguro
+        const reparticaoFrete = document.getElementById('reparticao_frete')?.value;
+        const reparticaoSeguro = document.getElementById('reparticao_seguro')?.value;
+        
+        if (reparticaoFrete === 'valor') calcularReparticao('frete', 'valor');
+        if (reparticaoSeguro === 'valor') calcularReparticao('seguro', 'valor');
+      }, 500);
+    });
+  }
+  
+  // Verificar se precisa aplicar repartição existente na nova adição
+  const reparticaoFrete = document.getElementById('reparticao_frete')?.value;
+  const reparticaoSeguro = document.getElementById('reparticao_seguro')?.value;
+  
+  if (reparticaoFrete && reparticaoFrete !== 'sem_reparticao') {
+    habilitarCamposAdicao('frete', false);
+    calcularReparticao('frete', reparticaoFrete);
+  }
+  
+  if (reparticaoSeguro && reparticaoSeguro !== 'sem_reparticao') {
+    habilitarCamposAdicao('seguro', false);
+    calcularReparticao('seguro', reparticaoSeguro);
+  }
+}
+
+
+/* ----------------------------------------------------------
+   toggleAdicao — expandir / colapsar
+---------------------------------------------------------- */
+function toggleAdicao(n) {
+  const body    = document.getElementById(`content_adicao_${n}`);
+  const chevron = document.getElementById(`chevron_${n}`);
+  const card    = document.getElementById(`adicao_wrapper_${n}`);
+  if (!body) return;
+
+  const aberto = body.classList.contains('expanded');
+  body.classList.toggle('expanded', !aberto);
+  card?.classList.toggle('active-adicao', !aberto);
+  if (chevron) chevron.textContent = aberto ? 'expand_more' : 'expand_less';
+}
+
+
+/* ----------------------------------------------------------
+   removerAdicao
+---------------------------------------------------------- */
+function removerAdicao(n) {
+  const wrapper = document.getElementById('adicoes_wrapper');
+  if (!wrapper) return;
+
+  // Impedir remoção se só há 1 adição
+  if (wrapper.querySelectorAll('.adicao-card-wrapper').length <= 1) {
+    abrirConfirm({
+      tipo: 'warning',
+      titulo: 'Não é possível remover',
+      mensagem: 'A declaração deve ter pelo menos uma adição.',
+      textoBotao: 'OK',
+      textoCancelar: 'Fechar',
+      onConfirm: null,
+    });
+    return;
+  }
+
+  const card = document.getElementById(`adicao_wrapper_${n}`);
+  if (!card) return;
+
+  card.animate(
+    [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.96) translateY(-8px)' }],
+    { duration: 200, easing: 'ease-in' }
+  ).onfinish = () => {
+    card.remove();
+    sincronizarAdicoesContainers();
+    renumerarAdicoes();
+    
+    // Recalcular repartição após remoção
+    const reparticaoFrete = document.getElementById('reparticao_frete')?.value;
+    const reparticaoSeguro = document.getElementById('reparticao_seguro')?.value;
+    
+    if (reparticaoFrete && reparticaoFrete !== 'sem_reparticao') {
+      calcularReparticao('frete', reparticaoFrete);
+    }
+    if (reparticaoSeguro && reparticaoSeguro !== 'sem_reparticao') {
+      calcularReparticao('seguro', reparticaoSeguro);
+    }
+  };
+}
+
+
+/* ----------------------------------------------------------
+   duplicarAdicao — copia todos os valores
+---------------------------------------------------------- */
+function duplicarAdicao(n) {
+  const card = document.getElementById(`adicao_wrapper_${n}`);
+  if (!card) return;
+
+  // Recolher todos os valores actuais
+  const dados = {};
+  card.querySelectorAll('input, select, textarea').forEach(el => {
+    const match = el.name?.match(/adicao\[\d+\]\[(.+)\]/);
+    if (match) dados[match[1]] = el.value;
+  });
+
+  adicionarNovaAdicao(dados);
+}
+
+
+/* ----------------------------------------------------------
+   renumerarAdicoes — actualiza badges e títulos após remoção
+---------------------------------------------------------- */
+function renumerarAdicoes() {
+  const cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
+  cards.forEach((card, i) => {
+    const num = i + 1;
+    const badge = card.querySelector('.adicao-badge');
+    const title = card.querySelector('.adicao-card-title');
+    if (badge) badge.textContent = num;
+    if (title) title.textContent = `Adição Nº ${num}`;
+    // Actualizar o campo num_adicao (readonly)
+    const inputNum = card.querySelector('[name*="num_adicao"]');
+    if (inputNum) inputNum.value = num;
+  });
+  sincronizarAdicoesContainers();
+}
+
+
+/* ----------------------------------------------------------
+   atualizarSubtituloAdicao — mostra código pautal + descrição
+   no cabeçalho colapsado
+---------------------------------------------------------- */
+function atualizarSubtituloAdicao(n) {
+  const card    = document.getElementById(`adicao_wrapper_${n}`);
+  const subtitle = document.getElementById(`adicao_subtitle_${n}`);
+  if (!card || !subtitle) return;
+
+  const cp   = card.querySelector(`[name="adicao[${n}][codigo_pautal]"]`)?.value || '';
+  const desc = card.querySelector(`[name="adicao[${n}][descricao_mercadoria]"]`)?.value || '';
+
+  if (cp) {
+    subtitle.textContent = cp + (desc ? '  ·  ' + desc.substring(0, 35) + (desc.length > 35 ? '…' : '') : '');
+  } else if (desc) {
+    subtitle.textContent = desc.substring(0, 45) + (desc.length > 45 ? '…' : '');
+  } else {
+    subtitle.textContent = 'Nova adição';
+  }
+}
+
+
+/* ----------------------------------------------------------
+   carregarCodigosProcedimento(n, valorSelecionado)
+   Busca da API e preenche o select com optgroups por categoria
+---------------------------------------------------------- */
+let _procedimentoCache = null;
+
+async function carregarCodigosProcedimento(n, valorSelecionado) {
+  const sel = document.getElementById(`codigo_procedimento_${n}`);
+  if (!sel) return;
+
+  // Usar cache se já carregado
+  if (!_procedimentoCache) {
+    try {
+      const res = await fetch('https://api-sic-fields.netsulwel.tech/codigo-procedimento');
+      console.log(res);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      _procedimentoCache = await res.json();
+    } catch (e) {
+      console.error('Erro ao carregar códigos de procedimento:', e);
+      _procedimentoCache = [];
+    }
+  }
+
+  const data = _procedimentoCache;
+
+  // Regras de agrupamento por palavras-chave na descrição
+  const grupos = {
+    'Exportação':    [],
+    'Reexportação':  [],
+    'Importação':    [],
+    'Reimportação':  [],
+    'Trânsito':      [],
+    'Outros':        [],
+  };
+
+  data.forEach(item => {
+    const desc = (item.descricao || '').toLowerCase();
+    if (desc.includes('reexport'))          grupos['Reexportação'].push(item);
+    else if (desc.includes('export'))       grupos['Exportação'].push(item);
+    else if (desc.includes('reimport') || desc.includes('reimp')) grupos['Reimportação'].push(item);
+    else if (desc.includes('import') || desc.includes('imp.'))    grupos['Importação'].push(item);
+    else if (desc.includes('trânsito') || desc.includes('transito')) grupos['Trânsito'].push(item);
+    else                                    grupos['Outros'].push(item);
+  });
+
+  // Default: '0000' se não houver valor selecionado
+  const defaultProcedimento = valorSelecionado || '0000';
+
+  sel.innerHTML = '<option value="">Selecione...</option>';
+
+  Object.entries(grupos).forEach(([label, items]) => {
+    if (!items.length) return;
+    const grp = document.createElement('optgroup');
+    grp.label = label;
+    items.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.codigo;
+      opt.textContent = `${item.codigo} - ${item.descricao}`;
+      if (String(item.codigo) === String(defaultProcedimento)) opt.selected = true;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
+  });
+
+  // Se '0000' não existir na lista, adicionar como opção padrão
+  if (!valorSelecionado && !sel.querySelector('option[value="0000"]')) {
+    const optDefault = document.createElement('option');
+    optDefault.value = '0000';
+    optDefault.textContent = '0000 - Sem procedimento específico';
+    optDefault.selected = true;
+    sel.insertBefore(optDefault, sel.children[1] || null);
+  }
+
+  // Refresh Select2 se já inicializado
+  if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+    const $sel = $(`#codigo_procedimento_${n}`);
+    if ($sel.data('select2')) $sel.trigger('change.select2');
+  }
+}
+
+/* ----------------------------------------------------------
+   atualizarCodigoIsencaoDinamico — carrega isenções da API
+   e filtra pelo procedimento selecionado
+---------------------------------------------------------- */
+let _isencaoCache = null;
+
+async function atualizarCodigoIsencaoDinamico(n) {
+  const isencaoSelect = document.getElementById(`codigo_isencao_${n}`);
+  if (!isencaoSelect) return;
+
+  isencaoSelect.innerHTML = '<option value="">A carregar...</option>';
+
+  // Carregar cache uma vez
+  if (!_isencaoCache) {
+    try {
+      const res = await fetch('https://api-sic-fields.netsulwel.tech/insencao');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      _isencaoCache = await res.json();
+    } catch (e) {
+      console.error('Erro ao carregar isenções:', e);
+      _isencaoCache = [];
+    }
+  }
+
+  // Default: '000' (sem isenção) se não houver valor pré-selecionado
+  const valorAtualIsencao = isencaoSelect.dataset.valorInicial || '000';
+
+  isencaoSelect.innerHTML = '';
+
+  // Opção 000 sempre primeiro
+  const opt000 = document.createElement('option');
+  opt000.value = '000';
+  opt000.textContent = '000 - Sem isenção';
+  if (valorAtualIsencao === '000') opt000.selected = true;
+  isencaoSelect.appendChild(opt000);
+
+  _isencaoCache.forEach(item => {
+    const codigoFormatado = String(item.codigo_insencao).padStart(3, '0');
+    if (codigoFormatado === '000') return; // já adicionado acima
+    const opt = document.createElement('option');
+    opt.value = codigoFormatado;
+    opt.textContent = `${codigoFormatado} - ${item.descricao}`;
+    if (codigoFormatado === valorAtualIsencao) opt.selected = true;
+    isencaoSelect.appendChild(opt);
+  });
+
+  // Refresh Select2
+  if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+    const $sel = $(`#codigo_isencao_${n}`);
+    if ($sel.data('select2')) $sel.trigger('change.select2');
+  }
+}
+
+
+/* ----------------------------------------------------------
+   validarPesoLiquido — peso líquido não pode exceder peso bruto
+---------------------------------------------------------- */
+function validarPesoLiquido(n) {
+  const brutoEl  = document.querySelector(`[name="adicao[${n}][peso_bruto]"]`);
+  const liquidoEl = document.getElementById(`peso_liquido_${n}`);
+  const errorEl  = document.getElementById(`peso_liquido_error_${n}`);
+  if (!brutoEl || !liquidoEl || !errorEl) return;
+
+  const bruto   = parseFloat(brutoEl.value)   || 0;
+  const liquido = parseFloat(liquidoEl.value) || 0;
+
+  if (bruto > 0 && liquido > bruto) {
+    liquidoEl.style.borderColor = '#ef4444';
+    errorEl.style.display = 'block';
+    liquidoEl.value = bruto; // reset to max allowed
+  } else {
+    liquidoEl.style.borderColor = '';
+    errorEl.style.display = 'none';
+  }
+}
+
+/* ----------------------------------------------------------
+   toggleQuantidadeUnidade — bloqueia/desbloqueia campo
+   quantidade conforme unidade (KG = bloqueado)
+---------------------------------------------------------- */
+function toggleQuantidadeUnidade(selectEl, n) {
+  const qtdInput = document.getElementById(`quantidade_${n}`);
+  if (!qtdInput) return;
+
+  if (selectEl.value === 'KG' || selectEl.value === '') {
+    qtdInput.setAttribute('readonly', 'readonly');
+    qtdInput.value = 'UN';
+    qtdInput.placeholder = 'Bloqueado para unidade KG';
+  } else {
+    qtdInput.removeAttribute('readonly');
+    qtdInput.placeholder = '0.00';
+  }
+}
+
+
+/* ----------------------------------------------------------
+   formatarCodigoPautalDinamico — máscara 0000.00.00.00
+   (funciona para qualquer input passado como referência)
+---------------------------------------------------------- */
+function formatarCodigoPautalDinamico(input) {
+  let v = input.value.replace(/\D/g, '').substring(0, 10);
+  let f = v.substring(0, 4);
+  if (v.length > 4) f += '.' + v.substring(4, 6);
+  if (v.length > 6) f += '.' + v.substring(6, 8);
+  if (v.length > 8) f += '.' + v.substring(8, 10);
+  input.value = f;
+}
+
+
+/* ----------------------------------------------------------
+   CSS necessário — adicione no du/css.css ou num <style>
+   
+   .adicao-card-wrapper        — card de cada adição
+   .adicao-card-header         — cabeçalho clicável
+   .adicao-card-body           — corpo (oculto por defeito)
+   .adicao-card-body.expanded  — corpo visível
+   .active-adicao              — destaque da adição activa
+   .adicao-badge               — número da adição
+   .adicao-card-title          — título "Adição Nº X"
+   .adicao-card-subtitle       — subtítulo dinâmico
+   .adicao-btn-icon            — botões duplicar/remover
+   .adicao-chevron             — ícone expandir/colapsar
+---------------------------------------------------------- */
+
+// Função para calcular valores convertidos em KZ
+function calcularValoresConvertidos2semcambio() {
+  console.log('Calculando valores convertidos...');
+  
+  // FOB
+  const valorFob = parseFloat(document.getElementById('valor_fob')?.value) || 0;
+  const cambioFob = parseFloat(document.getElementById('cambio_fob')?.value) || 0;
+  const valorFobKz = document.getElementById('valor_fob_kz');
+  
+  if (valorFobKz) {
+    valorFobKz.value = (valorFob * cambioFob).toFixed(2);
+  }
+  
+  // Seguro
+  const valorSeguro = parseFloat(document.getElementById('valor_seguro')?.value) || 0;
+  const cambioSeguro = parseFloat(document.getElementById('cambio_seguro')?.value) || 0;
+  const valorSeguroKz = document.getElementById('valor_seguro_kz');
+  
+  if (valorSeguroKz) {
+    valorSeguroKz.value = (valorSeguro * cambioSeguro).toFixed(2);
+  }
+  
+  // Frete
+  const valorFrete = parseFloat(document.getElementById('valor_frete')?.value) || 0;
+  const cambioFrete = parseFloat(document.getElementById('cambio_frete')?.value) || 0;
+  const valorFreteKz = document.getElementById('valor_frete_kz');
+  
+  if (valorFreteKz) {
+    valorFreteKz.value = (valorFrete * cambioFrete).toFixed(2);
+  }
+  
+  // Montante Aduaneiro (KZ) = FOB (KZ) + Seguro (KZ) + Frete (KZ)
+  const montanteAduaneiro = document.getElementById('montante_aduaneiro_kz');
+  if (montanteAduaneiro) {
+    const fobKz = parseFloat(valorFobKz?.value) || 0;
+    const seguroKz = parseFloat(valorSeguroKz?.value) || 0;
+    const freteKz = parseFloat(valorFreteKz?.value) || 0;
+    
+    montanteAduaneiro.value = (fobKz + seguroKz + freteKz).toFixed(2);
+    
+    console.log('Montante Aduaneiro (KZ):', montanteAduaneiro.value);
+  }
+}
+async function calcularValoresConvertidos() {
+  console.log('Calculando valores convertidos (Step 1)...');
+
+  // Usa obterTaxaCambioDinamica do script.js (tem cache + fallback)
+  async function obterCambio(moeda, inputCambioId) {
+    const inputCambio = document.getElementById(inputCambioId);
+    if (!inputCambio) return 0;
+    if (moeda === 'AOA' || moeda === 'KZ') { inputCambio.value = 1; return 1; }
+    const taxa = await obterTaxaCambioDinamica(moeda);
+    if (taxa > 0) inputCambio.value = taxa.toFixed(4);
+    return taxa;
+  }
+
+  async function calcularCampo(idValor, idMoeda, idCambio, idValorKz) {
+    const valor = parseFloat(document.getElementById(idValor)?.value) || 0;
+    const moeda = document.getElementById(idMoeda)?.value || 'AOA';
+    const inputValorKz = document.getElementById(idValorKz);
+    if (!inputValorKz) return 0;
+    if (valor <= 0) { inputValorKz.value = '0.00'; return 0; }
+    const taxa = await obterCambio(moeda, idCambio);
+    if (taxa <= 0) return 0;
+    const valorKz = valor * taxa;
+    inputValorKz.value = valorKz.toFixed(2);
+    return valorKz;
+  }
+
+  const [fobKz, seguroKz, freteKz] = await Promise.all([
+    calcularCampo('valor_fob',    'moeda_fob',    'cambio_fob',    'valor_fob_kz'),
+    calcularCampo('valor_seguro', 'moeda_seguro', 'cambio_seguro', 'valor_seguro_kz'),
+    calcularCampo('valor_frete',  'moeda_frete',  'cambio_frete',  'valor_frete_kz'),
+  ]);
+
+  const montanteAduaneiro = document.getElementById('montante_aduaneiro_kz');
+  if (montanteAduaneiro) {
+    const total = fobKz + seguroKz + freteKz;
+    montanteAduaneiro.value = total.toFixed(2);
+    console.log('Montante Aduaneiro (KZ):', total.toFixed(2));
+  }
+}
+
+/* ----------------------------------------------------------
+   calcularAdicaoFinanceiro(n)
+   Calcula KZ para FOB/Seguro/Frete de uma adição específica,
+   depois agrega todos os valores no passo 1 (Geral).
+---------------------------------------------------------- */
+async function calcularAdicaoFinanceiro(n) {
+  // Usa obterTaxaCambioDinamica do script.js (tem cache + fallback)
+  async function obterTaxa(moeda, inputCambioEl) {
+    if (!inputCambioEl) return 0;
+    if (moeda === 'AOA' || moeda === 'KZ') { inputCambioEl.value = 1; return 1; }
+    const taxa = await obterTaxaCambioDinamica(moeda);
+    if (taxa > 0) inputCambioEl.value = taxa.toFixed(4);
+    return taxa;
+  }
+
+  async function calcularLinha(idValor, idMoeda, idCambio, idKz) {
+    const valor  = parseFloat(document.getElementById(idValor)?.value)  || 0;
+    const moeda  = document.getElementById(idMoeda)?.value              || 'AOA';
+    const kzEl   = document.getElementById(idKz);
+    const cambioEl = document.getElementById(idCambio);
+    if (!kzEl) return 0;
+    if (valor <= 0) { kzEl.value = '0.00'; return 0; }
+    const taxa = await obterTaxa(moeda, cambioEl);
+    if (taxa <= 0) return 0;
+    const kz = valor * taxa;
+    kzEl.value = kz.toFixed(2);
+    return kz;
+  }
+
+  const [fobKz, seguroKz, freteKz] = await Promise.all([
+    calcularLinha(`fob_${n}`,    `moeda_fob_${n}`,    `cambio_fob_${n}`,    `fob_kz_${n}`),
+    calcularLinha(`seguro_${n}`, `moeda_seguro_${n}`, `cambio_seguro_${n}`, `seguro_kz_${n}`),
+    calcularLinha(`frete_${n}`,  `moeda_frete_${n}`,  `cambio_frete_${n}`,  `frete_kz_${n}`),
+  ]);
+
+  // Montante desta adição = FOB_kz + Seguro_kz + Frete_kz
+  const montanteEl = document.getElementById(`montante_kz_${n}`);
+  if (montanteEl) montanteEl.value = (fobKz + seguroKz + freteKz).toFixed(2);
+
+  // Agregar no passo 1
+  agregarValoresGeral();
+}
+
+/* ----------------------------------------------------------
+   agregarValoresGeral()
+   Soma FOB/Seguro/Frete (em KZ) de todas as adições e
+   preenche os campos do passo 1 (Geral).
+---------------------------------------------------------- */
+function agregarValoresGeral() {
+  const cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
+
+  let totalFobKz = 0, totalSeguroKz = 0, totalFreteKz = 0;
+
+  cards.forEach(card => {
+    const n = card.dataset.adicao;
+    if (!n) return;
+    totalFobKz    += parseFloat(document.getElementById(`fob_kz_${n}`)?.value)    || 0;
+    totalSeguroKz += parseFloat(document.getElementById(`seguro_kz_${n}`)?.value) || 0;
+    totalFreteKz  += parseFloat(document.getElementById(`frete_kz_${n}`)?.value)  || 0;
+  });
+
+  // Preencher campos do passo 1 (readonly — calculados pelas adições)
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val.toFixed(2);
+  };
+
+  setVal('valor_fob_kz',    totalFobKz);
+  setVal('valor_seguro_kz', totalSeguroKz);
+  setVal('valor_frete_kz',  totalFreteKz);
+
+  const total = totalFobKz + totalSeguroKz + totalFreteKz;
+  setVal('montante_aduaneiro_kz', total);
+}
+// Função para carregar regimes aduaneiros da API
+async function carregarRegimesAduaneiros() {
+  const selectRegime = document.getElementById('regime_aduaneiro');
+  const errorDiv = document.getElementById('regime_error');
+  
+  try {
+    console.log('Carregando regimes aduaneiros da API...');
+    
+    const response = await fetch('https://api-sic-fields.netsulwel.tech/regime-aduaneiro');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const regimes = await response.json();
+    console.log('Regimes carregados:', regimes);
+    
+    // Limpar o select
+    selectRegime.innerHTML = '<option value="">Selecione o regime...</option>';
+    
+    // Agrupar regimes por tipo (Exportação, Importação)
+    const grupos = {
+      'Exportação': [],
+      'Importação': []
+    };
+    
+    regimes.forEach(regime => {
+      const codigo = regime.regime_cod;
+      const descricao = regime.regime;
+      
+      // Classificar por grupo baseado no código
+      if (codigo.startsWith('EX')) {
+        grupos['Exportação'].push({ codigo, descricao });
+      } else if (codigo.startsWith('IM')) {
+        grupos['Importação'].push({ codigo, descricao });
+      }
+    });
+    
+    // Adicionar optgroups ao select
+    Object.keys(grupos).forEach(grupoNome => {
+      if (grupos[grupoNome].length > 0) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = grupoNome;
+        
+        grupos[grupoNome].forEach(regime => {
+          const option = document.createElement('option');
+          option.value = regime.codigo;
+          option.textContent = `${regime.codigo} - ${regime.descricao}`;
+          optgroup.appendChild(option);
+        });
+        
+        selectRegime.appendChild(optgroup);
+      }
+    });
+    
+    // Esconder mensagem de erro se estava visível
+    errorDiv.classList.add('hidden');
+    
+    console.log('Regimes aduaneiros carregados com sucesso!');
+    
+  } catch (error) {
+    console.error('Erro ao carregar regimes aduaneiros:', error);
+    
+    // Mostrar mensagem de erro
+    errorDiv.classList.remove('hidden');
+    
+    // Adicionar opções de fallback
+    selectRegime.innerHTML = `
+      <option value="">Selecione o regime...</option>
+      <optgroup label="Exportação">
+        <option value="EX1">EX1 - Exportação definitiva</option>
+        <option value="EX2">EX2 - Exportação temporária</option>
+        <option value="EX3">EX3 - Reexportação</option>
+      </optgroup>
+      <optgroup label="Importação">
+        <option value="IM4">IM4 - Importação definitiva</option>
+        <option value="IM5">IM5 - Importação temporária</option>
+        <option value="IM6">IM6 - Reimportação</option>
+        <option value="IM7">IM7 - Armazenagem</option>
+        <option value="IM8">IM8 - Trânsito e Transbordo</option>
+      </optgroup>
+    `;
+  }
+}
+
+// Função para carregar estâncias da API
+async function carregarEstancias() {
+  const selectEstancia = document.getElementById('estancia');
+  
+  try {
+    console.log('Carregando estâncias da API...');
+    
+    const response = await fetch('https://api-sic-fields.netsulwel.tech/estancias');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const estancias = await response.json();
+    console.log('Estâncias carregadas:', estancias);
+    
+    // Limpar o select
+    selectEstancia.innerHTML = '<option value="">Selecione a estância...</option>';
+    
+    // Adicionar estâncias ao select
+    estancias.forEach(estancia => {
+      const option = document.createElement('option');
+      option.value = estancia.cuo_cod;
+      option.textContent = `${estancia.cuo_cod} - ${estancia.cuo_nam}`;
+      // Armazenar dados adicionais como data attributes
+      option.setAttribute('data-cuo_cod', estancia.cuo_cod);
+      option.setAttribute('data-cuo_nam', estancia.cuo_nam);
+      option.setAttribute('data-type', estancia.type || '');
+      option.setAttribute('data-regiao_tributaria', estancia.regiao_tributaria || 0);
+      option.setAttribute('data-delegacao_aduaneira', estancia.delegacao_aduaneira || 0);
+      selectEstancia.appendChild(option);
+    });
+    
+    console.log('Estâncias carregadas com sucesso!');
+    
+  } catch (error) {
+    console.error('Erro ao carregar estâncias:', error);
+    
+    // Adicionar opções de fallback
+    selectEstancia.innerHTML = `
+      <option value="">Selecione a estância...</option>
+      <option value="">Carregando estância...</option>
+    `;
+  }
+}
+
+async function carregarIncoterm() {
+  const selectIncoterm = document.getElementById('incoterm');
+  
+  try {
+    const response = await fetch('https://api-sic-fields.netsulwel.tech/incoterm');
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    selectIncoterm.innerHTML = '<option value="">Selecione o incoterm...</option>';
+    data.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.incoterm;
+      option.textContent = `${item.incoterm} - ${item.descricao}`;
+      selectIncoterm.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Erro ao carregar incoterm:', error);
+    selectIncoterm.innerHTML = `
+      <option value="">Selecione...</option>
+      <option value="CFR">CFR - Custo e Frete</option>
+      <option value="CIF">CIF - Custo, Seguro e Frete</option>
+      <option value="FOB">FOB - Franco a Bordo</option>
+      <option value="EXW">EXW - À Porta da Fábrica</option>
+      <option value="DDP">DDP - Entrega com Direitos Pagos</option>
+    `;
+  }
+  // Refresh Select2
+  if (typeof $ !== 'undefined' && $('#incoterm').data('select2')) $('#incoterm').trigger('change.select2');
+}
+
+async function carregarNaturezaTransacao() {
+  const sel = document.getElementById('natureza_transacao');
+  if (!sel) return;
+  try {
+    const res = await fetch('https://api-sic-fields.netsulwel.tech/natureza_transacao');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    sel.innerHTML = '<option value="">Selecione...</option>';
+    data.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.codigo;
+      opt.textContent = `${item.codigo} - ${item.descricao}`;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('Erro ao carregar natureza da transação:', e);
+    sel.innerHTML = `
+      <option value="">Selecione...</option>
+      <option value="1">1 - Compra/Venda</option>
+      <option value="2">2 - Empréstimo Sujeito a Compensação</option>
+      <option value="9">9 - Outros</option>
+    `;
+  }
+  // Refresh Select2
+  if (typeof $ !== 'undefined' && $('[name="natureza_transacao"]').data('select2')) {
+    $('[name="natureza_transacao"]').trigger('change.select2');
+  }
+}
+
+async function carregarModoTransporte() {
+  let data = [];
+  try {
+    const res = await fetch('https://api-sic-fields.netsulwel.tech/modo-transporte');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    console.error('Erro ao carregar modos de transporte:', e);
+    // fallback
+    data = [
+      { cod: 1, descricao: 'Marítimo' },
+      { cod: 2, descricao: 'Ferroviário' },
+      { cod: 3, descricao: 'Rodoviário' },
+      { cod: 4, descricao: 'Aéreo' },
+      { cod: 5, descricao: 'Correio' },
+      { cod: 8, descricao: 'Fluvial' },
+    ];
+  }
+
+  const buildOptions = (placeholder) => {
+    let html = `<option value="">${placeholder}</option>`;
+    data.forEach(item => {
+      html += `<option value="${item.cod}">${item.cod} - ${item.descricao}</option>`;
+    });
+    return html;
+  };
+
+  const selFronteira = document.getElementById('modo_transporte_fronteira');
+  const selInterior  = document.getElementById('modo_transporte_interior');
+
+  if (selFronteira) {
+    selFronteira.innerHTML = buildOptions('Selecione...');
+    if (typeof $ !== 'undefined' && $('#modo_transporte_fronteira').data('select2'))
+      $('#modo_transporte_fronteira').trigger('change.select2');
+  }
+  if (selInterior) {
+    selInterior.innerHTML = buildOptions('Selecione...');
+    if (typeof $ !== 'undefined' && $('#modo_transporte_interior').data('select2'))
+      $('#modo_transporte_interior').trigger('change.select2');
+  }
+}
+
+// Carregar regimes quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM carregado, iniciando carregamento de regimes, incoterm e estâncias...');
+  carregarRegimesAduaneiros();
+  carregarEstancias();
+  carregarIncoterm();
+  carregarNaturezaTransacao();
+  carregarModoTransporte();
+
+  // Inicializar Select2 para o campo de país
+  if (typeof $.fn.select2 !== 'undefined') {
+    $('#pais_origem').select2({
+      placeholder: 'Selecione o país...',
+      allowClear: true,
+      width: '100%',
+      language: {
+        noResults: function() {
+          return "Nenhum país encontrado";
+        },
+        searching: function() {
+          return "Pesquisando...";
+        }
+      },
+      templateSelection: function(data) {
+        // Quando selecionado, mostrar apenas o código
+        if (data.id) {
+          // Extrair apenas o código (antes do " - ")
+          var codigo = data.text.split(' - ')[0];
+          return codigo;
+        }
+        return data.text;
+      }
+    });
+    
+    // Inicializar Select2 para Tipo de Volume
+    $('#tipo_volume').select2({
+      placeholder: 'Selecione o tipo...',
+      allowClear: true,
+      width: '100%',
+      language: {
+        noResults: function() {
+          return "Nenhum tipo encontrado";
+        },
+        searching: function() {
+          return "Pesquisando...";
+        }
+      },
+      templateSelection: function(data) {
+        // Quando selecionado, mostrar apenas o código
+        if (data.id) {
+          var codigo = data.text.split(' - ')[0];
+          return codigo;
+        }
+        return data.text;
+      }
+    });
+    
+    // Inicializar Select2 para Unidade
+    $('#unidade').select2({
+      placeholder: 'Selecione a unidade...',
+      allowClear: true,
+      width: '100%',
+      language: {
+        noResults: function() {
+          return "Nenhuma unidade encontrada";
+        },
+        searching: function() {
+          return "Pesquisando...";
+        }
+      },
+      templateSelection: function(data) {
+        // Quando selecionado, mostrar apenas o código
+        if (data.id) {
+          var codigo = data.text.split(' - ')[0];
+          return codigo;
+        }
+        return data.text;
+      }
+    });
+    
+    // Inicializar Select2 para Estância
+    $('#estancia').select2({
+      placeholder: 'Selecione a estância...',
+      allowClear: true,
+      width: '100%',
+      language: {
+        noResults: function() {
+          return "Nenhuma estância encontrada";
+        },
+        searching: function() {
+          return "Pesquisando...";
+        }
+      },
+      templateSelection: function(data) {
+        // Quando selecionado, mostrar apenas o código (cuo_cod)
+        if (data.id) {
+          return data.id; // Retorna apenas o código
+        }
+        return data.text;
+      },
+      templateResult: function(data) {
+        // No dropdown, mostrar código e nome completo (cuo_cod - cuo_nam)
+        return data.text; // Mostra "cuo_cod - cuo_nam"
+      }
+    });
+
+    // Inicializar Select2 para Regime Aduaneiro — mostrar código (antes do " - ")
+    $('#regime_aduaneiro').select2({
+      placeholder: 'Selecione o regime...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhum regime encontrado', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        return data.id ? data.id : data.text;
+      }
+    });
+
+    // Inicializar Select2 para INCOTERM — mostrar código (antes do " - ")
+    $('#incoterm').select2({
+      placeholder: 'Selecione...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhum INCOTERM encontrado', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        return data.id ? data.id : data.text;
+      }
+    });
+
+    // Inicializar Select2 para Natureza da Transação — mostrar descrição (depois do " - ")
+    $('#natureza_transacao, [name="natureza_transacao"]').select2({
+      placeholder: 'Selecione...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhuma natureza encontrada', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        if (data.id) {
+          var parts = data.text.split(' - ');
+          return parts.length > 1 ? parts.slice(1).join(' - ') : data.text;
+        }
+        return data.text;
+      }
+    });
+
+    // Inicializar Select2 para Modo de Transporte — mostrar código (antes do " - ")
+    $('#modo_transporte_fronteira, [name="modo_transporte_fronteira"]').select2({
+      placeholder: 'Selecione...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhum modo encontrado', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        if (data.id) {
+          var parts = data.text.split(' - ');
+          return parts.length > 1 ? parts.slice(1).join(' - ') : data.text;
+        }
+        return data.text;
+      }
+    });
+
+    $('[name="modo_transporte_interior"]').select2({
+      placeholder: 'Selecione...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhum modo encontrado', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        if (data.id) {
+          var parts = data.text.split(' - ');
+          return parts.length > 1 ? parts.slice(1).join(' - ') : data.text;
+        }
+        return data.text;
+      }
+    });
+
+    // Inicializar Select2 para Forma de Pagamento
+    $('[name="forma_pagamento"]').select2({
+      placeholder: 'Selecione...',
+      allowClear: true,
+      width: '100%',
+      language: { noResults: () => 'Nenhuma forma encontrada', searching: () => 'Pesquisando...' },
+      templateSelection: function(data) {
+        return data.id ? data.id : data.text;
+      }
+    });
+
+    // Inicializar Select2 para Moeda (passo 1 — FOB/Seguro/Frete)
+    $('#moeda_fob, #moeda_seguro, #moeda_frete').select2({
+      minimumResultsForSearch: Infinity,
+      width: '100%',
+      templateSelection: function(data) {
+        return data.id ? data.id : data.text;
+      }
+    });
+    
+    console.log('Select2 inicializado para país de origem, tipo de volume, unidade e estância');
+  } else {
+    console.error('Select2 não está carregado');
+  }
+  
+  // Adicionar máscara automática para Código Pautal
+  const codigoPautalInput = document.getElementById('codigo_pautal');
+  if (codigoPautalInput) {
+    codigoPautalInput.addEventListener('input', function(e) {
+      let value = e.target.value;
+      
+      // Remover todos os caracteres que não são números
+      value = value.replace(/\D/g, '');
+      
+      // Limitar a 10 dígitos
+      value = value.substring(0, 10);
+      
+      // Aplicar a máscara: 0000.00.00.00
+      let formatted = '';
+      if (value.length > 0) {
+        formatted = value.substring(0, 4); // Primeiros 4 dígitos
+      }
+      if (value.length >= 5) {
+        formatted += '.' + value.substring(4, 6); // Próximos 2 dígitos
+      }
+      if (value.length >= 7) {
+        formatted += '.' + value.substring(6, 8); // Próximos 2 dígitos
+      }
+      if (value.length >= 9) {
+        formatted += '.' + value.substring(8, 10); // Últimos 2 dígitos
+      }
+      
+      // Atualizar o valor do input
+      e.target.value = formatted;
+    });
+    
+    // Permitir apenas números e pontos
+    codigoPautalInput.addEventListener('keypress', function(e) {
+      const char = String.fromCharCode(e.which);
+      if (!/[0-9]/.test(char)) {
+        e.preventDefault();
+      }
+    });
+    
+    console.log('Máscara automática adicionada ao campo Código Pautal');
+  }
+});
+
+// Fallback: inicializar Select2 imediatamente se o DOM já estiver pronto
+if (document.readyState !== 'loading') {
+  carregarRegimesAduaneiros();
+  carregarEstancias();
+  carregarIncoterm();
+  carregarNaturezaTransacao();
+  carregarModoTransporte();
+}
+</script>
+
+<!-- Script simplificado para inicialização -->
+<script>
+// Preencher data actual no campo data_campo54
+document.addEventListener('DOMContentLoaded', function() {
+  const dataCampo54 = document.getElementById('data_campo54');
+  if (dataCampo54) {
+    const hoje = new Date().toISOString().split('T')[0];
+    dataCampo54.value = hoje;
+  }
+});
+</script>
+
+{% if du and du.dados_json %}
+<!-- Pré-preenchimento do formulário em modo de edição -->
+<script>
+(function() {
+  var _dadosRaw = {{ du.dados_json|safe }};
+  if (!_dadosRaw || typeof _dadosRaw !== 'object') return;
+
+  // Aguardar que as APIs (regimes, estâncias, etc.) terminem de carregar
+  // antes de preencher os selects
+  var _tentativas = 0;
+  var _maxTentativas = 40; // 4 segundos
+
+  function preencherCampoSimples(nome, valor) {
+    if (valor === undefined || valor === null || valor === '') return;
+    var el = document.querySelector('[name="' + nome + '"]');
+    if (!el) return;
+    el.value = valor;
+    // Disparar evento para Select2 e outros listeners
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('input',  { bubbles: true }));
+  }
+
+  function preencherSelect2(nome, valor) {
+    if (!valor) return;
+    if (typeof $ !== 'undefined') {
+      var $el = $('[name="' + nome + '"]');
+      if ($el.length && $el.data('select2')) {
+        $el.val(valor).trigger('change');
+        return;
+      }
+    }
+    preencherCampoSimples(nome, valor);
+  }
+
+  function preencherFormulario() {
+    var d = _dadosRaw;
+
+    // ── Passo 1: Geral ──────────────────────────────────────────────
+    preencherSelect2('regime_aduaneiro',   d.regime_aduaneiro);
+    preencherSelect2('estancia',           d.estancia);
+    preencherCampoSimples('ref_despachante', d.ref_despachante);
+    preencherCampoSimples('vinheta',         d.vinheta);
+
+    // Exportador
+    preencherCampoSimples('exportador_codigo',   d.exportador_codigo);
+    preencherCampoSimples('exportador_nome',     d.exportador_nome);
+    preencherCampoSimples('exportador_endereco', d.exportador_endereco);
+
+    // Destinatário
+    preencherCampoSimples('destinatario_nif',      d.destinatario_nif);
+    preencherCampoSimples('destinatario_nome',     d.destinatario_nome);
+    preencherCampoSimples('destinatario_telefone', d.destinatario_telefone);
+    preencherCampoSimples('destinatario_endereco', d.destinatario_endereco);
+
+    // Dados contabilísticos
+    preencherCampoSimples('conta_credito',   d.conta_credito);
+    preencherCampoSimples('conta_garantias', d.conta_garantias);
+    preencherCampoSimples('localizacao_mercadoria', d.localizacao_mercadoria);
+    preencherCampoSimples('identificacao_armzem',   d.identificacao_armzem);
+
+    // Informações comerciais
+    preencherSelect2('incoterm',            d.incoterm);
+    preencherSelect2('natureza_transacao',  d.natureza_transacao);
+
+    // Valores FOB
+    preencherCampoSimples('valor_fob',    d.valor_fob);
+    preencherSelect2('moeda_fob',         d.moeda_fob);
+    preencherCampoSimples('cambio_fob',   d.cambio_fob);
+    preencherCampoSimples('valor_fob_kz', d.valor_fob_kz);
+
+    // Seguro
+    preencherCampoSimples('valor_seguro',    d.valor_seguro);
+    preencherSelect2('moeda_seguro',         d.moeda_seguro);
+    preencherSelect2('reparticao_seguro',    d.reparticao_seguro);
+    preencherCampoSimples('cambio_seguro',   d.cambio_seguro);
+    preencherCampoSimples('valor_seguro_kz', d.valor_seguro_kz);
+
+    // Frete
+    preencherCampoSimples('valor_frete',    d.valor_frete);
+    preencherSelect2('moeda_frete',         d.moeda_frete);
+    preencherSelect2('reparticao_frete',    d.reparticao_frete);
+    preencherCampoSimples('cambio_frete',   d.cambio_frete);
+    preencherCampoSimples('valor_frete_kz', d.valor_frete_kz);
+
+    // ── Passo 3: Transporte ─────────────────────────────────────────
+    preencherCampoSimples('numero_conhecimento', d.numero_conhecimento);
+    preencherCampoSimples('data_conhecimento',   d.data_conhecimento);
+    preencherCampoSimples('porto_embarque',      d.porto_embarque);
+    preencherCampoSimples('porto_desembarque',   d.porto_desembarque);
+    preencherCampoSimples('pais_expedicao',      d.pais_expedicao);
+    preencherSelect2('modo_transporte_fronteira', d.modo_transporte_fronteira);
+    preencherSelect2('modo_transporte_interior',  d.modo_transporte_interior);
+    preencherSelect2('forma_pagamento',           d.forma_pagamento);
+
+    // Contentores
+    if (d.tem_contentores) {
+      var radios = document.querySelectorAll('[name="tem_contentores"]');
+      radios.forEach(function(r) {
+        if (r.value === d.tem_contentores) {
+          r.checked = true;
+          r.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
+
+    // ── Adições ─────────────────────────────────────────────────────
+    if (d.adicoes && d.adicoes.length > 0) {
+      // Limpar adições existentes
+      var wrapper = document.getElementById('adicoes_wrapper');
+      if (wrapper) wrapper.innerHTML = '';
+
+      d.adicoes.forEach(function(ad) {
+        if (typeof adicionarNovaAdicao === 'function') {
+          adicionarNovaAdicao(ad);
+        }
+      });
+    }
+
+    console.log('[Edição] Formulário pré-preenchido com dados existentes da DU.');
+  }
+
+  function tentarPreencher() {
+    _tentativas++;
+    // Verificar se os selects principais já têm opções carregadas
+    var regimeSelect = document.getElementById('regime_aduaneiro');
+    var temOpcoes = regimeSelect && regimeSelect.options.length > 1;
+
+    if (temOpcoes || _tentativas >= _maxTentativas) {
+      preencherFormulario();
+    } else {
+      setTimeout(tentarPreencher, 100);
+    }
+  }
+
+  // Iniciar após o DOM estar pronto
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(tentarPreencher, 300);
+    });
+  } else {
+    setTimeout(tentarPreencher, 300);
+  }
+})();
+</script>
+{% endif %}
+
+{% include 'includes/footer.html' %}

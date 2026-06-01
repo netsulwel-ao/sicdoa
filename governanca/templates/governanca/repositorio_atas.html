@@ -1,0 +1,225 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+    <!-- Header -->
+    <div>
+      <a href="{% url 'governanca_assembleias' %}" class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+        <i class="fas fa-arrow-left text-xs"></i>
+        <span>Assembleias</span>
+      </a>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-1">Repositório de Atas</h1>
+      <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Atas digitais assinadas e documentos publicados</p>
+    </div>
+
+    {% if atas %}
+    <!-- Atas Section -->
+    <div>
+      <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-3 flex items-center gap-2">
+        <i class="fas fa-file-alt text-primary"></i>
+        Atas
+        <span class="ml-auto text-xs font-normal text-gray-400">{{ page_obj.paginator.count }} documento{{ page_obj.paginator.count|pluralize }}</span>
+      </h2>
+      <div class="space-y-3">
+        {% for ata in atas %}
+        {% with status=ata.status_assinatura %}
+        <div class="group relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 overflow-hidden">
+          <div class="absolute left-0 top-0 bottom-0 w-1
+            {% if status == 'Publicada' %}bg-blue-500
+            {% elif status == 'Assinada' %}bg-emerald-500
+            {% elif status == 'Aguardando Presidente' %}bg-amber-500
+            {% elif status == 'Aguardando Secretario' %}bg-purple-500
+            {% else %}bg-gray-400{% endif %}">
+          </div>
+          <div class="p-5 pl-6">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <h3 class="text-base font-bold text-[#111418] dark:text-gray-200">{{ ata.assembleia.titulo }}</h3>
+                  <span class="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full
+                    {% if status == 'Publicada' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+                    {% elif status == 'Assinada' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+                    {% elif status == 'Aguardando Presidente' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+                    {% elif status == 'Aguardando Secretario' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300
+                    {% else %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+                    {{ status }}
+                  </span>
+                </div>
+
+                <!-- Meta row -->
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {% if ata.publicado_em %}
+                  <span class="flex items-center gap-1">
+                    <i class="fa-regular fa-calendar"></i>
+                    {{ ata.publicado_em|date:"d/m/Y H:i" }}
+                  </span>
+                  {% endif %}
+                  {% if ata.assinado_por %}
+                  <span class="flex items-center gap-1">
+                    <i class="fa-regular fa-user"></i>
+                    {{ ata.assinado_por.nome }}
+                  </span>
+                  {% endif %}
+                  {% if ata.arquivo_pdf %}
+                  <span class="flex items-center gap-1 text-primary">
+                    <i class="fas fa-file-pdf"></i>
+                    PDF disponível
+                  </span>
+                  {% endif %}
+                </div>
+
+                <!-- Content preview -->
+                <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-800/30 rounded-xl max-h-32 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                  {{ ata.conteudo|linebreaksbr }}
+                </div>
+
+                <!-- Signature chain -->
+                {% if ata.assinatura_hash_presidente or ata.assinatura_hash_secretario %}
+                <div class="mt-3 flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  {% if ata.assinatura_hash_presidente %}
+                  <div class="flex items-center gap-1.5 {% if ata.assinado_presidente_em %}text-emerald-600 dark:text-emerald-400{% endif %}">
+                    <i class="fas fa-check-circle text-xs"></i>
+                    <span>Presidente</span>
+                    {% if ata.assinado_presidente_em %}
+                    <span>{{ ata.assinado_presidente_em|date:"d/m/Y H:i" }}</span>
+                    {% endif %}
+                    <span class="font-mono opacity-60">{{ ata.assinatura_hash_presidente|slice:":16" }}…</span>
+                  </div>
+                  {% endif %}
+                  {% if ata.assinatura_hash_secretario %}
+                  <div class="flex items-center gap-1.5 {% if ata.assinado_secretario_em %}text-emerald-600 dark:text-emerald-400{% endif %}">
+                    <i class="fas fa-check-circle text-xs"></i>
+                    <span>Secretário</span>
+                    {% if ata.assinado_secretario_em %}
+                    <span>{{ ata.assinado_secretario_em|date:"d/m/Y H:i" }}</span>
+                    {% endif %}
+                    <span class="font-mono opacity-60">{{ ata.assinatura_hash_secretario|slice:":16" }}…</span>
+                  </div>
+                  {% endif %}
+                  {% if ata.assinatura_hash %}
+                  <div class="flex items-center gap-1.5 opacity-60">
+                    <i class="fas fa-link text-xs"></i>
+                    <span class="font-mono">{{ ata.assinatura_hash|slice:":20" }}…</span>
+                  </div>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
+
+              <!-- Actions -->
+              <div class="flex items-center gap-2 shrink-0">
+                {% if ata.arquivo_pdf %}
+                <a href="{{ ata.arquivo_pdf }}" target="_blank"
+                   class="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5">
+                  <i class="fas fa-download text-xs"></i>
+                  PDF
+                </a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+      </div>
+      {% if page_obj.has_other_pages %}
+      <div class="mt-4">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if documentos %}
+    <!-- Documentos Section -->
+    <div>
+      <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-3 flex items-center gap-2">
+        <i class="fas fa-folder-open text-primary"></i>
+        Documentos
+        <span class="ml-auto text-xs font-normal text-gray-400">{{ documentos.count }} documento{{ documentos.count|pluralize }}</span>
+      </h2>
+      <div class="space-y-3">
+        {% for doc in documentos %}
+        <div class="group relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 overflow-hidden">
+          <!-- Accent bar by type -->
+          <div class="absolute left-0 top-0 bottom-0 w-1
+            {% if doc.tipo == 'ata' %}bg-blue-500
+            {% elif doc.tipo == 'relatorio' %}bg-purple-500
+            {% else %}bg-gray-400{% endif %}">
+          </div>
+          <div class="p-5 pl-6">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0 flex-1">
+                <!-- Type badge + assembly -->
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-xs font-medium px-2 py-0.5 rounded-full
+                    {% if doc.tipo == 'ata' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+                    {% elif doc.tipo == 'relatorio' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300
+                    {% else %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+                    {{ doc.get_tipo_display }}
+                  </span>
+                  <span class="text-xs text-gray-400 truncate">{{ doc.assembleia.titulo }}</span>
+                </div>
+
+                <h3 class="text-base font-bold text-[#111418] dark:text-gray-200">{{ doc.titulo }}</h3>
+
+                {% if doc.descricao %}
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{{ doc.descricao }}</p>
+                {% endif %}
+
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  <span class="flex items-center gap-1">
+                    <i class="fa-regular fa-calendar"></i>
+                    {{ doc.publicado_em|date:"d/m/Y H:i" }}
+                  </span>
+                  {% if doc.created_by %}
+                  <span class="flex items-center gap-1">
+                    <i class="fa-regular fa-user"></i>
+                    {{ doc.created_by.nome }}
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                {% if doc.arquivo %}
+                <a href="{{ doc.arquivo.url }}" target="_blank"
+                   class="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5">
+                  <i class="fas fa-download text-xs"></i>
+                  Download
+                </a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if not atas and not documentos %}
+    <!-- Empty state -->
+    <div class="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="absolute inset-0 pointer-events-none">
+        <div class="absolute -top-20 -right-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-20 -left-20 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl"></div>
+      </div>
+      <div class="relative p-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+          <i class="fas fa-file-alt text-2xl text-gray-300 dark:text-gray-600"></i>
+        </div>
+        <p class="text-sm font-medium text-gray-900 dark:text-gray-200">Nenhum documento publicado</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Os documentos e atas publicados aparecerão aqui</p>
+      </div>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}

@@ -1,0 +1,246 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-primary font-medium">RH</span>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">Minha Banca</span>
+    </div>
+
+    {% if sucesso %}
+    <div class="mb-5 flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+      <i class="fas fa-check-circle text-green-600"></i>
+      <p class="text-sm font-medium">{{ sucesso }}</p>
+    </div>
+    {% endif %}
+    {% if erro %}
+    <div class="mb-5 flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+      <i class="fas fa-times-circle text-red-600"></i>
+      <p class="text-sm font-medium">{{ erro }}</p>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+      <!-- Formul�rio da Banca (2/3) -->
+      <div class="xl:col-span-2">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Minha Banca</h1>
+            <p class="text-gray-500 mt-1 text-sm">Dados da sua empresa de despacho aduaneiro</p>
+          </div>
+          <a href="{% url 'dashboard' %}"
+             class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+            <i class="fas fa-arrow-left text-base"></i>Voltar
+          </a>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-5">
+          {% csrf_token %}
+
+          <!-- Identifica��o -->
+          <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+              <i class="fas fa-store text-primary"></i>
+              <h2 class="font-semibold text-gray-900 dark:text-white">Identifica��o</h2>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div class="lg:col-span-2">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome da Banca <span class="text-red-500">*</span></label>
+                <input type="text" name="nome" required value="{{ banca.nome|default:'' }}" placeholder="Ex: Despachos Silva & Associados Lda"
+                       class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">NIF <span class="text-red-500">*</span></label>
+                <input type="text" name="nif" required value="{{ banca.nif|default:'' }}" placeholder="Ex: 5410003284"
+                       class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+                <select name="tipo" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+                  {% for val, label in banca_tipos %}
+                  <option value="{{ val }}" {% if banca.tipo == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">N� Licen�a CDOA</label>
+                <input type="text" name="licenca_cdoa" value="{{ banca.licenca_cdoa|default:'' }}" placeholder="CDOA-2024-001"
+                       class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                <input type="email" name="email" value="{{ banca.email|default:'' }}" placeholder="banca@exemplo.ao"
+                       class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+                <input type="text" name="telefone" value="{{ banca.telefone|default:'' }}" placeholder="+244 923 456 789"
+                       class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Sede -->
+          <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+              <i class="fas fa-map-marker-alt text-primary"></i>
+              <h2 class="font-semibold text-gray-900 dark:text-white">Sede Principal</h2>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div class="lg:col-span-3">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Endere�o</label>
+                <textarea name="endereco" rows="2" placeholder="Rua, n�mero, bairro..."
+                          class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ banca.endereco|default:'' }}</textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Prov�ncia</label>
+                <select name="provincia" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+                  <option value="">Selecione...</option>
+                  {% for p in provincias %}<option value="{{ p }}" {% if banca.provincia == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Munic�pio</label>
+                <input type="text" name="municipio" value="{{ banca.municipio|default:'' }}" placeholder="Ex: Luanda"
+                       class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <a href="{% url 'dashboard' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>
+            <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+              <i class="fas fa-save text-lg"></i>
+              {% if banca %}Actualizar Banca{% else %}Registar Banca{% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Painel lateral: Filiais (1/3) -->
+      <div class="space-y-5">
+        <!-- Resumo -->
+        {% if banca %}
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
+              <i class="fas fa-store text-primary text-2xl"></i>
+            </div>
+            <div>
+              <p class="font-bold text-gray-900 dark:text-white">{{ banca.nome }}</p>
+              <p class="text-xs text-gray-500">NIF: {{ banca.nif }}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+              <p class="text-2xl font-black text-primary">{{ banca.colaboradores.count }}</p>
+              <p class="text-xs text-gray-500 mt-0.5">Colaboradores</p>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+              <p class="text-2xl font-black text-primary">{{ filiais|length }}</p>
+              <p class="text-xs text-gray-500 mt-0.5">Filiais</p>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Filiais -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center gap-2">
+              <i class="fas fa-building text-primary text-base"></i>
+              <h3 class="font-semibold text-gray-900 dark:text-white text-sm">Filiais por Prov�ncia</h3>
+            </div>
+            {% if banca %}
+            <button onclick="document.getElementById('modalFilial').classList.remove('hidden')"
+                    class="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-all" title="Adicionar filial">
+              <i class="fas fa-plus text-base"></i>
+            </button>
+            {% endif %}
+          </div>
+
+          {% if not filiais %}
+          <div class="p-6 text-center">
+            <i class="fas fa-map-marker-slash text-gray-400 text-3xl mb-2 block"></i>
+            <p class="text-sm text-gray-500">Nenhuma filial registada.</p>
+            {% if banca %}
+            <button onclick="document.getElementById('modalFilial').classList.remove('hidden')"
+                    class="mt-3 text-sm text-primary font-semibold hover:underline">+ Adicionar filial</button>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for f in filiais %}
+            <div class="flex items-center justify-between px-5 py-3">
+              <div>
+                <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ f.provincia }}</p>
+                {% if f.municipio %}<p class="text-xs text-gray-500">{{ f.municipio }}</p>{% endif %}
+                {% if f.responsavel %}<p class="text-xs text-gray-500">Resp: {{ f.responsavel }}</p>{% endif %}
+              </div>
+              <form method="POST" action="{% url 'rh_filial_apagar' f.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="button"
+                        onclick="confirmarFormPost(this.closest('form'), {tipo:'danger', titulo:'Remover Filial', mensagem:'Remover a filial {{ f.provincia|escapejs }}? Os colaboradores ficam na banca sem filial associada.', textoBotao:'Remover'})"
+                        class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all" title="Remover filial">
+                  <i class="fas fa-trash text-base"></i>
+                </button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Modal Nova Filial -->
+{% if banca %}
+<div id="modalFilial" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="font-bold text-gray-900 dark:text-white">Nova Filial</h3>
+      <button onclick="document.getElementById('modalFilial').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form method="POST" action="{% url 'rh_filial_nova' %}" class="p-6 space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Prov�ncia <span class="text-red-500">*</span></label>
+        <select name="provincia" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none">
+          <option value="">Selecione...</option>
+          {% for p in provincias %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Munic�pio</label>
+        <input type="text" name="municipio" placeholder="Ex: Benguela" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Respons�vel</label>
+        <input type="text" name="responsavel" placeholder="Nome do respons�vel" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+        <input type="text" name="telefone" placeholder="+244 923 456 789" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" />
+      </div>
+      <div class="flex justify-end gap-3">
+        <button type="button" onclick="document.getElementById('modalFilial').classList.add('hidden')"
+                class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button>
+        <button type="submit" class="px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">Adicionar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% include 'includes/footer.html' %}

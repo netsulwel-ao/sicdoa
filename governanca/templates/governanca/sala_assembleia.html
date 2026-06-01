@@ -1,0 +1,370 @@
+{% load static %}{% if request.GET.popup %}<head><title>Reunião - CDOA</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" /></head>{% else %}{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}{% endif %}
+{% if request.GET.popup %}<div class="min-w-0">{% else %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}{% endif %}
+{% csrf_token %}
+<div id="app-root" class="h-screen flex flex-col bg-[#1a1a2e] text-white overflow-hidden">
+  {% if request.GET.popup %}
+  <style>body{background:#1a1a2e;overflow:hidden;margin:0}#app-root{height:100vh;display:flex;flex-direction:column}</style>
+  {% endif %}
+
+  {# ── Meet Data (JSON inject) ──────────────────────────────────────── #}
+  <script>
+  window.MEET_DATA = {
+    assembleia_id: {{ assembleia.id }},
+    user_nome: '{{ usuario.nome|escapejs }}',
+    user_id: {{ usuario.id }},
+    papel: '{{ papel|escapejs }}',
+    livekit_room: '{{ assembleia.livekit_room|escapejs }}',
+    livekit_token: '{{ livekit_token|escapejs }}',
+    livekit_url: '{{ livekit_url|escapejs }}',
+    ws_url: '{{ ws_url|escapejs }}',
+    minhas_procuracao: [
+      {% for p in minhas_procuracao %}
+      { "id": {{ p.id }}, "outorgante_id": {{ p.outorgante.id }}, "outorgante_nome": "{{ p.outorgante.nome|escapejs }}" }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ],
+  };
+  </script>
+
+  {# ── Top Bar ─────────────────────────────────────────────────────── #}
+  <div id="meet-topbar" class="meet-topbar">
+    <div class="flex items-center gap-3 min-w-0">
+      {% if not request.GET.popup %}
+      <a href="{% url 'governanca_assembleias' %}" class="text-gray-400 hover:text-white transition-colors mr-1">
+        <i class="fas fa-chevron-left"></i>
+      </a>
+      {% endif %}
+      <div class="meet-title">{{ assembleia.titulo }}</div>
+    </div>
+    <div class="meet-status">
+      <span id="meet-timer" data-start="{{ assembleia.data_hora.isoformat }}" class="meet-clock font-mono text-base tabular-nums">00:00</span>
+      <span id="meet-status-badge" class="status-badge
+        {% if assembleia.status == 'Em Curso' %}live
+        {% elif assembleia.status == 'Concluida' or assembleia.status == 'Cancelada' %}ended
+        {% else %}scheduled{% endif %}">
+        {% if assembleia.status == 'Em Curso' %}<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse inline-block mr-1"></span>{% endif %}
+        {{ assembleia.status }}
+      </span>
+      <span id="quorum-text" class="text-sm hidden lg:inline text-gray-400"></span>
+    </div>
+  </div>
+
+  {# ── Main content area ───────────────────────────────────────────── #}
+  <div class="flex-1 flex min-h-0 relative">
+
+    {# ── Video Grid ───────────────────────────────────────────────── #}
+    <div class="flex-1 flex flex-col min-w-0 relative" id="video-area">
+      <div id="meet-grid" class="meet-grid layout-1"></div>
+
+      {# ── Screen share area (hidden by default) ─────────────────── #}
+      <div id="screen-share-area" class="meet-layout-share hidden" style="position:absolute;inset:0">
+        <div class="share-main" id="share-main-video"></div>
+        <div class="share-sidebar" id="share-sidebar"></div>
+      </div>
+
+      {# ── Votação Banner (persistente) ─────────────────────────── #}
+      <div id="votacao-banner" class="votacao-banner hidden">
+        <div class="votacao-banner-content">
+          <i class="fas fa-vote-yea votacao-banner-icon"></i>
+          <div class="votacao-banner-text">
+            <span class="votacao-banner-title">Votação em Curso</span>
+            <span class="votacao-banner-pauta" id="votacao-banner-pauta">—</span>
+          </div>
+          <div class="votacao-banner-timer" id="votacao-banner-timer">00:00</div>
+          <button class="votacao-banner-close" id="votacao-banner-close" title="Minimizar"><i class="fas fa-chevron-up"></i></button>
+        </div>
+        <div class="votacao-banner-progress"><div class="votacao-banner-bar" id="votacao-banner-bar"></div></div>
+      </div>
+
+      {# ── Toast container ───────────────────────────────────────── #}
+      <div id="meet-toasts" class="meet-toast"></div>
+    </div>
+
+    {# ── Side Panel ───────────────────────────────────────────────── #}
+    <div id="meet-sidepanel" class="meet-sidepanel hidden-panel">
+      <div class="panel-header">
+        <h3 id="panel-title">Chat</h3>
+        <button class="panel-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="panel-tabs">
+        <button class="panel-tab active" data-tab="chat"><i class="fas fa-comment mr-1"></i> Chat</button>
+        <button class="panel-tab" data-tab="participants"><i class="fas fa-users mr-1"></i> Participantes</button>
+        <button class="panel-tab" data-tab="voting"><i class="fas fa-vote-yea mr-1"></i> Votação</button>
+      </div>
+      <div id="panel-body" class="panel-body"></div>
+      {# ── Chat input ─────────────────────────────────────────── #}
+      <div class="chat-input-area" id="chat-input-area">
+        <div id="chat-reactions" class="flex gap-1 mr-1">
+          <button data-reacao="mao" class="text-lg cursor-pointer bg-transparent border-none hover:scale-110 transition-transform" title="Levantar mão">🖐️</button>
+          <button data-reacao="palmas" class="text-lg cursor-pointer bg-transparent border-none hover:scale-110 transition-transform" title="Palmas">👏</button>
+          <button data-reacao="coracao" class="text-lg cursor-pointer bg-transparent border-none hover:scale-110 transition-transform" title="Coração">❤️</button>
+        </div>
+        <input id="chat-input" type="text" placeholder="Enviar mensagem..." autocomplete="off">
+        <button id="chat-send"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+
+  </div>
+
+  {# ── Bottom Bar ──────────────────────────────────────────────────── #}
+  <div id="meet-bottombar" class="meet-bottombar">
+    <div class="flex items-center gap-1">
+      <button id="btn-mic" class="meet-btn" title="Microfone">
+        <i class="fas fa-microphone"></i>
+      </button>
+      <button id="btn-cam" class="meet-btn" title="Câmara">
+        <i class="fas fa-video"></i>
+      </button>
+    </div>
+
+    <div class="meet-sep"></div>
+
+    <div class="flex items-center gap-1">
+      <button id="btn-screen" class="meet-btn" title="Partilhar Ecrã">
+        <i class="fas fa-desktop"></i>
+      </button>
+      <button id="btn-hand" class="meet-btn" title="Levantar Mão">
+        <i class="fas fa-hand-paper"></i>
+      </button>
+    </div>
+
+    <div class="meet-sep"></div>
+
+    <div class="flex items-center gap-1">
+      <button id="btn-chat" class="meet-btn" title="Chat">
+        <i class="fas fa-comment"></i>
+        <span id="chat-badge" class="btn-badge hidden">0</span>
+      </button>
+      <button id="btn-participants" class="meet-btn" title="Participantes">
+        <i class="fas fa-users"></i>
+        <span class="btn-badge">{{ assembleia.presentes_count }}</span>
+      </button>
+      <button id="btn-voting" class="meet-btn" title="Votação">
+        <i class="fas fa-vote-yea"></i>
+        <span class="btn-badge hidden">!</span>
+      </button>
+    </div>
+
+    <div class="meet-sep"></div>
+
+    <div class="flex items-center gap-1">
+      <button id="btn-fullscreen" class="meet-btn" title="Ecrã Inteiro">
+        <i class="fas fa-expand"></i>
+      </button>
+      <button id="btn-settings" class="meet-btn" title="Configurações">
+        <i class="fas fa-ellipsis-v"></i>
+      </button>
+      <button id="btn-end" class="meet-btn meet-btn-end" title="Sair">
+        <i class="fas fa-phone-slash"></i> Sair
+      </button>
+    </div>
+  </div>
+
+  {# ── Admin controls (hidden overlay) ───────────────────────────── #}
+  <div id="admin-controls" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30 bg-[#252536] rounded-xl p-4 shadow-2xl border border-gray-700/50 min-w-[300px]">
+    <div class="flex items-center justify-between mb-3">
+      <h4 class="text-sm font-semibold text-gray-200">Controlo da Sala</h4>
+      <button onclick="document.getElementById('admin-controls').classList.add('hidden')" class="text-gray-400 hover:text-white cursor-pointer bg-transparent border-none"><i class="fas fa-times"></i></button>
+    </div>
+
+    {% if papel == 'Administrador' and assembleia.status == 'Em Curso' %}
+    <div class="mb-2 text-xs text-gray-400 font-medium">Votações das Pautas</div>
+    {% for pauta in pautas %}
+    <div class="flex items-center justify-between py-1.5 text-sm" data-pauta-id="{{ pauta.id }}">
+      <span class="text-gray-300 truncate flex-1">{{ pauta.titulo }}</span>
+      <div class="flex gap-1">
+        {% if pauta.status == 'Pendente' %}
+        <button class="btn-iniciar-votacao-sala px-2 py-1 text-xs bg-green-600 rounded-lg hover:bg-green-700 cursor-pointer border-none text-white" data-pauta-id="{{ pauta.id }}">Iniciar</button>
+        {% elif pauta.status == 'Em Votacao' %}
+        <button class="btn-encerrar-votacao-sala px-2 py-1 text-xs bg-red-600 rounded-lg hover:bg-red-700 cursor-pointer border-none text-white" data-pauta-id="{{ pauta.id }}">Encerrar</button>
+        {% else %}
+        <span class="px-2 py-1 text-xs rounded-lg bg-gray-700 text-gray-400">{{ pauta.get_status_display }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    <div class="mt-3 pt-3 border-t border-gray-700/50">
+      <button id="btn-concluir-sala" class="w-full px-3 py-2 text-xs font-medium bg-red-600 hover:bg-red-700 rounded-lg cursor-pointer border-none text-white">
+        <i class="fas fa-stop-circle mr-1"></i> Concluir Assembleia
+      </button>
+    </div>
+    {% elif assembleia.status == 'Concluida' %}
+      {% with primeira_ata=assembleia.atas.first %}
+      {% if not primeira_ata %}
+      <div class="text-center py-4">
+        <button id="btn-gerar-ata" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer border-none text-white">
+          <i class="fas fa-file-signature mr-1"></i> Gerar Ata Digital
+        </button>
+      </div>
+      {% else %}
+      <div class="text-center py-4">
+        <div class="text-green-400 text-sm mb-2">
+          <i class="fas fa-check-circle mr-1"></i> Ata gerada
+        </div>
+        <p class="text-xs text-gray-400 mb-2">Status: {{ primeira_ata.get_status_assinatura_display }}</p>
+        {% if primeira_ata.status_assinatura != 'Assinada' and primeira_ata.status_assinatura != 'Publicada' %}
+        <button id="btn-assinar-ata" class="px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 rounded-lg cursor-pointer border-none text-white">
+          <i class="fas fa-pen mr-1"></i> Assinar Ata
+        </button>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endwith %}
+    {% endif %}
+  </div>
+  {% if papel != 'Administrador' %}
+  <div id="admin-controls-placeholder" class="hidden"></div> {# placeholder para JS não quebrar #}
+  {% endif %}
+
+</div>
+
+{% if not request.GET.popup %}{% include 'includes/footer.html' %}{% endif %}
+
+{# ── Styles ────────────────────────────────────────────────── #}
+<link rel="stylesheet" href="{% static 'css/meet-grid.css' %}">
+
+{% include 'includes/confirm-modal.html' %}
+
+{# ── LiveKit + Sala JS ─────────────────────────────────────── #}
+<script src="{% static 'governanca/livekit-client.umd.min.js' %}"></script>
+<script src="{% static 'js/sala_assembleia.js' %}"></script>
+
+{# ── Admin JS (voting controls, concluir, ata) ─────────────── #}
+{% if papel == 'Administrador' %}
+<script>
+(function() {
+  const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+  const PK = {{ assembleia.id }};
+
+  // Settings button → show admin controls
+  document.getElementById('btn-settings')?.addEventListener('click', function() {
+    const p = document.getElementById('admin-controls');
+    p?.classList.toggle('hidden');
+  });
+
+  // ── Gerar Ata ──────────────────────────────────────────────
+  document.getElementById('btn-gerar-ata')?.addEventListener('click', async function() {
+    const ok = await window.showConfirm('Gerar Ata', 'Gerar a ata digital da assembleia? O conteúdo será compilado automaticamente.');
+    if (!ok) return;
+    const res = await fetch('/governanca/api/assembleia/' + PK + '/publicar-ata/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({ conteudo: 'Ata da assembleia ' + PK + ' gerada automaticamente.' }),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      location.reload();
+    } else {
+      alert(data.message || 'Erro ao gerar ata');
+    }
+  });
+
+  // ── Assinar Ata ────────────────────────────────────────────
+  document.getElementById('btn-assinar-ata')?.addEventListener('click', async function() {
+    const ok = await window.showConfirm('Assinar Ata', 'Confirmar a assinatura digital da ata?');
+    if (!ok) return;
+    // Buscar o ID da primeira ata
+    const res = await fetch('/governanca/api/assembleia/' + PK + '/dados/');
+    const dados = await res.json();
+    const ataId = dados.ata?.id;
+    if (!ataId) { alert('Nenhuma ata encontrada'); return; }
+    const res2 = await fetch('/governanca/api/ata/' + ataId + '/assinar/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    });
+    const data2 = await res2.json();
+    if (data2.status === 'ok') {
+      location.reload();
+    } else {
+      alert(data2.message || 'Erro ao assinar');
+    }
+  });
+
+  // Voting controls
+  document.querySelectorAll('.btn-iniciar-votacao-sala').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const pautaId = this.dataset.pautaId;
+      const ok = await window.showConfirm('Iniciar Votação', 'Iniciar votação desta pauta?');
+      if (!ok) return;
+      const res = await fetch('/governanca/api/pauta/' + pautaId + '/iniciar-votacao/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+      });
+      const data = await res.json();
+      if (data.status === 'ok') location.reload();
+      else alert(data.message || 'Erro');
+    });
+  });
+
+  document.querySelectorAll('.btn-encerrar-votacao-sala').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const pautaId = this.dataset.pautaId;
+      const ok = await window.showConfirm('Encerrar Votação', 'Encerrar a votação?');
+      if (!ok) return;
+      const res = await fetch('/governanca/api/pauta/' + pautaId + '/encerrar-votacao/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+      });
+      const data = await res.json();
+      if (data.status === 'ok') location.reload();
+      else alert(data.message || 'Erro');
+    });
+  });
+
+  // Concluir assembleia
+  document.getElementById('btn-concluir-sala')?.addEventListener('click', async function() {
+    const ok = await window.showConfirm('Concluir Assembleia', 'Concluir a assembleia? As votações abertas serão encerradas.');
+    if (!ok) return;
+    const res = await fetch('/governanca/api/assembleia/' + PK + '/concluir/', {
+      method: 'POST', headers: {'X-CSRFToken': CSRF}
+    });
+    const data = await res.json();
+    if (data.status === 'ok') window.location.href = '/governanca/assembleias/';
+    else alert(data.message || 'Erro');
+  });
+})();
+</script>
+{% endif %}
+
+{# ── Load initial data for the JS client ───────────────────── #}
+<script>
+(function() {
+  const PK = {{ assembleia.id }};
+  const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+  // Load presenca list
+  fetch('/governanca/api/assembleia/' + PK + '/presencas/listar/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (window.MEET) window.MEET.atualizarParticipantesPresenca(data.presentes || []);
+    })
+    .catch(function() {});
+
+  // Load mesa list
+  fetch('/governanca/api/assembleia/' + PK + '/mesa/listar/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (window.MEET) window.MEET.atualizarMesa(data.membros || []);
+    })
+    .catch(function() {});
+
+  // Load pautas + voting data
+  fetch('/governanca/api/assembleia/' + PK + '/dados/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (window.MEET) {
+        window.MEET.atualizarPautas(data.pautas || []);
+        // Update voting badge if there's an active voting
+        var activePauta = (data.pautas || []).find(function(p) { return p.status === 'Em Votacao'; });
+        if (activePauta) {
+          window.MEET.abrirSidePanel('voting');
+        }
+      }
+    })
+    .catch(function() {});
+
+  // Register presence
+  fetch('/governanca/api/assembleia/' + PK + '/registar-presenca/', {
+    method: 'POST', headers: {'X-CSRFToken': CSRF}
+  }).catch(function() {});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,396 @@
+{% load static %}
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0 aduaneiro-page">
+  {% include 'includes/header.html' %}
+
+  <main class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-3 sm:p-5 lg:p-6">
+    <div class="max-w-5xl mx-auto w-full">
+
+      <!-- Breadcrumb + Cabeçalho -->
+      <div class="mb-6">
+        <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+          <a href="{% url 'du_lista' %}" class="hover:text-primary transition-colors">Declarações Únicas</a>
+          <i class="fas fa-chevron-right text-xs"></i>
+          <span class="text-gray-900 dark:text-white font-medium">
+            {{ du.numero_du|default:"Rascunho" }}
+          </span>
+        </div>
+
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div class="flex items-center gap-3 mb-1">
+              <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+                {{ du.numero_du|default:"Rascunho" }}
+              </h1>
+              <!-- Badge status -->
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                {% if du.status == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                {% elif du.status == 'Rascunho' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
+                {% elif du.status == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                {% elif du.status == 'Submetida' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                {{ du.status }}
+              </span>
+            </div>
+            {% if du.codigo_processo %}
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-500 dark:text-gray-400">Código do Processo:</span>
+              <span class="font-mono font-bold text-primary text-sm tracking-widest">{{ du.codigo_processo }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Acções -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <a href="{% url 'du_pdf' du.du_uuid %}"
+              class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+              <i class="fas fa-download text-base"></i>
+              Download PDF
+            </a>
+            {% if pode_editar and du.status == 'Rascunho' %}
+            <a href="{% url 'du_editar' du.du_uuid %}"
+              class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm">
+              <i class="fas fa-edit text-base"></i>
+              Editar
+            </a>
+            {% endif %}
+            {% if is_admin %}
+            <div class="relative" id="admin-menu-wrapper">
+              <button onclick="toggleAdminMenu()"
+                class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+                <i class="fas fa-ellipsis-v text-base"></i>
+                Admin
+              </button>
+              <div id="admin-menu" class="hidden absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 min-w-44 overflow-hidden">
+                {% for s, label in du.STATUS_CHOICES %}
+                {% if s != du.status %}
+                <button onclick="alterarStatus('{{ s }}')"
+                  class="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  Marcar como {{ label }}
+                </button>
+                {% endif %}
+                {% endfor %}
+                <div class="border-t border-gray-100 dark:border-gray-700"></div>
+                <button onclick="apagarDU()"
+                  class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  Apagar DU
+                </button>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- ── Coluna Principal ── -->
+        <div class="lg:col-span-2 space-y-5">
+
+          <!-- Identificação -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i class="fas fa-file-alt text-base text-primary"></i>
+              Identificação
+            </h2>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Regime Aduaneiro</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ du.regime_aduaneiro|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Referência Interna</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ du.ref_despachante|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Estância</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ dados.estancia|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">INCOTERM</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ dados.incoterm|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Data de Criação</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ du.created_at|date:"d/m/Y H:i" }}</p>
+              </div>
+              {% if du.data_aprovacao %}
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Data de Aprovação</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ du.data_aprovacao|date:"d/m/Y H:i" }}</p>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Exportador -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i class="fas fa-building text-base text-primary"></i>
+              Exportador
+            </h2>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Nome</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ du.exportador_nome|default:dados.exportador_nome|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">NIF</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ du.nif_declarante|default:dados.exportador_codigo|default:"—" }}</p>
+              </div>
+              <div class="col-span-2">
+                <p class="text-xs text-gray-400 mb-0.5">Endereço</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ dados.exportador_endereco|default:"—" }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Destinatário -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i class="fas fa-user text-base text-primary"></i>
+              Destinatário
+            </h2>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Nome</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ du.destinatario_nome|default:dados.destinatario_nome|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">NIF</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ dados.destinatario_nif|default:"—" }}</p>
+              </div>
+              <div class="col-span-2">
+                <p class="text-xs text-gray-400 mb-0.5">Endereço</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ dados.destinatario_endereco|default:"—" }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Adições -->
+          {% with adicoes=dados.adicoes %}
+          {% if adicoes %}
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i class="fas fa-box text-base text-primary"></i>
+              Adições ({{ adicoes|length }})
+            </h2>
+            <div class="overflow-x-auto -mx-6">
+              <div class="inline-block min-w-full px-6">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-100 dark:border-gray-700">
+                    <th class="text-left text-xs font-semibold text-gray-400 pb-2 pr-3 w-8">Nº</th>
+                    <th class="text-left text-xs font-semibold text-gray-400 pb-2 pr-3">Código Pautal</th>
+                    <th class="text-left text-xs font-semibold text-gray-400 pb-2 pr-3">País</th>
+                    <th class="text-left text-xs font-semibold text-gray-400 pb-2 pr-3">Proc.</th>
+                    <th class="text-left text-xs font-semibold text-gray-400 pb-2 pr-3">Isenção</th>
+                    <th class="text-right text-xs font-semibold text-gray-400 pb-2 pr-3">FOB (KZ)</th>
+                    <th class="text-right text-xs font-semibold text-gray-400 pb-2">CIF (KZ)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
+                  {% for ad in adicoes %}
+                  <tr>
+                    <td class="py-2 pr-3 text-gray-500 text-xs">{{ forloop.counter }}</td>
+                    <td class="py-2 pr-3 font-mono text-xs font-semibold text-primary">{{ ad.codigo_pautal|default:"—" }}</td>
+                    <td class="py-2 pr-3 text-gray-700 dark:text-gray-300 text-xs">{{ ad.pais_origem|default:"—" }}</td>
+                    <td class="py-2 pr-3 text-gray-700 dark:text-gray-300 text-xs">{{ ad.codigo_procedimento|default:"—" }}</td>
+                    <td class="py-2 pr-3 text-gray-700 dark:text-gray-300 text-xs">{{ ad.codigo_isencao|default:"000" }}</td>
+                    <td class="py-2 pr-3 text-right font-mono text-xs text-gray-900 dark:text-white">{{ ad.valor_fob_kz|default:"0" }}</td>
+                    <td class="py-2 text-right font-mono text-xs text-gray-900 dark:text-white">{{ ad.montante_kz|default:"0" }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              </div>
+            </div>
+
+            <!-- Breakdown de impostos por adição -->
+            {% for ad in adicoes %}
+            {% if ad.impostos %}
+            <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                Adição {{ forloop.counter }} — {{ ad.codigo_pautal|default:"—" }} — Cálculo de Impostos
+              </p>
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {% for cod, info in ad.impostos.items %}
+                {% if info.valor or info.acao != 'N/A' %}
+                <div class="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-2 text-center">
+                  <p class="text-xs font-bold text-gray-500 dark:text-gray-400">{{ cod }}</p>
+                  <p class="text-sm font-semibold
+                    {% if info.acao == 'N/A' %}text-gray-400
+                    {% elif info.credito == '0' %}text-yellow-600 dark:text-yellow-400
+                    {% elif info.acao == 'RelTax' or info.acao == 'DelTax' %}text-green-600 dark:text-green-400
+                    {% else %}text-gray-900 dark:text-white{% endif %}">
+                    {{ info.valor|floatformat:2 }} KZ
+                  </p>
+                  <p class="text-xs text-gray-400">{{ info.taxa }}% · {{ info.acao }}</p>
+                </div>
+                {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% endwith %}
+
+        </div>
+
+        <!-- ── Coluna Lateral ── -->
+        <div class="space-y-5">
+
+          <!-- Resumo Financeiro -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i class="fas fa-credit-card text-base text-primary"></i>
+              Cálculos de Taxação
+            </h2>
+            <div class="space-y-2.5">
+              {% if du.total_derimp %}
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">DERIMP</span>
+                <span class="font-semibold text-gray-900 dark:text-white font-mono">{{ du.total_derimp|floatformat:2 }} KZ</span>
+              </div>
+              {% endif %}
+              {% if du.total_iec %}
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">IEC</span>
+                <span class="font-semibold text-gray-900 dark:text-white font-mono">{{ du.total_iec|floatformat:2 }} KZ</span>
+              </div>
+              {% endif %}
+              {% if du.total_emgead %}
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">05M (EMGEAD)</span>
+                <span class="font-semibold text-gray-900 dark:text-white font-mono">{{ du.total_emgead|floatformat:2 }} KZ</span>
+              </div>
+              {% endif %}
+              {% if du.total_direxp %}
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">DIREXP</span>
+                <span class="font-semibold text-gray-900 dark:text-white font-mono">{{ du.total_direxp|floatformat:2 }} KZ</span>
+              </div>
+              {% endif %}
+              {% if du.total_iva %}
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">IVA</span>
+                <span class="font-semibold text-gray-900 dark:text-white font-mono">{{ du.total_iva|floatformat:2 }} KZ</span>
+              </div>
+              {% endif %}
+              <div class="border-t border-gray-100 dark:border-gray-700 pt-3 mt-3">
+                <div class="flex justify-between">
+                  <span class="text-sm font-bold text-gray-900 dark:text-white">Total a Pagar</span>
+                  <span class="text-base font-bold text-primary font-mono">{{ du.total_geral|floatformat:2 }} KZ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Valores Aduaneiros -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i class="fas fa-university text-base text-primary"></i>
+              Valores
+            </h2>
+            <div class="space-y-2.5">
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">FOB</span>
+                <span class="font-semibold text-gray-900 dark:text-white font-mono">{{ du.valor_fob|floatformat:2 }} KZ</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Frete</span>
+                <span class="font-semibold text-gray-900 dark:text-white font-mono">{{ du.valor_frete|floatformat:2 }} KZ</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Seguro</span>
+                <span class="font-semibold text-gray-900 dark:text-white font-mono">{{ du.valor_seguro|floatformat:2 }} KZ</span>
+              </div>
+              <div class="border-t border-gray-100 dark:border-gray-700 pt-3 mt-3">
+                <div class="flex justify-between text-sm">
+                  <span class="font-bold text-gray-900 dark:text-white">CIF</span>
+                  <span class="font-bold text-gray-900 dark:text-white font-mono">{{ du.valor_cif|floatformat:2 }} KZ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Acções rápidas -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Acções</h2>
+            <div class="space-y-2">
+              <a href="{% url 'du_pdf' du.du_uuid %}"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300">
+                <i class="fas fa-file-pdf text-base text-green-600"></i>
+                Download PDF
+              </a>
+              {% if pode_editar and du.status == 'Rascunho' %}
+              <a href="{% url 'du_editar' du.du_uuid %}"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300">
+                <i class="fas fa-edit text-base text-blue-600"></i>
+                Continuar Edição
+              </a>
+              {% endif %}
+              <a href="{% url 'du_lista' %}"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300">
+                <i class="fas fa-arrow-left text-base text-gray-500"></i>
+                Voltar à Lista
+              </a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function toggleAdminMenu() {
+  document.getElementById('admin-menu').classList.toggle('hidden');
+}
+document.addEventListener('click', function(e) {
+  const w = document.getElementById('admin-menu-wrapper');
+  if (w && !w.contains(e.target)) document.getElementById('admin-menu')?.classList.add('hidden');
+});
+
+function alterarStatus(novoStatus) {
+  abrirConfirm({
+    tipo: 'warning',
+    titulo: 'Alterar Status',
+    mensagem: `Alterar o status desta DU para "${novoStatus}"?`,
+    textoBotao: 'Alterar',
+    onConfirm: function () {
+      fetch('{% url "du_alterar_status" du.du_uuid %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ status: novoStatus }),
+      })
+      .then(r => r.json())
+      .then(d => { if (d.sucesso) location.reload(); });
+    },
+  });
+}
+
+function apagarDU() {
+  abrirConfirm({
+    tipo: 'danger',
+    titulo: 'Apagar Declaração Única',
+    mensagem: 'Esta acção é irreversível. A DU será eliminada permanentemente do sistema.',
+    textoBotao: 'Apagar DU',
+    onConfirm: function () {
+      fetch('{% url "du_apagar" du.du_uuid %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+      })
+      .then(r => r.json())
+      .then(d => { if (d.sucesso) window.location.href = '{% url "du_lista" %}'; });
+    },
+  });
+}
+</script>
+
+{% include 'includes/footer.html' %}

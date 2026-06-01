@@ -1,0 +1,418 @@
+﻿{% load static %}
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+
+  <main class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-6">
+    <div class="max-w-5xl mx-auto">
+
+      <!-- Cabeçalho -->
+      <div class="mb-8">
+        <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+          <span>Sistema</span>
+          <i class="fas fa-chevron-right text-xs"></i>
+          <span class="text-primary font-medium">Meu Perfil</span>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Meu Perfil</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">Gerencie as suas informações pessoais e segurança</p>
+      </div>
+
+      <!-- Mensagens -->
+      {% for msg in messages %}
+      <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+        {% if msg.tags == 'success' %}bg-green-100 text-green-800 border border-green-200
+        {% elif msg.tags == 'error' %}bg-red-100 text-red-800 border border-red-200
+        {% else %}bg-blue-100 text-blue-800 border border-blue-200{% endif %}">
+        {{ msg }}
+      </div>
+      {% endfor %}
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- ── Coluna Principal ── -->
+        <div class="lg:col-span-2 space-y-6">
+
+          <!-- Dados Pessoais -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fas fa-user text-primary"></i>
+                Dados Pessoais
+              </h2>
+              <button onclick="abrirModal('modalEditarDados')"
+                class="flex items-center gap-1 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                <i class="fas fa-edit text-sm"></i> Editar
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-5">
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome Completo</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white" id="display_nome">{{ usuario.nome }}</p>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">NIF</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white" id="display_nif">{{ usuario.nif|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.email }}</p>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Telefone</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white" id="display_telefone">{{ usuario.telefone|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Username</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.username }}</p>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nº Cédula / Licença</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.cedula|default:"—" }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dados Profissionais -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+              <i class="fas fa-id-badge text-primary"></i>
+              Dados Profissionais
+            </h2>
+            <div class="grid grid-cols-2 gap-5">
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Papel / Função</p>
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
+                  {% if usuario.papel == 'Administrador' %}bg-red-100 text-red-700
+                  {% elif usuario.papel == 'Despachante Oficial' %}bg-blue-100 text-blue-700
+                  {% elif usuario.papel == 'Operador' %}bg-green-100 text-green-700
+                  {% else %}bg-gray-100 text-gray-700{% endif %}">
+                  <i class="fas fa-xs">
+                    {% if usuario.papel == 'Administrador' %}fa-user-shield
+                    {% elif usuario.papel == 'Despachante Oficial' %}fa-truck
+                    {% else %}fa-eye{% endif %}
+                  </i>
+                  {{ usuario.papel }}
+                </span>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status da Conta</p>
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
+                  {% if usuario.status == 'Ativo' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                  <i class="fas fa-xs">
+                    {% if usuario.status == 'Ativo' %}fa-check-circle{% else %}fa-times-circle{% endif %}
+                  </i>
+                  {{ usuario.status }}
+                </span>
+              </div>
+              {% if usuario.ultimo_acesso %}
+              <div class="col-span-2">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Último Acesso</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">{{ usuario.ultimo_acesso|date:"d/m/Y H:i" }}</p>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Segurança -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+              <i class="fas fa-lock text-primary"></i>
+              Segurança
+            </h2>
+            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <div>
+                <p class="text-sm font-medium text-gray-900 dark:text-white">Senha de Acesso</p>
+                {% if not tem_senha %}
+                <div class="flex items-center gap-1 mt-1">
+                  <i class="fas fa-exclamation-triangle text-amber-500 text-sm"></i>
+                  <p class="text-xs text-amber-600 dark:text-amber-400">Senha não definida — defina para usar o login tradicional</p>
+                </div>
+                {% else %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Altere a sua senha regularmente para maior segurança</p>
+                {% endif %}
+              </div>
+              <button onclick="abrirModal('modalAlterarSenha')"
+                class="px-4 py-2 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors font-medium whitespace-nowrap">
+                {% if not tem_senha %}Definir{% else %}Alterar{% endif %}
+              </button>
+            </div>
+            
+            {% if not tem_senha %}
+            <!-- Informação adicional para utilizadores sem senha (criados via portal) -->
+            <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div class="flex gap-2">
+                <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 text-base"></i>
+                <div>
+                  <p class="text-xs font-medium text-blue-900 dark:text-blue-100">Conta criada via Portal CDO</p>
+                  <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    Pode continuar a usar o Portal CDO para entrar, ou definir uma senha para usar o login tradicional do SICDOA.
+                  </p>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- ── Coluna Lateral ── -->
+        <div class="space-y-6">
+
+          <!-- Foto de Perfil -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
+            <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              {% if usuario.foto %}
+                <img src="{{ usuario.foto }}" alt="Foto" class="w-24 h-24 rounded-full object-cover" />
+              {% else %}
+                <i class="fas fa-user text-primary" style="font-size:48px;"></i>
+              {% endif %}
+            </div>
+            <p class="font-semibold text-gray-900 dark:text-white">{{ usuario.nome }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">{{ usuario.papel }}</p>
+          </div>
+
+          <!-- Estatísticas -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+              <i class="fas fa-chart-line text-primary text-base"></i>
+              Estatísticas DU
+            </h3>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500 dark:text-gray-400">Total de DUs</span>
+                <span class="text-lg font-bold text-gray-900 dark:text-white">{{ total_dus }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500 dark:text-gray-400">Este Mês</span>
+                <span class="text-lg font-bold text-primary">{{ dus_mes }}</span>
+              </div>
+            </div>
+            <a href="{% url 'du_lista' %}"
+              class="block mt-4 text-center text-sm text-primary hover:text-primary/80 font-medium">
+              Ver Todas as DUs <i class="fas fa-arrow-right text-xs ml-1"></i>
+            </a>
+          </div>
+
+          <!-- Ações Rápidas -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Ações Rápidas</h3>
+            <div class="space-y-1">
+              <a href="{% url 'du' %}"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <i class="fas fa-plus-circle text-primary text-base"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Nova DU</span>
+              </a>
+              <a href="{% url 'du_lista' %}"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <i class="fas fa-list text-primary text-base"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Minhas DUs</span>
+              </a>
+              <a href="{% url 'dashboard' %}"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <i class="fas fa-th-large text-primary text-base"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Dashboard</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Modal Editar Dados Pessoais ── -->
+<div id="modalEditarDados" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-2xl">
+    <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Editar Dados Pessoais</h2>
+      <button onclick="fecharModal('modalEditarDados')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form method="POST" action="{% url 'meu_perfil_guardar' %}" class="p-6 space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Completo *</label>
+        <input type="text" name="nome" value="{{ usuario.nome }}" required
+          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
+                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username *</label>
+        <input type="text" name="username" value="{{ usuario.username }}" required
+          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
+                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Apenas letras, números e underscore. Sem espaços.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+        <input type="text" name="telefone" value="{{ usuario.telefone }}"
+          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
+                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+          class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+          Guardar Alterações
+        </button>
+        <button type="button" onclick="fecharModal('modalEditarDados')"
+          class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal Alterar Senha ── -->
+<div id="modalAlterarSenha" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full shadow-2xl">
+    <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+        {% if not tem_senha %}Definir Senha{% else %}Alterar Senha{% endif %}
+      </h2>
+      <button onclick="fecharModal('modalAlterarSenha')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form method="POST" action="{% url 'meu_perfil_senha' %}" class="p-6 space-y-4">
+      {% csrf_token %}
+      
+      {% if not tem_senha %}
+      <!-- Mensagem para utilizadores sem senha (criados via portal) -->
+      <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div class="flex gap-3">
+          <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 text-xl"></i>
+          <div>
+            <p class="text-sm font-medium text-blue-900 dark:text-blue-100">Primeira Definição de Senha</p>
+            <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+              A sua conta foi criada via Portal CDO. Defina uma senha para poder usar o login tradicional do SICDOA.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <!-- Campo de senha actual (apenas se o utilizador já tem senha) -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha Actual *</label>
+        <input type="password" name="senha_atual" required
+          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
+                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+      </div>
+      {% endif %}
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nova Senha *</label>
+        <input type="password" name="nova_senha" required minlength="4"
+          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
+                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mínimo de 4 caracteres</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmar Nova Senha *</label>
+        <input type="password" name="confirmar_senha" required minlength="4"
+          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
+                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+          class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+          {% if not tem_senha %}Definir Senha{% else %}Alterar Senha{% endif %}
+        </button>
+        <button type="button" onclick="fecharModal('modalAlterarSenha')"
+          class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function abrirModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function fecharModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// Fechar ao clicar fora
+document.querySelectorAll('[id^="modal"]').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) fecharModal(m.id); });
+});
+
+// ── Validação do formulário de senha ─────────────────────────────────────────
+(function() {
+  const form        = document.querySelector('#modalAlterarSenha form');
+  const novaSenha   = document.querySelector('#modalAlterarSenha [name="nova_senha"]');
+  const confirmar   = document.querySelector('#modalAlterarSenha [name="confirmar_senha"]');
+  const senhaActual = document.querySelector('#modalAlterarSenha [name="senha_atual"]');
+
+  if (!form || !novaSenha || !confirmar) return;
+
+  // Feedback em tempo real
+  function feedback(el, ok, msg) {
+    let hint = el.parentElement.querySelector('.pw-hint');
+    if (!hint) {
+      hint = document.createElement('p');
+      hint.className = 'pw-hint text-xs mt-1';
+      el.parentElement.appendChild(hint);
+    }
+    hint.innerHTML = msg;
+    hint.style.display = msg ? '' : 'none';
+  }
+
+  novaSenha.addEventListener('input', function() {
+    if (!this.value) { feedback(this, true, ''); return; }
+    if (this.value.length < 4) {
+      feedback(this, false, '<i class="fas fa-times text-red-600 text-xs"></i> Mínimo de 4 caracteres');
+    } else {
+      feedback(this, true, '<i class="fas fa-check text-green-600 text-xs"></i> OK');
+    }
+    // Rever confirmação se já preenchida
+    if (confirmar.value) confirmar.dispatchEvent(new Event('input'));
+  });
+
+  confirmar.addEventListener('input', function() {
+    if (!this.value) { feedback(this, true, ''); return; }
+    if (this.value === novaSenha.value) {
+      feedback(this, true, '<i class="fas fa-check text-green-600 text-xs"></i> As senhas coincidem');
+    } else {
+      feedback(this, false, '<i class="fas fa-times text-red-600 text-xs"></i> As senhas não coincidem');
+    }
+  });
+
+  // Bloquear submissão se inválido
+  form.addEventListener('submit', function(e) {
+    // Campo senha actual (só existe quando tem_senha=True)
+    if (senhaActual && !senhaActual.value.trim()) {
+      e.preventDefault();
+      feedback(senhaActual, false, '<i class="fas fa-times text-red-600 text-xs"></i> Campo obrigatório');
+      senhaActual.focus();
+      return;
+    }
+    if (!novaSenha.value.trim()) {
+      e.preventDefault();
+      feedback(novaSenha, false, '<i class="fas fa-times text-red-600 text-xs"></i> Campo obrigatório');
+      novaSenha.focus();
+      return;
+    }
+    if (novaSenha.value.length < 4) {
+      e.preventDefault();
+      feedback(novaSenha, false, '<i class="fas fa-times text-red-600 text-xs"></i> Mínimo de 4 caracteres');
+      novaSenha.focus();
+      return;
+    }
+    if (!confirmar.value.trim()) {
+      e.preventDefault();
+      feedback(confirmar, false, '<i class="fas fa-times text-red-600 text-xs"></i> Campo obrigatório');
+      confirmar.focus();
+      return;
+    }
+    if (novaSenha.value !== confirmar.value) {
+      e.preventDefault();
+      feedback(confirmar, false, '<i class="fas fa-times text-red-600 text-xs"></i> As senhas não coincidem');
+      confirmar.focus();
+    }
+  });
+})();
+</script>
+
+{% include 'includes/footer.html' %}

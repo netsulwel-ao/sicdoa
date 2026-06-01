@@ -1,0 +1,228 @@
+﻿{% include 'includes/head.html' %}
+{% include 'colaboradores/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'colaboradores/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+    {# ── Cabeçalho ───────────────────────────────────────────────────────── #}
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Férias e Ausências</h1>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5">Solicite e acompanhe os seus pedidos de férias</p>
+    </div>
+
+    {# ── Alertas ─────────────────────────────────────────────────────────── #}
+    {% if mensagem_sucesso %}
+    <div class="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-800 dark:text-green-300">
+      <i class="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+      <span class="text-sm font-medium">{{ mensagem_sucesso }}</span>
+    </div>
+    {% endif %}
+    {% if mensagem_erro %}
+    <div class="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-300">
+      <i class="fas fa-times-circle text-red-600 dark:text-red-400"></i>
+      <span class="text-sm font-medium">{{ mensagem_erro }}</span>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      {# ── Formulário de Pedido ────────────────────────────────────────── #}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <i class="fas fa-plus-circle text-orange-500 text-xl"></i>
+          <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Novo Pedido de Férias</h2>
+        </div>
+        <form method="post" class="p-5 space-y-4">
+          {% csrf_token %}
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Data de Início <span class="text-red-500">*</span>
+            </label>
+            <input type="date" name="data_inicio" required
+                   min="{{ hoje|date:'Y-m-d' }}"
+                   class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Data de Fim <span class="text-red-500">*</span>
+            </label>
+            <input type="date" name="data_fim" required
+                   min="{{ hoje|date:'Y-m-d' }}"
+                   class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+            <p id="msg-dias" class="text-xs text-primary mt-1 hidden"></p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Motivo / Observações
+            </label>
+            <textarea name="motivo" rows="3"
+                      placeholder="Descreva o motivo (opcional)..."
+                      class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"></textarea>
+          </div>
+          <button type="submit"
+                  class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 text-white text-sm font-semibold rounded-lg hover:bg-orange-700 transition-colors shadow-sm">
+            <i class="fas fa-paper-plane text-base"></i>
+            Submeter Pedido
+          </button>
+          <p class="text-xs text-gray-500 dark:text-gray-400 text-center">
+            O pedido ficará pendente até aprovação pelo responsável.
+          </p>
+        </form>
+      </div>
+
+      {# ── Resumo de Pedidos ───────────────────────────────────────────── #}
+      <div class="space-y-4">
+        {# Contadores #}
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm text-center">
+            <p class="text-2xl font-bold text-gray-700 dark:text-gray-300">{{ pedidos|length }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Total</p>
+          </div>
+          <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm text-center">
+            <p class="text-2xl font-bold text-green-600 dark:text-green-400" id="count-aprovados">0</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Aprovados</p>
+          </div>
+          <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm text-center">
+            <p class="text-2xl font-bold text-orange-600 dark:text-orange-400" id="count-pendentes">0</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pendentes</p>
+          </div>
+        </div>
+
+        {# Pedidos recentes #}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+            <i class="fas fa-list text-primary text-xl"></i>
+            <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Pedidos Recentes</h2>
+          </div>
+          {% if pedidos %}
+          <div class="divide-y divide-gray-50 dark:divide-gray-800">
+            {% for pedido in pedidos|slice:":5" %}
+            <div class="px-5 py-4 flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <div class="p-2 rounded-lg mt-0.5
+                  {% if pedido.estado == 'Aprovado' %}bg-green-50 dark:bg-green-900/20
+                  {% elif pedido.estado == 'Rejeitado' %}bg-red-50 dark:bg-red-900/20
+                  {% else %}bg-orange-50 dark:bg-orange-900/20{% endif %}">
+                  <i class="{% if pedido.estado == 'Aprovado' %}fas fa-check-circle text-green-600 dark:text-green-400{% elif pedido.estado == 'Rejeitado' %}fas fa-times-circle text-red-600 dark:text-red-400{% else %}fas fa-clock text-orange-600 dark:text-orange-400{% endif %} text-base"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    {{ pedido.data_inicio|date:"d/m/Y" }} <i class="fas fa-arrow-right text-xs mx-1"></i> {{ pedido.data_fim|date:"d/m/Y" }}
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {{ pedido.dias }} dia{{ pedido.dias|pluralize }}
+                    {% if pedido.motivo %} · {{ pedido.motivo|truncatechars:40 }}{% endif %}
+                  </p>
+                </div>
+              </div>
+              <span class="flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium
+                {% if pedido.estado == 'Aprovado' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                {% elif pedido.estado == 'Rejeitado' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                {% else %}bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400{% endif %}
+                estado-badge" data-estado="{{ pedido.estado }}">
+                {{ pedido.estado }}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+          {% if page_obj.has_other_pages %}
+          <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+            {% include 'includes/pagination.html' %}
+          </div>
+          {% endif %}
+          {% else %}
+          <div class="text-center py-10">
+            <i class="fas fa-umbrella-beach text-gray-300 dark:text-gray-600 text-4xl"></i>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mt-2">Nenhum pedido de férias submetido.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    {# ── Histórico completo ──────────────────────────────────────────────── #}
+    {% if pedidos.count > 5 %}
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+        <i class="fas fa-history text-primary text-xl"></i>
+        <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Histórico Completo</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-800/50">
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Início</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fim</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Dias</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Motivo</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estado</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+            {% for pedido in pedidos %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+              <td class="px-5 py-3 text-gray-800 dark:text-gray-200">{{ pedido.data_inicio|date:"d/m/Y" }}</td>
+              <td class="px-5 py-3 text-gray-800 dark:text-gray-200">{{ pedido.data_fim|date:"d/m/Y" }}</td>
+              <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ pedido.dias }}</td>
+              <td class="px-5 py-3 text-gray-600 dark:text-gray-400">{{ pedido.motivo|default:"—"|truncatechars:50 }}</td>
+              <td class="px-5 py-3">
+                <span class="px-2.5 py-1 rounded-full text-xs font-medium
+                  {% if pedido.estado == 'Aprovado' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                  {% elif pedido.estado == 'Rejeitado' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                  {% else %}bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400{% endif %}">
+                  {{ pedido.estado }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+<script>
+// Calcular dias entre datas
+const inicio = document.querySelector('input[name="data_inicio"]');
+const fim = document.querySelector('input[name="data_fim"]');
+const msgDias = document.getElementById('msg-dias');
+
+function calcularDias() {
+  if (!inicio.value || !fim.value) { msgDias.classList.add('hidden'); return; }
+  const d1 = new Date(inicio.value);
+  const d2 = new Date(fim.value);
+  const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+  if (diff > 0) {
+    msgDias.textContent = diff + ' dia' + (diff > 1 ? 's' : '') + ' de férias';
+    msgDias.classList.remove('hidden');
+  } else {
+    msgDias.textContent = 'A data de fim deve ser posterior à data de início';
+    msgDias.classList.remove('hidden');
+    msgDias.style.color = '#dc2626';
+  }
+}
+inicio.addEventListener('change', calcularDias);
+fim.addEventListener('change', calcularDias);
+
+// Sincronizar data mínima do fim com o início
+inicio.addEventListener('change', function() {
+  fim.min = this.value;
+});
+
+// Contar estados para os badges
+let pendentes = 0, aprovados = 0;
+document.querySelectorAll('.estado-badge').forEach(function(el) {
+  if (el.dataset.estado === 'Pendente') pendentes++;
+  if (el.dataset.estado === 'Aprovado') aprovados++;
+});
+const countPendentes = document.getElementById('count-pendentes');
+if (countPendentes) countPendentes.textContent = pendentes;
+const countAprovados = document.getElementById('count-aprovados');
+if (countAprovados) countAprovados.textContent = aprovados;
+</script>
+{% include 'includes/footer.html' %}

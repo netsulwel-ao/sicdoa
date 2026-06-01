@@ -1,0 +1,227 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <!-- Page Header with stats -->
+    <div class="mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black tracking-tight">Assembleias</h1>
+          <p class="text-gray-500 dark:text-gray-400 text-sm mt-1.5">
+            {% if page_obj.paginator.count > 0 %}
+            {{ page_obj.paginator.count }} assembleia{{ page_obj.paginator.count|pluralize:"s" }} registada{{ page_obj.paginator.count|pluralize:"s" }}
+            {% else %}
+            Gerencie as assembleias da CDOA
+            {% endif %}
+          </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          {% if papel == 'Administrador' %}
+          <a href="{% url 'governanca_nova_assembleia' %}"
+             class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 flex items-center gap-2.5 shrink-0 active:scale-[0.97]">
+            <i class="fas fa-plus-circle text-sm"></i>
+            Nova Assembleia
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Mini stats row -->
+      {% if page_obj.paginator.count > 0 %}
+      <div class="flex flex-wrap gap-2 mt-5">
+        {% for s, label in status_choices %}
+        {% if s %}
+        <a href="{% url 'governanca_assembleias' %}?status={{ s }}"
+           class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl transition-all border
+                  {% if status_atual == s %}border-primary/30 bg-primary/10 text-primary shadow-sm{% else %}border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600{% endif %}">
+          {% if s == 'Agendada' %}
+          <i class="fa-regular fa-clock text-blue-500 text-sm"></i>
+          {% elif s == 'Em Curso' %}
+          <i class="fa-regular fa-circle-play text-green-500 text-sm"></i>
+          {% elif s == 'Concluida' %}
+          <i class="fas fa-flag-checkered text-gray-400 text-sm"></i>
+          {% elif s == 'Cancelada' %}
+          <i class="fa-regular fa-circle-xmark text-red-500 text-sm"></i>
+          {% endif %}
+          {{ label }}
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Search + Quick Filters -->
+    <div class="flex flex-col sm:flex-row gap-3 mb-6">
+      <div class="relative flex-1 max-w-md">
+        <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+        <input type="text" id="search-assembleias" placeholder="Pesquisar assembleias..."
+               class="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all shadow-sm">
+        <button id="search-clear" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hidden transition-colors text-sm">
+          <i class="fa-regular fa-circle-xmark"></i>
+        </button>
+      </div>
+      <div class="flex gap-2 flex-wrap items-center">
+        {% for s, label in status_choices %}
+        <a href="{% url 'governanca_assembleias' %}{% if s %}?status={{ s }}{% endif %}"
+           class="px-4 py-2.5 text-sm font-medium rounded-xl transition-all
+                  {% if status_atual == s %}bg-primary text-white shadow-sm shadow-primary/20{% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+          {{ label }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Lista -->
+    <div class="space-y-3" id="assembleias-lista">
+      {% if assembleias %}
+      {% for a in assembleias %}
+      <div class="group relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200">
+        <!-- Left accent bar for status -->
+        <div class="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl
+          {% if a.status == 'Em Curso' %}bg-green-500
+          {% elif a.status == 'Agendada' %}bg-blue-500
+          {% elif a.status == 'Concluida' %}bg-gray-400
+          {% elif a.status == 'Cancelada' %}bg-red-500{% endif %}"></div>
+
+        <a href="{% url 'governanca_detalhe' a.pk %}" class="block p-4 md:p-5 pl-5 md:pl-6">
+          <div class="flex items-start gap-4">
+            <!-- Status icon -->
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-0.5
+              {% if a.status == 'Em Curso' %}bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400
+              {% elif a.status == 'Concluida' %}bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400
+              {% elif a.status == 'Cancelada' %}bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400
+              {% else %}bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400{% endif %}">
+              <i class="fas {% if a.status == 'Em Curso' %}fa-play{% elif a.status == 'Concluida' %}fa-flag-checkered{% elif a.status == 'Cancelada' %}fa-ban{% else %}fa-clock{% endif %} text-base group-hover:scale-110 transition-transform duration-200"></i>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                <h3 class="text-sm font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors truncate max-w-[300px] md:max-w-[500px]">{{ a.titulo }}</h3>
+                {% if a.status == 'Em Curso' %}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                  <span class="relative flex h-1.5 w-1.5">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                  </span>
+                  {{ a.get_status_display }}
+                </span>
+                {% elif a.status == 'Agendada' %}
+                <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ a.get_status_display }}</span>
+                {% elif a.status == 'Concluida' %}
+                <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{{ a.get_status_display }}</span>
+                {% else %}
+                <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">{{ a.get_status_display }}</span>
+                {% endif %}
+              </div>
+
+              <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                <span class="inline-flex items-center gap-1.5">
+                  <i class="fa-regular fa-calendar text-gray-400"></i>
+                  {{ a.data_hora|date:"d/m/Y H:i" }}
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <i class="fa-regular fa-location-dot text-gray-400"></i>
+                  {{ a.local|default:"Sala Virtual CDOA" }}
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <i class="fa-regular fa-file-lines text-gray-400"></i>
+                  {{ a.total_pautas }} pauta{{ a.total_pautas|pluralize:"s" }}
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <i class="fa-regular fa-user text-gray-400"></i>
+                  {{ a.presentes_count }}/{{ a.quorum_minimo|default:"—" }} presentes
+                </span>
+              </div>
+
+              {% if a.descricao %}
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-2 line-clamp-1 leading-relaxed">{{ a.descricao }}</p>
+              {% endif %}
+            </div>
+
+            <!-- Action -->
+            <div class="flex items-center gap-2 shrink-0 self-center">
+              {% if a.status == 'Em Curso' %}
+              <span class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <i class="fas fa-circle text-[5px] text-green-500"></i> AO VIVO
+              </span>
+              {% endif %}
+              <i class="fas fa-chevron-right text-gray-300 dark:text-gray-600 group-hover:text-primary transition-colors text-sm"></i>
+            </div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 pt-4 mt-4">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+
+      {% else %}
+      <!-- Empty state -->
+      <div class="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm py-20 px-6 text-center overflow-hidden">
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl"></div>
+        <div class="relative">
+          <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-blue-500/10 flex items-center justify-center mx-auto mb-5 shadow-sm">
+            <i class="fa-regular fa-calendar-circle-plus text-3xl text-primary/60"></i>
+          </div>
+          <h3 class="text-lg font-bold text-gray-800 dark:text-gray-200 mb-1.5">Nenhuma assembleia encontrada</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-7">
+            {% if status_atual %}Nenhuma assembleia com o filtro <strong class="text-gray-700 dark:text-gray-300">{{ status_atual }}</strong>.
+            {% else %}Ainda não foi criada nenhuma assembleia. Crie a primeira para começar.{% endif %}
+          </p>
+          {% if papel == 'Administrador' %}
+          <a href="{% url 'governanca_nova_assembleia' %}" class="inline-flex items-center gap-2.5 px-6 py-3 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 active:scale-[0.97]">
+            <i class="fa-regular fa-calendar-plus"></i> Criar Assembleia
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </main>
+</div>
+
+<script>
+(function() {
+  var input = document.getElementById('search-assembleias');
+  var lista = document.getElementById('assembleias-lista');
+  var clearBtn = document.getElementById('search-clear');
+  if (!input || !lista) return;
+
+  var timer = null;
+  function filter() {
+    var q = input.value.trim().toLowerCase();
+    var items = lista.querySelectorAll('a[href*="detalhe"]');
+    items.forEach(function(el) {
+      var titulo = el.querySelector('h3')?.textContent?.toLowerCase() || '';
+      el.closest('.group').style.display = !q || titulo.includes(q) ? '' : 'none';
+    });
+    if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+  }
+
+  input.addEventListener('input', function() {
+    clearTimeout(timer);
+    timer = setTimeout(filter, 200);
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      input.value = '';
+      filter();
+      input.focus();
+    });
+  }
+})();
+</script>
+
+{% include 'includes/footer.html' %}

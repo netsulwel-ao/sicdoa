@@ -1,0 +1,171 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt">
+<head>
+<meta charset="utf-8" />
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport" />
+<!-- Restaurar tema antes do render para evitar flash -->
+<script>
+(function(){try{var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark');document.documentElement.classList.remove('light');}else{document.documentElement.classList.remove('dark');document.documentElement.classList.add('light');}}catch(e){}})();
+</script>
+<title>CDOA Sistema</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect" />
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="{% static 'css/toast.css' %}" />
+<link rel="stylesheet" href="{% static 'css/responsive.css' %}" />
+<script src="{% static 'js/form-validation.js' %}?v={% now 'U' %}" defer></script>
+<script>
+tailwind.config = {darkMode:"class",theme:{extend:{colors:{primary:"#137fec","background-light":"#f6f7f8","background-dark":"#101922"},fontFamily:{display:["Public Sans","sans-serif"]},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"}}}}; 
+</script>
+<style>
+.fa-fw{width:1.1em}
+.form-input{width:100%;border-radius:.5rem;color:#111418;border:1px solid #dbe0e6;background:#ffffff;outline:0;box-shadow:none;min-height:2.75rem;padding:.75rem 1rem;transition:border-color .2s,box-shadow .2s}
+.form-input:focus{border-color:#137fec;box-shadow:0 0 0 3px rgba(19,127,236,.12)}
+.dark .form-input{background:#1f2937;border-color:#4b5563;color:#e5e7eb}
+.dark .form-input:focus{border-color:#137fec;box-shadow:0 0 0 3px rgba(96,165,250,.15)}
+body{background-color:#f6f7f8}
+
+/* ── Prevenir scroll horizontal em todo o projecto ── */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ── Inputs: prevenir zoom no iOS ── */
+@media (max-width: 640px) {
+  .form-input,
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="password"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Tabelas: sempre com scroll interno, nunca overflow global ── */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Imagens e media: nunca ultrapassar o contentor ── */
+img, video, iframe, embed, object {
+  max-width: 100%;
+}
+
+/* ── Texto longo: quebrar em vez de transbordar ── */
+.break-words-safe {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* (skeleton removido — usa-se barra de progresso no topo) */
+/* ── Ícones azuis na sidebar ─────────────────────────────────── */
+#sidebar nav .fas,
+#sidebar nav .far {
+  color: #2563eb;
+}
+.dark #sidebar nav .fas,
+.dark #sidebar nav .far {
+  color: #60a5fa;
+}
+#sidebar nav a.bg-primary\\/15 .fas,
+#sidebar nav a.bg-primary\\/15 .far,
+#sidebar nav button.bg-primary\\/15 .fas,
+#sidebar nav button.bg-primary\\/15 .far {
+  color: #137fec;
+}
+.dark #sidebar nav a.bg-primary\\/15 .fas,
+.dark #sidebar nav a.bg-primary\\/15 .far,
+.dark #sidebar nav button.bg-primary\\/15 .fas,
+.dark #sidebar nav button.bg-primary\\/15 .far {
+  color: #93c5fd;
+}
+
+/* ── Ícones azuis nas páginas DU ────────────────────────────── */
+.aduaneiro-page .form-card-header .fas,
+.aduaneiro-page .form-card-header .far {
+  color: #2563eb;
+}
+.dark .aduaneiro-page .form-card-header .fas,
+.dark .aduaneiro-page .form-card-header .far {
+  color: #60a5fa;
+}
+
+/* ── Page Loading Bar ────────────────────────────────────────── */
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+
+{# ── Loading bar no topo (não afeta sidebar, header nem conteúdo) ───── #}
+<div id="page-loader">
+  <div id="loader-bar" class="fixed top-0 left-0 w-0 h-[3px] z-[99999]
+       bg-gradient-to-r from-blue-500 via-blue-400 to-blue-600
+       shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+</div>
+
+<style>
+#loader-bar.loading {
+  animation: loader-progress 0.8s ease-in-out forwards;
+}
+@keyframes loader-progress {
+  0%   { width: 0%; }
+  30%  { width: 30%; }
+  60%  { width: 60%; }
+  100% { width: 85%; }
+}
+</style>
+
+<script>
+(function() {
+  var bar = document.getElementById('loader-bar');
+  if (!bar) return;
+
+  function startLoader() {
+    bar.classList.remove('loading');
+    void bar.offsetWidth;
+    bar.classList.add('loading');
+  }
+
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (!link || !link.href || link.hasAttribute('data-no-loader') ||
+        link.hostname !== window.location.hostname ||
+        link.getAttribute('href').startsWith('#') ||
+        link.getAttribute('href').startsWith('javascript:') ||
+        link.getAttribute('download') ||
+        e.ctrlKey || e.metaKey || e.shiftKey) return;
+    var href = link.getAttribute('href');
+    if (href && href !== '#' && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+      startLoader();
+    }
+  });
+
+  window.addEventListener('beforeunload', function() {
+    startLoader();
+  });
+})();
+</script>
+
+{# ── Mensagens Django → JSON para o toast.js ─────────────────────────────── #}
+{% if messages %}
+<script id="django-messages" type="application/json">
+[{% for msg in messages %}{"level":"{% if msg.tags == 'error' %}error{% elif msg.tags == 'warning' %}warning{% elif msg.tags == 'success' %}success{% else %}info{% endif %}","message":"{{ msg|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+</script>
+{% endif %}
+
+<div class="relative flex min-h-screen w-full overflow-x-hidden">

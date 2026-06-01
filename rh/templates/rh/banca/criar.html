@@ -1,0 +1,97 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Criar Banca</span>
+{% endblock %}
+
+{% block conteudo %}
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Criar a Minha Banca</h1>
+      <p class="text-gray-500 mt-1 text-sm">Configure os dados da sua empresa de despacho aduaneiro</p>
+    </div>
+    <a href="{% url 'dashboard' %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+      <i class="fas fa-arrow-left text-base"></i>Voltar
+    </a>
+  </div>
+
+  <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6 flex items-start gap-3">
+    <i class="fas fa-info-circle text-blue-600 flex-shrink-0"></i>
+    <p class="text-sm text-blue-800 dark:text-blue-300">
+      Bem-vindo ao módulo de Recursos Humanos. Comece por registar a sua banca — a sede da sua organização.
+      Depois poderá adicionar filiais em diferentes províncias.
+    </p>
+  </div>
+
+  <form method="POST" enctype="multipart/form-data" class="space-y-5">
+    {% csrf_token %}
+
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-store text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Dados da Banca</h2>
+      </div>
+      <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome da Banca <span class="text-red-500">*</span></label>
+          <input type="text" name="nome" required placeholder="Ex: Despachos Silva & Associados Lda"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">NIF <span class="text-red-500">*</span></label>
+          <input type="text" name="nif" required placeholder="Ex: 5410003284"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+          <select name="tipo" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            {% for val, label in banca_tipos %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nº Licença CDOA</label>
+          <input type="text" name="licenca_cdoa" placeholder="CDOA-2024-001"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <input type="email" name="email" placeholder="banca@exemplo.ao"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+          <input type="text" name="telefone" placeholder="+244 923 456 789"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Endereço da Sede</label>
+          <textarea name="endereco" rows="2" placeholder="Rua, número, bairro..."
+                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Província</label>
+          <select name="provincia" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            <option value="">Selecione...</option>
+            {% for p in provincias %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Município</label>
+          <input type="text" name="municipio" placeholder="Ex: Luanda"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end">
+      <button type="submit"
+              class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+        <i class="fas fa-store text-lg"></i>Criar Minha Banca
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

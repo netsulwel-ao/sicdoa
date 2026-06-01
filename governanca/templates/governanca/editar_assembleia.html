@@ -1,0 +1,183 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6">
+      <a href="{% url 'governanca_detalhe' assembleia.pk %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary flex items-center gap-1 mb-1">
+        <i class="fas fa-arrow-left text-xs"></i> Voltar aos detalhes
+      </a>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Editar Assembleia</h1>
+      <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Altere as informações da assembleia</p>
+    </div>
+
+    <form method="POST" action="{% url 'governanca_editar' assembleia.pk %}" class="max-w-4xl space-y-6">
+      {% csrf_token %}
+
+      {% if messages %}
+      {% for msg in messages %}
+      <div class="flex items-center gap-3 p-4 rounded-xl border text-sm font-medium
+        {% if msg.tags == 'error' %}bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300
+        {% elif msg.tags == 'success' %}bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300
+        {% else %}bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300{% endif %}">
+        <i class="fas fa-{% if msg.tags == 'error' %}times-circle{% elif msg.tags == 'success' %}check-circle{% else %}info-circle{% endif %}"></i>
+        <p>{{ msg }}</p>
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      <!-- Informações Gerais -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-info-circle text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Informações Gerais</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Título</label>
+            <input type="text" name="titulo" value="{{ assembleia.titulo }}" required maxlength="300" class="form-input" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Descrição</label>
+            <textarea name="descricao" rows="3" class="form-input resize-none">{{ assembleia.descricao }}</textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Data e Hora</label>
+            <input type="datetime-local" name="data_hora" value="{{ assembleia.data_hora|date:'Y-m-d\TH:i' }}" required class="form-input" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Local</label>
+            <input type="text" name="local" value="{{ assembleia.local|default:'Sala Virtual CDOA' }}" class="form-input" />
+            <p class="text-xs text-gray-400 mt-1.5">Local físico ou virtual da reunião</p>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Nome da Sala (LiveKit)</label>
+            <input type="text" name="livekit_room" value="{{ assembleia.livekit_room }}" maxlength="100" class="form-input" />
+            <p class="text-xs text-gray-400 mt-1.5">Videoconferência integrada</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pautas de Votação -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-3">
+            <i class="fas fa-vote-yea text-primary"></i>
+            <h2 class="font-semibold text-gray-900 dark:text-white">Pautas de Votação</h2>
+          </div>
+          <button type="button" id="add-pauta-btn"
+                  class="px-3 py-1.5 text-xs font-semibold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+            <i class="fas fa-plus mr-1"></i> Adicionar
+          </button>
+        </div>
+        <div class="p-6">
+          <div id="pautas-container" class="space-y-3">
+            {% for pauta in assembleia.pautas.all %}
+            <div class="pauta-row p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="text-xs font-bold text-gray-400 shrink-0">#{{ pauta.ordem }}</span>
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ pauta.titulo|truncatechars:40 }}</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="sm:col-span-2">
+                  <input type="text" name="pauta_titulo[]" value="{{ pauta.titulo }}" required maxlength="300"
+                         class="form-input" placeholder="Título da pauta">
+                </div>
+                <div>
+                  <select name="pauta_tipo[]" class="form-input">
+                    <option value="Aberta" {% if pauta.tipo_votacao == 'Aberta' %}selected{% endif %}>Aberta</option>
+                    <option value="Secreta" {% if pauta.tipo_votacao == 'Secreta' %}selected{% endif %}>Secreta</option>
+                  </select>
+                </div>
+                <div class="sm:col-span-3">
+                  <input type="text" name="pauta_descricao[]" value="{{ pauta.descricao }}" class="form-input" placeholder="Descrição (opcional)">
+                </div>
+              </div>
+              <button type="button" class="remove-pauta mt-3 text-xs font-medium text-red-500 hover:text-red-700 transition-colors">
+                <i class="fas fa-trash-alt mr-1"></i> Remover pauta
+              </button>
+            </div>
+            {% empty %}
+            <div id="pauta-empty" class="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+              <i class="fas fa-file-alt text-2xl mb-2 block"></i>
+              Nenhuma pauta definida. Clique em "Adicionar" para criar uma.
+            </div>
+            {% endfor %}
+          </div>
+          <p class="text-xs text-gray-400 mt-3">As pautas existentes serão recriadas ao salvar.</p>
+        </div>
+      </div>
+
+      <!-- Ações -->
+      <div class="flex items-center justify-between gap-4 pt-2 pb-8">
+        <a href="{% url 'governanca_detalhe' assembleia.pk %}"
+           class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+          <i class="fas fa-arrow-left"></i> Cancelar
+        </a>
+        <button type="submit"
+                class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+          <i class="fas fa-save"></i> Salvar Alterações
+        </button>
+      </div>
+    </form>
+
+  </main>
+</div>
+
+<script>
+(function() {
+  var container = document.getElementById('pautas-container');
+  var addBtn = document.getElementById('add-pauta-btn');
+  if (!container || !addBtn) return;
+
+  var count = container.querySelectorAll('.pauta-row').length;
+
+  function criarPautaRow(ordem, titulo, descricao, tipo) {
+    var div = document.createElement('div');
+    div.className = 'pauta-row p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30';
+    div.innerHTML =
+      '<div class="flex items-center gap-3 mb-3">' +
+        '<span class="text-xs font-bold text-gray-400 shrink-0">#' + ordem + '</span>' +
+        '<span class="text-xs font-medium text-gray-500 dark:text-gray-400">Nova pauta</span>' +
+      '</div>' +
+      '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">' +
+        '<div class="sm:col-span-2">' +
+          '<input type="text" name="pauta_titulo[]" value="' + (titulo || '') + '" required maxlength="300" class="form-input" placeholder="Título da pauta">' +
+        '</div>' +
+        '<div>' +
+          '<select name="pauta_tipo[]" class="form-input">' +
+            '<option value="Aberta"' + (tipo === 'Secreta' ? '' : ' selected') + '>Aberta</option>' +
+            '<option value="Secreta"' + (tipo === 'Secreta' ? ' selected' : '') + '>Secreta</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="sm:col-span-3">' +
+          '<input type="text" name="pauta_descricao[]" value="' + (descricao || '') + '" class="form-input" placeholder="Descrição (opcional)">' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" class="remove-pauta mt-3 text-xs font-medium text-red-500 hover:text-red-700 transition-colors">' +
+        '<i class="fas fa-trash-alt mr-1"></i> Remover pauta' +
+      '</button>';
+    div.querySelector('.remove-pauta').addEventListener('click', function() {
+      div.remove();
+    });
+    return div;
+  }
+
+  addBtn.addEventListener('click', function() {
+    count++;
+    var empty = document.getElementById('pauta-empty');
+    if (empty) empty.remove();
+    container.appendChild(criarPautaRow(count, '', '', 'Aberta'));
+  });
+
+  document.querySelectorAll('.remove-pauta').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      this.closest('.pauta-row').remove();
+    });
+  });
+})();
+</script>
+
+{% include 'includes/footer.html' %}

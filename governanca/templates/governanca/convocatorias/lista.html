@@ -1,0 +1,128 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <a href="{% url 'governanca_detalhe' assembleia.pk %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary mb-2 flex items-center gap-1">
+          <i class="fas fa-arrow-left text-base"></i> Voltar à assembleia
+        </a>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-2">Convocatórias</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ assembleia.titulo }}</p>
+      </div>
+      {% if papel == 'Administrador' %}
+      <a href="{% url 'governanca_criar_convocatoria' assembleia.pk %}"
+         class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+        <i class="fas fa-plus text-base"></i> Nova Convocatória
+      </a>
+      {% endif %}
+    </div>
+
+    <div class="space-y-3">
+      {% if convocatorias %}
+      {% for c in convocatorias %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <i class="fas fa-envelope text-primary text-lg"></i>
+              <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">{{ c.titulo }}</h3>
+              <span class="px-2 py-0.5 text-xs font-medium rounded-full
+                {% if c.status == 'Publicada' %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                {{ c.get_status_display }}
+              </span>
+            </div>
+            {% if c.descricao %}
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ c.descricao }}</p>
+            {% endif %}
+            <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+              <span><i class="fas fa-calendar mr-1"></i>{{ c.data_envio|date:"d/m/Y H:i" }}</span>
+              {% if c.prazo_confirmacao %}
+              <span><i class="fas fa-clock mr-1"></i>Prazo: {{ c.prazo_confirmacao|date:"d/m/Y H:i" }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            {% if c.documento %}
+            <a href="{{ c.documento.url }}" target="_blank"
+               class="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
+              <i class="fas fa-download text-xs"></i> Documento
+            </a>
+            {% endif %}
+            {% if c.status == 'Rascunho' and papel == 'Administrador' %}
+            <button class="btn-publicar-convocatoria px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
+                    data-conv-id="{{ c.id }}">
+              <i class="fas fa-paper-plane text-xs mr-1"></i> Publicar
+            </button>
+            {% endif %}
+            {% if c.status == 'Publicada' %}
+            <button class="btn-confirmar-rececao px-3 py-1.5 text-xs font-medium border border-green-300 text-green-700 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
+                    data-conv-id="{{ c.id }}">
+              <i class="fas fa-check text-xs mr-1"></i> Confirmar Receção
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
+        <i class="fas fa-envelope-open-text text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma convocatória publicada</p>
+      </div>
+      {% endif %}
+    </div>
+
+  {% include 'includes/confirm-modal.html' %}
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+  document.querySelectorAll('.btn-publicar-convocatoria').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const convId = this.dataset.convId;
+      const ok = await showConfirm('Publicar Convocatória', 'Publicar esta convocatória? Todos os despachantes serão notificados.'); if (!ok) return;
+      try {
+        const res = await fetch(`/governanca/api/convocatoria/${convId}/publicar/`, {
+          method: 'POST', headers: {'X-CSRFToken': csrf}
+        });
+        const data = await res.json();
+        if (data.status === 'ok') location.reload();
+        else alert(data.message || 'Erro');
+      } catch(e) { alert('Erro de conexão.'); }
+    });
+  });
+
+  document.querySelectorAll('.btn-confirmar-rececao').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const convId = this.dataset.convId;
+      try {
+        const res = await fetch(`/governanca/api/convocatoria/${convId}/confirmar-rececao/`, {
+          method: 'POST', headers: {'X-CSRFToken': csrf}
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          alert('Receção confirmada com sucesso!');
+          this.disabled = true;
+          this.classList.add('opacity-50');
+          this.textContent = 'Receção Confirmada';
+        } else alert(data.message || 'Erro');
+      } catch(e) { alert('Erro de conexão.'); }
+    });
+  });
+});
+</script>
+
+{% include 'includes/footer.html' %}

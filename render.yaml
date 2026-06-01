@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: sicdoa
+    runtime: python
+    buildCommand: ./build.sh
+    startCommand: daphne -b 0.0.0.0 -p $PORT sicdoa.asgi:application
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_ENABLED
+        value: "0"
+      - key: PYTHON_VERSION
+        value: 3.11.0

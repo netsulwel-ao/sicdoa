@@ -1,0 +1,360 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div>
+        <a href="{% url 'governanca_assembleias' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary mb-2 flex items-center gap-1">
+          <i class="fas fa-arrow-left text-base"></i> Voltar às assembleias
+        </a>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-2">{{ assembleia.titulo }}</h1>
+        <div class="flex items-center gap-3 mt-2 flex-wrap">
+          <span class="px-2.5 py-1 text-xs font-medium rounded-full
+            {% if assembleia.status == 'Agendada' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+            {% elif assembleia.status == 'Em Curso' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 animate-pulse
+            {% elif assembleia.status == 'Concluida' %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400
+            {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}">
+            {{ assembleia.get_status_display }}
+          </span>
+          <span class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <i class="fas fa-calendar-alt text-base"></i>
+            {{ assembleia.data_hora|date:"d/m/Y H:i" }}
+          </span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        {% if papel == 'Administrador' %}
+          {% if assembleia.status == 'Agendada' %}
+          <a href="{% url 'governanca_editar' assembleia.pk %}" class="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
+            <i class="fas fa-edit text-base"></i> Editar
+          </a>
+          {% endif %}
+          <a href="{% url 'governanca_convocatorias' assembleia.pk %}" class="px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
+            <i class="fas fa-envelope text-base"></i> Convocatórias
+          </a>
+          <a href="{% url 'governanca_gerir' assembleia.pk %}" class="px-3 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-1">
+            <i class="fas fa-cog text-base"></i> Gerir
+          </a>
+        {% endif %}
+        {% if assembleia.status == 'Em Curso' %}
+        <a href="{% url 'governanca_sala' assembleia.pk %}" class="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 animate-pulse">
+          <i class="fas fa-play-circle text-base"></i> Entrar na Sala
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 space-y-6">
+        {% if assembleia.descricao %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Descrição</h2>
+          <p class="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-line">{{ assembleia.descricao }}</p>
+        </div>
+        {% endif %}
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Pautas de Votação</h2>
+          {% if assembleia.pautas.all %}
+          <div class="space-y-2">
+            {% for pauta in assembleia.pautas.all %}
+            <div class="flex items-center gap-3 p-3 rounded-lg {% if pauta.status == 'Concluida' %}bg-green-50 dark:bg-green-900/10{% elif pauta.status == 'Em Votacao' %}bg-blue-50 dark:bg-blue-900/10{% else %}bg-gray-50 dark:bg-gray-800/30{% endif %}">
+              <div class="w-8 h-8 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0">
+                <span class="text-sm font-bold text-gray-600 dark:text-gray-400">{{ pauta.ordem }}</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ pauta.titulo }}</p>
+                {% if pauta.descricao %}<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ pauta.descricao }}</p>{% endif %}
+              </div>
+              <span class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0
+                {% if pauta.status == 'Pendente' %}bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400
+                {% elif pauta.status == 'Em Votacao' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+                {% else %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% endif %}">
+                {{ pauta.get_status_display }}
+              </span>
+              {% if pauta.status == 'Concluida' %}
+              <span class="text-xs font-bold shrink-0
+                {% if pauta.resultado_final == 'Aprovada' %}text-green-600{% elif pauta.resultado_final == 'Rejeitada' %}text-red-600{% else %}text-gray-500{% endif %}">
+                {{ pauta.resultado_final }}
+              </span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-6">Nenhuma pauta definida</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Informações</h2>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 text-sm">
+              <i class="fas fa-map-marker-alt text-gray-400 text-base"></i>
+              <span class="text-gray-700 dark:text-gray-300">{{ assembleia.local }}</span>
+            </div>
+            <div class="flex items-center gap-3 text-sm">
+              <i class="fas fa-video text-gray-400 text-base"></i>
+              <span class="text-gray-700 dark:text-gray-300">
+                {% if assembleia.link_streaming %}<a href="{{ assembleia.link_streaming }}" target="_blank" class="text-primary hover:underline">Link Streaming</a>
+                {% else %}Não definido{% endif %}
+              </span>
+            </div>
+            <div class="flex items-center gap-3 text-sm">
+              <i class="fas fa-users text-gray-400 text-base"></i>
+              <span class="text-gray-700 dark:text-gray-300">{{ assembleia.quorum_minimo }} quórum mínimo · {{ assembleia.total_eleitores }} eleitores</span>
+            </div>
+            {% if assembleia.status == 'Concluida' and assembleia.hash_integridade %}
+            <div class="pt-3 border-t border-gray-100 dark:border-gray-800">
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Hash de Integridade</p>
+              <p class="text-xs font-mono text-gray-400 dark:text-gray-500 break-all">{{ assembleia.hash_integridade }}</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if assembleia.status == 'Agendada' or assembleia.status == 'Em Curso' %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">
+            <i class="fas fa-calendar-check text-base align-text-bottom"></i>
+            Confirmação de Presença
+          </h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Quórum previsto: <strong id="quorum-previsto">{{ assembleia.quorum_previsto }}</strong></p>
+          <div class="flex gap-2" id="rsvp-buttons">
+            <button class="btn-rsvp flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all cursor-pointer
+              {% if minha_resposta == 'Sim' %}border-green-500 bg-green-50 dark:bg-green-900/10 text-green-700{% else %}border-gray-200 dark:border-gray-700 hover:border-green-500{% endif %}"
+              data-resposta="Sim">
+              <i class="fas fa-check text-green-600 mr-1"></i> Sim
+            </button>
+            <button class="btn-rsvp flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all cursor-pointer
+              {% if minha_resposta == 'Nao' %}border-red-500 bg-red-50 dark:bg-red-900/10 text-red-700{% else %}border-gray-200 dark:border-gray-700 hover:border-red-500{% endif %}"
+              data-resposta="Nao">
+              <i class="fas fa-times text-red-600 mr-1"></i> Não
+            </button>
+            <button class="btn-rsvp flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all cursor-pointer
+              {% if minha_resposta == 'Talvez' %}border-amber-500 bg-amber-50 dark:bg-amber-900/10 text-amber-700{% else %}border-gray-200 dark:border-gray-700 hover:border-amber-500{% endif %}"
+              data-resposta="Talvez">
+              <i class="fas fa-question text-amber-600 mr-1"></i> Talvez
+            </button>
+          </div>
+          <div id="rsvp-confirmado" class="hidden mt-2 p-2 bg-green-50 dark:bg-green-900/10 rounded-lg text-center">
+            <p class="text-xs font-medium text-green-700">Presença confirmada!</p>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">
+            <i class="fas fa-vote-yea text-base align-text-bottom"></i>
+            Procuração de Voto
+          </h2>
+
+          {% if minhas_procuracao.exists %}
+          <div class="space-y-2 mb-4">
+            {% for p in minhas_procuracao %}
+            <div class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/30">
+              <div>
+                <span class="text-sm text-gray-700 dark:text-gray-300"><i class="fas fa-arrow-right text-xs mx-1"></i> {{ p.outorgado.nome }}</span>
+                <span class="text-xs ml-2 px-1.5 py-0.5 rounded-full
+                  {% if p.status == 'Confirmada' %}bg-green-100 text-green-700{% elif p.status == 'Cancelada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                  {{ p.get_status_display }}
+                </span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {% if not minhas_procuracao.exists or minhas_procuracao.first.status == 'Cancelada' %}
+          <div>
+            <select id="select-outorgado" class="form-input text-sm mb-2">
+              <option value="">Selecionar despachante...</option>
+              {% for d in despachantes %}
+              <option value="{{ d.id }}">{{ d.nome }}</option>
+              {% endfor %}
+            </select>
+            <button id="btn-solicitar-procuracao" class="w-full px-3 py-2 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary/20 transition-colors">
+              Solicitar Procuração
+            </button>
+            <div id="procuracao-otp-section" class="hidden mt-3 p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
+              <p class="text-xs text-amber-800 dark:text-amber-200 font-medium mb-2">Insira o código OTP enviado para o seu email</p>
+              <input type="text" id="input-otp" maxlength="6" class="form-input text-center text-lg tracking-widest mb-2" placeholder="000000">
+              <input type="hidden" id="procuracao-id">
+              <button id="btn-confirmar-otp" class="w-full px-3 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
+                Confirmar Procuração
+              </button>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if procuracao_recebidas.exists %}
+          <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Procurações recebidas:</p>
+            {% for p in procuracao_recebidas %}
+            <div class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/30 mb-1">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{{ p.outorgante.nome }} <i class="fas fa-arrow-right text-xs mx-1"></i> si</span>
+              <span class="text-xs px-1.5 py-0.5 rounded-full
+                {% if p.status == 'Confirmada' %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                {{ p.get_status_display }}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if assembleia.status == 'Concluida' %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Exportar Resultados</h2>
+          <div class="flex gap-2">
+            <a href="{% url 'governanca_exportar_pdf' assembleia.pk %}" class="flex-1 px-3 py-2 text-xs font-medium bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center gap-1">
+              <i class="fas fa-file-pdf"></i> PDF
+            </a>
+            <a href="{% url 'governanca_exportar_excel' assembleia.pk %}" class="flex-1 px-3 py-2 text-xs font-medium bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors flex items-center justify-center gap-1">
+              <i class="fas fa-file-excel"></i> Excel
+            </a>
+            <a href="{% url 'governanca_exportar_csv' assembleia.pk %}" class="flex-1 px-3 py-2 text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-1">
+              <i class="fas fa-file-csv"></i> CSV
+            </a>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">Documentos</h2>
+          <div class="space-y-2">
+            {% for doc in documentos %}
+            <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                <i class="fas {% if doc.tipo == 'ata' %}fa-file-alt{% elif doc.tipo == 'relatorio' %}fa-chart-bar{% else %}fa-file-alt{% endif %} text-gray-400"></i>
+              <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ doc.titulo }}</span>
+              {% if doc.arquivo %}
+              <a href="{{ doc.arquivo.url }}" target="_blank" class="px-2 py-1 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
+                <i class="fas fa-download text-xs"></i> PDF
+              </a>
+              {% endif %}
+              <span class="text-xs text-gray-500">
+                {% if doc.publicado %}Publicado{% else %}Rascunho{% endif %}
+              </span>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-500 text-center py-3">Nenhum documento publicado</p>
+            {% endfor %}
+            {% for ata in assembleia.atas.all %}
+            <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30">
+              <i class="fas fa-file-alt text-gray-400"></i>
+              <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">Ata Digital - {{ ata.created_at|date:"d/m/Y" }}</span>
+              {% if ata.arquivo_pdf %}
+              <a href="{{ ata.arquivo_pdf }}" target="_blank" class="px-2 py-1 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
+                <i class="fas fa-download text-xs"></i> PDF
+              </a>
+              {% endif %}
+              <span class="text-xs text-gray-500">
+                {% if ata.publicado_em %}Publicada{% else %}Rascunho{% endif %}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // RSVP
+  document.querySelectorAll('.btn-rsvp').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const resposta = this.dataset.resposta;
+      const buttons = document.querySelectorAll('.btn-rsvp');
+      try {
+        const res = await fetch('{% url "governanca_api_responder_presenca" assembleia.pk %}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''},
+          body: JSON.stringify({ resposta })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          buttons.forEach(b => {
+            b.className = 'btn-rsvp flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all cursor-pointer border-gray-200 dark:border-gray-700 hover:border-' + (b.dataset.resposta === 'Sim' ? 'green' : b.dataset.resposta === 'Nao' ? 'red' : 'amber') + '-500';
+          });
+          if (resposta === 'Sim') {
+            this.className = 'btn-rsvp flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all cursor-pointer border-green-500 bg-green-50 dark:bg-green-900/10 text-green-700';
+          } else if (resposta === 'Nao') {
+            this.className = 'btn-rsvp flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all cursor-pointer border-red-500 bg-red-50 dark:bg-red-900/10 text-red-700';
+          } else {
+            this.className = 'btn-rsvp flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all cursor-pointer border-amber-500 bg-amber-50 dark:bg-amber-900/10 text-amber-700';
+          }
+          document.getElementById('quorum-previsto').textContent = data.quorum_previsto;
+        } else { alert(data.message || 'Erro'); }
+      } catch(e) { alert('Erro de conexão.'); }
+    });
+  });
+
+  const selectOutorgado = document.getElementById('select-outorgado');
+  const btnSolicitar = document.getElementById('btn-solicitar-procuracao');
+  const otpSection = document.getElementById('procuracao-otp-section');
+  const inputOtp = document.getElementById('input-otp');
+  const procuracaoId = document.getElementById('procuracao-id');
+  const btnConfirmarOtp = document.getElementById('btn-confirmar-otp');
+
+  if (btnSolicitar) {
+    btnSolicitar.addEventListener('click', async function() {
+      const outorgadoId = selectOutorgado.value;
+      if (!outorgadoId) { alert('Selecione um despachante.'); return; }
+
+      try {
+        const res = await fetch('{% url "governanca_api_solicitar_procuracao" assembleia.pk %}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''},
+          body: JSON.stringify({ outorgado_id: parseInt(outorgadoId) })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          procuracaoId.value = data.procuracao_id;
+          otpSection.classList.remove('hidden');
+          btnSolicitar.disabled = true;
+          btnSolicitar.classList.add('opacity-50');
+        } else {
+          alert(data.message || 'Erro ao solicitar procuração.');
+        }
+      } catch(e) {
+        alert('Erro de conexão.');
+      }
+    });
+  }
+
+  if (btnConfirmarOtp) {
+    btnConfirmarOtp.addEventListener('click', async function() {
+      const codigo = inputOtp.value.trim();
+      if (codigo.length !== 6) { alert('Insira o código OTP de 6 dígitos.'); return; }
+
+      try {
+        const res = await fetch('{% url "governanca_api_confirmar_procuracao" assembleia.pk %}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''},
+          body: JSON.stringify({ codigo_otp: codigo, procuracao_id: parseInt(procuracaoId.value) })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          otpSection.innerHTML = '<p class="text-sm text-green-600 font-medium">Procuração confirmada com sucesso!</p>';
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          alert(data.message || 'Código inválido.');
+        }
+      } catch(e) {
+        alert('Erro de conexão.');
+      }
+    });
+  }
+});
+</script>
+
+{% include 'includes/footer.html' %}

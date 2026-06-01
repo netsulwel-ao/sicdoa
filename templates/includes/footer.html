@@ -1,0 +1,79 @@
+</div>
+{% load static %}
+{% include 'includes/confirm_modal.html' %}
+<script>
+  (function(){
+    var sidebar = document.getElementById('sidebar');
+    var backdrop = document.getElementById('sidebar-backdrop');
+    var btn = document.getElementById('menu-button');
+    var body = document.body;
+    
+    function openSidebar(){ 
+      sidebar.classList.remove('-translate-x-full'); 
+      backdrop.classList.remove('hidden'); 
+      body.classList.add('overflow-hidden');
+    }
+    
+    function closeSidebar(){ 
+      sidebar.classList.add('-translate-x-full'); 
+      backdrop.classList.add('hidden'); 
+      body.classList.remove('overflow-hidden');
+    }
+    
+    if(btn){ 
+      btn.addEventListener('click', function(){ 
+        if(sidebar.classList.contains('-translate-x-full')){ 
+          openSidebar(); 
+        } else { 
+          closeSidebar(); 
+        } 
+      }); 
+    }
+    
+    if(backdrop){ 
+      backdrop.addEventListener('click', closeSidebar); 
+    }
+    
+    // Close sidebar on escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && !sidebar.classList.contains('-translate-x-full')) {
+        closeSidebar();
+      }
+    });
+    
+    // Close sidebar on window resize if desktop
+    window.addEventListener('resize', function() {
+      if (window.innerWidth >= 1024 && !sidebar.classList.contains('-translate-x-full')) {
+        closeSidebar();
+      }
+    });
+
+    // Toggle de submenus — sincroniza seta com estado real do DOM
+    document.querySelectorAll('[data-collapse]').forEach(function(colBtn) {
+      var key   = colBtn.getAttribute('data-collapse');
+      var ul    = document.querySelector('[data-submenu="' + key + '"]');
+      var arrow = colBtn.querySelector('.sidebar-arrow');
+
+      if (!ul) return;
+
+      // Sincronizar seta com o estado inicial do DOM (aberto/fechado pelo Django)
+      var isOpen = !ul.classList.contains('hidden');
+      if (arrow) arrow.classList.toggle('rotate-180', isOpen);
+
+      colBtn.addEventListener('click', function() {
+        var nowHidden = ul.classList.toggle('hidden');
+        if (arrow) arrow.classList.toggle('rotate-180', !nowHidden);
+      });
+    });
+    var tabLinks = document.querySelectorAll('[data-tab]');
+    var tabContents = document.querySelectorAll('[data-tab-content]');
+    function activateTab(name){
+      tabLinks.forEach(function(l){ var n = l.getAttribute('data-tab'); if(n===name){ l.classList.add('text-primary'); l.classList.add('border-b-[3px]'); l.classList.add('border-b-primary'); } else { l.classList.remove('text-primary'); l.classList.remove('border-b-[3px]'); l.classList.remove('border-b-primary'); }});
+      tabContents.forEach(function(c){ var n = c.getAttribute('data-tab-content'); if(n===name){ c.classList.remove('hidden'); } else { c.classList.add('hidden'); }});
+    }
+    tabLinks.forEach(function(l){ l.addEventListener('click', function(e){ e.preventDefault(); var n = l.getAttribute('data-tab'); activateTab(n); }); });
+  })();
+</script>
+<script src="{% static 'js/toast.js' %}"></script>
+</body>
+</html>

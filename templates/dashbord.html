@@ -1,0 +1,354 @@
+﻿{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <!-- PageHeading -->
+    <div class="mb-6">
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl lg:text-4xl font-black leading-tight">
+        Bem-vindo, {{ usuario.nome }}
+      </h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-2 text-sm md:text-base">
+        Resumo das suas atividades e estatísticas
+      </p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+      <!-- Card 1 - Processos Ativos -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-2xl"></i>
+          </div>
+          <span class="text-xs font-medium px-3 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Hoje</span>
+        </div>
+        <p class="text-gray-600 dark:text-gray-400 text-sm md:text-base font-medium mb-2">Processos Ativos</p>
+        <p class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-bold mb-3">{{ total_ativos }}</p>
+        <div class="pt-4 border-t border-gray-100 dark:border-gray-800">
+          <a href="{% url 'du_lista' %}" class="text-primary text-xs md:text-sm flex items-center hover:underline">
+            <i class="fas fa-arrow-right text-base mr-1"></i>
+            Ver todas as DUs
+          </a>
+        </div>
+      </div>
+
+      <!-- Card 2 - Processos Concluídos -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <i class="fas fa-check-circle text-green-600 dark:text-green-400 text-2xl"></i>
+          </div>
+          <span class="text-xs font-medium px-3 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Este mês</span>
+        </div>
+        <p class="text-gray-600 dark:text-gray-400 text-sm md:text-base font-medium mb-2">Aprovadas este mês</p>
+        <p class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-bold mb-3">{{ total_concluidos }}</p>
+        <div class="pt-4 border-t border-gray-100 dark:border-gray-800">
+          <a href="{% url 'du_lista' %}?status=Aprovada" class="text-green-600 text-xs md:text-sm flex items-center hover:underline">
+            <i class="fas fa-arrow-right text-base mr-1"></i>
+            Ver aprovadas
+          </a>
+        </div>
+      </div>
+
+      <!-- Card 3 - Colaboradores -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+            <i class="fas fa-users text-orange-600 dark:text-orange-400 text-2xl"></i>
+          </div>
+          <span class="text-xs font-medium px-3 py-1 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300">Total</span>
+        </div>
+        <p class="text-gray-600 dark:text-gray-400 text-sm md:text-base font-medium mb-2">Colaboradores</p>
+        <p class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-bold mb-3">0</p>
+        <div class="pt-4 border-t border-gray-100 dark:border-gray-800">
+          <p class="text-gray-500 dark:text-gray-400 text-xs md:text-sm flex items-center">
+            <i class="fas fa-info-circle text-base mr-1 text-gray-400"></i>
+            Nenhum colaborador registado
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 4 - Faturamento -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+            <i class="fas fa-credit-card text-emerald-600 dark:text-emerald-400 text-2xl"></i>
+          </div>
+          <span class="text-xs font-medium px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">Este mês</span>
+        </div>
+        <p class="text-gray-600 dark:text-gray-400 text-sm md:text-base font-medium mb-2">Total Impostos (mês)</p>
+        <p class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-bold mb-3">
+          {{ total_geral_mes|floatformat:0 }} KZ
+        </p>
+        <div class="pt-4 border-t border-gray-100 dark:border-gray-800">
+          <p class="text-gray-500 dark:text-gray-400 text-xs md:text-sm flex items-center">
+            <i class="fas fa-arrow-up text-base mr-1 text-gray-400"></i>
+            Soma dos totais das DUs
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <!-- Active Processes Table -->
+      <div class="xl:col-span-2">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div class="p-5 md:p-6 border-b border-gray-200 dark:border-gray-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h2 class="text-[#111418] dark:text-gray-200 text-xl font-bold">Processos Aduaneiros Ativos</h2>
+              <div class="flex items-center gap-2">
+                <a href="{% url 'du' %}" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
+                  + Nova Declaração
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="overflow-x-auto hidden lg:block">
+            <table class="w-full table-fixed">
+              <thead class="bg-gray-50 dark:bg-gray-800/50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Código</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-32">Nº DU</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Cliente / Exportador</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-24">Regime</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-28">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-24">Data</th>
+                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider w-24">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                {% if dus_ativas %}
+                  {% for du in dus_ativas %}
+                  <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                    <td class="px-4 py-3">
+                      <span class="font-mono text-xs font-bold text-primary tracking-widest">
+                        {{ du.codigo_processo|default:"—" }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-700 dark:text-gray-300 font-mono truncate">
+                      {{ du.numero_du|default:"Rascunho" }}
+                    </td>
+                    <td class="px-4 py-3 min-w-0">
+                      <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {{ du.exportador_nome|default:du.nome_declarante|default:"—" }}
+                      </p>
+                      {% if du.ref_despachante %}
+                      <p class="text-xs text-gray-400 mt-0.5 truncate">Ref: {{ du.ref_despachante }}</p>
+                      {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
+                        {{ du.regime_aduaneiro|default:"—" }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                        {% if du.status == 'Aprovada' %}bg-green-100 text-green-700
+                        {% elif du.status == 'Rascunho' %}bg-yellow-100 text-yellow-700
+                        {% elif du.status == 'Rejeitada' %}bg-red-100 text-red-700
+                        {% elif du.status == 'Submetida' %}bg-blue-100 text-blue-700
+                        {% else %}bg-purple-100 text-purple-700{% endif %}">
+                        {{ du.status }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                      {{ du.created_at|date:"d/m/Y" }}
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="flex items-center justify-center gap-0.5">
+                        <a href="{% url 'du_detalhe' du.du_uuid %}" title="Ver"
+                          class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                          <i class="fas fa-eye text-base"></i>
+                        </a>
+                        {% if du.status == 'Rascunho' %}
+                        <a href="{% url 'du_editar' du.du_uuid %}" title="Continuar"
+                          class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                          <i class="fas fa-edit text-base"></i>
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'du_pdf' du.du_uuid %}" title="PDF"
+                          class="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                          <i class="fas fa-download text-base"></i>
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                <tr>
+                  <td colspan="7" class="px-5 py-12 text-center">
+                    <div class="flex flex-col items-center justify-center">
+                      <i class="fas fa-file text-gray-400 dark:text-gray-500 text-4xl mb-4"></i>
+                      <p class="text-gray-600 dark:text-gray-400 font-medium mb-2">Nenhum processo ativo</p>
+                      <p class="text-gray-500 dark:text-gray-500 text-sm mb-4">Não possui processos aduaneiros ativos no momento.</p>
+                      <a href="{% url 'du' %}" class="px-4 py-2 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary/20 transition-colors">
+                        Criar primeira declaração
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Cards mobile/tablet (< lg) -->
+          <div class="lg:hidden">
+            {% if dus_ativas %}
+              <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                {% for du in dus_ativas %}
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                  <!-- Linha 1: código + status + ações -->
+                  <div class="flex items-start justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-2 flex-wrap min-w-0">
+                      <span class="font-mono text-xs font-bold text-primary tracking-widest flex-shrink-0">
+                        {{ du.codigo_processo|default:"—" }}
+                      </span>
+                      <span class="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {{ du.numero_du|default:"Rascunho" }}
+                      </span>
+                    </div>
+                    <!-- Ações -->
+                    <div class="flex items-center gap-0.5 flex-shrink-0">
+                      <a href="{% url 'du_detalhe' du.du_uuid %}" title="Ver"
+                        class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                        <i class="fas fa-eye" style="font-size:18px;"></i>
+                      </a>
+                      {% if du.status == 'Rascunho' %}
+                      <a href="{% url 'du_editar' du.du_uuid %}" title="Continuar"
+                        class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        <i class="fas fa-edit" style="font-size:18px;"></i>
+                      </a>
+                      {% endif %}
+                      <a href="{% url 'du_pdf' du.du_uuid %}" title="PDF"
+                        class="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                        <i class="fas fa-download" style="font-size:18px;"></i>
+                      </a>
+                    </div>
+                  </div>
+                  <!-- Linha 2: exportador -->
+                  <p class="text-sm font-medium text-gray-900 dark:text-white truncate mb-1.5">
+                    {{ du.exportador_nome|default:du.nome_declarante|default:"—" }}
+                  </p>
+                  {% if du.ref_despachante %}
+                  <p class="text-xs text-gray-400 mb-1.5">Ref: {{ du.ref_despachante }}</p>
+                  {% endif %}
+                  <!-- Linha 3: regime + status + data -->
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
+                      {{ du.regime_aduaneiro|default:"—" }}
+                    </span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                      {% if du.status == 'Aprovada' %}bg-green-100 text-green-700
+                      {% elif du.status == 'Rascunho' %}bg-yellow-100 text-yellow-700
+                      {% elif du.status == 'Rejeitada' %}bg-red-100 text-red-700
+                      {% elif du.status == 'Submetida' %}bg-blue-100 text-blue-700
+                      {% else %}bg-purple-100 text-purple-700{% endif %}">
+                      {{ du.status }}
+                    </span>
+                    <span class="text-xs text-gray-400 dark:text-gray-500 ml-auto">
+                      {{ du.created_at|date:"d/m/Y" }}
+                    </span>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <i class="fas fa-file text-gray-400 dark:text-gray-500 mb-4" style="font-size:40px;"></i>
+                <p class="text-gray-600 dark:text-gray-400 font-medium mb-1">Nenhum processo ativo</p>
+                <p class="text-gray-500 dark:text-gray-500 text-sm mb-4">Não possui processos aduaneiros ativos no momento.</p>
+                <a href="{% url 'du' %}" class="px-4 py-2 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary/20 transition-colors">
+                  Criar primeira declaração
+                </a>
+              </div>
+            {% endif %}
+          </div>
+          {% if dus_ativas %}
+          <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+              A mostrar {{ dus_ativas|length }} processo{{ dus_ativas|length|pluralize:"s" }} ativo{{ dus_ativas|length|pluralize:"s" }}
+            </p>
+            <a href="{% url 'du_lista' %}" class="text-xs text-primary font-semibold hover:underline flex items-center gap-1">
+              Ver todas
+              <i class="fas fa-arrow-right text-sm"></i>
+            </a>
+          </div>
+          {% endif %}
+          {% if page_obj.has_other_pages %}
+          <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+            {% include 'includes/pagination.html' %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Sidebar Cards -->
+      <div class="space-y-6">
+        <!-- Estado Profissional -->
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 md:p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-[#111418] dark:text-gray-200">Estado Profissional</h3>
+            <i class="fas fa-badge-check text-primary"></i>
+          </div>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <i class="fas fa-id-badge text-blue-600 dark:text-blue-400"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Papel</p>
+                  <p class="text-base font-bold text-gray-800 dark:text-gray-200">{{ usuario.papel }}</p>
+                </div>
+              </div>
+            </div>
+            {% if usuario.cedula %}
+            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                  <i class="fas fa-crown text-amber-600 dark:text-amber-400"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Nº Licença CDOA</p>
+                  <p class="text-base font-bold text-gray-800 dark:text-gray-200">{{ usuario.cedula }}</p>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Ações Rápidas -->
+        <div class="bg-gradient-to-r from-primary/10 to-primary/5 dark:from-primary/5 dark:to-primary/10 rounded-xl border border-primary/20 p-5 md:p-6">
+          <h3 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Ações Rápidas</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <a href="{% url 'du' %}" class="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-primary transition-colors flex flex-col items-center justify-center gap-2">
+              <i class="fas fa-plus-circle text-primary"></i>
+              <span class="text-sm font-medium text-center">Nova Declaração</span>
+            </a>
+            <button class="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-primary transition-colors flex flex-col items-center justify-center gap-2">
+              <i class="fas fa-receipt text-primary"></i>
+              <span class="text-sm font-medium">Relatórios</span>
+            </button>
+            <button class="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-primary transition-colors flex flex-col items-center justify-center gap-2">
+              <i class="fas fa-calendar-alt text-primary"></i>
+              <span class="text-sm font-medium">Calendário</span>
+            </button>
+            <button class="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-primary transition-colors flex flex-col items-center justify-center gap-2">
+              <i class="fas fa-cog text-primary"></i>
+              <span class="text-sm font-medium">Configurações</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}

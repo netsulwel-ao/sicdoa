@@ -1,0 +1,261 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Minha Banca</span>
+{% endblock %}
+
+{% block conteudo %}
+<!-- Header da Banca -->
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-6">
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-store text-primary text-2xl"></i>
+      </div>
+      <div>
+        <h1 class="text-2xl font-black text-gray-900 dark:text-white">{{ banca.nome }}</h1>
+        <div class="flex flex-wrap gap-3 mt-1 text-sm text-gray-500">
+          {% if banca.nif %}<span class="flex items-center gap-1"><i class="fas fa-id-badge text-base"></i>{{ banca.nif }}</span>{% endif %}
+          {% if banca.provincia %}<span class="flex items-center gap-1"><i class="fas fa-map-marker-alt text-base"></i>{{ banca.provincia }}</span>{% endif %}
+          {% if banca.licenca_cdoa %}<span class="flex items-center gap-1"><i class="fas fa-award text-base"></i>{{ banca.licenca_cdoa }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    <a href="{% url 'rh_banca_editar' %}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm flex-shrink-0">
+      <i class="fas fa-edit text-base"></i>Editar Banca
+    </a>
+  </div>
+</div>
+
+<!-- Estatísticas -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-blue-100 text-sm font-medium">Colaboradores</p>
+    <p class="text-3xl font-black mt-1">{{ total_colaboradores }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-green-100 text-sm font-medium">Filiais Activas</p>
+    <p class="text-3xl font-black mt-1">{{ total_filiais }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-purple-100 text-sm font-medium">Na Sede</p>
+    <p class="text-3xl font-black mt-1">{{ colaboradores_stats.0.total|default:0 }}</p>
+  </div>
+  <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-5 text-white shadow-sm">
+    <p class="text-amber-100 text-sm font-medium">Nas Filiais</p>
+    <p class="text-3xl font-black mt-1">{{ colaboradores_filiais|default:0 }}</p>
+  </div>
+</div>
+
+<!-- Métricas de Recrutamento -->
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-6">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+      <i class="fas fa-briefcase text-primary text-base"></i>
+      Recrutamento e Seleção
+    </h2>
+    <a href="{% url 'rh_vagas' %}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all">
+      <i class="fas fa-eye text-base"></i>Ver Todas
+    </a>
+  </div>
+  
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+      <div class="flex items-center gap-2 mb-2">
+        <i class="fas fa-briefcase text-blue-600 text-base"></i>
+        <p class="text-blue-700 dark:text-blue-300 text-sm font-medium">Vagas Abertas</p>
+      </div>
+      <p class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ vagas_abertas }}</p>
+      <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">de {{ total_vagas }} total</p>
+    </div>
+    
+    <div class="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+      <div class="flex items-center gap-2 mb-2">
+        <i class="fas fa-user-search text-green-600 text-base"></i>
+        <p class="text-green-700 dark:text-green-300 text-sm font-medium">Candidaturas</p>
+      </div>
+      <p class="text-2xl font-bold text-green-900 dark:text-green-100">{{ total_candidaturas }}</p>
+      <p class="text-xs text-green-600 dark:text-green-400 mt-1">{{ candidaturas_pendentes }} pendentes</p>
+    </div>
+    
+    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+      <div class="flex items-center gap-2 mb-2">
+        <i class="fas fa-video text-purple-600 text-base"></i>
+        <p class="text-purple-700 dark:text-purple-300 text-sm font-medium">Entrevistas</p>
+      </div>
+      <p class="text-2xl font-bold text-purple-900 dark:text-purple-100">{{ entrevistas_agendadas }}</p>
+      <p class="text-xs text-purple-600 dark:text-purple-400 mt-1">agendadas</p>
+    </div>
+    
+    <div class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+      <div class="flex items-center gap-2 mb-2">
+        <i class="fas fa-user-check text-amber-600 text-base"></i>
+        <p class="text-amber-700 dark:text-amber-300 text-sm font-medium">Aprovados</p>
+      </div>
+      <p class="text-2xl font-bold text-amber-900 dark:text-amber-100">{{ candidatos_aprovados }}</p>
+      <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">{{ integracoes_em_curso }} em integração</p>
+    </div>
+  </div>
+</div>
+
+<!-- Filiais + Colaboradores + Candidaturas Recentes -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Filiais -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-building text-primary text-base"></i>Filiais
+      </h2>
+      <a href="{% url 'rh_filial_nova' %}"
+         class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all">
+        <i class="fas fa-plus text-base"></i>Nova Filial
+      </a>
+    </div>
+    {% if filiais %}
+    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+      {% for f in filiais %}
+      <div class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+        <div>
+          <p class="font-semibold text-gray-900 dark:text-white">{{ f.provincia }}</p>
+          <p class="text-xs text-gray-500 mt-0.5">
+            {% if f.municipio %}{{ f.municipio }} · {% endif %}
+            {{ f.colaboradores.count }} colaborador{{ f.colaboradores.count|pluralize:"es" }}
+            {% if f.responsavel %} · Resp: {{ f.responsavel }}{% endif %}
+          </p>
+        </div>
+        <div class="flex items-center gap-1">
+          <a href="{% url 'rh_filial_detalhe' f.pk %}"
+             class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all" title="Ver detalhes">
+            <i class="fas fa-eye text-base"></i>
+          </a>
+          <a href="{% url 'rh_filial_editar' f.pk %}"
+             class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all" title="Editar">
+            <i class="fas fa-edit text-base"></i>
+          </a>
+          <form method="POST" action="{% url 'rh_filial_apagar' f.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="button"
+                    onclick="confirmarFormPost(this.closest('form'), {tipo:'danger', titulo:'Remover Filial', mensagem:'Remover a filial {{ f.provincia|escapejs }}? Os colaboradores ficam na banca sem filial associada.', textoBotao:'Remover'})"
+                    class="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all" title="Remover">
+              <i class="fas fa-trash text-base"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+      <i class="fas fa-map-marker-slash text-gray-400 text-5xl mb-4 block"></i>
+      <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhuma filial registada</h3>
+      <p class="text-gray-500 text-sm mb-4">Adicione filiais para gerir a sua banca em diferentes províncias.</p>
+      <a href="{% url 'rh_filial_nova' %}"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">
+        <i class="fas fa-building"></i>Criar Primeira Filial
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Colaboradores Recentes -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-users text-primary text-base"></i>Colaboradores Recentes
+      </h2>
+      <a href="{% url 'rh_colaboradores' %}"
+         class="text-sm text-primary font-semibold hover:underline">Ver todos</a>
+    </div>
+    {% if colaboradores_recentes %}
+    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+      {% for col in colaboradores_recentes %}
+      <div class="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-user text-primary text-lg"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ col.nome }}</p>
+          <p class="text-xs text-gray-500">{{ col.cargo_label }} · {{ col.local_trabalho }}</p>
+        </div>
+        {% if col.estado == 'Ativo' %}
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex-shrink-0">Ativo</span>
+        {% else %}
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 flex-shrink-0">{{ col.estado }}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+      <i class="fas fa-users-slash text-gray-400 text-5xl mb-4 block"></i>
+      <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhum colaborador</h3>
+      <a href="{% url 'rh_colaborador_novo' %}"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all mt-3">
+        <i class="fas fa-user-plus"></i>Adicionar Colaborador
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Candidaturas Recentes -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-user-search text-primary text-base"></i>Candidaturas Recentes
+      </h2>
+      <a href="{% url 'rh_vagas' %}" class="text-sm text-primary font-semibold hover:underline">Ver todas</a>
+    </div>
+    {% if candidaturas_recentes %}
+    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+      {% for vaga in candidaturas_recentes %}
+        {% for candidatura in vaga.candidaturas.all|slice:":1" %}
+      <div class="px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-user text-blue-600 text-base"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ candidatura.nome }}</p>
+            <p class="text-xs text-gray-500 mb-1">{{ vaga.titulo }}</p>
+            <div class="flex items-center gap-2">
+              {% if candidatura.estado == 'Recebida' %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Recebida</span>
+              {% elif candidatura.estado == 'Em Análise' %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Em Análise</span>
+              {% elif candidatura.estado == 'Entrevista' %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Entrevista</span>
+              {% elif candidatura.estado == 'Aprovado' %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aprovado</span>
+              {% else %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
+              {% endif %}
+              <span class="text-xs text-gray-400">{{ candidatura.criado_em|date:"d/m" }}</span>
+            </div>
+          </div>
+          <a href="{% url 'rh_candidatura_detalhe' candidatura.pk %}" 
+             class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/5 transition-all" 
+             title="Ver detalhes">
+            <i class="fas fa-eye text-base"></i>
+          </a>
+        </div>
+      </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+      <i class="fas fa-user-slash text-gray-400 text-5xl mb-4 block"></i>
+      <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhuma candidatura</h3>
+      <p class="text-gray-500 text-sm mb-4">As candidaturas aparecerão aqui quando candidatos se aplicarem às vagas.</p>
+      <a href="{% url 'rh_vaga_nova' %}"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">
+        <i class="fas fa-plus"></i>Criar Vaga
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

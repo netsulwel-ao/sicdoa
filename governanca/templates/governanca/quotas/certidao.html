@@ -1,0 +1,92 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+{% include 'includes/header.html' %}
+{% csrf_token %}
+<main class="p-4 md:p-6 lg:p-8">
+  <div class="mb-6 flex items-center gap-4">
+    <a href="{% url 'governanca_quotas_dashboard' %}" class="text-gray-500 hover:text-[#111418]"><i class="fas fa-arrow-left"></i></a>
+    <div>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Certidão de Regularidade</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Comprovativo de situação financeira regular</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+      {% if estado_financeiro %}
+      <div class="p-4 rounded-xl flex items-center gap-3 {% if estado_financeiro.estado == 'Regular' %}bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800{% else %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800{% endif %}">
+        <i class="fas {% if estado_financeiro.estado == 'Regular' %}fa-check-circle text-green-600{% else %}fa-exclamation-triangle text-red-600{% endif %} text-xl"></i>
+        <span class="text-sm font-bold {% if estado_financeiro.estado == 'Regular' %}text-green-800{% else %}text-red-800{% endif %}">Estado: {{ estado_financeiro.estado }}</span>
+      </div>
+      {% endif %}
+
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+        <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Certidões Emitidas</h2>
+        {% if certidoes %}
+        <div class="space-y-3">
+          {% for cert in certidoes %}
+          <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <i class="fas fa-certificate text-amber-600 text-lg"></i>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-[#111418] dark:text-gray-200">Certidão {{ cert.codigo_certidao|truncatechars:20 }}</p>
+                <p class="text-xs text-gray-500">Emitida em {{ cert.data_emissao|date:"d/m/Y" }} — Válida até {{ cert.data_validade|date:"d/m/Y" }}</p>
+                <p class="text-xs text-gray-400 mt-0.5 font-mono">Hash: {{ cert.assinatura_hash|truncatechars:20 }}</p>
+              </div>
+            </div>
+            <a href="/media/{{ cert.arquivo_pdf }}" target="_blank" class="px-4 py-2.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
+              <i class="fas fa-download"></i> Baixar PDF
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+        {% else %}
+        <div class="text-center py-8">
+          <i class="fas fa-file-pdf text-gray-300 text-4xl mb-3"></i>
+          <p class="text-sm text-gray-500">Nenhuma certidão emitida ainda</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+        <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Emitir Nova Certidão</h2>
+        <p class="text-sm text-gray-500 mb-4">A certidão comprova que não possui quotas em aberto.</p>
+        {% if pode_emitir %}
+        <button id="btn-emitir" class="w-full px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+          <i class="fas fa-file-pdf"></i> Emitir Certidão
+        </button>
+        <div id="resultado-certidao" class="mt-4 hidden"></div>
+        {% else %}
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+          <i class="fas fa-times-circle"></i> Regularize as suas quotas primeiro
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+<script>
+document.getElementById('btn-emitir')?.addEventListener('click', function() {
+  var btn = this; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A gerar...';
+  var fd = new FormData(); fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+  fetch('{% url "governanca_api_quotas_emitir_certidao" %}', { method: 'POST', body: fd, headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value } })
+  .then(r => r.json()).then(d => {
+    var el = document.getElementById('resultado-certidao'); el.classList.remove('hidden');
+    if (d.erro) { el.className = 'mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700'; el.innerHTML = '<i class="fas fa-times-circle"></i> ' + d.erro; }
+    else { el.className = 'mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700'; el.innerHTML = '<i class="fas fa-check-circle"></i> Certidão emitida! <a href="' + d.url + '" target="_blank" class="underline font-medium">Baixar PDF</a>'; }
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-pdf"></i> Emitir Certidão';
+  }).catch(function() { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-pdf"></i> Emitir Certidão'; });
+});
+</script>
+{% include 'includes/footer.html' %}

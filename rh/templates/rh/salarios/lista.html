@@ -1,0 +1,134 @@
+﻿{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    {# ── Breadcrumb ──────────────────────────────────────────────────────── #}
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-primary font-medium">RH</span>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">Processamento Salarial</span>
+    </div>
+
+    {# ── Cabeçalho ───────────────────────────────────────────────────────── #}
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Processamento Salarial</h1>
+        <p class="text-gray-500 mt-1 text-sm">
+          Cálculo de salários, retenções e benefícios
+          {% if total %}<span class="ml-2 text-xs font-medium px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">{{ total }} processamento{{ total|pluralize }}</span>{% endif %}
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="{% url 'rh_subsidios' %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+          <i class="fas fa-cog text-base"></i>Subsídios
+        </a>
+        <a href="{% url 'rh_salario_novo' %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm text-sm">
+          <i class="fas fa-plus text-base"></i>Novo Processamento
+        </a>
+      </div>
+    </div>
+
+    {# ── Estado vazio ────────────────────────────────────────────────────── #}
+    {% if not processamentos %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center">
+      <i class="fas fa-credit-card text-gray-300 dark:text-gray-600 text-6xl mb-4 block"></i>
+      <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhum processamento criado</h3>
+      <p class="text-gray-500 text-sm mb-5">Crie o primeiro processamento salarial da sua banca.</p>
+      <a href="{% url 'rh_salario_novo' %}"
+         class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">
+        <i class="fas fa-plus"></i>Criar Processamento
+      </a>
+    </div>
+
+    {% else %}
+
+    {# ── Grelha de cards (6 por página) ─────────────────────────────────── #}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      {% for proc in processamentos %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden group">
+
+        {# Faixa de cor no topo por estado #}
+        <div class="h-1
+          {% if proc.estado == 'Pago' %}bg-green-500
+          {% elif proc.estado == 'Processado' %}bg-blue-500
+          {% else %}bg-amber-400{% endif %}">
+        </div>
+
+        <div class="p-5">
+          {# Cabeçalho do card #}
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center
+                {% if proc.estado == 'Pago' %}bg-green-50 dark:bg-green-900/20
+                {% elif proc.estado == 'Processado' %}bg-blue-50 dark:bg-blue-900/20
+                {% else %}bg-amber-50 dark:bg-amber-900/20{% endif %}">
+                <i class="fas fa-calendar-alt text-2xl
+                  {% if proc.estado == 'Pago' %}text-green-600 dark:text-green-400
+                  {% elif proc.estado == 'Processado' %}text-blue-600 dark:text-blue-400
+                  {% else %}text-amber-600 dark:text-amber-400{% endif %}"></i>
+              </div>
+              <div>
+                <p class="font-bold text-gray-900 dark:text-white text-lg leading-tight">
+                  {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                  {{ proc.recibos.count }} recibo{{ proc.recibos.count|pluralize }}
+                </p>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+              {% if proc.estado == 'Pago' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+              {% elif proc.estado == 'Processado' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+              {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">
+              {{ proc.estado }}
+            </span>
+          </div>
+
+          {# Total líquido #}
+          <div class="py-3 border-t border-b border-gray-100 dark:border-gray-800 mb-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Total Líquido</p>
+            <p class="text-xl font-black text-gray-900 dark:text-white">
+              {{ proc.total_liquido|floatformat:2 }} <span class="text-sm font-semibold text-gray-500">KZ</span>
+            </p>
+          </div>
+
+          {# Acções #}
+          <div class="flex gap-2">
+            <a href="{% url 'rh_salario_detalhe' proc.pk %}"
+               class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+                 {% if proc.estado == 'Pago' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40
+                 {% elif proc.estado == 'Processado' %}bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40
+                 {% else %}bg-primary/10 text-primary hover:bg-primary/20{% endif %}">
+              <i class="fas fa-external-link-alt text-base"></i>
+              Abrir
+            </a>
+            {# Apagar — só Rascunho e Processado #}
+            {% if proc.estado != 'Pago' %}
+            <a href="{% url 'rh_salario_apagar' proc.pk %}"
+               class="p-2.5 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+               title="Apagar processamento">
+              <i class="fas fa-trash text-base"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if paginator.num_pages > 1 %}
+    <div class="flex items-center justify-between mt-8">
+      {% include 'includes/pagination.html' %}
+    </div>
+    {% endif %}
+
+    {% endif %}
+  </main>
+</div>
+{% include 'includes/footer.html' %}

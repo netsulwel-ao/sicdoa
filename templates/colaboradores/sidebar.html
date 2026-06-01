@@ -1,0 +1,140 @@
+{% with active=active_menu|default:'' papel='Colaborador' e_responsavel=e_responsavel|default:False %}
+<aside id="sidebar"
+  class="fixed inset-y-0 left-0 z-50 w-64 transform bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 transition-transform duration-200 -translate-x-full lg:translate-x-0 overflow-y-auto">
+
+  <!-- Logo -->
+  <div class="flex items-center gap-3 px-3 py-2 mb-4">
+    <div class="size-8 text-primary">
+      <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path clip-rule="evenodd"
+          d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z"
+          fill="currentColor" fill-rule="evenodd" />
+      </svg>
+    </div>
+    <h1 class="text-[#111418] dark:text-gray-200 text-lg font-bold leading-tight">CDOA Sistema</h1>
+  </div>
+
+  <nav class="flex flex-col gap-1 flex-grow overflow-y-auto pr-1">
+
+    {# ── Dashboard ──────────────────────────────────────────────────────── #}
+    <a href="{% url 'dashboard_colaborador' %}"
+      class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+              {% if active == 'Dashboard' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-th-large"></i>
+      <span class="text-sm font-medium">Meu Dashboard</span>
+    </a>
+
+    {# ── Meus Dados ──────────────────────────────────────────────────── #}
+    <button type="button" data-collapse="meus-dados"
+      class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
+                   {% if active == 'Meus Dados' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-user flex-shrink-0"></i>
+      <span class="text-sm font-medium flex-1 truncate">Meus Dados</span>
+      <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'Meus Dados' %}rotate-180{% endif %}"></i>
+    </button>
+    <ul data-submenu="meus-dados" class="ml-4 space-y-0.5 {% if active != 'Meus Dados' %}hidden{% endif %}">
+      <li>
+        <a href="{% url 'colaborador_perfil' %}"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if active == 'perfil' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-edit text-base"></i>Editar Perfil
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'colaborador_documentos' %}"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if active == 'documentos' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-file-alt text-base"></i>Meus Documentos
+        </a>
+      </li>
+    </ul>
+
+    {# ── Controlo de Presença ──────────────────────────────────────────── #}
+    <a href="{% url 'colaborador_presenca' %}"
+      class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+              {% if active == 'Presença' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-calendar-check"></i>
+      <span class="text-sm font-medium">Marcar Presença</span>
+    </a>
+
+    {# ── Processo Salarial ─────────────────────────────────────────────── #}
+    <button type="button" data-collapse="salarial"
+      class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
+                   {% if active == 'Salarial' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-credit-card flex-shrink-0"></i>
+      <span class="text-sm font-medium flex-1 truncate">Processo Salarial</span>
+      <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'Salarial' %}rotate-180{% endif %}"></i>
+    </button>
+    <ul data-submenu="salarial" class="ml-4 space-y-0.5 {% if active != 'Salarial' %}hidden{% endif %}">
+      <li>
+        <a href="{% url 'colaborador_salario' %}"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if active == 'salario' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-receipt text-base"></i>Ver Salário
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'colaborador_historico_salarial' %}"
+          class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if active == 'historico-salarial' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-history text-base"></i>Histórico Salarial
+        </a>
+      </li>
+    </ul>
+
+    {# ── Férias e Ausências ───────────────────────────────────────────── #}
+    <a href="{% url 'colaborador_ferias' %}"
+      class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+              {% if active == 'Ferias' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-umbrella-beach"></i>
+      <span class="text-sm font-medium">Pedir Férias</span>
+    </a>
+
+    {# ── Gestão de Filial (Apenas Responsáveis) ─────────────────────── #}
+    {% if e_responsavel %}
+    <div class="border-t border-gray-200 dark:border-gray-800 pt-2 mt-2">
+      <div class="px-3 py-1">
+        <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gestão de
+          Filial</span>
+      </div>
+
+      <a href="{% url 'rh_colaboradores' %}"
+        class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if active == 'Colaboradores Filial' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+        <i class="fas fa-id-badge text-base"></i>Colaboradores da Filial
+      </a>
+
+      <a href="{% url 'rh_presencas' %}"
+        class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if active == 'Presencas Filial' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+        <i class="fas fa-calendar-check text-base"></i>Presenças e Férias
+      </a>
+
+      <a href="{% url 'rh_vagas' %}"
+        class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if active == 'Recrutamento Filial' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+        <i class="fas fa-user-search text-base"></i>Recrutamento
+      </a>
+
+      <a href="{% url 'rh_avaliacoes' %}"
+        class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if active == 'Avaliacoes Filial' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+        <i class="fas fa-trophy text-base"></i>Avaliação de Desempenho
+      </a>
+    </div>
+    {% endif %}
+
+  </nav>
+
+  <!-- Sair -->
+  <div class="mt-auto pt-4 border-t border-gray-200 dark:border-gray-800">
+    <a href="{% url 'logout' %}"
+      class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+      <i class="fas fa-sign-out-alt"></i>
+      <span class="text-sm font-medium">Sair</span>
+    </a>
+  </div>
+</aside>
+
+<div id="sidebar-backdrop" class="fixed inset-0 bg-black/30 z-40 hidden lg:hidden"></div>
+{% endwith %}

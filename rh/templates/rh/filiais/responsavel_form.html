@@ -1,0 +1,358 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'rh_banca' %}" class="hover:text-primary transition-colors">Minha Banca</a>
+{% if filial %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'rh_filial_detalhe' filial.pk %}" class="hover:text-primary transition-colors">{{ filial.provincia }}</a>
+{% elif filial_data %}
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-500">{{ filial_data.provincia }}</span>
+{% endif %}
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Responsável da Filial</span>
+{% endblock %}
+
+{% block conteudo %}
+<div class="max-w-2xl mx-auto">
+  <div class="mb-6">
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Responsável da Filial</h1>
+    {% if filial %}
+    <p class="text-gray-500 mt-1 text-sm">{{ filial.provincia }} - {{ banca.nome }}</p>
+    {% elif filial_data %}
+    <p class="text-gray-500 mt-1 text-sm">{{ filial_data.provincia }} - {{ banca.nome }}</p>
+    {% endif %}
+  </div>
+
+  {% if erro %}
+  <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
+    <div class="flex items-center gap-3">
+      <i class="fas fa-times-circle text-red-600 dark:text-red-400"></i>
+      <span class="text-red-700 dark:text-red-300 font-medium">{{ erro }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="POST" enctype="multipart/form-data" class="space-y-5" id="formResponsavel">
+    {% csrf_token %}
+    <input type="hidden" name="modo_responsavel" id="modoResponsavel" value="novo" />
+
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-exchange-alt text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Tipo de Responsável</h2>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row gap-4">
+          <label class="flex items-center gap-3 cursor-pointer flex-1 p-4 rounded-xl border-2 border-primary bg-primary/5" id="labelModoNovo">
+            <input type="radio" name="tipo_responsavel_radio" value="novo" checked class="w-4 h-4 text-primary" onchange="alternarModoResponsavel('novo')" />
+            <div>
+              <p class="font-semibold text-gray-900 dark:text-white">Novo responsável</p>
+              <p class="text-xs text-gray-500">Registar um novo colaborador como gestor</p>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer flex-1 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary/50 transition-all" id="labelModoExistente">
+            <input type="radio" name="tipo_responsavel_radio" value="existente" class="w-4 h-4 text-primary" onchange="alternarModoResponsavel('existente')" />
+            <div>
+              <p class="font-semibold text-gray-900 dark:text-white">Colaborador existente</p>
+              <p class="text-xs text-gray-500">Seleccionar quem já trabalha na banca</p>
+            </div>
+          </label>
+        </div>
+        <div id="blocoColaboradorExistente" class="hidden">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Colaborador <span class="text-red-500">*</span></label>
+          <select name="colaborador_existente_id" id="selectColaboradorExistente"
+                  class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            <option value="">Seleccione um colaborador...</option>
+            {% for c in colaboradores_elegiveis %}
+            <option value="{{ c.pk }}">{{ c.nome }}{% if c.cargo_label %} — {{ c.cargo_label }}{% endif %}{% if c.filial %} ({{ c.filial.provincia }}){% else %} (Sede){% endif %}</option>
+            {% empty %}
+            <option value="" disabled>Nenhum colaborador disponível</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-500 mt-1">Ao seleccionar, os dados abaixo serão preenchidos automaticamente.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden" id="blocoDadosResponsavel">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-user-plus text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Dados do Responsável</h2>
+      </div>
+      <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome Completo <span class="text-red-500">*</span></label>
+          <input type="text" name="nome" id="campoNome" required placeholder="Nome completo do responsável"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Email <span class="text-red-500" id="emailObrigatorio">*</span></label>
+          <input type="email" name="email" id="campoEmail" required placeholder="responsavel@banca.ao"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+          <input type="text" name="telefone" id="campoTelefone" placeholder="+244 923 456 789"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nº BI</label>
+          <input type="text" name="bi" id="campoBi" placeholder="Número do Bilhete de Identidade"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">NIF</label>
+          <input type="text" name="nif" id="campoNif" placeholder="Número de Identificação Fiscal"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Género</label>
+          <select name="genero" id="campoGenero" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            <option value="">Selecione...</option>
+            <option value="M">Masculino</option>
+            <option value="F">Feminino</option>
+            <option value="O">Outro</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data de Nascimento</label>
+          <input type="date" name="data_nascimento" id="campoDataNascimento"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Departamento</label>
+          <input type="text" name="departamento" id="campoDepartamento" placeholder="Ex: Operações"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data de Admissão</label>
+          <input type="date" name="data_admissao" id="campoDataAdmissao"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Salário Base (Kz)</label>
+          <input type="number" name="salario_base" id="campoSalarioBase" placeholder="0.00" step="0.01"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Observações</label>
+          <textarea name="observacoes" id="campoObservacoes" rows="3" placeholder="Observações adicionais sobre o responsável"
+                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"></textarea>
+        </div>
+        <div class="md:col-span-2" id="blocoDocumentos">
+          <div class="flex items-center gap-2 mb-3">
+            <i class="fas fa-file-alt text-primary"></i>
+            <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">Documentos do Responsável</label>
+            <span class="text-xs text-gray-500">(Opcional - Máximo 5 documentos)</span>
+          </div>
+          <div class="space-y-3" id="documentosContainer">
+            <div id="novosDocumentos">
+              <div class="documento-item flex items-center gap-3">
+                <select name="documento_tipo_0" class="px-3 py-2 rounded-lg border border-gray-300 text-sm">
+                  <option value="">Tipo...</option>
+                  <option value="CV">CV</option>
+                  <option value="DECLARACAO">Declaração</option>
+                  <option value="CERTIFICADO">Certificado</option>
+                  <option value="IDENTIFICACAO">Identificação</option>
+                  <option value="OUTRO">Outro</option>
+                </select>
+                <input type="file" name="documento_arquivo_0" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                       class="flex-1 text-sm file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <input type="text" name="documento_desc_0" placeholder="Descrição (opcional)"
+                       class="px-3 py-2 rounded-lg border border-gray-300 text-sm flex-1">
+                <button type="button" onclick="addDocumento()" class="text-green-600 hover:text-green-700">
+                  <i class="fas fa-plus-circle"></i>
+                </button>
+              </div>
+            </div>
+            <div class="text-xs text-gray-500">
+              <i class="fas fa-info-circle text-sm align-middle"></i>
+              Formatos aceites: PDF, DOC, DOCX, JPG, PNG. Máximo 5 documentos.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+      <div class="flex gap-3">
+        <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 text-xl"></i>
+        <div>
+          <h4 class="font-semibold text-blue-900 dark:text-blue-100 mb-1">Informações Importantes</h4>
+          <ul class="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+            <li>Este colaborador terá acesso à gestão desta filial</li>
+            <li>Poderá gerir colaboradores, presenças e candidaturas da filial</li>
+            <li>Terá permissões para aprovar/rejeitar pedidos de presença</li>
+            <li>Poderá marcar e gerir presenças dos colaboradores da filial</li>
+            <li><strong>Não terá acesso à gestão de salários (apenas despachante principal)</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      {% if filial %}
+      <a href="{% url 'rh_filial_detalhe' filial.pk %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>
+      {% else %}
+      <a href="{% url 'rh_banca' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>
+      {% endif %}
+      <button type="submit" id="btnSubmit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+        <i class="fas fa-save text-lg"></i><span id="btnSubmitText">Criar Responsável</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+const URL_COLABORADOR_DADOS_TMPL = '{% url "rh_colaborador_dados" pk=999999 %}';
+function urlColaboradorDados(id) {
+  return URL_COLABORADOR_DADOS_TMPL.replace('999999', id);
+}
+let documentoCount = 1;
+const MAX_DOCUMENTOS = 5;
+let modoAtual = 'novo';
+
+function alternarModoResponsavel(modo) {
+  modoAtual = modo;
+  document.getElementById('modoResponsavel').value = modo;
+  const blocoSelect = document.getElementById('blocoColaboradorExistente');
+  const blocoDocs = document.getElementById('blocoDocumentos');
+  const labelNovo = document.getElementById('labelModoNovo');
+  const labelExistente = document.getElementById('labelModoExistente');
+  const btnText = document.getElementById('btnSubmitText');
+  const campoNome = document.getElementById('campoNome');
+  const campoEmail = document.getElementById('campoEmail');
+
+  if (modo === 'existente') {
+    blocoSelect.classList.remove('hidden');
+    blocoDocs.classList.add('hidden');
+    labelNovo.className = 'flex items-center gap-3 cursor-pointer flex-1 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary/50 transition-all';
+    labelExistente.className = 'flex items-center gap-3 cursor-pointer flex-1 p-4 rounded-xl border-2 border-primary bg-primary/5';
+    btnText.textContent = 'Designar Responsável';
+    campoNome.readOnly = true;
+    campoEmail.readOnly = true;
+    document.querySelectorAll('#blocoDadosResponsavel input:not([type=hidden]), #blocoDadosResponsavel select, #blocoDadosResponsavel textarea').forEach(el => {
+      if (el.id !== 'campoNome' && el.id !== 'campoEmail') el.readOnly = true;
+      if (el.tagName === 'SELECT') el.disabled = true;
+    });
+  } else {
+    blocoSelect.classList.add('hidden');
+    blocoDocs.classList.remove('hidden');
+    labelNovo.className = 'flex items-center gap-3 cursor-pointer flex-1 p-4 rounded-xl border-2 border-primary bg-primary/5';
+    labelExistente.className = 'flex items-center gap-3 cursor-pointer flex-1 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary/50 transition-all';
+    btnText.textContent = 'Criar Responsável';
+    limparCamposResponsavel();
+    document.querySelectorAll('#blocoDadosResponsavel input, #blocoDadosResponsavel select, #blocoDadosResponsavel textarea').forEach(el => {
+      el.readOnly = false;
+      if (el.tagName === 'SELECT') el.disabled = false;
+    });
+    document.getElementById('selectColaboradorExistente').value = '';
+  }
+}
+
+function limparCamposResponsavel() {
+  ['campoNome','campoEmail','campoTelefone','campoBi','campoNif','campoDepartamento','campoDataNascimento','campoDataAdmissao','campoSalarioBase','campoObservacoes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('campoGenero').value = '';
+}
+
+function preencherCamposResponsavel(d) {
+  document.getElementById('campoNome').value = d.nome || '';
+  document.getElementById('campoEmail').value = d.email || '';
+  document.getElementById('campoTelefone').value = d.telefone || '';
+  document.getElementById('campoBi').value = d.bi || '';
+  document.getElementById('campoNif').value = d.nif || '';
+  document.getElementById('campoGenero').value = d.genero || '';
+  document.getElementById('campoDataNascimento').value = d.data_nascimento || '';
+  document.getElementById('campoDepartamento').value = d.departamento || '';
+  document.getElementById('campoDataAdmissao').value = d.data_admissao || '';
+  document.getElementById('campoSalarioBase').value = d.salario_base || '';
+  document.getElementById('campoObservacoes').value = d.observacoes || '';
+}
+
+async function carregarDadosColaborador(colId) {
+  if (!colId) {
+    limparCamposResponsavel();
+    return;
+  }
+  try {
+    const resp = await fetch(urlColaboradorDados(colId));
+    if (!resp.ok) throw new Error('Erro ao carregar dados');
+    const d = await resp.json();
+    preencherCamposResponsavel(d);
+  } catch (e) {
+    if (window.toast) toast.error('Erro', 'Não foi possível carregar os dados do colaborador.');
+  }
+}
+
+function addDocumento() {
+  if (documentoCount >= MAX_DOCUMENTOS) {
+    if (window.toast) toast.warning('Limite de Documentos', 'Máximo de 5 documentos permitido.');
+    return;
+  }
+  const container = document.getElementById('novosDocumentos');
+  const novoItem = document.createElement('div');
+  novoItem.className = 'documento-item flex items-center gap-3';
+  novoItem.innerHTML = `
+    <select name="documento_tipo_${documentoCount}" class="px-3 py-2 rounded-lg border border-gray-300 text-sm">
+      <option value="">Tipo...</option>
+      <option value="CV">CV</option>
+      <option value="DECLARACAO">Declaração</option>
+      <option value="CERTIFICADO">Certificado</option>
+      <option value="IDENTIFICACAO">Identificação</option>
+      <option value="OUTRO">Outro</option>
+    </select>
+    <input type="file" name="documento_arquivo_${documentoCount}" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+           class="flex-1 text-sm file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+    <input type="text" name="documento_desc_${documentoCount}" placeholder="Descrição (opcional)"
+           class="px-3 py-2 rounded-lg border border-gray-300 text-sm flex-1">
+    <button type="button" onclick="this.parentElement.remove(); documentoCount--;" class="text-red-600 hover:text-red-700">
+      <i class="fas fa-minus-circle"></i>
+    </button>
+  `;
+  container.appendChild(novoItem);
+  documentoCount++;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('selectColaboradorExistente').addEventListener('change', function() {
+    carregarDadosColaborador(this.value);
+  });
+
+  document.getElementById('formResponsavel').addEventListener('submit', function(e) {
+    if (modoAtual === 'existente') {
+      const sel = document.getElementById('selectColaboradorExistente');
+      if (!sel.value) {
+        e.preventDefault();
+        if (window.toast) toast.error('Seleccione um colaborador', 'Escolha o colaborador que será responsável pela filial.');
+        sel.focus();
+        return false;
+      }
+      document.querySelectorAll('#blocoDadosResponsavel select').forEach(s => { s.disabled = false; });
+      return true;
+    }
+
+    const novosDocs = document.querySelectorAll('[name^="documento_arquivo_"]').length;
+    if (novosDocs > MAX_DOCUMENTOS) {
+      e.preventDefault();
+      if (window.toast) toast.error('Limite Excedido', 'Máximo de ' + MAX_DOCUMENTOS + ' documentos permitido.');
+      return false;
+    }
+    for (let i = 0; i < documentoCount; i++) {
+      const arquivo = document.querySelector('[name="documento_arquivo_' + i + '"]');
+      const tipo = document.querySelector('[name="documento_tipo_' + i + '"]');
+      if (arquivo && arquivo.files.length > 0 && tipo && !tipo.value) {
+        e.preventDefault();
+        if (window.toast) toast.error('Tipo Obrigatório', 'Selecione o tipo de documento para cada arquivo enviado.');
+        tipo.focus();
+        return false;
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

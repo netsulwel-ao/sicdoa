@@ -1,0 +1,120 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Notificações</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ nao_lidas }} não lida{{ nao_lidas|pluralize:"s" }}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="filtrar-nao-lidas"
+          class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-primary text-white shadow-sm">
+          Não lidas
+        </button>
+        <button id="filtrar-todas"
+          class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700">
+          Todas
+        </button>
+      </div>
+    </div>
+
+    <div class="max-w-3xl space-y-2" id="notificacoes-lista">
+      {% for n in notificacoes %}
+      <div class="notif-item bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex items-start gap-4 transition-all duration-200 {% if not n.lida %}border-l-4 border-l-primary notif-nao-lida{% endif %}">
+        <div class="w-10 h-10 rounded-lg {% if n.lida %}bg-gray-100 dark:bg-gray-800{% else %}bg-primary/10{% endif %} flex items-center justify-center shrink-0">
+          <i class="fas {% if n.tipo == 'assembleia_agendada' %}fa-calendar-alt{% elif n.tipo == 'ata_publicada' %}fa-file-alt{% elif n.tipo == 'procuracao' %}fa-vote-yea{% elif n.tipo == 'quota_gerada' %}fa-wallet{% elif n.tipo == 'pagamento_confirmado' %}fa-check-circle{% elif n.tipo == 'certidao_emitida' %}fa-certificate{% elif n.tipo == 'carteira_expirada' %}fa-id-card{% elif n.tipo == 'estado_suspenso' %}fa-pause-circle{% elif n.tipo == 'estado_regularizado' %}fa-check-double{% else %}fa-bell{% endif %} {% if n.lida %}text-gray-400{% else %}text-primary{% endif %}"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ n.titulo }}</p>
+            <span class="text-xs text-gray-400 shrink-0">{{ n.created_at|date:"d/m/Y H:i" }}</span>
+          </div>
+          {% if n.mensagem %}<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ n.mensagem }}</p>{% endif %}
+          <div class="flex items-center gap-3 mt-2">
+            {% if n.link %}
+            <a href="{{ n.link }}" class="text-xs text-primary font-medium hover:underline flex items-center gap-1">
+              <i class="fas fa-external-link-alt text-xs"></i> Ver
+            </a>
+            {% endif %}
+            {% if not n.lida %}
+            <button class="notif-marcar-lida text-xs text-gray-400 hover:text-primary font-medium flex items-center gap-1 transition-colors" data-id="{{ n.id }}">
+              <i class="fas fa-check-circle text-xs"></i> Marcar como lida
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-8 text-center">
+        <i class="fas fa-bell-slash text-4xl text-gray-300 dark:text-gray-600 block mb-2"></i>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Nenhuma notificação</p>
+      </div>
+      {% endfor %}
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+    </div>
+
+  </main>
+</div>
+
+<script>
+(function() {
+  const btnNaoLidas = document.getElementById('filtrar-nao-lidas');
+  const btnTodas = document.getElementById('filtrar-todas');
+  const items = document.querySelectorAll('.notif-item');
+
+  function updateButtons(ativo) {
+    [btnNaoLidas, btnTodas].forEach(b => {
+      b.classList.remove('bg-primary', 'text-white', 'shadow-sm');
+      b.classList.add('bg-gray-100', 'dark:bg-gray-800', 'text-gray-600', 'dark:text-gray-400');
+    });
+    if (ativo === 'nao-lidas') {
+      btnNaoLidas.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'text-gray-600', 'dark:text-gray-400');
+      btnNaoLidas.classList.add('bg-primary', 'text-white', 'shadow-sm');
+    } else {
+      btnTodas.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'text-gray-600', 'dark:text-gray-400');
+      btnTodas.classList.add('bg-primary', 'text-white', 'shadow-sm');
+    }
+  }
+
+  btnNaoLidas.addEventListener('click', function() {
+    items.forEach(el => {
+      el.style.display = el.classList.contains('notif-nao-lida') ? '' : 'none';
+    });
+    updateButtons('nao-lidas');
+  });
+
+  btnTodas.addEventListener('click', function() {
+    items.forEach(el => el.style.display = '');
+    updateButtons('todas');
+  });
+
+  // Marcar como lida inline
+  document.querySelectorAll('.notif-marcar-lida').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const id = this.dataset.id;
+      try {
+        const res = await fetch('/governanca/api/notificacoes/marcar-lida/' + id + '/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '' }
+        });
+        if (res.ok) {
+          const item = this.closest('.notif-item');
+          item.classList.remove('notif-nao-lida', 'border-l-4', 'border-l-primary');
+          this.remove();
+        }
+      } catch(e) {}
+    });
+  });
+})();
+</script>
+
+{% include 'includes/footer.html' %}

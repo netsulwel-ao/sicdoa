@@ -1,0 +1,142 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Gestão de Despachantes</span>
+{% endblock %}
+
+{% block conteudo %}
+
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+      <i class="fas fa-user-cog text-primary text-2xl"></i>
+      Gestão de Despachantes
+    </h1>
+    <p class="text-sm text-gray-500 mt-1">{{ total_despachantes }} despachante{{ total_despachantes|pluralize:"s" }} registado{{ total_despachantes|pluralize:"s" }}</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <a href="{% url 'admin_despachante_novo' %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm shadow-sm">
+      <i class="fas fa-user-plus text-base"></i>Novo Despachante
+    </a>
+    <a href="{% url 'admin_bancas' %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm">
+      <i class="fas fa-store text-base"></i>Ver Todas as Bancas
+    </a>
+  </div>
+</div>
+
+<!-- Pesquisa -->
+<form method="GET" class="mb-6">
+  <div class="flex flex-col sm:flex-row gap-3">
+    <div class="relative flex-1">
+      <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="Pesquisar por nome, email ou NIF…"
+             class="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+    </div>
+    <select name="status"
+            class="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+      <option value="" {% if not status_filtro %}selected{% endif %}>Todos os estados</option>
+      <option value="Ativo" {% if status_filtro == 'Ativo' %}selected{% endif %}>Ativos</option>
+      <option value="Suspenso" {% if status_filtro == 'Suspenso' %}selected{% endif %}>Bloqueados</option>
+      <option value="Inativo" {% if status_filtro == 'Inativo' %}selected{% endif %}>Inativos</option>
+    </select>
+    <button type="submit"
+            class="px-5 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all">
+      Pesquisar
+    </button>
+    {% if q or status_filtro %}
+    <a href="{% url 'admin_despachantes' %}"
+       class="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-all">
+      Limpar
+    </a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Lista de Despachantes -->
+{% if despachantes_info %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+  <div class="divide-y divide-gray-100 dark:divide-gray-800">
+    {% for info in despachantes_info %}
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-user text-primary text-xl"></i>
+        </div>
+        <div>
+          <p class="font-semibold text-gray-900 dark:text-white">{{ info.usuario.nome }}</p>
+          <p class="text-sm text-gray-500">{{ info.usuario.email }}</p>
+          <div class="flex flex-wrap gap-2 mt-1">
+            {% if info.usuario.nif %}
+            <span class="text-xs text-gray-400 flex items-center gap-1">
+              <i class="fas fa-id-badge text-xs"></i>{{ info.usuario.nif }}
+            </span>
+            {% endif %}
+            {% if info.usuario.cedula %}
+            <span class="text-xs text-gray-400 flex items-center gap-1">
+              <i class="fas fa-award text-xs"></i>Cédula: {{ info.usuario.cedula }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-6 flex-shrink-0">
+        <!-- Estatísticas -->
+        <div class="flex gap-4 text-center">
+          <div>
+            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_bancas }}</p>
+            <p class="text-xs text-gray-500">Banca{{ info.total_bancas|pluralize:"s" }}</p>
+          </div>
+          <div>
+            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_colaboradores }}</p>
+            <p class="text-xs text-gray-500">Colaborador{{ info.total_colaboradores|pluralize:"es" }}</p>
+          </div>
+        </div>
+
+        <!-- Status -->
+        {% if info.usuario.status == 'Ativo' %}
+        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Ativo</span>
+        {% elif info.usuario.status == 'Suspenso' %}
+        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Bloqueado</span>
+        {% else %}
+        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inativo</span>
+        {% endif %}
+
+        <!-- Ação -->
+        <a href="{% url 'admin_despachante_detalhe' info.usuario.id %}"
+           class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">
+          <i class="fas fa-eye text-base"></i>Ver Detalhe
+        </a>
+        <a href="{% url 'admin_despachante_editar' info.usuario.id %}"
+           class="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-xl text-sm font-semibold hover:bg-blue-100 transition-all">
+          <i class="fas fa-edit text-base"></i>
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+  {% include 'includes/pagination.html' %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-16 text-center">
+  <i class="fas fa-user-cog text-gray-300 text-6xl mb-4 block"></i>
+  <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">
+    {% if q %}Nenhum despachante encontrado{% else %}Nenhum despachante registado{% endif %}
+  </h3>
+  <p class="text-gray-500 text-sm">
+    {% if q %}Tente pesquisar com outros termos.{% else %}Os despachantes aparecerão aqui quando se registarem.{% endif %}
+  </p>
+</div>
+{% endif %}
+
+{% endblock %}

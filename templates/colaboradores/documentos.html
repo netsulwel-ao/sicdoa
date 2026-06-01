@@ -1,0 +1,34 @@
+﻿{% include 'includes/head.html' %}
+{% include 'colaboradores/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'colaboradores/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-[#111418] dark:text-gray-200 text-2xl font-bold">Meus Documentos</h2>
+        <a href="{% url 'dashboard_colaborador' %}"
+           class="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+          <i class="fas fa-arrow-left text-base"></i>
+          Voltar
+        </a>
+      </div>
+      
+      <div class="text-center py-8">
+        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-full w-16 h-16 mx-auto">
+          <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-3xl"></i>
+        </div>
+        <p class="text-gray-600 dark:text-gray-400 text-lg font-medium mt-4 mb-2">Nenhum documento disponível</p>
+        <p class="text-gray-500 dark:text-gray-500 text-sm">
+          Os seus documentos serão exibidos aqui quando disponíveis.
+        </p>
+      </div>
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+    </div>
+  </main>
+</div>
+{% include 'includes/footer.html' %}

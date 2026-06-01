@@ -1,0 +1,105 @@
+﻿{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'rh_banca' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_salarios' %}" class="hover:text-primary">Processamento Salarial</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_salario_detalhe' proc.pk %}" class="hover:text-primary">Detalhes</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-primary font-medium">Erro no Download</span>
+    </div>
+
+    <!-- Cabeçalho -->
+    <div class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Erro no Download</h1>
+      <p class="text-gray-500 mt-1 text-sm">Não foi possível baixar o comprovante do processamento salarial</p>
+    </div>
+
+    <!-- Alerta de Erro -->
+    <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+      <i class="fas fa-times-circle text-red-600 flex-shrink-0"></i>
+      <div class="text-sm text-red-800 dark:text-red-300">
+        <p class="font-semibold">Erro:</p>
+        <p>{{ erro }}</p>
+      </div>
+    </div>
+
+    <!-- Informações do Processamento -->
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Informações do Processamento</h3>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <dt class="text-xs text-gray-500">Período</dt>
+          <dd class="font-semibold text-gray-900 dark:text-white">{{ proc.mes:02d }}/{{ proc.ano }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500">Estado Atual</dt>
+          <dd class="font-semibold">
+            {% if proc.estado == 'Pago' %}<span class="text-green-600">Pago</span>
+            {% elif proc.estado == 'Processado' %}<span class="text-blue-600">Processado</span>
+            {% else %}<span class="text-amber-600">Rascunho</span>{% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-500">Data de Criação</dt>
+          <dd class="font-semibold text-gray-900 dark:text-white">{{ proc.criado_em|date:"d/m/Y H:i" }}</dd>
+        </div>
+        {% if proc.processado_em %}
+        <div>
+          <dt class="text-xs text-gray-500">Data de Processamento</dt>
+          <dd class="font-semibold text-gray-900 dark:text-white">{{ proc.processado_em|date:"d/m/Y H:i" }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+
+    <!-- Sugestões -->
+    <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-start gap-3">
+      <i class="fas fa-lightbulb text-blue-600 flex-shrink-0"></i>
+      <div class="text-sm text-blue-800 dark:text-blue-300">
+        <p class="font-semibold mb-2">Sugestões:</p>
+        <ul class="space-y-1 text-blue-700 dark:text-blue-400">
+          <li>· Verifique se o processamento está marcado como "Pago"</li>
+          <li>· Se estiver em "Rascunho" ou "Processado", finalize o processo primeiro</li>
+          <li>· Após marcar como "Pago", o PDF será gerado automaticamente</li>
+          <li>· Se o problema persistir, entre em contato com o suporte técnico</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Botões -->
+    <div class="flex justify-between">
+      <a href="{% url 'rh_salario_detalhe' proc.pk %}" 
+         class="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all flex items-center gap-2">
+        <i class="fas fa-arrow-left"></i>
+        Voltar para Detalhes
+      </a>
+      {% if proc.estado != 'Pago' %}
+      <form method="POST" action="{% url 'rh_salario_detalhe' proc.pk %}" class="inline">
+        {% csrf_token %}
+        {% if proc.estado == 'Rascunho' %}
+        <button type="submit" name="action" value="processar"
+                class="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all flex items-center gap-2">
+          <i class="fas fa-check-circle"></i>
+          Processar
+        </button>
+        {% elif proc.estado == 'Processado' %}
+        <button type="submit" name="action" value="pagar"
+                class="px-6 py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all flex items-center gap-2">
+          <i class="fas fa-credit-card"></i>
+          Marcar como Pago
+        </button>
+        {% endif %}
+      </form>
+      {% endif %}
+    </div>
+
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}

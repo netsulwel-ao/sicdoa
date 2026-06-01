@@ -1,0 +1,115 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'admin_despachantes' %}" class="hover:text-primary transition-colors">Despachantes</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'admin_despachante_detalhe' despachante.id %}" class="hover:text-primary transition-colors">{{ despachante.nome }}</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Editar</span>
+{% endblock %}
+
+{% block conteudo %}
+
+<div class="max-w-2xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-edit text-primary text-2xl"></i>
+        Editar Despachante
+      </h1>
+      <p class="text-sm text-gray-500 mt-1">{{ despachante.email }}</p>
+    </div>
+    <a href="{% url 'admin_despachante_detalhe' despachante.id %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-all">
+      <i class="fas fa-arrow-left text-base"></i>Cancelar
+    </a>
+  </div>
+
+  <!-- Formulário -->
+  <form method="POST" class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    {% csrf_token %}
+
+    <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+      <h2 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-user text-primary text-base"></i>
+        Dados Pessoais
+      </h2>
+    </div>
+
+    <div class="p-6 space-y-5">
+
+      <!-- Nome -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+          Nome completo <span class="text-red-500">*</span>
+        </label>
+        <input type="text" name="nome" value="{{ despachante.nome }}" required
+               class="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+               placeholder="Nome completo do despachante">
+      </div>
+
+      <!-- Email -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+          Email <span class="text-red-500">*</span>
+        </label>
+        <input type="email" name="email" value="{{ despachante.email }}" required
+               class="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+               placeholder="email@exemplo.com">
+        <p class="text-xs text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
+          <i class="fas fa-exclamation-triangle text-xs"></i>
+          Alterar o email afecta o acesso ao sistema.
+        </p>
+      </div>
+
+      <!-- Telefone -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+          Telefone
+        </label>
+        <input type="text" name="telefone" value="{{ despachante.telefone|default:'' }}"
+               class="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+               placeholder="+244 9XX XXX XXX">
+      </div>
+
+      <!-- NIF e Cédula lado a lado -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            NIF
+          </label>
+          <input type="text" name="nif" value="{{ despachante.nif|default:'' }}"
+                 class="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                 placeholder="Número de Identificação Fiscal">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            Cédula CDOA
+          </label>
+          <input type="text" name="cedula" value="{{ despachante.cedula|default:'' }}"
+                 class="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                 placeholder="Número de cédula">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Rodapé do formulário -->
+    <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
+      <a href="{% url 'admin_despachante_detalhe' despachante.id %}"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-all">
+        Cancelar
+      </a>
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all shadow-sm">
+        <i class="fas fa-save text-base"></i>Guardar Alterações
+      </button>
+    </div>
+  </form>
+
+</div>
+
+{% endblock %}

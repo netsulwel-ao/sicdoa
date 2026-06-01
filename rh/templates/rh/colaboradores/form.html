@@ -1,0 +1,436 @@
+﻿{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_colaboradores' %}" class="hover:text-primary">Colaboradores</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">{% if col %}Editar{% else %}Novo{% endif %} Colaborador</span>
+    </div>
+
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+          {% if col %}Editar Colaborador{% else %}Novo Colaborador{% endif %}
+        </h1>
+        <p class="text-gray-500 mt-1 text-sm">{{ banca.nome }}</p>
+      </div>
+      <a href="{% url 'rh_colaboradores' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+    </div>
+
+    {% if erro %}
+    <div class="mb-5 flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+      <i class="fas fa-times-circle text-red-600"></i>
+      <p class="text-sm font-medium">{{ erro }}</p>
+    </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- Dados Pessoais -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-user text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Dados Pessoais</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <div class="lg:col-span-2">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome Completo <span class="text-red-500">*</span></label>
+            <input type="text" name="nome" required value="{{ col.nome|default:'' }}" placeholder="Nome completo"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Género</label>
+            <select name="genero" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+              <option value="">Selecione...</option>
+              <option value="M" {% if col.genero == 'M' %}selected{% endif %}>Masculino</option>
+              <option value="F" {% if col.genero == 'F' %}selected{% endif %}>Feminino</option>
+              <option value="O" {% if col.genero == 'O' %}selected{% endif %}>Outro</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nº BI</label>
+            <input type="text" name="bi" value="{{ col.bi|default:'' }}" placeholder="001234567LA041"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">NIF</label>
+            <input type="text" name="nif" value="{{ col.nif|default:'' }}" placeholder="NIF"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data de Nascimento</label>
+            <input type="date" name="data_nascimento" value="{{ col.data_nascimento|date:'Y-m-d'|default:'' }}"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Email</label>
+            <input type="email" name="email" value="{{ col.email|default:'' }}" placeholder="email@banca.ao"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+            <input type="text" name="telefone" value="{{ col.telefone|default:'' }}" placeholder="+244 923 456 789"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <!-- Documentos -->
+          <div class="md:col-span-2">
+            <div class="flex items-center gap-2 mb-3">
+              <i class="fas fa-file-alt text-primary"></i>
+              <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">Documentos do Colaborador</label>
+              <span class="text-xs text-gray-500">(Opcional - Máximo 5 documentos)</span>
+            </div>
+            
+            <div class="space-y-3" id="documentosContainer">
+              <!-- Documentos existentes -->
+              {% if col.documentos.all %}
+                {% for doc in col.documentos.all %}
+                <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <i class="fas fa-file-alt text-blue-600"></i>
+                  <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ doc.get_tipo_display }}</p>
+                    <p class="text-xs text-gray-500">{{ doc.nome_arquivo }} ({{ doc.tamanho_formatado }})</p>
+                    {% if doc.descricao %}
+                    <p class="text-xs text-gray-400">{{ doc.descricao }}</p>
+                    {% endif %}
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <a href="{% url 'rh_documento_download' doc.pk %}" 
+                       class="text-blue-500 hover:text-blue-700 transition-colors"
+                       title="Baixar documento">
+                      <i class="fas fa-download"></i>
+                    </a>
+                    <a href="{% url 'rh_documento_apagar' doc.pk %}" 
+                       class="text-red-500 hover:text-red-700 transition-colors"
+                       title="Apagar documento">
+                      <i class="fas fa-trash"></i>
+                    </a>
+                  </div>
+                </div>
+                {% endfor %}
+              {% endif %}
+              
+              <!-- Campos para novos documentos -->
+              <div id="novosDocumentos">
+                <div class="documento-item flex items-center gap-3">
+                  <select name="documento_tipo_0" class="px-3 py-2 rounded-lg border border-gray-300 text-sm">
+                    <option value="">Tipo...</option>
+                    <option value="CV">CV</option>
+                    <option value="DECLARACAO">Declaração</option>
+                    <option value="CERTIFICADO">Certificado</option>
+                    <option value="OUTRO">Outro</option>
+                  </select>
+                  <input type="file" name="documento_arquivo_0" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
+                         class="flex-1 text-sm file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                  <input type="text" name="documento_desc_0" placeholder="Descrição (opcional)" 
+                         class="px-3 py-2 rounded-lg border border-gray-300 text-sm flex-1">
+                  <button type="button" onclick="addDocumento()" class="text-green-600 hover:text-green-700">
+                    <i class="fas fa-plus-circle"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="text-xs text-gray-500">
+                <i class="fas fa-info-circle text-sm align-middle"></i>
+                Formatos aceites: PDF, DOC, DOCX, JPG, PNG. Máximo 5 documentos.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Dados Profissionais -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-briefcase text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Dados Profissionais</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <!-- Filial / Localização -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Filial / Localização
+            </label>
+            <select name="filial" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+              <option value="">Sede (sem filial)</option>
+              {% for f in filiais %}
+              <option value="{{ f.pk }}" {% if col.filial_id == f.pk %}selected{% endif %}>
+                {{ f.provincia }}{% if f.municipio %} — {{ f.municipio }}{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Deixe em branco para associar à sede</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Cargo <span class="text-red-500">*</span></label>
+            <select name="cargo" id="cargoSelect" onchange="toggleCargoPers()" required
+                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+              <option value="">Selecione o cargo...</option>
+              {% for val, label in cargos %}
+              <option value="{{ val }}" {% if col.cargo == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Campo visível apenas quando "Outro" está seleccionado -->
+          <div id="cargoPersDiv" class="{% if not col or col.cargo != 'Outro' %}hidden{% endif %}">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Especifique o Cargo <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="cargo_personalizado" id="cargoPersonalizado"
+                   value="{{ col.cargo_personalizado|default:'' }}"
+                   placeholder="Ex: Técnico de Despacho, Coordenador, Jurista..."
+                   class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 text-gray-900 dark:text-white focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 transition-all" />
+            <p class="text-xs text-amber-700 dark:text-amber-400 mt-1 flex items-center gap-1">
+              <i class="fas fa-info-circle text-xs"></i>
+              Descreva o cargo específico que o colaborador ocupa
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Departamento</label>
+            <input type="text" name="departamento" value="{{ col.departamento|default:'' }}" placeholder="Ex: Operações"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+            <select name="estado" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+              {% for val, label in estados %}
+              <option value="{{ val }}" {% if col.estado == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data de Admissão</label>
+            <input type="date" name="data_admissao" value="{{ col.data_admissao|date:'Y-m-d'|default:'' }}"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Salário Base (KZ)</label>
+            <input type="number" name="salario_base" step="0.01" min="0"
+                   value="{{ col.salario_efetivo|default:'' }}" placeholder="0.00"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+
+          <div class="lg:col-span-3">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Observações</label>
+            <textarea name="observacoes" rows="3" placeholder="Notas adicionais..."
+                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ col.observacoes|default:'' }}</textarea>
+          </div>
+
+        </div>
+      </div>
+
+      {% if col and is_despachante %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-store text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Gestão de Filial</h2>
+        </div>
+        <div class="p-6">
+          {% if gestor_filial %}
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+            <div class="flex items-center gap-3">
+              <i class="fas fa-shield-alt text-green-600 text-2xl"></i>
+              <div>
+                <p class="font-semibold text-gray-900 dark:text-white">Gestor de filial activo</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Responsável pela filial de <strong>{{ gestor_filial.filial.provincia }}</strong>
+                </p>
+              </div>
+            </div>
+            <form method="POST" class="flex-shrink-0">
+              {% csrf_token %}
+              <input type="hidden" name="acao_gestor" value="remover_gestor" />
+              <button type="submit"
+                      onclick="return confirm('Remover a responsabilidade de gestão de filial deste colaborador?');"
+                      class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-red-200 text-red-700 dark:text-red-300 font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all text-sm">
+                <i class="fas fa-user-minus text-base"></i>Remover responsabilidade
+              </button>
+            </form>
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Pode designar este colaborador como gestor responsável por uma filial sem gestor activo.
+          </p>
+          {% if filiais_sem_gestor %}
+          <form method="POST" class="flex flex-col sm:flex-row gap-3 items-end">
+            {% csrf_token %}
+            <input type="hidden" name="acao_gestor" value="atribuir_gestor" />
+            <div class="flex-1 w-full">
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Filial</label>
+              <select name="filial_gestor" required
+                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+                <option value="">Seleccione a filial...</option>
+                {% for f in filiais_sem_gestor %}
+                <option value="{{ f.pk }}">{{ f.provincia }}{% if f.municipio %} — {{ f.municipio }}{% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm whitespace-nowrap">
+              <i class="fas fa-user-shield text-lg"></i>Atribuir gestão
+            </button>
+          </form>
+          {% else %}
+          <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+            Todas as filiais já têm gestor designado.
+          </div>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="flex justify-end gap-3">
+        <a href="{% url 'rh_colaboradores' %}"
+           class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+          Cancelar
+        </a>
+        <button type="submit"
+                class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+          <i class="fas fa-save text-lg"></i>
+          {% if col %}Actualizar{% else %}Adicionar Colaborador{% endif %}
+        </button>
+      </div>
+    </form>
+  </main>
+</div>
+
+<script>
+let documentoCount = 1;
+const MAX_DOCUMENTOS = 5;
+
+function toggleCargoPers() {
+  const sel = document.getElementById('cargoSelect');
+  const div = document.getElementById('cargoPersDiv');
+  const input = document.getElementById('cargoPersonalizado');
+  const isOutro = sel.value === 'Outro';
+
+  div.classList.toggle('hidden', !isOutro);
+
+  // Tornar obrigatório apenas quando "Outro" está seleccionado
+  if (input) {
+    input.required = isOutro;
+    if (isOutro) {
+      input.focus();
+    }
+  }
+}
+
+function addDocumento() {
+  if (documentoCount >= MAX_DOCUMENTOS) {
+    window.toast.warning('Máximo de ' + MAX_DOCUMENTOS + ' documentos permitido.');
+    return;
+  }
+
+  const container = document.getElementById('novosDocumentos');
+  const novoItem = document.createElement('div');
+  novoItem.className = 'documento-item flex items-center gap-3 mt-2';
+  novoItem.innerHTML = `
+    <select name="documento_tipo_${documentoCount}" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white">
+      <option value="">Tipo...</option>
+      <option value="CV">CV</option>
+      <option value="DECLARACAO">Declaração</option>
+      <option value="CERTIFICADO">Certificado</option>
+      <option value="OUTRO">Outro</option>
+    </select>
+    <input type="file" name="documento_arquivo_${documentoCount}" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+           class="flex-1 text-sm file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+    <input type="text" name="documento_desc_${documentoCount}" placeholder="Descrição (opcional)"
+           class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white flex-1">
+    <button type="button" onclick="removerDocumento(this)" class="text-red-500 hover:text-red-700 flex-shrink-0" title="Remover">
+      <i class="fas fa-minus-circle"></i>
+    </button>
+  `;
+  container.appendChild(novoItem);
+  documentoCount++;
+}
+
+function removerDocumento(btn) {
+  btn.closest('.documento-item').remove();
+  documentoCount = Math.max(1, documentoCount - 1);
+}
+
+function removeDocumento(docId) {
+  showToastConfirm('Remover Documento', 
+    'Tem certeza que deseja remover este documento?',
+    () => {
+      // Fazer requisição AJAX para remover documento
+      fetch(`/rh/colaboradores/documento/${docId}/remover/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+          'Content-Type': 'application/json',
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showToastSuccess('Documento Removido', 'O documento foi removido com sucesso.');
+          location.reload();
+        } else {
+          showToastError('Erro ao Remover', data.message || 'Não foi possível remover o documento.');
+        }
+      })
+      .catch(error => {
+        showToastError('Erro de Conexão', 'Erro ao comunicar com o servidor.');
+      });
+    }
+  );
+}
+
+// Validação de documentos no formulário
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      const novosDocs = document.querySelectorAll('[name^="documento_arquivo_"]');
+      let arquivosComTipoFaltando = false;
+
+      novosDocs.forEach(function(input, idx) {
+        if (input.files && input.files.length > 0) {
+          const nomeBase = input.name.replace('arquivo', 'tipo');
+          const tipoInput = document.querySelector('[name="' + nomeBase + '"]');
+          if (tipoInput && !tipoInput.value) {
+            arquivosComTipoFaltando = true;
+            tipoInput.focus();
+          }
+        }
+      });
+
+      if (arquivosComTipoFaltando) {
+        e.preventDefault();
+        window.toast.error('Selecione o tipo de documento para cada arquivo enviado.');
+        return false;
+      }
+    });
+  }
+
+  toggleCargoPers();
+});
+</script>
+
+{% include 'includes/footer.html' %}

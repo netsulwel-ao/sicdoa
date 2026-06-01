@@ -1,0 +1,108 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Consultas Públicas</h1>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">{{ page_obj.paginator.count }} consulta{{ page_obj.paginator.count|pluralize:"s" }}</p>
+      </div>
+      {% if papel == 'Administrador' %}
+      <a href="{% url 'governanca_consulta_criar' %}"
+         class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shrink-0">
+        <i class="fas fa-plus text-base"></i>
+        Nova Consulta
+      </a>
+      {% endif %}
+    </div>
+
+    <div class="flex gap-2 mb-6 flex-wrap">
+      <a href="{% url 'governanca_consultas' %}"
+         class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+                {% if not status_atual %}bg-primary text-white shadow-sm{% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+        Todas
+      </a>
+      {% for s, label in status_choices %}
+      <a href="{% url 'governanca_consultas' %}?status={{ s }}"
+         class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+                {% if status_atual == s %}bg-primary text-white shadow-sm{% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}">
+        {{ label }}
+      </a>
+      {% endfor %}
+    </div>
+
+    <div class="space-y-3" id="consultas-lista">
+      {% if page_obj.object_list %}
+      {% for c in page_obj %}
+      <a href="{% url 'governanca_consulta_detalhe' c.id %}"
+         class="block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200 group">
+        <div class="p-4 flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl
+            {% if c.status == 'Publicada' %}bg-blue-100 dark:bg-blue-900/30 text-blue-600
+            {% elif c.status == 'EmVotacao' %}bg-purple-100 dark:bg-purple-900/30 text-purple-600
+            {% elif c.status == 'Encerrada' %}bg-amber-100 dark:bg-amber-900/30 text-amber-600
+            {% elif c.status == 'Aprovada' %}bg-green-100 dark:bg-green-900/30 text-green-600
+            {% elif c.status == 'Rejeitada' %}bg-red-100 dark:bg-red-900/30 text-red-500
+            {% else %}bg-gray-100 dark:bg-gray-800 text-gray-500{% endif %}
+            flex items-center justify-center shrink-0">
+            <i class="fas
+              {% if c.status == 'Publicada' %}fa-bullhorn
+              {% elif c.status == 'EmVotacao' %}fa-check-double
+              {% elif c.status == 'Encerrada' %}fa-flag-checkered
+              {% elif c.status == 'Aprovada' %}fa-check-circle
+              {% elif c.status == 'Rejeitada' %}fa-times-circle
+              {% else %}fa-file{% endif %} text-xl"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <p class="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">{{ c.titulo }}</p>
+              <span class="px-2 py-0.5 text-xs font-medium rounded-full shrink-0
+                {% if c.status == 'Rascunho' %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400
+                {% elif c.status == 'Publicada' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
+                {% elif c.status == 'EmVotacao' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300
+                {% elif c.status == 'Encerrada' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+                {% elif c.status == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300
+                {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300{% endif %}">
+                {{ c.get_status_display }}
+              </span>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+              <span><i class="fas fa-calendar mr-1"></i>{{ c.created_at|date:"d/m/Y" }}</span>
+              {% if c.prazo_fim %}
+              <span><i class="fas fa-hourglass-end mr-1"></i>{{ c.prazo_fim|date:"d/m/Y H:i" }}</span>
+              {% endif %}
+              <span><i class="fas fa-user mr-1"></i>{{ c.criado_por.nome }}</span>
+              <span><i class="fas fa-comment mr-1"></i>{{ c.artigos.count }} artigo{{ c.artigos.count|pluralize:"s" }}</span>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right text-gray-300 dark:text-gray-600 group-hover:text-primary transition-colors shrink-0"></i>
+        </div>
+      </a>
+      {% endfor %}
+
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 pt-3">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
+        <i class="fas fa-bullhorn text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma consulta pública encontrada</p>
+        {% if papel == 'Administrador' %}
+        <a href="{% url 'governanca_consulta_criar' %}" class="mt-4 inline-flex px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
+          Criar primeira consulta
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+  </main>
+</div>
+{% include 'includes/footer.html' %}

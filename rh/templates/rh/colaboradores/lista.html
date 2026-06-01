@@ -1,0 +1,158 @@
+﻿{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-primary font-medium">RH</span>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">Colaboradores</span>
+    </div>
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Colaboradores</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{% if banca %}{{ banca.nome }}{% else %}Registe primeiro a sua banca{% endif %}</p>
+      </div>
+      {% if banca %}
+      <a href="{% url 'rh_colaborador_novo' %}" class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm">
+        <i class="fas fa-user-plus"></i>Novo Colaborador
+      </a>
+      {% endif %}
+    </div>
+
+    {% if not banca %}
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-8 text-center">
+      <i class="fas fa-building text-amber-500 text-5xl mb-4 block"></i>
+      <h3 class="text-lg font-bold text-amber-800 dark:text-amber-300 mb-2">Banca não registada</h3>
+      <p class="text-amber-700 dark:text-amber-400 text-sm mb-5">Registe a sua banca antes de adicionar colaboradores.</p>
+      <a href="{% url 'rh_banca' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-all">
+        <i class="fas fa-building"></i>Registar Banca
+      </a>
+    </div>
+    {% elif not colaboradores %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center">
+      <i class="fas fa-users-slash text-gray-400 text-5xl mb-4 block"></i>
+      <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhum colaborador registado</h3>
+      <a href="{% url 'rh_colaborador_novo' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all mt-4">
+        <i class="fas fa-user-plus"></i>Adicionar Colaborador
+      </a>
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3">
+        <div class="relative flex-1 max-w-sm">
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+          <input type="text" id="searchFunc" placeholder="Pesquisar colaborador..."
+                 class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <span class="text-sm text-gray-500">{{ colaboradores|length }} colaborador{{ colaboradores|length|pluralize:"es" }}</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 dark:bg-gray-800/60">
+            <tr>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Colaborador</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cargo / Dept.</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contacto</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Admissão</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Salário Base</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+              <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acções</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for f in colaboradores %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors col-row">
+              <td class="px-5 py-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-user text-primary text-lg"></i>
+                  </div>
+                  <div>
+                    <p class="font-semibold text-gray-900 dark:text-white text-sm col-nome">{{ f.nome }}</p>
+                    {% if f.bi %}<p class="text-xs text-gray-500">BI: {{ f.bi }}</p>{% endif %}
+                  </div>
+                </div>
+              </td>
+              <td class="px-5 py-4">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ f.cargo_label }}</span>
+                {% if f.departamento %}<p class="text-xs text-gray-500 mt-1">{{ f.departamento }}</p>{% endif %}
+              </td>
+              <td class="px-5 py-4">
+                <p class="text-sm text-gray-700 dark:text-gray-300">{{ f.telefone|default:"—" }}</p>
+                {% if f.email %}<p class="text-xs text-gray-500">{{ f.email }}</p>{% endif %}
+              </td>
+              <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{{ f.data_admissao|date:"d/m/Y"|default:"—" }}</td>
+              <td class="px-5 py-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {% if f.salario_efetivo %}{{ f.salario_efetivo|floatformat:2 }} KZ{% else %}—{% endif %}
+              </td>
+              <td class="px-5 py-4">
+                {% if f.estado == 'Ativo' %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>Ativo</span>
+                {% elif f.estado == 'Inativo' %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>Inativo</span>
+                {% elif f.estado == 'Suspenso' %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700"><span class="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"></span>Suspenso</span>
+                {% else %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>{{ f.estado }}</span>{% endif %}
+              </td>
+              <td class="px-5 py-4 text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <a href="{% url 'rh_colaborador_editar' f.pk %}"
+                     class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all"
+                     title="Editar">
+                    <i class="fas fa-edit text-lg"></i>
+                  </a>
+
+                  {# Reenviar email de credenciais #}
+                  {% if f.email %}
+                  <form method="POST" action="{% url 'rh_colaborador_reenviar_email' f.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="button"
+                            onclick="confirmarFormPost(this.closest('form'), {tipo:'info', titulo:'Reenviar Credenciais', mensagem:'Gerar nova senha e enviar para {{ f.email|escapejs }}?', textoBotao:'Enviar'})"
+                            class="p-2 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                            title="Reenviar credenciais por email">
+                      <i class="fas fa-paper-plane text-lg"></i>
+                    </button>
+                  </form>
+                  {% else %}
+                  <span class="p-2 rounded-lg text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                        title="Sem email registado">
+                    <i class="fas fa-envelope-slash text-lg"></i>
+                  </span>
+                  {% endif %}
+
+                  <form method="POST" action="{% url 'rh_colaborador_apagar' f.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="button"
+                            onclick="confirmarFormPost(this.closest('form'), {tipo:'danger', titulo:'Remover Colaborador', mensagem:'Remover {{ f.nome|escapejs }}? Todos os dados serão perdidos permanentemente.', textoBotao:'Remover'})"
+                            class="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                            title="Remover">
+                      <i class="fas fa-trash text-lg"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </main>
+</div>
+<script>
+document.getElementById('searchFunc')?.addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.col-row').forEach(r => {
+    r.style.display = (r.querySelector('.col-nome')?.textContent.toLowerCase().includes(q)) ? '' : 'none';
+  });
+});
+</script>
+</div>
+{% include 'includes/footer.html' %}

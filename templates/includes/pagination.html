@@ -1,0 +1,57 @@
+<nav class="flex items-center justify-between gap-3 flex-wrap" role="navigation" aria-label="Paginação">
+  <p class="text-xs text-gray-500 dark:text-gray-400">
+    A mostrar
+    <span class="font-semibold text-gray-700 dark:text-gray-300">{{ page_obj.start_index }}–{{ page_obj.end_index }}</span>
+    de <span class="font-semibold text-gray-700 dark:text-gray-300">{{ page_obj.paginator.count }}</span>
+    registo{{ page_obj.paginator.count|pluralize:"s" }}
+  </p>
+
+  <div class="flex items-center gap-1.5">
+    {% if page_obj.has_previous %}
+    <a href="?page=1{% if extra_params %}&{{ extra_params }}{% endif %}"
+       class="w-8 h-8 flex items-center justify-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+       title="Primeira página">
+      <i class="fas fa-angle-double-left text-sm"></i>
+    </a>
+    <a href="?page={{ page_obj.previous_page_number }}{% if extra_params %}&{{ extra_params }}{% endif %}"
+       class="w-8 h-8 flex items-center justify-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+      <i class="fas fa-chevron-left text-sm"></i>
+    </a>
+    {% else %}
+    <span class="w-8 h-8 flex items-center justify-center text-gray-300 dark:text-gray-700 border border-gray-100 dark:border-gray-800 rounded-lg cursor-not-allowed">
+      <i class="fas fa-angle-double-left text-sm"></i>
+    </span>
+    <span class="w-8 h-8 flex items-center justify-center text-gray-300 dark:text-gray-700 border border-gray-100 dark:border-gray-800 rounded-lg cursor-not-allowed">
+      <i class="fas fa-chevron-left text-sm"></i>
+    </span>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+      <span class="w-8 h-8 flex items-center justify-center text-sm font-bold text-white bg-primary rounded-lg shadow-sm">{{ num }}</span>
+      {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+      <a href="?page={{ num }}{% if extra_params %}&{{ extra_params }}{% endif %}"
+         class="w-8 h-8 flex items-center justify-center text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if extra_params %}&{{ extra_params }}{% endif %}"
+       class="w-8 h-8 flex items-center justify-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+      <i class="fas fa-chevron-right text-sm"></i>
+    </a>
+    <a href="?page={{ page_obj.paginator.num_pages }}{% if extra_params %}&{{ extra_params }}{% endif %}"
+       class="w-8 h-8 flex items-center justify-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+       title="Última página">
+      <i class="fas fa-angle-double-right text-sm"></i>
+    </a>
+    {% else %}
+    <span class="w-8 h-8 flex items-center justify-center text-gray-300 dark:text-gray-700 border border-gray-100 dark:border-gray-800 rounded-lg cursor-not-allowed">
+      <i class="fas fa-chevron-right text-sm"></i>
+    </span>
+    <span class="w-8 h-8 flex items-center justify-center text-gray-300 dark:text-gray-700 border border-gray-100 dark:border-gray-800 rounded-lg cursor-not-allowed">
+      <i class="fas fa-angle-double-right text-sm"></i>
+    </span>
+    {% endif %}
+  </div>
+</nav>

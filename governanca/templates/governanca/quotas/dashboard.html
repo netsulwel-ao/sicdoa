@@ -1,0 +1,111 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+{% include 'includes/header.html' %}
+{% csrf_token %}
+<main class="p-4 md:p-6 lg:p-8">
+  <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Gestão Financeira de Quotas</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Gerir quotas, pagamentos e certidões</p>
+    </div>
+    {% if papel == 'Administrador' %}
+    <a href="{% url 'governanca_quotas_admin' %}" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shrink-0">
+      <i class="fas fa-cog"></i> Administrar
+    </a>
+    {% endif %}
+  </div>
+
+  {% if estado_financeiro %}
+  <div class="mb-6 p-4 rounded-xl flex items-center gap-3 {% if estado_financeiro.estado == 'Regular' %}bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800{% else %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800{% endif %}">
+    <i class="fas {% if estado_financeiro.estado == 'Regular' %}fa-check-circle text-green-600{% else %}fa-exclamation-triangle text-red-600{% endif %} text-xl"></i>
+    <div>
+      <span class="text-sm font-bold {% if estado_financeiro.estado == 'Regular' %}text-green-800 dark:text-green-200{% else %}text-red-800 dark:text-red-200{% endif %}">
+        {{ estado_financeiro.estado }}
+      </span>
+      <span class="text-sm text-gray-600 dark:text-gray-400 ml-2">
+        {% if estado_financeiro.estado == 'Regular' %}Sem dívidas pendentes{% else %}{{ quotas_pendentes }} quota{{ quotas_pendentes|pluralize:"s" }} pendente{{ quotas_pendentes|pluralize:"s" }}{% endif %}
+      </span>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg"><i class="fas fa-check-circle text-green-600 text-xl"></i></div>
+        <div><p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ total_quotas|default:"0" }}</p><p class="text-sm text-gray-500">Total de Quotas</p></div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg"><i class="fas fa-clock text-yellow-600 text-xl"></i></div>
+        <div><p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ quotas_pendentes }}</p><p class="text-sm text-gray-500">Pendentes</p></div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><i class="fas fa-id-card text-blue-600 text-xl"></i></div>
+        <div>
+          <p class="text-sm font-bold text-[#111418] dark:text-gray-200">
+            {% if carteira %}{{ carteira.numero_carteira }}{% else %}—{% endif %}
+          </p>
+          <p class="text-xs text-gray-500">{% if carteira %}Válida até {{ carteira.data_validade|date:"d/m/Y" }}{% else %}Sem carteira{% endif %}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200">Últimas Quotas</h2>
+        <a href="{% url 'governanca_quotas_faturas' %}" class="text-primary text-sm hover:underline">Ver todas</a>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        {% for q in ultimas_quotas %}
+        <a href="{% url 'governanca_quota_detalhe' q.fatura_uuid %}" class="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+          <div class="w-10 h-10 rounded-lg {% if q.status == 'Paga' %}bg-green-50{% else %}bg-yellow-50{% endif %} flex items-center justify-center">
+            <i class="fas {% if q.status == 'Paga' %}fa-check text-green-600{% else %}fa-hourglass text-yellow-600{% endif %}"></i>
+          </div>
+          <div class="flex-1">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ q.mes|stringformat:"02d" }}/{{ q.ano }}</p>
+            <p class="text-xs text-gray-500">Kz {{ q.valor|floatformat:2 }}</p>
+          </div>
+          <span class="px-2 py-1 text-xs font-medium rounded-full {% if q.status == 'Paga' %}bg-green-100 text-green-700{% elif q.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ q.status }}</span>
+        </a>
+        {% empty %}
+        <p class="p-4 text-sm text-gray-500 text-center">Nenhuma quota encontrada</p>
+        {% endfor %}
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <a href="{% url 'governanca_quotas_faturas' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-primary/10 rounded-lg"><i class="fas fa-file-invoice text-primary text-2xl"></i></div>
+          <div><p class="font-bold text-[#111418] dark:text-gray-200">Minhas Faturas</p><p class="text-sm text-gray-500">Ver e pagar quotas</p></div>
+        </div>
+      </a>
+      <a href="{% url 'governanca_quotas_certidao' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-green-50 rounded-lg"><i class="fas fa-file-pdf text-green-600 text-2xl"></i></div>
+          <div><p class="font-bold text-[#111418] dark:text-gray-200">Certidão de Regularidade</p><p class="text-sm text-gray-500">Emitir certidão</p></div>
+        </div>
+      </a>
+      <a href="{% url 'governanca_quotas_carteira' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-blue-50 rounded-lg"><i class="fas fa-id-card text-blue-600 text-2xl"></i></div>
+          <div><p class="font-bold text-[#111418] dark:text-gray-200">Carteira Profissional</p><p class="text-sm text-gray-500">Ver e renovar</p></div>
+        </div>
+      </a>
+    </div>
+  </div>
+</main>
+</div>
+{% include 'includes/footer.html' %}

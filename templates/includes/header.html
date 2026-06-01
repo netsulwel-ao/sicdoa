@@ -1,0 +1,525 @@
+<header id="main-header" class="flex items-center border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 lg:px-8 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm sticky top-0 z-30 shadow-sm" style="height:60px; min-height:60px;">
+
+  <!-- ── Lado Esquerdo: Menu + Pesquisa ── -->
+  <div class="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+
+    <!-- Botão menu mobile -->
+    <button id="menu-button"
+      style="min-height:unset; min-width:unset;"
+      class="lg:hidden flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors active:scale-95">
+      <i class="fas fa-bars" style="font-size:22px; line-height:1;"></i>
+    </button>
+
+    <!-- Pesquisa Global -->
+    {% if papel != 'Colaborador' %}
+    <div class="relative flex-1 min-w-0" id="header-search-wrapper" style="max-width:380px;">
+      <div class="flex items-center rounded-xl bg-gray-100 dark:bg-gray-800 border border-transparent focus-within:border-primary/40 focus-within:bg-white dark:focus-within:bg-gray-700 focus-within:shadow-sm transition-all duration-200" style="height:36px;">
+        <i class="fas fa-search text-gray-400 dark:text-gray-500 pl-3 flex-shrink-0 select-none" id="header-search-icon" style="font-size:17px; line-height:1;"></i>
+        <input
+          id="header-search-input"
+          type="text"
+          autocomplete="off"
+          style="min-height:unset; font-size:14px; background:transparent; border:none; outline:none; box-shadow:none; padding:0 8px; height:100%; width:100%;"
+          class="flex-1 min-w-0 text-gray-700 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          placeholder="Pesquisar processo, cliente..." />
+        <!-- Atalho ⌘K — só desktop -->
+        <kbd class="hidden sm:flex items-center gap-0.5 mr-2 px-1.5 py-0.5 text-xs text-gray-400 dark:text-gray-500 bg-gray-200 dark:bg-gray-700 rounded font-mono select-none flex-shrink-0" style="font-size:11px; min-height:unset;">
+          <span>⌘K</span>
+        </kbd>
+      </div>
+
+      <!-- Dropdown de resultados -->
+      <div id="header-search-dropdown"
+        class="hidden absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden"
+        style="min-width:300px; width:max(100%, 300px);">
+        <div id="header-search-results" class="divide-y divide-gray-100 dark:divide-gray-700 max-h-72 overflow-y-auto"></div>
+        <div id="header-search-footer" class="hidden px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 text-center">
+          <a id="header-search-ver-todos" href="#" class="text-xs text-primary font-semibold hover:underline">Ver todos os resultados <i class="fas fa-arrow-right text-xs ml-1"></i></a>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <!-- Título para Colaboradores (Gestão de Filial) -->
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-id-badge text-primary" style="font-size:16px;"></i>
+      </div>
+      <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Portal do Colaborador</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Lado Direito: Acções + Perfil ── -->
+  <div class="flex items-center flex-shrink-0 ml-2 sm:ml-3" style="gap:4px;">
+
+    <!-- Dark Mode -->
+    <button id="btn-dark-mode"
+      title="Alternar tema"
+      style="min-height:unset; min-width:unset;"
+      class="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors active:scale-95">
+      <i class="fas fa-moon dark:hidden" style="font-size:19px; line-height:1;"></i>
+      <i class="fas fa-sun hidden dark:inline" style="font-size:19px; line-height:1;"></i>
+    </button>
+
+    <!-- Notificações -->
+    <div class="relative flex-shrink-0" id="notificacoes-wrapper">
+      <button id="btn-notificacoes"
+        title="Notificações"
+        style="min-height:unset; min-width:unset;"
+        class="flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors active:scale-95">
+        <i class="fas fa-bell" style="font-size:19px; line-height:1;"></i>
+      </button>
+      <span id="notif-badge" class="hidden absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900 pointer-events-none"></span>
+
+      <!-- Dropdown Notificações -->
+      <div id="notif-dropdown"
+        class="hidden absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden"
+        style="width:380px; max-width:90vw;">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-sm font-bold text-gray-900 dark:text-gray-100">Notificações</h3>
+          <button id="notif-marcar-todas" class="text-xs text-primary font-medium hover:underline hidden">Marcar todas como lidas</button>
+        </div>
+        <div id="notif-lista" class="max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+          <div class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+            <i class="fas fa-bell-slash text-3xl block mb-2 text-gray-300 dark:text-gray-600"></i>
+            Nenhuma notificação
+          </div>
+        </div>
+        <a href="{% url 'governanca_notificacoes' %}"
+          class="block text-center text-xs font-semibold text-primary hover:underline px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+          Ver todas as notificações
+        </a>
+      </div>
+    </div>
+
+    <!-- Divider — só sm+ -->
+    <div class="hidden sm:block w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 flex-shrink-0"></div>
+
+    <!-- Perfil — sm+ (nome + papel) -->
+    <a href="/perfil/"
+      class="hidden sm:flex items-center gap-2 pl-1 pr-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group flex-shrink-0"
+      style="height:36px;">
+      <div class="relative flex-shrink-0">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-sm">
+          <i class="fas fa-user text-white" style="font-size:15px; line-height:1;"></i>
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full ring-2 ring-white dark:ring-gray-900"></span>
+      </div>
+      <div class="flex flex-col leading-tight overflow-hidden">
+        <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 group-hover:text-primary transition-colors truncate" style="max-width:110px;">{{ nome }}</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400 truncate" style="max-width:110px;">{{ papel }}</span>
+      </div>
+      <i class="fas fa-chevron-down text-gray-400 dark:text-gray-500 group-hover:text-primary transition-colors flex-shrink-0" style="font-size:15px; line-height:1;"></i>
+    </a>
+
+    <!-- Perfil — mobile (só avatar) -->
+    <a href="/perfil/"
+      class="sm:hidden relative flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-600 shadow-sm"
+      style="min-height:unset;">
+      <i class="fas fa-user text-white" style="font-size:16px; line-height:1;"></i>
+      <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full ring-2 ring-white dark:ring-gray-900"></span>
+    </a>
+  </div>
+</header>
+
+<!-- ── Barra "Em Reunião" (cross‑page PIP indicator) ── -->
+<div id="reuniao-ativa-bar" class="hidden fixed top-0 left-0 right-0 z-[9999] bg-gradient-to-r from-primary/90 to-blue-600/90 backdrop-blur-sm text-white text-sm px-4 py-2 shadow-lg flex items-center justify-between" style="transform:translateY(0);transition:transform 0.3s ease">
+  <div class="flex items-center gap-2">
+    <span class="w-2 h-2 bg-green-300 rounded-full animate-pulse"></span>
+    <span class="font-medium">Em Reunião:</span>
+    <span id="reuniao-titulo" class="text-white/90 truncate max-w-[200px]"></span>
+  </div>
+  <div class="flex items-center gap-2">
+    <a id="reuniao-voltar-link" href="#" class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1">
+      <i class="fas fa-door-open text-sm"></i> Voltar à Sala
+    </a>
+    <button onclick="fecharBarraReuniao()" class="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
+      <i class="fas fa-times text-sm"></i>
+    </button>
+  </div>
+</div>
+
+<script>
+/* ── Barra "Em Reunião" ────────────────────────────────────────── */
+(function() {
+  function atualizarBarraReuniao() {
+    var bar = document.getElementById('reuniao-ativa-bar');
+    var link = document.getElementById('reuniao-voltar-link');
+    var titulo = document.getElementById('reuniao-titulo');
+    try {
+      var stored = localStorage.getItem('reuniao_ativa');
+      if (stored && !window.location.pathname.includes('/sala/')) {
+        var data = JSON.parse(stored);
+        bar.classList.remove('hidden');
+        titulo.textContent = data.titulo || 'Reunião';
+        if (link) link.href = '/governanca/assembleia/' + data.id + '/sala/';
+        bar.style.transform = 'translateY(0)';
+      } else {
+        bar.classList.add('hidden');
+      }
+    } catch(e) {
+      bar.classList.add('hidden');
+    }
+  }
+  window.fecharBarraReuniao = function() {
+    localStorage.removeItem('reuniao_ativa');
+    document.getElementById('reuniao-ativa-bar').classList.add('hidden');
+  };
+  atualizarBarraReuniao();
+  setInterval(atualizarBarraReuniao, 5000);
+})();
+</script>
+
+<script>
+(function () {
+  /* ── Pesquisa Global ─────────────────────────────────────────────── */
+  const input    = document.getElementById('header-search-input');
+  const dropdown = document.getElementById('header-search-dropdown');
+  const results  = document.getElementById('header-search-results');
+  const footer   = document.getElementById('header-search-footer');
+  const verTodos = document.getElementById('header-search-ver-todos');
+
+  if (input) {
+    let _timer = null;
+
+    function fechar() { dropdown.classList.add('hidden'); }
+    function abrir()  { dropdown.classList.remove('hidden'); }
+
+    function renderLoading() {
+      results.innerHTML = `
+        <div class="flex items-center gap-3 px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
+          <i class="fas fa-spinner text-base animate-spin text-primary"></i>
+          A pesquisar...
+        </div>`;
+      footer.classList.add('hidden');
+      abrir();
+    }
+
+    function renderResultados(lista, q) {
+      if (!lista.length) {
+        results.innerHTML = `
+          <div class="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+            <i class="fas fa-search-minus text-3xl block mb-2 text-gray-300 dark:text-gray-600"></i>
+            Nenhuma DU encontrada para "<strong class="text-gray-600 dark:text-gray-300">${q}</strong>"
+          </div>`;
+        footer.classList.add('hidden');
+        abrir();
+        return;
+      }
+
+      const STATUS_COLOR = {
+        'Aprovada':   'bg-green-100 text-green-700',
+        'Rascunho':   'bg-yellow-100 text-yellow-700',
+        'Rejeitada':  'bg-red-100 text-red-700',
+        'Submetida':  'bg-blue-100 text-blue-700',
+        'Em Análise': 'bg-purple-100 text-purple-700',
+      };
+
+      results.innerHTML = lista.map(du => `
+        <a href="${du.url}"
+          class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors">
+          <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-file-alt text-primary" style="font-size:16px;"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="text-xs font-mono font-bold text-primary">${du.codigo_processo || '—'}</span>
+              <span class="text-gray-300 dark:text-gray-600 text-xs">·</span>
+              <span class="text-xs text-gray-400 truncate">${du.numero_du}</span>
+            </div>
+            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">${du.cliente}</p>
+            <p class="text-xs text-gray-400">${du.regime}</p>
+          </div>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLOR[du.status] || 'bg-gray-100 text-gray-600'}">
+            ${du.status}
+          </span>
+        </a>
+      `).join('');
+
+      verTodos.href = `/du/lista/?q=${encodeURIComponent(q)}`;
+      footer.classList.remove('hidden');
+      abrir();
+    }
+
+    async function pesquisar(q) {
+      renderLoading();
+      try {
+        const res  = await fetch(`/du/api/pesquisar/?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderResultados(data.resultados || [], q);
+      } catch {
+        results.innerHTML = `<div class="px-4 py-3 text-sm text-red-500">Erro ao pesquisar. Tente novamente.</div>`;
+        abrir();
+      }
+    }
+
+    input.addEventListener('input', function () {
+      const q = this.value.trim();
+      clearTimeout(_timer);
+      if (q.length < 2) { fechar(); return; }
+      const delay = /^\d{4,}$/.test(q) ? 0 : 350;
+      _timer = setTimeout(() => pesquisar(q), delay);
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { fechar(); this.blur(); }
+      if (e.key === 'Enter') {
+        const q = this.value.trim();
+        if (q.length >= 2) window.location.href = `/du/lista/?q=${encodeURIComponent(q)}`;
+      }
+    });
+
+    // Atalho ⌘K / Ctrl+K
+    document.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!document.getElementById('header-search-wrapper')?.contains(e.target)) fechar();
+    });
+  }
+
+  /* ── Dark Mode Toggle ────────────────────────────────────────────── */
+  const btnDark = document.getElementById('btn-dark-mode');
+  if (btnDark) {
+    btnDark.addEventListener('click', function () {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      html.classList.toggle('light', !isDark);
+      try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch(e) {}
+    });
+
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else if (saved === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      }
+    } catch(e) {}
+  }
+
+})();
+
+/* ── Monitoramento e Renovação Automática de Sessão ────────────────── */
+(function() {
+  // Verificar estado da sessão a cada 5 minutos
+  const INTERVALO_VERIFICACAO = 5 * 60 * 1000; // 5 minutos
+  const TEMPO_AVISO = 10; // Avisar quando faltarem 10 minutos
+  
+  let avisoMostrado = false;
+  
+  async function verificarSessao() {
+    try {
+      const res = await fetch('/users/api/sessao-status/', {
+        method: 'GET',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      
+      if (!res.ok) {
+        // Sessão inválida - redirecionar para login
+        console.warn('Sessão expirada, redirecionando para login...');
+        window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+        return;
+      }
+      
+      const data = await res.json();
+      
+      if (!data.active) {
+        // Sessão inativa - redirecionar
+        window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+        return;
+      }
+      
+      // Verificar tempo restante
+      const tempoRestante = data.tempo_restante || 0;
+      
+      if (tempoRestante <= TEMPO_AVISO && !avisoMostrado) {
+        avisoMostrado = true;
+        mostrarAvisoExpiracao(tempoRestante);
+      } else if (tempoRestante > TEMPO_AVISO) {
+        avisoMostrado = false;
+      }
+      
+    } catch (err) {
+      console.error('Erro ao verificar sessão:', err);
+    }
+  }
+  
+  function mostrarAvisoExpiracao(minutos) {
+    // Criar notificação de aviso
+    const aviso = document.createElement('div');
+    aviso.id = 'aviso-sessao-expirando';
+    aviso.style.cssText = `
+      position: fixed;
+      top: 80px;
+      right: 24px;
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #78350f;
+      padding: 16px 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(251, 191, 36, 0.4);
+      z-index: 10000;
+      max-width: 320px;
+      font-size: 14px;
+      line-height: 1.5;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+    `;
+    
+    aviso.innerHTML = `
+      <div style="display: flex; align-items: start; gap: 12px;">
+        <i class="fas fa-clock" style="font-size: 24px; color: #78350f;"></i>
+        <div style="flex: 1;">
+          <div style="font-weight: 700; margin-bottom: 4px;">Sessão a expirar</div>
+          <div style="font-size: 13px; opacity: 0.9;">
+            A sua sessão expira em ${minutos} minuto${minutos !== 1 ? 's' : ''}. 
+            Qualquer ação irá renovar automaticamente.
+          </div>
+          <button onclick="renovarSessaoManual()" 
+            style="margin-top: 8px; padding: 6px 12px; background: rgba(255,255,255,0.9); 
+                   border: none; border-radius: 6px; font-size: 12px; font-weight: 600; 
+                   cursor: pointer; color: #78350f;">
+            Renovar Agora
+          </button>
+        </div>
+        <button onclick="this.parentElement.parentElement.remove()" 
+          style="background: none; border: none; cursor: pointer; padding: 0; 
+                 color: #78350f; opacity: 0.6; font-size: 20px; line-height: 1;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `;
+    
+    document.body.appendChild(aviso);
+    
+    // Remover automaticamente após 15 segundos
+    setTimeout(() => {
+      if (aviso.parentElement) aviso.remove();
+    }, 15000);
+  }
+  
+  // Função global para renovar sessão manualmente
+  window.renovarSessaoManual = async function() {
+    try {
+      const res = await fetch('/users/api/renovar-sessao/', {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+        }
+      });
+      
+      if (res.ok) {
+        const aviso = document.getElementById('aviso-sessao-expirando');
+        if (aviso) {
+          aviso.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+          aviso.style.color = '#064e3b';
+          aviso.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <i class="fas fa-check-circle" style="font-size: 24px; color: #064e3b;"></i>
+              <div style="font-weight: 600;">Sessão renovada com sucesso!</div>
+            </div>
+          `;
+          setTimeout(() => aviso.remove(), 3000);
+        }
+        avisoMostrado = false;
+      }
+    } catch (err) {
+      console.error('Erro ao renovar sessão:', err);
+    }
+  };
+  
+  // Iniciar verificação periódica
+  setInterval(verificarSessao, INTERVALO_VERIFICACAO);
+  
+  // Verificar imediatamente ao carregar
+  setTimeout(verificarSessao, 2000);
+  
+})();
+
+/* ── Notificações Dropdown ────────────────────────────────────────── */
+(function() {
+  const btn = document.getElementById('btn-notificacoes');
+  const dropdown = document.getElementById('notif-dropdown');
+  const lista = document.getElementById('notif-lista');
+  const badge = document.getElementById('notif-badge');
+  const marcarTodas = document.getElementById('notif-marcar-todas');
+
+  if (!btn) return;
+
+  let aberto = false;
+
+  async function carregarNotificacoes() {
+    try {
+      const res = await fetch('/governanca/api/notificacoes/');
+      const data = await res.json();
+      badge.classList.toggle('hidden', data.nao_lidas === 0);
+      if (!aberto) return;
+      if (!data.notificacoes.length) {
+        lista.innerHTML = '<div class="px-4 py-8 text-center text-sm text-gray-400"><i class="fas fa-bell-slash text-3xl block mb-2 text-gray-300"></i>Nenhuma notificação</div>';
+        marcarTodas.classList.add('hidden');
+        return;
+      }
+      marcarTodas.classList.toggle('hidden', data.nao_lidas === 0);
+      const ICONS = {
+        assembleia_agendada: 'calendar-alt', procuracao_solicitada: 'vote-yea',
+        procuracao_confirmada: 'vote-yea', ata_publicada: 'file-alt',
+      };
+      lista.innerHTML = data.notificacoes.map(n => `
+        <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors ${n.lida ? '' : 'bg-blue-50/50 dark:bg-blue-900/5'}">
+          <div class="flex items-start gap-3">
+            <i class="fas fa-${ICONS[n.tipo] || 'bell'} text-gray-400 shrink-0" style="font-size:18px;"></i>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-900 dark:text-white">${n.titulo}</p>
+              ${n.mensagem ? '<p class="text-xs text-gray-500 mt-0.5">'+n.mensagem+'</p>' : ''}
+              <p class="text-xs text-gray-400 mt-0.5">${new Date(n.created_at).toLocaleString('pt-PT')}</p>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              ${n.link ? '<a href="'+n.link+'" class="text-xs text-primary font-medium hover:underline">Ver</a>' : ''}
+              ${!n.lida ? '<button class="notif-marcar text-xs text-gray-400 hover:text-primary ml-1" data-id="'+n.id+'">✔</button>' : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+      lista.querySelectorAll('.notif-marcar').forEach(b => {
+        b.addEventListener('click', async function() {
+          await fetch('/governanca/api/notificacoes/marcar-lida/'+this.dataset.id+'/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
+          carregarNotificacoes();
+        });
+      });
+    } catch(e) {}
+  }
+
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    aberto = !aberto;
+    dropdown.classList.toggle('hidden', !aberto);
+    if (aberto) carregarNotificacoes();
+  });
+
+  if (marcarTodas) {
+    marcarTodas.addEventListener('click', async function() {
+      await fetch('/governanca/api/notificacoes/marcar-todas/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
+      carregarNotificacoes();
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('notificacoes-wrapper')?.contains(e.target)) {
+      aberto = false;
+      dropdown.classList.add('hidden');
+    }
+  });
+
+  setInterval(carregarNotificacoes, 30000);
+  setTimeout(carregarNotificacoes, 1000);
+})();
+</script>

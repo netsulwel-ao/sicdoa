@@ -1,0 +1,588 @@
+﻿{% load static %}
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0 aduaneiro-page">
+  {% include 'includes/header.html' %}
+
+  <main class="p-4 sm:p-6 max-w-7xl mx-auto">
+
+    <!-- ── Breadcrumb + Título ── -->
+    <div class="mb-6">
+      <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <span>Gestão Aduaneira</span>
+        <i class="fas fa-chevron-right" style="font-size:14px;"></i>
+        <span class="text-primary font-medium">Pauta Aduaneira</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">Pauta Aduaneira</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400">Consulte códigos pautais, taxas e regulamentos aduaneiros — Pauta Aduaneira 2022 (SH2022)</p>
+    </div>
+
+    <!-- ── Pesquisa ── -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mb-6">
+      <h2 class="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-search text-primary" style="font-size:20px;"></i>
+        Pesquisa de Pauta
+      </h2>
+
+      <!-- Campos de pesquisa — 1 col mobile, 2 col sm, 4 col lg -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Código Pautal</label>
+          <input type="text" id="codigoPautal" placeholder="Ex: 01011000"
+                 class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder:text-gray-400">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Descrição</label>
+          <input type="text" id="descricao" placeholder="Buscar por descrição"
+                 class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder:text-gray-400">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Capítulo</label>
+          <select id="capitulo" class="form-input dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            <option value="">Todos os capítulos</option>
+            <option value="10">10 - Equídeos, bovinos, suínos, ovinos</option>
+            <option value="11">11 - Outros animais vivos</option>
+            <option value="12">12 - Carnes e miudezas comestíveis</option>
+            <option value="13">13 - Peixes e crustáceos</option>
+            <option value="14">14 - Lacticínios; ovos; mel</option>
+            <option value="15">15 - Outros produtos de origem animal</option>
+            <option value="16">16 - Plantas vivas e floricultura</option>
+            <option value="17">17 - Produtos hortícolas</option>
+            <option value="18">18 - Frutas; cascas de citrinos</option>
+            <option value="19">19 - Café, chá, mate e especiarias</option>
+            <option value="20">20 - Cereais</option>
+            <option value="21">21 - Produtos da indústria de moagem</option>
+            <option value="22">22 - Sementes e frutos oleaginosos</option>
+            <option value="23">23 - Plantas industriais ou medicinais</option>
+            <option value="24">24 - Tabaco e seus sucedâneos</option>
+            <option value="25">25 - Sal; enxofre; terras e pedras</option>
+            <option value="26">26 - Minérios, escórias e cinzas</option>
+            <option value="27">27 - Combustíveis minerais; óleos minerais</option>
+            <option value="28">28 - Produtos químicos inorgânicos</option>
+            <option value="29">29 - Produtos químicos orgânicos</option>
+            <option value="30">30 - Produtos farmacêuticos</option>
+            <option value="31">31 - Adubos (fertilizantes)</option>
+            <option value="32">32 - Extratos tanantes; matérias corantes</option>
+            <option value="33">33 - Óleos essenciais; perfumaria</option>
+            <option value="34">34 - Sabões; agentes orgânicos de superfície</option>
+            <option value="35">35 - Matérias albuminoides; amidos</option>
+            <option value="36">36 - Pólvoras e explosivos</option>
+            <option value="37">37 - Produtos para fotografia e cinematografia</option>
+            <option value="38">38 - Produtos diversos das indústrias químicas</option>
+            <option value="39">39 - Plásticos e suas obras</option>
+            <option value="40">40 - Borracha e suas obras</option>
+            <option value="41">41 - Peles, exceto a peleteria</option>
+            <option value="42">42 - Obras de couro; artigos de viagem</option>
+            <option value="43">43 - Peleteria e suas obras</option>
+            <option value="44">44 - Madeira, carvão vegetal e obras de madeira</option>
+            <option value="45">45 - Cortiça e suas obras</option>
+            <option value="46">46 - Obras de espartaria ou de cestaria</option>
+            <option value="47">47 - Pastas de madeira; papel reciclado</option>
+            <option value="48">48 - Papel e cartão; obras de pasta</option>
+            <option value="49">49 - Produtos editoriais; imprensa</option>
+            <option value="50">50 - Seda</option>
+            <option value="51">51 - Lã e pelos finos ou grosseiros</option>
+            <option value="52">52 - Algodão</option>
+            <option value="53">53 - Outras fibras têxteis vegetais</option>
+            <option value="54">54 - Filamentos sintéticos ou artificiais</option>
+            <option value="55">55 - Fibras sintéticas ou artificiais</option>
+            <option value="56">56 - Pastas, feltros e falsos tecidos</option>
+            <option value="57">57 - Tapetes e outros revestimentos</option>
+            <option value="58">58 - Tecidos especiais; rendas; bordados</option>
+            <option value="59">59 - Tecidos impregnados; artigos técnicos</option>
+            <option value="60">60 - Tecidos de malha</option>
+            <option value="61">61 - Vestuário e seus acessórios de malha</option>
+            <option value="62">62 - Vestuário e seus acessórios (exceto malha)</option>
+            <option value="63">63 - Outros artefactos têxteis confeccionados</option>
+            <option value="64">64 - Calçado; polainas e artefactos semelhantes</option>
+            <option value="65">65 - Chapéus e artefactos de uso semelhante</option>
+            <option value="66">66 - Guarda-chuvas, guarda-sóis, bengalas</option>
+            <option value="67">67 - Penas e penugem preparadas</option>
+            <option value="68">68 - Obras de pedra, gesso, cimento</option>
+            <option value="69">69 - Produtos cerâmicos</option>
+            <option value="70">70 - Vidro e suas obras</option>
+            <option value="71">71 - Pérolas, pedras preciosas, metais preciosos</option>
+            <option value="72">72 - Ferro fundido, ferro e aço</option>
+            <option value="73">73 - Obras de ferro fundido, ferro ou aço</option>
+            <option value="74">74 - Cobre e suas obras</option>
+            <option value="75">75 - Níquel e suas obras</option>
+            <option value="76">76 - Alumínio e suas obras</option>
+            <option value="78">78 - Chumbo e suas obras</option>
+            <option value="79">79 - Zinco e suas obras</option>
+            <option value="80">80 - Estanho e suas obras</option>
+            <option value="81">81 - Outros metais comuns</option>
+            <option value="82">82 - Ferramentas; cutelaria; talheres</option>
+            <option value="83">83 - Obras diversas de metais comuns</option>
+            <option value="84">84 - Reatores nucleares; caldeiras; máquinas</option>
+            <option value="85">85 - Máquinas e aparelhos elétricos</option>
+            <option value="86">86 - Veículos e material para vias férreas</option>
+            <option value="87">87 - Veículos automóveis, tratores</option>
+            <option value="88">88 - Aeronaves e aparelhos espaciais</option>
+            <option value="89">89 - Embarcações e estruturas flutuantes</option>
+            <option value="90">90 - Instrumentos e aparelhos de óptica</option>
+            <option value="91">91 - Aparelhos de relojoaria</option>
+            <option value="92">92 - Instrumentos musicais</option>
+            <option value="93">93 - Armas e munições</option>
+            <option value="94">94 - Móveis; mobiliário médico-cirúrgico</option>
+            <option value="95">95 - Brinquedos, jogos, artigos de desporto</option>
+            <option value="96">96 - Obras diversas</option>
+            <option value="97">97 - Objectos de arte; colecções; antiguidades</option>
+          </select>
+        </div>
+
+        <div class="flex items-end">
+          <button onclick="pesquisarPauta()"
+                  class="w-full flex items-center justify-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg hover:bg-primary/90 active:scale-95 transition-all font-medium text-sm">
+            <i class="fas fa-search" style="font-size:18px;"></i>
+            Pesquisar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Resultados ── -->
+    <div id="resultados" class="hidden mb-6">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+
+        <!-- Cabeçalho dos resultados -->
+        <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Resultados</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <span id="contadorResultados">0</span> <span id="contadorLabel">resultados encontrados</span>
+            </p>
+          </div>
+          <div id="btnLimparFiltros" class="hidden">
+            <button onclick="limparFiltros()"
+                    class="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors px-3 py-1.5 rounded-lg hover:bg-primary/5">
+              <i class="fas fa-filter" style="font-size:14px;"></i>
+              Limpar filtros
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabela — desktop -->
+        <div class="hidden sm:block overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 dark:bg-gray-900/50">
+              <tr>
+                <th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Código</th>
+                <th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
+                <th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Dir. Importação</th>
+                <th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">IEC</th>
+                <th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">IVA</th>
+                <th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Unidade</th>
+                <th class="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaResultados" class="divide-y divide-gray-100 dark:divide-gray-700">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Cards — mobile (só aparece em telas pequenas) -->
+        <div id="cardsResultados" class="sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Acesso Rápido + Informações ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+
+      <!-- Acesso Rápido -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <i class="fas fa-bolt text-primary" style="font-size:18px;"></i>
+          Acesso Rápido
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
+          <button onclick="carregarCapitulo('27')"
+                  class="w-full text-left px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-primary/5 dark:hover:bg-primary/10 hover:border-primary/20 border border-transparent transition-all active:scale-95">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span class="text-primary font-bold text-xs">27</span>
+              </div>
+              <div>
+                <div class="text-sm font-medium text-gray-900 dark:text-white">Capítulo 27</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Combustíveis minerais; óleos</div>
+              </div>
+            </div>
+          </button>
+          <button onclick="carregarCapitulo('84')"
+                  class="w-full text-left px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-primary/5 dark:hover:bg-primary/10 hover:border-primary/20 border border-transparent transition-all active:scale-95">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span class="text-primary font-bold text-xs">84</span>
+              </div>
+              <div>
+                <div class="text-sm font-medium text-gray-900 dark:text-white">Capítulo 84</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Reatores; caldeiras; máquinas</div>
+              </div>
+            </div>
+          </button>
+          <button onclick="carregarCapitulo('87')"
+                  class="w-full text-left px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-primary/5 dark:hover:bg-primary/10 hover:border-primary/20 border border-transparent transition-all active:scale-95">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span class="text-primary font-bold text-xs">87</span>
+              </div>
+              <div>
+                <div class="text-sm font-medium text-gray-900 dark:text-white">Capítulo 87</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Veículos automóveis; tratores</div>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Informações Úteis -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <i class="fas fa-info-circle text-primary" style="font-size:18px;"></i>
+          Informações Úteis
+        </h3>
+        <div class="space-y-3">
+          <div class="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <i class="fas fa-percent text-primary flex-shrink-0 mt-0.5" style="font-size:18px;"></i>
+            <div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">Taxas de Importação</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Varia conforme o código pautal e país de origem</div>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <i class="fas fa-calculator text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" style="font-size:18px;"></i>
+            <div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">Cálculo Automático</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Use a calculadora para estimar custos aduaneiros</div>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+            <i class="fas fa-file-alt text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" style="font-size:18px;"></i>
+            <div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">Documentação</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Consulte os regulamentos aduaneiros atualizados</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Modal de Detalhes ── -->
+<div id="detalhesModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div class="bg-white dark:bg-gray-800 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+
+    <!-- Handle mobile (arrasto) -->
+    <div class="sm:hidden flex justify-center pt-3 pb-1">
+      <div class="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <i class="fas fa-receipt text-primary" style="font-size:16px;"></i>
+        </div>
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Detalhes do Código Pautal</h3>
+      </div>
+      <button onclick="fecharModal()"
+              class="flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <i class="fas fa-times" style="font-size:20px;"></i>
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="p-5 space-y-4">
+      <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Código Pautal</p>
+        <p id="modalCodigo" class="text-xl font-mono font-bold text-primary">-</p>
+      </div>
+
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Descrição</p>
+        <p id="modalDescricao" class="text-sm text-gray-900 dark:text-gray-100 leading-relaxed">-</p>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Dir. Importação</p>
+          <p id="modalAliquota" class="text-lg font-bold text-primary">-</p>
+        </div>
+        <div class="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-3 text-center">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">IEC</p>
+          <p id="modalIEC" class="text-lg font-bold text-orange-600 dark:text-orange-400">-</p>
+        </div>
+        <div class="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">IVA</p>
+          <p id="modalIVA" class="text-lg font-bold text-green-600 dark:text-green-400">-</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Unidade de Medida</p>
+          <p id="modalUnidade" class="text-sm font-semibold text-gray-700 dark:text-gray-200">-</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Capítulo</p>
+          <p id="modalCapitulo" class="text-sm font-semibold text-gray-700 dark:text-gray-200">-</p>
+        </div>
+      </div>
+
+      <div id="modalFonteWrap" class="hidden">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fonte</p>
+        <p id="modalFonte" class="text-xs text-gray-500 dark:text-gray-400 italic">-</p>
+      </div>
+
+      <div id="modalObsWrap" class="hidden">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Observações</p>
+        <p id="modalObs" class="text-sm text-gray-700 dark:text-gray-300">-</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-5 pb-5 pt-2">
+      <button onclick="fecharModal()"
+              class="w-full py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl transition-colors font-medium text-sm active:scale-95">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Pauta Aduaneira — pesquisa via API ──────────────────────────────────────
+const API_URL = '{% url "pauta_aduaneira_api" %}';
+
+async function pesquisarPauta() {
+  const codigo    = document.getElementById('codigoPautal').value.trim();
+  const descricao = document.getElementById('descricao').value.trim();
+  const capitulo  = document.getElementById('capitulo').value;
+  const temFiltro = !!(codigo || descricao || capitulo);
+
+  mostrarLoading();
+
+  try {
+    const params = new URLSearchParams();
+    if (codigo)   params.set('codigo',    codigo);
+    if (descricao) params.set('descricao', descricao);
+    if (capitulo) params.set('capitulo',  capitulo);
+
+    const res  = await fetch(API_URL + '?' + params.toString());
+    const data = await res.json();
+    exibirResultados(data.resultados || [], temFiltro);
+  } catch (err) {
+    console.error('Erro ao pesquisar pauta:', err);
+    exibirErro();
+  }
+}
+
+function limparFiltros() {
+  document.getElementById('codigoPautal').value = '';
+  document.getElementById('descricao').value = '';
+  document.getElementById('capitulo').value = '';
+  pesquisarPauta();
+}
+
+function mostrarLoading() {
+  const resultadosDiv = document.getElementById('resultados');
+  document.getElementById('tabelaResultados').innerHTML = `
+    <tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">
+      <i class="fas fa-spinner animate-spin block mb-2" style="font-size:32px;"></i>
+      <p class="text-sm">A pesquisar...</p>
+    </td></tr>`;
+  document.getElementById('cardsResultados').innerHTML = `
+    <div class="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
+      <i class="fas fa-spinner animate-spin block mb-2" style="font-size:32px;"></i>
+      <p class="text-sm">A pesquisar...</p>
+    </div>`;
+  resultadosDiv.classList.remove('hidden');
+}
+
+function exibirErro() {
+  document.getElementById('tabelaResultados').innerHTML = `
+    <tr><td colspan="6" class="px-6 py-8 text-center text-red-400">
+      <i class="fas fa-times-circle block mb-2" style="font-size:32px;"></i>
+      <p class="text-sm">Erro ao carregar dados. Tente novamente.</p>
+    </td></tr>`;
+  document.getElementById('cardsResultados').innerHTML = `
+    <div class="px-4 py-8 text-center text-red-400">
+      <i class="fas fa-times-circle block mb-2" style="font-size:32px;"></i>
+      <p class="text-sm">Erro ao carregar dados. Tente novamente.</p>
+    </div>`;
+}
+
+function exibirResultados(resultados, temFiltro) {
+  const resultadosDiv = document.getElementById('resultados');
+  const tabelaBody    = document.getElementById('tabelaResultados');
+  const cardsDiv      = document.getElementById('cardsResultados');
+  const contador      = document.getElementById('contadorResultados');
+  const label         = document.getElementById('contadorLabel');
+  const btnLimpar     = document.getElementById('btnLimparFiltros');
+
+  contador.textContent = resultados.length;
+
+  if (!temFiltro) {
+    label.textContent = 'dos primeiros 5 códigos pautais (use a pesquisa para filtrar)';
+    btnLimpar.classList.add('hidden');
+  } else {
+    label.textContent = resultados.length === 1 ? 'resultado encontrado' : 'resultados encontrados';
+    btnLimpar.classList.remove('hidden');
+  }
+
+  if (resultados.length === 0) {
+    tabelaBody.innerHTML = `
+      <tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 dark:text-gray-500">
+        <i class="fas fa-search-minus block mb-2" style="font-size:40px;"></i>
+        <p class="text-sm">Nenhum resultado encontrado</p>
+      </td></tr>`;
+    cardsDiv.innerHTML = `
+      <div class="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
+        <i class="fas fa-search-minus block mb-2" style="font-size:40px;"></i>
+        <p class="text-sm">Nenhum resultado encontrado</p>
+      </div>`;
+  } else {
+    /* Guardar itens num mapa para evitar problemas de escaping no onclick */
+    window._pautaItems = {};
+
+    /* ── Tabela (desktop) ── */
+    tabelaBody.innerHTML = resultados.map((item, idx) => {
+      window._pautaItems[idx] = item;
+      return `
+      <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+        <td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+          <span class="text-sm font-mono font-semibold text-primary">${item.codigo}</span>
+        </td>
+        <td class="px-4 sm:px-6 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-xs">
+          ${item.descricao}
+        </td>
+        <td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+            ${item.aliquota}%
+          </span>
+        </td>
+        <td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+            ${item.iec}%
+          </span>
+        </td>
+        <td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+            ${item.iva}%
+          </span>
+        </td>
+        <td class="px-4 sm:px-6 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+          ${item.unidade}
+        </td>
+        <td class="px-4 sm:px-6 py-3 whitespace-nowrap">
+          <button onclick="verDetalhes(${idx})"
+                  class="text-xs font-semibold text-primary hover:text-primary/80 hover:underline transition-colors">
+            Ver detalhes
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    /* ── Cards (mobile) ── */
+    cardsDiv.innerHTML = resultados.map((item, idx) => `
+      <div class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-sm font-mono font-bold text-primary">${item.codigo}</span>
+              <span class="text-xs text-gray-400 dark:text-gray-500">Cap. ${item.capitulo}</span>
+            </div>
+            <p class="text-sm text-gray-700 dark:text-gray-300 leading-snug">${item.descricao}</p>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                Dir. ${item.aliquota}%
+              </span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                IEC ${item.iec}%
+              </span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                IVA ${item.iva}%
+              </span>
+              <span class="text-xs text-gray-400 dark:text-gray-500">${item.unidade}</span>
+            </div>
+          </div>
+          <button onclick="verDetalhes(${idx})"
+                  class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+            <i class="fas fa-external-link-alt" style="font-size:16px;"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  resultadosDiv.classList.remove('hidden');
+}
+
+async function carregarCapitulo(capitulo) {
+  document.getElementById('capitulo').value = capitulo.padStart(2, '0');
+  document.getElementById('codigoPautal').value = '';
+  document.getElementById('descricao').value = '';
+  await pesquisarPauta();
+}
+
+// Recebe o índice do item guardado em window._pautaItems
+function verDetalhes(idx) {
+  var item = window._pautaItems[idx];
+  if (!item) return;
+  document.getElementById('modalCodigo').textContent    = item.codigo;
+  document.getElementById('modalDescricao').textContent = item.descricao;
+  document.getElementById('modalAliquota').textContent  = item.aliquota + '%';
+  document.getElementById('modalIEC').textContent       = item.iec + '%';
+  document.getElementById('modalIVA').textContent       = item.iva + '%';
+  document.getElementById('modalUnidade').textContent   = item.unidade || 'N/D';
+  document.getElementById('modalCapitulo').textContent  = item.capitulo ? 'Cap. ' + item.capitulo : 'N/D';
+
+  var fonteWrap = document.getElementById('modalFonteWrap');
+  var obsWrap   = document.getElementById('modalObsWrap');
+
+  if (item.fonte) {
+    document.getElementById('modalFonte').textContent = item.fonte;
+    fonteWrap.classList.remove('hidden');
+  } else {
+    fonteWrap.classList.add('hidden');
+  }
+
+  if (item.obs) {
+    document.getElementById('modalObs').textContent = item.obs;
+    obsWrap.classList.remove('hidden');
+  } else {
+    obsWrap.classList.add('hidden');
+  }
+
+  document.getElementById('detalhesModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function fecharModal() {
+  document.getElementById('detalhesModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+// Fechar modal ao clicar no backdrop
+document.getElementById('detalhesModal').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal();
+});
+
+// Pesquisar ao pressionar Enter nos campos
+['codigoPautal', 'descricao'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); pesquisarPauta(); }
+  });
+});
+
+// Carregar primeiros 20 registos ao abrir a página
+window.addEventListener('load', function() { pesquisarPauta(); });
+</script>
+
+{% include 'includes/footer.html' %}
