@@ -1,1 +1,1 @@
-﻿web: daphne -b 0.0.0.0 -p $PORT sicdoa.asgi:application
+﻿web: ./start.sh

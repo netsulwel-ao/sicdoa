@@ -299,7 +299,7 @@ LOGGING = {
 import logging
 _logger = logging.getLogger(__name__)
 if IS_PRODUCTION and not REDIS_ENABLED:
-    _logger.critical(
-        'REDIS_ENABLED=0 em produção! O WebSocket vai falhar com múltiplos workers. '
-        'Define REDIS_ENABLED=1 e configura REDIS_URL / REDIS_URL_CHANNELS.'
+    _logger.warning(
+        'REDIS_ENABLED=0 em produção — WebSocket pode falhar com múltiplos workers. '
+        'Define REDIS_ENABLED=1 no Render dashboard e adiciona um Redis service.'
     )
