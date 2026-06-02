@@ -8,10 +8,7 @@
 
     <div class="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
       <div>
-        <a href="{% url 'governanca_assembleias' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary mb-2 flex items-center gap-1">
-          <i class="fas fa-arrow-left text-base"></i> Voltar às assembleias
-        </a>
-        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-2">{{ assembleia.titulo }}</h1>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">{{ assembleia.titulo }}</h1>
         <div class="flex items-center gap-3 mt-2 flex-wrap">
           <span class="px-2.5 py-1 text-xs font-medium rounded-full
             {% if assembleia.status == 'Agendada' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300
@@ -27,15 +24,21 @@
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="{% url 'governanca_assembleias' %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+          <i class="fas fa-arrow-left text-base"></i>Voltar
+        </a>
         {% if papel == 'Administrador' %}
           {% if assembleia.status == 'Agendada' %}
           <a href="{% url 'governanca_editar' assembleia.pk %}" class="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
             <i class="fas fa-edit text-base"></i> Editar
           </a>
           {% endif %}
+          {% if assembleia.status == 'Agendada' %}
           <a href="{% url 'governanca_convocatorias' assembleia.pk %}" class="px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
             <i class="fas fa-envelope text-base"></i> Convocatórias
           </a>
+          {% endif %}
           <a href="{% url 'governanca_gerir' assembleia.pk %}" class="px-3 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-1">
             <i class="fas fa-cog text-base"></i> Gerir
           </a>
@@ -119,7 +122,7 @@
           </div>
         </div>
 
-        {% if assembleia.status == 'Agendada' or assembleia.status == 'Em Curso' %}
+        {% if assembleia.status == 'Agendada' %}
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
           <h2 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">
             <i class="fas fa-calendar-check text-base align-text-bottom"></i>
@@ -172,7 +175,8 @@
 
           {% if not minhas_procuracao.exists or minhas_procuracao.first.status == 'Cancelada' %}
           <div>
-            <select id="select-outorgado" class="form-input text-sm mb-2">
+            <select id="select-outorgado"
+                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 mb-2">
               <option value="">Selecionar despachante...</option>
               {% for d in despachantes %}
               <option value="{{ d.id }}">{{ d.nome }}</option>
@@ -183,7 +187,8 @@
             </button>
             <div id="procuracao-otp-section" class="hidden mt-3 p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
               <p class="text-xs text-amber-800 dark:text-amber-200 font-medium mb-2">Insira o código OTP enviado para o seu email</p>
-              <input type="text" id="input-otp" maxlength="6" class="form-input text-center text-lg tracking-widest mb-2" placeholder="000000">
+              <input type="text" id="input-otp" maxlength="6"
+                     class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 text-center text-lg tracking-widest mb-2" placeholder="000000">
               <input type="hidden" id="procuracao-id">
               <button id="btn-confirmar-otp" class="w-full px-3 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
                 Confirmar Procuração
@@ -230,7 +235,7 @@
           <div class="space-y-2">
             {% for doc in documentos %}
             <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                <i class="fas {% if doc.tipo == 'ata' %}fa-file-alt{% elif doc.tipo == 'relatorio' %}fa-chart-bar{% else %}fa-file-alt{% endif %} text-gray-400"></i>
+                <i class="fas {% if doc.tipo == 'ata' %}fa-file-alt{% elif doc.tipo == 'relatorio' %}fa-chart-bar{% elif doc.tipo == 'decreto' %}fa-gavel{% else %}fa-file-alt{% endif %} text-gray-400"></i>
               <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">{{ doc.titulo }}</span>
               {% if doc.arquivo %}
               <a href="{{ doc.arquivo.url }}" target="_blank" class="px-2 py-1 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">

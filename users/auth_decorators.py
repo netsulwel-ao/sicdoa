@@ -107,6 +107,8 @@ def criar_sessao_usuario(request, usuario):
         'cedula': usuario.cedula or '',
         'telefone': usuario.telefone or '',
         'username': usuario.username,
+        'is_secretario': usuario.is_secretario,
+        'is_vice_secretario': usuario.is_vice_secretario,
     }
     
     # Guardar tipo de usuário (usuario ou colaborador)

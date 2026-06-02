@@ -56,76 +56,153 @@
   </div>
 </form>
 
+<div class="flex items-center justify-between mb-4">
+  <p class="text-sm text-gray-500">{{ total_despachantes }} despachante{{ total_despachantes|pluralize:"s" }} registado{{ total_despachantes|pluralize:"s" }}</p>
+  {% include 'includes/view-toggle.html' %}
+</div>
+
 <!-- Lista de Despachantes -->
 {% if despachantes_info %}
-<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-  <div class="divide-y divide-gray-100 dark:divide-gray-800">
+<div data-view-container>
+  <div data-grid-view class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
     {% for info in despachantes_info %}
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-      <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-user text-primary text-xl"></i>
-        </div>
-        <div>
-          <p class="font-semibold text-gray-900 dark:text-white">{{ info.usuario.nome }}</p>
-          <p class="text-sm text-gray-500">{{ info.usuario.email }}</p>
-          <div class="flex flex-wrap gap-2 mt-1">
-            {% if info.usuario.nif %}
-            <span class="text-xs text-gray-400 flex items-center gap-1">
-              <i class="fas fa-id-badge text-xs"></i>{{ info.usuario.nif }}
-            </span>
-            {% endif %}
-            {% if info.usuario.cedula %}
-            <span class="text-xs text-gray-400 flex items-center gap-1">
-              <i class="fas fa-award text-xs"></i>Cédula: {{ info.usuario.cedula }}
-            </span>
-            {% endif %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
+      <div class="p-5">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-user text-primary text-xl"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-gray-900 dark:text-white truncate">{{ info.usuario.nome }}</p>
+            <p class="text-sm text-gray-500 truncate">{{ info.usuario.email }}</p>
           </div>
         </div>
-      </div>
-
-      <div class="flex items-center gap-6 flex-shrink-0">
-        <!-- Estatísticas -->
-        <div class="flex gap-4 text-center">
-          <div>
-            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_bancas }}</p>
-            <p class="text-xs text-gray-500">Banca{{ info.total_bancas|pluralize:"s" }}</p>
+        <div class="space-y-2 text-sm mb-4">
+          {% if info.usuario.nif %}
+          <div class="flex justify-between">
+            <span class="text-gray-500">NIF</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ info.usuario.nif }}</span>
           </div>
-          <div>
-            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_colaboradores }}</p>
-            <p class="text-xs text-gray-500">Colaborador{{ info.total_colaboradores|pluralize:"es" }}</p>
+          {% endif %}
+          {% if info.usuario.cedula %}
+          <div class="flex justify-between">
+            <span class="text-gray-500">Cédula</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ info.usuario.cedula }}</span>
+          </div>
+          {% endif %}
+          <div class="flex justify-between">
+            <span class="text-gray-500">Bancas</span>
+            <span class="font-bold text-gray-900 dark:text-white">{{ info.total_bancas }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Colaboradores</span>
+            <span class="font-bold text-gray-900 dark:text-white">{{ info.total_colaboradores }}</span>
           </div>
         </div>
-
-        <!-- Status -->
-        {% if info.usuario.status == 'Ativo' %}
-        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Ativo</span>
-        {% elif info.usuario.status == 'Suspenso' %}
-        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Bloqueado</span>
-        {% else %}
-        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inativo</span>
-        {% endif %}
-
-        <!-- Ação -->
-        <a href="{% url 'admin_despachante_detalhe' info.usuario.id %}"
-           class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">
-          <i class="fas fa-eye text-base"></i>Ver Detalhe
-        </a>
-        <a href="{% url 'admin_despachante_editar' info.usuario.id %}"
-           class="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-xl text-sm font-semibold hover:bg-blue-100 transition-all">
-          <i class="fas fa-edit text-base"></i>
-        </a>
+          <div class="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
+            <div>
+              {% if info.usuario.status == 'Ativo' %}
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Ativo</span>
+              {% elif info.usuario.status == 'Suspenso' %}
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Bloqueado</span>
+              {% else %}
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Inativo</span>
+              {% endif %}
+            </div>
+            <div class="flex gap-2">
+            <a href="{% url 'admin_despachante_detalhe' info.usuario.id %}" class="p-2 rounded-lg text-primary hover:bg-primary/10 transition-all" title="Ver Detalhe">
+              <i class="fas fa-eye text-base"></i>
+            </a>
+            <a href="{% url 'admin_despachante_editar' info.usuario.id %}" class="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-all" title="Editar">
+              <i class="fas fa-edit text-base"></i>
+            </a>
+            <a href="{% url 'admin_atribuir_cargo' info.usuario.id %}" class="p-2 rounded-lg text-purple-600 hover:bg-purple-50 transition-all" title="Atribuir Cargo na Mesa">
+              <i class="fas fa-user-tie text-base"></i>
+            </a>
+          </div>
+        </div>
       </div>
     </div>
     {% endfor %}
   </div>
-</div>
 
-{% if page_obj.has_other_pages %}
-<div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-  {% include 'includes/pagination.html' %}
+  <div data-list-view>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        {% for info in despachantes_info %}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-user text-primary text-xl"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-gray-900 dark:text-white">{{ info.usuario.nome }}</p>
+              <p class="text-sm text-gray-500">{{ info.usuario.email }}</p>
+              <div class="flex flex-wrap gap-2 mt-1">
+                {% if info.usuario.nif %}
+                <span class="text-xs text-gray-400 flex items-center gap-1">
+                  <i class="fas fa-id-badge text-xs"></i>{{ info.usuario.nif }}
+                </span>
+                {% endif %}
+                {% if info.usuario.cedula %}
+                <span class="text-xs text-gray-400 flex items-center gap-1">
+                  <i class="fas fa-award text-xs"></i>Cédula: {{ info.usuario.cedula }}
+                </span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-6 flex-shrink-0">
+            <!-- Estatísticas -->
+            <div class="flex gap-4 text-center">
+              <div>
+                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_bancas }}</p>
+                <p class="text-xs text-gray-500">Banca{{ info.total_bancas|pluralize:"s" }}</p>
+              </div>
+              <div>
+                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_colaboradores }}</p>
+                <p class="text-xs text-gray-500">Colaborador{{ info.total_colaboradores|pluralize:"es" }}</p>
+              </div>
+            </div>
+
+            <!-- Status + Cargo Mesa -->
+            <div class="flex items-center gap-2">
+              {% if info.usuario.status == 'Ativo' %}
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Ativo</span>
+              {% elif info.usuario.status == 'Suspenso' %}
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Bloqueado</span>
+              {% else %}
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inativo</span>
+              {% endif %}
+              <a href="{% url 'admin_atribuir_cargo' info.usuario.id %}"
+                 class="px-2.5 py-1 rounded-full text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all whitespace-nowrap">
+                <i class="fas fa-user-tie text-xs mr-0.5"></i>Atribuir Cargo
+              </a>
+            </div>
+
+            <!-- Ação -->
+            <a href="{% url 'admin_despachante_detalhe' info.usuario.id %}"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">
+              <i class="fas fa-eye text-base"></i>Ver Detalhe
+            </a>
+            <a href="{% url 'admin_despachante_editar' info.usuario.id %}"
+               class="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-xl text-sm font-semibold hover:bg-blue-100 transition-all">
+              <i class="fas fa-edit text-base"></i>
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+    {% include 'includes/pagination.html' %}
+  </div>
+  {% endif %}
 </div>
-{% endif %}
 
 {% else %}
 <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-16 text-center">

@@ -7,15 +7,22 @@
   <main class="p-4 md:p-6 lg:p-8 space-y-6">
 
     <!-- Header -->
-    <div>
-      <a href="{% url 'governanca_assembleias' %}" class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
-        <i class="fas fa-arrow-left text-xs"></i>
-        <span>Assembleias</span>
-      </a>
-      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-1">Repositório de Atas</h1>
-      <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Atas digitais assinadas e documentos publicados</p>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Repositório de Atas</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Atas digitais assinadas e documentos publicados</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{% url 'governanca_assembleias' %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+          <i class="fas fa-arrow-left text-base"></i>Voltar
+        </a>
+        {% include 'includes/view-toggle.html' %}
+      </div>
     </div>
 
+    <div data-view-container>
+      <div data-grid-view>
     {% if atas %}
     <!-- Atas Section -->
     <div>
@@ -218,6 +225,73 @@
       </div>
     </div>
     {% endif %}
+      </div>
+
+      <div data-list-view class="hidden">
+      {% if atas or documentos %}
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-800/50 text-left">
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Título</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tipo</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Assembleia</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Data</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Autor</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              {% for ata in atas %}
+              {% with status=ata.status_assinatura %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ ata.assembleia.titulo }}</td>
+                <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Ata</span></td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ ata.assembleia.titulo }}</td>
+                <td class="px-4 py-3">
+                  <span class="px-2 py-0.5 text-xs font-medium rounded-full
+                    {% if status == 'Publicada' %}bg-blue-100 text-blue-700
+                    {% elif status == 'Assinada' %}bg-emerald-100 text-emerald-700
+                    {% elif status == 'Aguardando Presidente' %}bg-amber-100 text-amber-700
+                    {% elif status == 'Aguardando Secretario' %}bg-purple-100 text-purple-700
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {{ status }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ ata.publicado_em|date:"d/m/Y H:i" }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ ata.assinado_por.nome|default:"—" }}</td>
+              </tr>
+              {% endwith %}
+              {% endfor %}
+              {% for doc in documentos %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ doc.titulo }}</td>
+                <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs font-medium rounded-full
+                  {% if doc.tipo == 'ata' %}bg-blue-100 text-blue-700
+                  {% elif doc.tipo == 'relatorio' %}bg-purple-100 text-purple-700
+                  {% else %}bg-gray-100 text-gray-600{% endif %}">{{ doc.get_tipo_display }}</span></td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ doc.assembleia.titulo }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">—</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ doc.publicado_em|date:"d/m/Y H:i" }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ doc.created_by.nome|default:"—" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="relative p-12 text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <i class="fas fa-file-alt text-2xl text-gray-300 dark:text-gray-600"></i>
+            </div>
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-200">Nenhum documento publicado</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Os documentos e atas publicados aparecerão aqui</p>
+          </div>
+        </div>
+      {% endif %}
+      </div>
+    </div>
 
   </main>
 </div>

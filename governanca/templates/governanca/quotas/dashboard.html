@@ -60,28 +60,55 @@
     <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
       <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
         <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200">Últimas Quotas</h2>
+        {% include 'includes/view-toggle.html' %}
         <a href="{% url 'governanca_quotas_faturas' %}" class="text-primary text-sm hover:underline">Ver todas</a>
       </div>
-      <div class="divide-y divide-gray-100 dark:divide-gray-800">
-        {% for q in ultimas_quotas %}
-        <a href="{% url 'governanca_quota_detalhe' q.fatura_uuid %}" class="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-          <div class="w-10 h-10 rounded-lg {% if q.status == 'Paga' %}bg-green-50{% else %}bg-yellow-50{% endif %} flex items-center justify-center">
-            <i class="fas {% if q.status == 'Paga' %}fa-check text-green-600{% else %}fa-hourglass text-yellow-600{% endif %}"></i>
-          </div>
-          <div class="flex-1">
-            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ q.mes|stringformat:"02d" }}/{{ q.ano }}</p>
-            <p class="text-xs text-gray-500">Kz {{ q.valor|floatformat:2 }}</p>
-          </div>
-          <span class="px-2 py-1 text-xs font-medium rounded-full {% if q.status == 'Paga' %}bg-green-100 text-green-700{% elif q.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ q.status }}</span>
-        </a>
-        {% empty %}
-        <p class="p-4 text-sm text-gray-500 text-center">Nenhuma quota encontrada</p>
-        {% endfor %}
-      {% if page_obj.has_other_pages %}
-      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-        {% include 'includes/pagination.html' %}
-      </div>
-      {% endif %}
+      <div data-view-container>
+        <div data-grid-view class="divide-y divide-gray-100 dark:divide-gray-800">
+          {% for q in ultimas_quotas %}
+          <a href="{% url 'governanca_quota_detalhe' q.fatura_uuid %}" class="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+            <div class="w-10 h-10 rounded-lg {% if q.status == 'Paga' %}bg-green-50{% else %}bg-yellow-50{% endif %} flex items-center justify-center">
+              <i class="fas {% if q.status == 'Paga' %}fa-check text-green-600{% else %}fa-hourglass text-yellow-600{% endif %}"></i>
+            </div>
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ q.mes|stringformat:"02d" }}/{{ q.ano }}</p>
+              <p class="text-xs text-gray-500">Kz {{ q.valor|floatformat:2 }}</p>
+            </div>
+            <span class="px-2 py-1 text-xs font-medium rounded-full {% if q.status == 'Paga' %}bg-green-100 text-green-700{% elif q.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ q.status }}</span>
+          </a>
+          {% empty %}
+          <p class="p-4 text-sm text-gray-500 text-center">Nenhuma quota encontrada</p>
+          {% endfor %}
+        </div>
+        <div data-list-view class="hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Período</th>
+                <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Valor</th>
+                <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              {% for q in ultimas_quotas %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" onclick="window.location='{% url 'governanca_quota_detalhe' q.fatura_uuid %}'">
+                <td class="px-4 py-3 text-sm font-semibold text-[#111418] dark:text-gray-200">{{ q.mes|stringformat:"02d" }}/{{ q.ano }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Kz {{ q.valor|floatformat:2 }}</td>
+                <td class="px-4 py-3">
+                  <span class="px-2 py-1 text-xs font-medium rounded-full {% if q.status == 'Paga' %}bg-green-100 text-green-700{% elif q.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ q.status }}</span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="px-4 py-8 text-center text-sm text-gray-500">Nenhuma quota encontrada</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+          {% include 'includes/pagination.html' %}
+        </div>
+        {% endif %}
       </div>
     </div>
 

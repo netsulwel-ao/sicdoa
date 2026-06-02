@@ -1,0 +1,46 @@
+<div class="flex items-center gap-2" data-view-toggle>
+  <button onclick="setView('grid')" data-grid-btn class="p-2 rounded-lg bg-primary text-white transition-all">
+    <i class="fas fa-th text-base"></i>
+  </button>
+  <button onclick="setView('list')" data-list-btn class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+    <i class="fas fa-list text-base"></i>
+  </button>
+</div>
+
+<script>
+function setView(view) {
+  var container = document.querySelector('[data-view-container]');
+  if (!container) return;
+  var gridView = container.querySelector('[data-grid-view]');
+  var listView = container.querySelector('[data-list-view]');
+  var gridBtn = document.querySelector('[data-grid-btn]');
+  var listBtn = document.querySelector('[data-list-btn]');
+  if (!gridView || !listView) return;
+
+  var outro = view === 'grid' ? listView : gridView;
+  var target = view === 'grid' ? gridView : listView;
+  outro.style.opacity = '0';
+  setTimeout(function() { outro.classList.add('hidden'); }, 120);
+  target.classList.remove('hidden');
+  target.style.opacity = '0';
+  requestAnimationFrame(function() {
+    target.style.transition = 'opacity 0.12s ease';
+    target.style.opacity = '1';
+  });
+  if (gridBtn) {
+    gridBtn.classList.toggle('bg-primary', view === 'grid');
+    gridBtn.classList.toggle('text-white', view === 'grid');
+    gridBtn.classList.toggle('text-gray-500', view !== 'grid');
+  }
+  if (listBtn) {
+    listBtn.classList.toggle('bg-primary', view === 'list');
+    listBtn.classList.toggle('text-white', view === 'list');
+    listBtn.classList.toggle('text-gray-500', view !== 'list');
+  }
+  try { localStorage.setItem('listView', view); } catch(e) {}
+}
+document.addEventListener('DOMContentLoaded', function() {
+  var saved = 'grid'; try { saved = localStorage.getItem('listView') || 'grid'; } catch(e) {}
+  setView(saved);
+});
+</script>

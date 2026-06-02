@@ -11,6 +11,7 @@ urlpatterns = [
     path('admin/despachantes/<int:usuario_id>/editar/',             views_admin.admin_despachante_editar_view,              name='admin_despachante_editar'),
     path('admin/despachantes/<int:usuario_id>/toggle/',             views_admin.admin_despachante_toggle_view,              name='admin_despachante_toggle'),
     path('admin/despachantes/<int:usuario_id>/enviar-credenciais/', views_admin.admin_despachante_enviar_credenciais_view,  name='admin_despachante_enviar_credenciais'),
+    path('admin/despachantes/<int:usuario_id>/cargo/',                 views_admin.admin_atribuir_cargo_view,                 name='admin_atribuir_cargo'),
     path('admin/bancas/',                                           views_admin.admin_bancas_view,                          name='admin_bancas'),
     path('admin/bancas/<int:banca_id>/',                            views_admin.admin_banca_detalhe_view,                   name='admin_banca_detalhe'),
     path('admin/bancas/<int:banca_id>/toggle/',                     views_admin.admin_banca_toggle_view,                    name='admin_banca_toggle'),

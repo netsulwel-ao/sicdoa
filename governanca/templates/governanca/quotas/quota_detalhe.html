@@ -4,12 +4,15 @@
 {% include 'includes/header.html' %}
 {% csrf_token %}
 <main class="p-4 md:p-6 lg:p-8">
-  <div class="mb-6 flex items-center gap-4">
-    <a href="{% url 'governanca_quotas_faturas' %}" class="text-gray-500 hover:text-[#111418]"><i class="fas fa-arrow-left"></i></a>
+  <div class="mb-6 flex items-center justify-between">
     <div>
       <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Fatura {{ quota.mes|stringformat:"02d" }}/{{ quota.ano }}</h1>
       <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">UUID: {{ quota.fatura_uuid }}</p>
     </div>
+    <a href="{% url 'governanca_quotas_faturas' %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+      <i class="fas fa-arrow-left text-base"></i>Voltar
+    </a>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -12,21 +12,19 @@ from .models import (
 @receiver(post_save, sender=Assembleia)
 @receiver(post_delete, sender=Assembleia)
 def invalida_cache_assembleia(sender, **kwargs):
-    cache_invalidate_prefix('dash_governanca')
     cache_invalidate_prefix('lista_assembleias')
 
 
 @receiver(post_save, sender=Notificacao)
 @receiver(post_delete, sender=Notificacao)
 def invalida_cache_notificacao(sender, instance, **kwargs):
-    cache_invalidate_prefix(f'dash_governanca_{instance.usuario_id}')
+    pass
 
 
 @receiver(post_save, sender=AtaDigital)
 @receiver(post_delete, sender=AtaDigital)
 def invalida_cache_atas(sender, **kwargs):
     cache_invalidate_prefix('repositorio_atas')
-    cache_invalidate_prefix('dash_governanca')
 
 
 @receiver(post_save, sender=DocumentoAssembleia)
@@ -41,5 +39,4 @@ def invalida_cache_documentos(sender, **kwargs):
 @receiver(post_save, sender=PagamentoQuota)
 @receiver(post_delete, sender=PagamentoQuota)
 def invalida_cache_quotas(sender, **kwargs):
-    cache_invalidate_prefix('dash_quotas')
-    cache_invalidate_prefix('relatorio_quotas')
+    pass

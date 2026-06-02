@@ -1,17 +1,28 @@
 import json
 import asyncio
+import logging
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
 from users.models import Usuario
 from .models import Assembleia, PresencaAssembleia, PautaVotacao, Voto, Procuracao, MensagemChat, LogAssembleia, EstadoFinanceiro
 
+logger = logging.getLogger(__name__)
+
 
 class AssembleiaConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._last_chat_time = 0.0
+        self._chat_count = 0
+        self._chat_window_start = 0.0
+
     async def connect(self):
         self.assembleia_pk = self.scope['url_route']['kwargs']['assembleia_pk']
         self.room_group_name = f'assembleia_{self.assembleia_pk}'
         self.usuario = None
+        self._rate_limit_reset()
 
         session = self.scope.get('session', {})
         usuario_id = session.get('usuario_id')
@@ -20,7 +31,9 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
-        print(f'[WS CONNECT] user={self.usuario.nome if self.usuario else "anon"} channel={self.channel_name} group={self.room_group_name}')
+        logger.info('WS CONNECT user=%s channel=%s group=%s',
+                    self.usuario.nome if self.usuario else 'anon',
+                    self.channel_name, self.room_group_name)
 
         if self.usuario:
             await self._registar_presenca()
@@ -29,16 +42,35 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
             await self._enviar_historico_chat()
             await self._enviar_estado_votacao()
 
+    def _rate_limit_reset(self):
+        self._chat_count = 0
+        self._chat_window_start = time.time()
+
+    def _check_rate_limit(self):
+        now = time.time()
+        if now - self._chat_window_start > 3:
+            self._rate_limit_reset()
+        self._chat_count += 1
+        if self._chat_count > 5:
+            return False
+        return True
+
+    async def _rate_limit_send(self, message):
+        try:
+            await self.send(text_data=json.dumps({'action': 'chat_erro', 'message': message}))
+        except Exception:
+            pass
+
     async def dispatch(self, message):
         usr = getattr(self, 'usuario', None)
         nome = usr.nome if usr else 'anon'
         chan = getattr(self, 'channel_name', '?')
         if message.get('type') != 'websocket.connect':
-            print(f'[DISPATCH] type={message.get("type")} user={nome} channel={chan}')
+            logger.debug('DISPATCH type=%s user=%s channel=%s', message.get('type'), nome, chan)
         try:
             await super().dispatch(message)
         except ValueError as e:
-            print(f'[DISPATCH ERROR] {e}')
+            logger.warning('DISPATCH ERROR user=%s error=%s', nome, e)
 
     async def disconnect(self, close_code):
         if self.usuario:
@@ -50,7 +82,8 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
             return
         data = json.loads(text_data)
         action = data.get('action')
-        print(f'[WS RECV ACTION] user={self.usuario.nome if self.usuario else "anon"} action={action}')
+        logger.debug('WS RECV ACTION user=%s action=%s',
+                     self.usuario.nome if self.usuario else 'anon', action)
 
         handlers = {
             'votar': self._handle_voto,
@@ -81,7 +114,6 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({'action': 'voto_erro', 'message': 'Dados inválidos'}))
             return
 
-        # Verificar elegibilidade (estado financeiro)
         elegivel = await self._verificar_elegibilidade()
         if not elegivel:
             await self.send(text_data=json.dumps({
@@ -206,13 +238,17 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
         texto = data.get('texto', '').strip()
         if not texto or not self.usuario:
             return
+        if not self._check_rate_limit():
+            await self._rate_limit_send('Aguarde antes de enviar outra mensagem.')
+            return
         msg = await database_sync_to_async(MensagemChat.objects.create)(
             assembleia_id=self.assembleia_pk,
             usuario=self.usuario,
             tipo='texto',
             texto=texto,
         )
-        print(f'[CHAT SEND] user={self.usuario.nome} msg_id={msg.id} texto={texto[:50]} group={self.room_group_name} channel={self.channel_name}')
+        logger.info('CHAT SEND user=%s msg_id=%s texto=%s group=%s',
+                    self.usuario.nome, msg.id, texto[:50], self.room_group_name)
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -227,11 +263,13 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
                 },
             }
         )
-        print(f'[CHAT BROADCAST DONE] group={self.room_group_name}')
 
     async def _handle_chat_reaction(self, data):
         reacao = data.get('reacao', '')
         if reacao not in ('mao', 'palmas', 'coracao') or not self.usuario:
+            return
+        if not self._check_rate_limit():
+            await self._rate_limit_send('Aguarde antes de enviar outra reação.')
             return
         msg = await database_sync_to_async(MensagemChat.objects.create)(
             assembleia_id=self.assembleia_pk,
@@ -260,10 +298,12 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
         try:
             user_nome = self.usuario.nome if self.usuario else 'anon'
             data = event['data']
-            print(f'[CHAT RECV] target_user={user_nome} action={data.get("action")} from={data.get("nome")} text={str(data.get("texto",""))[:50]}')
+            logger.debug('CHAT RECV target_user=%s action=%s from=%s',
+                         user_nome, data.get('action'), data.get('nome'))
             await self.send(text_data=json.dumps(event['data']))
         except Exception as e:
-            print(f'[CHAT RECV ERROR] user={self.usuario.nome if self.usuario else "anon"} error={e}')
+            logger.warning('CHAT RECV ERROR user=%s error=%s',
+                          self.usuario.nome if self.usuario else 'anon', e)
 
     async def _enviar_historico_chat(self):
         msgs = await database_sync_to_async(
@@ -293,7 +333,6 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
         }))
 
     async def _enviar_estado_votacao(self):
-        """Envia estado atual da votação para o recém-conectado."""
         try:
             pauta_ativa = await database_sync_to_async(
                 lambda: PautaVotacao.objects.filter(
@@ -302,7 +341,8 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
                 ).first()
             )()
             if pauta_ativa:
-                print(f'[WS VOTACAO ESTADO] Enviando votacao_aberta para {self.usuario.nome if self.usuario else "anon"} pauta={pauta_ativa.id} {pauta_ativa.titulo}')
+                logger.info('VOTACAO ESTADO enviando votacao_aberta para %s pauta=%s',
+                           self.usuario.nome if self.usuario else 'anon', pauta_ativa.id)
                 await self.send(text_data=json.dumps({
                     'action': 'votacao_aberta',
                     'pauta_id': pauta_ativa.id,
@@ -311,9 +351,10 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
                     'descricao': pauta_ativa.descricao or '',
                 }))
             else:
-                print(f'[WS VOTACAO ESTADO] Nenhuma pauta ativa para {self.usuario.nome if self.usuario else "anon"}')
+                logger.debug('VOTACAO ESTADO nenhuma pauta ativa para %s',
+                            self.usuario.nome if self.usuario else 'anon')
         except Exception as e:
-            print(f'[WS VOTACAO ESTADO] ERRO: {e}')
+            logger.warning('VOTACAO ESTADO ERRO: %s', e)
 
     @database_sync_to_async
     def _get_quorum_data(self):

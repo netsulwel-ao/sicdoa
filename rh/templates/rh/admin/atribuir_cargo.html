@@ -1,0 +1,77 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'admin_despachantes' %}" class="hover:text-primary transition-colors">Gestão de Despachantes</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Atribuir Cargo</span>
+{% endblock %}
+
+{% block conteudo %}
+<div class="max-w-lg mx-auto">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+        <i class="fas fa-user-tie text-primary text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold text-gray-900 dark:text-white">Atribuir Cargo na Mesa</h1>
+        <p class="text-sm text-gray-500">{{ usuario_alvo.nome }} ({{ usuario_alvo.email }})</p>
+      </div>
+    </div>
+
+    {% if cargo_atual %}
+    <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl mb-6">
+      <p class="text-sm text-blue-700 dark:text-blue-300">
+        <i class="fas fa-info-circle mr-1"></i>
+        Atualmente ocupa: <strong>{{ cargo_atual }}</strong>
+      </p>
+    </div>
+    {% endif %}
+
+    <form method="POST">
+      {% csrf_token %}
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Selecionar Cargo</label>
+        <select name="funcao" required
+                class="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="">— Selecione —</option>
+          {% for valor, label in funcoes %}
+          <option value="{{ valor }}" {% if cargo_atual == valor %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if ocupantes %}
+      <div class="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl mb-6">
+        <p class="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">Cargos já ocupados</p>
+        <ul class="space-y-1">
+          {% for funcao, nome in ocupantes.items %}
+          <li class="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+            <i class="fas fa-user-shield text-xs"></i>
+            <span class="font-medium">{{ funcao }}:</span>
+            <span>{{ nome }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        <p class="text-xs text-amber-600 dark:text-amber-500 mt-2">
+          <i class="fas fa-exclamation-triangle"></i>
+          Se selecionar um cargo ocupado, o ocupante anterior será removido e notificado.
+        </p>
+      </div>
+      {% endif %}
+
+      <div class="flex items-center gap-3">
+        <button type="submit"
+                class="flex-1 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all">
+          <i class="fas fa-check mr-1"></i> Atribuir Cargo
+        </button>
+        <a href="{% url 'admin_despachantes' %}"
+           class="px-5 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -12,6 +12,7 @@
         <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ nao_lidas }} não lida{{ nao_lidas|pluralize:"s" }}</p>
       </div>
       <div class="flex items-center gap-2">
+        {% include 'includes/view-toggle.html' %}
         <button id="filtrar-nao-lidas"
           class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-primary text-white shadow-sm">
           Não lidas
@@ -23,7 +24,8 @@
       </div>
     </div>
 
-    <div class="max-w-3xl space-y-2" id="notificacoes-lista">
+    <div class="max-w-3xl space-y-2" id="notificacoes-lista" data-view-container>
+      <div data-grid-view>
       {% for n in notificacoes %}
       <div class="notif-item bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex items-start gap-4 transition-all duration-200 {% if not n.lida %}border-l-4 border-l-primary notif-nao-lida{% endif %}">
         <div class="w-10 h-10 rounded-lg {% if n.lida %}bg-gray-100 dark:bg-gray-800{% else %}bg-primary/10{% endif %} flex items-center justify-center shrink-0">
@@ -55,6 +57,57 @@
         <p class="text-sm text-gray-500 dark:text-gray-400">Nenhuma notificação</p>
       </div>
       {% endfor %}
+      </div>
+
+      <div data-list-view class="hidden">
+      {% if notificacoes %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-800/50 text-left">
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Título</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Data</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Lida</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for n in notificacoes %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors {% if not n.lida %}bg-primary/5{% endif %}">
+              <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ n.titulo }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ n.created_at|date:"d/m/Y H:i" }}</td>
+              <td class="px-4 py-3">
+                {% if n.lida %}
+                <span class="text-xs text-gray-400"><i class="fas fa-check-circle mr-1"></i>Lida</span>
+                {% else %}
+                <span class="text-xs text-primary font-medium"><i class="fas fa-circle mr-1 text-[5px]"></i>Não lida</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                {% if n.link %}
+                <a href="{{ n.link }}" class="text-primary hover:underline text-xs mr-2">Ver</a>
+                {% endif %}
+                {% if not n.lida %}
+                <button class="notif-marcar-lida text-xs text-gray-400 hover:text-primary transition-colors" data-id="{{ n.id }}">Marcar lida</button>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="px-4 py-12 text-center text-gray-400">Nenhuma notificação</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-8 text-center">
+        <i class="fas fa-bell-slash text-4xl text-gray-300 dark:text-gray-600 block mb-2"></i>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Nenhuma notificação</p>
+      </div>
+      {% endif %}
+      </div>
+
       {% if page_obj.has_other_pages %}
       <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
         {% include 'includes/pagination.html' %}

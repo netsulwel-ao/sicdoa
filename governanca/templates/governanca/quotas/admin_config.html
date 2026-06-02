@@ -6,20 +6,24 @@
 <main class="p-4 md:p-6 lg:p-8 space-y-6">
 
   <!-- Header -->
-  <div>
-    <a href="{% url 'governanca_quotas_admin' %}" class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
-      <i class="fas fa-arrow-left text-xs"></i>
-      <span>Administração de Quotas</span>
-    </a>
-    <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-1">Configurar Valores de Quotas</h1>
-    <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Definir valor, periodicidade, multas e juros das quotas</p>
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Configurar Valores de Quotas</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Definir valor, periodicidade, multas e juros das quotas</p>
+      </div>
+      <a href="{% url 'governanca_quotas_admin' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+    </div>
   </div>
 
   <!-- Config History -->
   {% if configs %}
-  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+  <div class="max-w-5xl mx-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
     <div class="p-5 border-b border-gray-100 dark:border-gray-800">
-      <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+      <h2 class="text-sm font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
         <i class="fas fa-history text-gray-400"></i> Últimas Configurações
       </h2>
     </div>
@@ -27,29 +31,33 @@
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
-            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Período</th>
-            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Valor</th>
-            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Vencimento</th>
-            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Multa %/dia</th>
-            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
-            <th class="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Criada em</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Categoria</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Período</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Valor</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Vencimento</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Multa</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Criada em</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
           {% for c in configs %}
           <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-            <td class="py-3 px-4 font-semibold text-[#111418] dark:text-gray-200 whitespace-nowrap">{{ c.mes|stringformat:"02d" }}/{{ c.ano }}</td>
-            <td class="py-3 px-4 text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">Kz {{ c.valor|floatformat:2 }}</td>
-            <td class="py-3 px-4 text-gray-500 whitespace-nowrap">{{ c.data_vencimento|date:"d/m/Y"|default:"—" }}</td>
-            <td class="py-3 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{% if c.multa_percentual %}{{ c.multa_percentual|floatformat:2 }}%{% else %}—{% endif %}</td>
-            <td class="py-3 px-4 whitespace-nowrap">
+            <td class="py-3 px-3 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.tipo.nome|default:"Mensal" }}</td>
+            <td class="py-3 px-3 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.categoria.nome|default:"Todas" }}</td>
+            <td class="py-3 px-3 font-semibold text-[#111418] dark:text-gray-200 whitespace-nowrap">{% if c.mes %}{{ c.mes|stringformat:"02d" }}/{% endif %}{{ c.ano }}</td>
+            <td class="py-3 px-3 text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">Kz {{ c.valor|floatformat:2 }}</td>
+            <td class="py-3 px-3 text-gray-500 whitespace-nowrap">{{ c.data_vencimento|date:"d/m/Y"|default:"—" }}</td>
+            <td class="py-3 px-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{% if c.multa_percentual %}{{ c.multa_percentual|floatformat:2 }}%{% else %}—{% endif %}</td>
+            <td class="py-3 px-3 whitespace-nowrap">
               {% if c.ativa %}
               <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Ativa</span>
               {% else %}
               <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inativa</span>
               {% endif %}
             </td>
-            <td class="py-3 px-4 text-gray-400 text-xs whitespace-nowrap">{{ c.created_at|date:"d/m/Y H:i" }}</td>
+            <td class="py-3 px-3 text-gray-400 text-xs whitespace-nowrap">{{ c.created_at|date:"d/m/Y H:i" }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -64,31 +72,62 @@
   {% endif %}
 
   <!-- Form -->
-  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-    <div class="p-6 border-b border-gray-100 dark:border-gray-800">
-      <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+  <div class="max-w-5xl mx-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-sm font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
         <i class="fas fa-plus-circle text-primary"></i> Nova Configuração
       </h2>
       <p class="text-sm text-gray-500 mt-1">Preencha os dados para definir a quota de um determinado período.</p>
     </div>
 
-    <form id="form-config" class="p-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div class="space-y-4">
+    <form id="form-config" class="p-5 space-y-5">
+      <div id="msg-config" class="hidden p-4 rounded-xl text-sm flex items-center gap-2"></div>
+
+      <!-- Identificação -->
+      <div class="space-y-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+          <span class="w-1 h-4 bg-primary rounded-full"></span> Identificação
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <i class="fas fa-calendar-alt text-gray-400 mr-1"></i> Ano
-            </label>
-            <input type="number" name="ano" id="input-ano"
-                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                   placeholder="2026" required>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Quota</label>
+            <select name="tipo_id" id="input-tipo"
+                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+              <option value="">— Mensal (padrão) —</option>
+              {% for t in tipos_quota %}
+              <option value="{{ t.id }}" data-recorrente="{{ t.recorrente|lower }}">{{ t.nome }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <i class="fas fa-calendar-day text-gray-400 mr-1"></i> Mês
-            </label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoria</label>
+            <select name="categoria_id" id="input-categoria"
+                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+              <option value="">— Todas as categorias —</option>
+              {% for cat in categorias %}
+              <option value="{{ cat.id }}" {% if cat.isento %}disabled class="text-gray-400"{% endif %}>{{ cat.nome }}{% if cat.isento %} (isento){% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Período -->
+      <div class="space-y-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+          <span class="w-1 h-4 bg-primary rounded-full"></span> Período de Referência
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ano</label>
+            <input type="number" name="ano" id="input-ano"
+                   class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                   placeholder="2026" required>
+          </div>
+          <div id="field-mes">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mês</label>
             <select name="mes" id="input-mes"
-                    class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors" required>
+                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
               <option value="">— Selecionar mês —</option>
               <option value="1">Janeiro</option>
               <option value="2">Fevereiro</option>
@@ -105,65 +144,72 @@
             </select>
           </div>
         </div>
-        <div class="space-y-4">
+      </div>
+
+      <!-- Valor -->
+      <div class="space-y-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+          <span class="w-1 h-4 bg-primary rounded-full"></span> Valor e Prazo
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <i class="fas fa-money-bill-wave text-gray-400 mr-1"></i> Valor (Kz)
-            </label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor (Kz)</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">Kz</span>
               <input type="number" step="0.01" name="valor" id="input-valor"
-                     class="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                     class="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                      placeholder="0.00" required>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <i class="fas fa-calendar-check text-gray-400 mr-1"></i> Data de Vencimento
-            </label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data de Vencimento</label>
             <input type="date" name="data_vencimento" id="input-vencimento"
-                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors">
+                   class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
             <p class="text-xs text-gray-400 mt-1">Se não for definida, será mantida a data anterior.</p>
           </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-            <i class="fas fa-percentage text-amber-500 mr-1"></i> Multa (% ao dia)
-          </label>
-          <input type="number" step="0.01" name="multa_percentual" id="input-multa" value="0.50"
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-400 focus:border-primary transition-colors"
-                 placeholder="0.00">
-          <p class="text-xs text-gray-400 mt-1">Percentagem do valor da quota por cada dia de atraso (ex: 0.50 = 0.5%/dia)</p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-            <i class="fas fa-toggle-on text-gray-400 mr-1"></i> Estado
-          </label>
-          <div class="flex items-center gap-3 mt-2">
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" name="ativa" id="input-ativa" value="1" checked
-                     class="sr-only peer">
-              <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-emerald-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
-            </label>
-            <span id="label-ativa" class="text-sm font-medium text-emerald-600 dark:text-emerald-400">Ativa</span>
+      <!-- Multa e Estado -->
+      <div class="space-y-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+          <span class="w-1 h-4 bg-amber-400 rounded-full"></span> Multa e Estado
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Multa (% ao dia)</label>
+            <input type="number" step="0.01" name="multa_percentual" id="input-multa" value="0.50"
+                   class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                   placeholder="0.00">
+            <p class="text-xs text-gray-400 mt-1">Percentagem do valor da quota por cada dia de atraso</p>
           </div>
-          <p class="text-xs text-gray-400 mt-1">Se inativa, a configuração não será usada para geração automática</p>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+            <div class="flex items-center gap-3 mt-2">
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="ativa" id="input-ativa" value="1" checked
+                       class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 peer-checked:bg-emerald-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+              </label>
+              <span id="label-ativa" class="text-sm font-medium text-emerald-600 dark:text-emerald-400">Ativa</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">Se inativa, não será usada para geração automática</p>
+          </div>
         </div>
       </div>
 
       <!-- Preview -->
-      <div id="preview-config" class="hidden mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+      <div id="preview-config" class="hidden p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
         <div class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200 mb-3">
           <i class="fas fa-info-circle"></i> Resumo da Configuração
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm" id="preview-content"></div>
       </div>
 
+      <input type="hidden" id="input-tipo-nome" value="">
+
       <!-- Buttons -->
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3 pt-2">
         <button type="submit" id="btn-salvar"
                 class="px-6 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
           <i class="fas fa-save"></i> Salvar
@@ -178,7 +224,6 @@
         </button>
       </div>
     </form>
-    <div id="msg-config" class="hidden mx-6 mb-6"></div>
   </div>
 </main>
 </div>
@@ -198,7 +243,23 @@ document.addEventListener('DOMContentLoaded', function() {
     atualizarPreview();
   });
 
-  ['input-ano', 'input-mes', 'input-valor', 'input-vencimento', 'input-multa'].forEach(function(id) {
+  document.getElementById('input-tipo').addEventListener('change', function() {
+    var sel = this.options[this.selectedIndex];
+    var isRecorrente = sel && sel.dataset.recorrente === 'true';
+    var fieldMes = document.getElementById('field-mes');
+    var inputMes = document.getElementById('input-mes');
+    if (isRecorrente) {
+      fieldMes.style.display = 'block';
+      inputMes.required = true;
+    } else {
+      fieldMes.style.display = 'none';
+      inputMes.required = false;
+      inputMes.value = '';
+    }
+    atualizarPreview();
+  });
+
+  ['input-ano', 'input-mes', 'input-valor', 'input-vencimento', 'input-multa', 'input-tipo', 'input-categoria'].forEach(function(id) {
     document.getElementById(id)?.addEventListener('input', atualizarPreview);
     document.getElementById(id)?.addEventListener('change', atualizarPreview);
   });
@@ -220,9 +281,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function enviarConfig(publicar) {
   var btn = publicar ? document.getElementById('btn-publicar') : document.getElementById('btn-salvar');
   var ano = parseInt(document.getElementById('input-ano').value);
-  var mes = parseInt(document.getElementById('input-mes').value);
   var valor = parseFloat(document.getElementById('input-valor').value);
-  if (!ano || !mes || !valor || valor <= 0) {
+  var tipoEl = document.getElementById('input-tipo');
+  var tipoSel = tipoEl.options[tipoEl.selectedIndex];
+  var isRecorrente = tipoSel && tipoSel.dataset.recorrente === 'true';
+  var mes = isRecorrente ? parseInt(document.getElementById('input-mes').value) : '';
+  if (!ano || !valor || valor <= 0 || (isRecorrente && !mes)) {
     mostrarMsg('Preencha todos os campos obrigatórios corretamente.', 'erro');
     return;
   }
@@ -230,6 +294,7 @@ function enviarConfig(publicar) {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A processar...';
   var fd = new FormData(document.getElementById('form-config'));
   fd.set('publicar', publicar ? '1' : '0');
+  if (!isRecorrente) fd.set('mes', '');
   fetch('{% url "governanca_api_quotas_salvar_config" %}', {
     method: 'POST', body: fd,
     headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
@@ -259,13 +324,19 @@ function atualizarPreview() {
   var venc = document.getElementById('input-vencimento').value;
   var multa = document.getElementById('input-multa').value;
   var ativa = document.getElementById('input-ativa').checked;
+  var tipoEl = document.getElementById('input-tipo');
+  var tipoNome = tipoEl.options[tipoEl.selectedIndex]?.text || 'Mensal';
+  var catEl = document.getElementById('input-categoria');
+  var catNome = catEl.options[catEl.selectedIndex]?.text || 'Todas';
   var el = document.getElementById('preview-config');
   var content = document.getElementById('preview-content');
-  if (ano && mes && valor && parseFloat(valor) > 0) {
+  if (ano && valor && parseFloat(valor) > 0) {
     el.classList.remove('hidden');
-    var meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    var periodo = mes ? (tipoNome + ' ' + parseInt(mes) + '/' + ano) : (tipoNome + ' ' + ano);
     content.innerHTML =
-      '<div><span class="text-gray-500">Período</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + meses[parseInt(mes)-1] + ' ' + ano + '</p></div>' +
+      '<div><span class="text-gray-500">Tipo</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + tipoNome + '</p></div>' +
+      '<div><span class="text-gray-500">Categoria</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + catNome + '</p></div>' +
+      '<div><span class="text-gray-500">Período</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + periodo + '</p></div>' +
       '<div><span class="text-gray-500">Valor</span><p class="font-semibold text-[#111418] dark:text-gray-200">Kz ' + parseFloat(valor).toFixed(2) + '</p></div>' +
       '<div><span class="text-gray-500">Vencimento</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + (venc ? new Date(venc).toLocaleDateString('pt-PT') : '—') + '</p></div>' +
       '<div><span class="text-gray-500">Multa</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + (parseFloat(multa) > 0 ? parseFloat(multa).toFixed(2) + '%/dia' : '—') + '</p></div>' +
@@ -278,7 +349,7 @@ function atualizarPreview() {
 function mostrarMsg(texto, tipo) {
   var el = document.getElementById('msg-config');
   el.classList.remove('hidden');
-  el.className = 'mx-6 mb-6 p-4 rounded-xl text-sm flex items-center gap-2';
+  el.className = 'p-4 rounded-xl text-sm flex items-center gap-2';
   if (tipo === 'erro') {
     el.classList.add('bg-red-50', 'border', 'border-red-200', 'text-red-700');
     el.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + texto;

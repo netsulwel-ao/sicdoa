@@ -7,15 +7,68 @@
 
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <a href="{% url 'governanca_gerir' assembleia.pk %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary mb-2 flex items-center gap-1">
-          <i class="fas fa-arrow-left text-base"></i> Voltar à gestão
-        </a>
-        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-2">Logs da Assembleia</h1>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Logs da Assembleia</h1>
         <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ assembleia.titulo }}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{% url 'governanca_gerir' assembleia.pk %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+          <i class="fas fa-arrow-left text-base"></i>Voltar
+        </a>
+        {% include 'includes/view-toggle.html' %}
       </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div data-view-container>
+      <div data-grid-view>
+      {% if logs %}
+      {% for log in logs %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex items-start gap-4 transition-all duration-200 hover:shadow-md">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0
+          {% if log.acao == 'entrada' or log.acao == 'assembleia_iniciada' %}bg-green-100 text-green-600
+          {% elif log.acao == 'saida' or log.acao == 'assembleia_cancelada' %}bg-red-100 text-red-600
+          {% elif log.acao == 'votacao' %}bg-blue-100 text-blue-600
+          {% elif log.acao == 'votacao_aberta' or log.acao == 'votacao_reaberta' %}bg-purple-100 text-purple-600
+          {% else %}bg-gray-100 text-gray-500{% endif %}">
+          <i class="fas
+            {% if log.acao == 'entrada' or log.acao == 'assembleia_iniciada' %}fa-sign-in-alt
+            {% elif log.acao == 'saida' or log.acao == 'assembleia_cancelada' %}fa-sign-out-alt
+            {% elif log.acao == 'votacao' %}fa-vote-yea
+            {% elif log.acao == 'votacao_aberta' or log.acao == 'votacao_reaberta' %}fa-check-double
+            {% else %}fa-history{% endif %} text-base"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ log.usuario.nome|default:"Sistema" }}</span>
+            <span class="px-2 py-0.5 text-xs font-medium rounded-full
+              {% if log.acao == 'entrada' or log.acao == 'assembleia_iniciada' %}bg-green-100 text-green-700
+              {% elif log.acao == 'saida' or log.acao == 'assembleia_cancelada' %}bg-red-100 text-red-700
+              {% elif log.acao == 'votacao' %}bg-blue-100 text-blue-700
+              {% elif log.acao == 'votacao_aberta' or log.acao == 'votacao_reaberta' %}bg-purple-100 text-purple-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ log.get_acao_display }}
+            </span>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">{{ log.created_at|date:"d/m/Y H:i:s" }}</p>
+          {% if log.detalhes %}
+          <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">{{ log.detalhes }}</p>
+          {% endif %}
+          {% if log.ip %}
+          <p class="text-xs text-gray-400 font-mono mt-1">{{ log.ip }}</p>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
+        <i class="fas fa-history text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum log registado</p>
+      </div>
+      {% endfor %}
+      {% endif %}
+      </div>
+
+      <div data-list-view class="hidden">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
@@ -58,6 +111,8 @@
         {% include 'includes/pagination.html' %}
       </div>
       {% endif %}
+      </div>
+      </div>
     </div>
 
   </main>

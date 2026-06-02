@@ -6,7 +6,7 @@
   {% csrf_token %}
   <main class="p-4 md:p-6 lg:p-8">
 
-    <div class="mb-6">
+    <div class="max-w-3xl mx-auto mb-6">
       <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
         <a href="{% url 'governanca_consultas' %}" class="hover:text-primary transition-colors">Consultas Públicas</a>
         <i class="fas fa-chevron-right text-xs"></i>
@@ -15,7 +15,7 @@
       <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Editar Consulta</h1>
     </div>
 
-    <form method="post" enctype="multipart/form-data" class="max-w-3xl space-y-6">
+    <form method="post" enctype="multipart/form-data" class="max-w-3xl mx-auto space-y-6">
       {% csrf_token %}
 
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 space-y-4">
@@ -48,7 +48,7 @@
         <button type="submit" class="px-6 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
           <i class="fas fa-save"></i> Guardar Alterações
         </button>
-        <a href="{% url 'governanca_consulta_detalhe' consulta.id %}" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">Cancelar</a>
+        <a href="{% url 'governanca_consulta_detalhe' consulta.id %}" class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm"><i class="fas fa-arrow-left text-base"></i>Voltar</a>
       </div>
     </form>
 

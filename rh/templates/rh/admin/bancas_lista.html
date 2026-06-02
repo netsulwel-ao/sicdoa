@@ -16,10 +16,13 @@
     </h1>
     <p class="text-sm text-gray-500 mt-1">{{ total_bancas }} banca{{ total_bancas|pluralize:"s" }} no sistema</p>
   </div>
-  <a href="{% url 'admin_despachantes' %}"
-     class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm">
-    <i class="fas fa-user-cog text-base"></i>Ver Despachantes
-  </a>
+  <div class="flex items-center gap-3">
+    {% include 'includes/view-toggle.html' %}
+    <a href="{% url 'admin_despachantes' %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm">
+      <i class="fas fa-user-cog text-base"></i>Ver Despachantes
+    </a>
+  </div>
 </div>
 
 <!-- Filtros -->
@@ -51,64 +54,121 @@
 
 <!-- Lista de Bancas -->
 {% if bancas_info %}
-<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-  <div class="divide-y divide-gray-100 dark:divide-gray-800">
+<div data-view-container>
+  <div data-grid-view class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
     {% for info in bancas_info %}
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-      <div class="flex items-center gap-4">
-        {% if info.banca.logo %}
-        <img src="{{ info.banca.logo.url }}" alt="{{ info.banca.nome }}" class="w-12 h-12 rounded-xl object-cover flex-shrink-0">
-        {% else %}
-        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-store text-primary text-xl"></i>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
+      <div class="p-5">
+        <div class="flex items-center gap-3 mb-4">
+          {% if info.banca.logo %}
+          <img src="{{ info.banca.logo.url }}" alt="{{ info.banca.nome }}" class="w-12 h-12 rounded-xl object-cover flex-shrink-0">
+          {% else %}
+          <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-store text-primary text-xl"></i>
+          </div>
+          {% endif %}
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-gray-900 dark:text-white truncate">{{ info.banca.nome }}</p>
+            <p class="text-xs text-gray-500 truncate">
+              {% if info.banca.nif %}NIF: {{ info.banca.nif }}{% endif %}
+              {% if info.banca.provincia %} · {{ info.banca.provincia }}{% endif %}
+            </p>
+          </div>
         </div>
-        {% endif %}
-        <div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <p class="font-semibold text-gray-900 dark:text-white">{{ info.banca.nome }}</p>
+        <div class="space-y-2 text-sm mb-4">
+          <div class="flex justify-between">
+            <span class="text-gray-500">Colaboradores</span>
+            <span class="font-bold text-gray-900 dark:text-white">{{ info.total_colaboradores }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Filiais</span>
+            <span class="font-bold text-gray-900 dark:text-white">{{ info.total_filiais }}</span>
+          </div>
+          {% if info.dono %}
+          <div class="flex justify-between">
+            <span class="text-gray-500">Despachante</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ info.dono.nome }}</span>
+          </div>
+          {% endif %}
+        </div>
+        <div class="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
+          <div>
             {% if info.banca.ativa %}
-            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Ativa</span>
+            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Ativa</span>
             {% else %}
-            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Inativa</span>
+            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Inativa</span>
             {% endif %}
           </div>
-          <div class="flex flex-wrap gap-3 text-xs text-gray-500 mt-0.5">
-            {% if info.banca.nif %}<span>NIF: {{ info.banca.nif }}</span>{% endif %}
-            {% if info.banca.provincia %}<span class="flex items-center gap-0.5"><i class="fas fa-map-marker-alt text-xs"></i>{{ info.banca.provincia }}</span>{% endif %}
-            {% if info.dono %}<span class="flex items-center gap-0.5"><i class="fas fa-user text-xs"></i>{{ info.dono.nome }}</span>{% endif %}
-          </div>
+          <a href="{% url 'admin_banca_detalhe' info.banca.id %}" class="p-2 rounded-lg text-primary hover:bg-primary/10 transition-all" title="Ver Detalhe">
+            <i class="fas fa-eye text-base"></i>
+          </a>
         </div>
-      </div>
-
-      <div class="flex items-center gap-6 flex-shrink-0">
-        <!-- Estatísticas -->
-        <div class="flex gap-4 text-center">
-          <div>
-            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_colaboradores }}</p>
-            <p class="text-xs text-gray-500">Colaboradores</p>
-          </div>
-          <div>
-            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_filiais }}</p>
-            <p class="text-xs text-gray-500">Filiais</p>
-          </div>
-        </div>
-
-        <!-- Ação -->
-        <a href="{% url 'admin_banca_detalhe' info.banca.id %}"
-           class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">
-          <i class="fas fa-eye text-base"></i>Ver Detalhe
-        </a>
       </div>
     </div>
     {% endfor %}
   </div>
-</div>
 
-{% if page_obj.has_other_pages %}
-<div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-  {% include 'includes/pagination.html' %}
+  <div data-list-view>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        {% for info in bancas_info %}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+          <div class="flex items-center gap-4">
+            {% if info.banca.logo %}
+            <img src="{{ info.banca.logo.url }}" alt="{{ info.banca.nome }}" class="w-12 h-12 rounded-xl object-cover flex-shrink-0">
+            {% else %}
+            <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-store text-primary text-xl"></i>
+            </div>
+            {% endif %}
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="font-semibold text-gray-900 dark:text-white">{{ info.banca.nome }}</p>
+                {% if info.banca.ativa %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Ativa</span>
+                {% else %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Inativa</span>
+                {% endif %}
+              </div>
+              <div class="flex flex-wrap gap-3 text-xs text-gray-500 mt-0.5">
+                {% if info.banca.nif %}<span>NIF: {{ info.banca.nif }}</span>{% endif %}
+                {% if info.banca.provincia %}<span class="flex items-center gap-0.5"><i class="fas fa-map-marker-alt text-xs"></i>{{ info.banca.provincia }}</span>{% endif %}
+                {% if info.dono %}<span class="flex items-center gap-0.5"><i class="fas fa-user text-xs"></i>{{ info.dono.nome }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-6 flex-shrink-0">
+            <!-- Estatísticas -->
+            <div class="flex gap-4 text-center">
+              <div>
+                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_colaboradores }}</p>
+                <p class="text-xs text-gray-500">Colaboradores</p>
+              </div>
+              <div>
+                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ info.total_filiais }}</p>
+                <p class="text-xs text-gray-500">Filiais</p>
+              </div>
+            </div>
+
+            <!-- Ação -->
+            <a href="{% url 'admin_banca_detalhe' info.banca.id %}"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">
+              <i class="fas fa-eye text-base"></i>Ver Detalhe
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+    {% include 'includes/pagination.html' %}
+  </div>
+  {% endif %}
 </div>
-{% endif %}
 
 {% else %}
 <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-16 text-center">

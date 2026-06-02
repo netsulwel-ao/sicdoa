@@ -14,11 +14,14 @@
           <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Declarações Únicas</h1>
           <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm sm:text-base">Gerencie todas as suas DUs</p>
         </div>
-        <a href="{% url 'du' %}"
-          class="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm w-full sm:w-auto">
-          <i class="fas fa-plus text-base"></i>
-          Nova DU
-        </a>
+        <div class="flex items-center gap-3">
+          {% include 'includes/view-toggle.html' %}
+          <a href="{% url 'du' %}"
+            class="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm w-full sm:w-auto">
+            <i class="fas fa-plus text-base"></i>
+            Nova DU
+          </a>
+        </div>
       </div>
 
       <!-- Filtros -->
@@ -48,10 +51,10 @@
       </form>
 
       <!-- Tabela -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div data-view-container class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         {% if dus %}
-          <!-- Versão Desktop -->
-          <div class="hidden lg:block">
+          <!-- List View -->
+          <div data-list-view class="hidden">
             <table class="w-full text-sm table-fixed">
               <thead class="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                 <tr>
@@ -127,8 +130,8 @@
             </table>
           </div>
           
-          <!-- Versão Mobile -->
-          <div class="lg:hidden space-y-3 p-4">
+          <!-- Grid View -->
+          <div data-grid-view class="space-y-3 p-4">
             {% for du in dus %}
             <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
               <!-- Cabeçalho do Card -->

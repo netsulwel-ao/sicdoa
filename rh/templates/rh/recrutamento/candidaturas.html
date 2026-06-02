@@ -36,114 +36,125 @@
     </div>
     {% else %}
 
-    <!-- Fluxo em 4 colunas -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-
-      {% for etapa_key, etapa_label, etapa_cor, etapa_icon in etapas %}
-      <div class="flex flex-col gap-3">
-        <!-- Cabeçalho da coluna -->
-        <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-{{ etapa_cor }}-50 dark:bg-{{ etapa_cor }}-900/20 border border-{{ etapa_cor }}-200 dark:border-{{ etapa_cor }}-800">
-          <div class="flex items-center gap-2">
-            <i class="fas text-{{ etapa_cor }}-600 text-base">{{ etapa_icon }}</i>
-            <span class="font-semibold text-{{ etapa_cor }}-800 dark:text-{{ etapa_cor }}-300 text-sm">{{ etapa_label }}</span>
-          </div>
-          <span class="w-6 h-6 rounded-full bg-{{ etapa_cor }}-200 dark:bg-{{ etapa_cor }}-800 text-{{ etapa_cor }}-800 dark:text-{{ etapa_cor }}-200 text-xs font-bold flex items-center justify-center">
-            {% for c in candidaturas %}{% if c.etapa_key == etapa_key %}{% with count=forloop.counter %}{% endwith %}{% endif %}{% endfor %}
-            {{ candidaturas|length }}
-          </span>
-        </div>
-
-        <!-- Cards das candidaturas desta etapa -->
-        {% for c in candidaturas %}
-        {% if c.etapa_key == etapa_key %}
-        <a href="{% url 'rh_candidatura_detalhe' c.pk %}"
-           class="block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-{{ etapa_cor }}-300 transition-all p-4 group">
-          <div class="flex items-start justify-between gap-2 mb-2">
-            <div class="w-9 h-9 rounded-full bg-{{ etapa_cor }}-100 dark:bg-{{ etapa_cor }}-900/30 flex items-center justify-center flex-shrink-0">
-              <span class="text-{{ etapa_cor }}-700 dark:text-{{ etapa_cor }}-300 font-bold text-sm">{{ c.nome|slice:":1"|upper }}</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-{{ etapa_cor }}-700 transition-colors">{{ c.nome }}</p>
-              <p class="text-xs text-gray-500 truncate">{{ c.email }}</p>
-            </div>
-          </div>
-          <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-            <span class="text-xs text-gray-500">{{ c.criado_em|date:"d/m/Y" }}</span>
-            {% if c.entrevistas.exists %}
-            <span class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-              <i class="fas fa-calendar-alt text-xs"></i>
-              {{ c.entrevistas.count }} entrevista{{ c.entrevistas.count|pluralize:"s" }}
-            </span>
-            {% endif %}
-            {% if c.plano_integracao %}
-            <span class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-              <i class="fas fa-check-circle text-xs"></i>
-              {{ c.plano_integracao.progresso }}%
-            </span>
-            {% endif %}
-          </div>
-        </a>
-        {% endif %}
-        {% endfor %}
+    <div data-view-container>
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-500">{{ candidaturas|length }} candidatura{{ candidaturas|length|pluralize:"s" }}</p>
+        {% include 'includes/view-toggle.html' %}
       </div>
-      {% endfor %}
 
-    </div>
+      <div data-grid-view>
+        <!-- Fluxo em 4 colunas -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
 
-    <!-- Tabela completa abaixo do kanban -->
-    <div class="mt-8 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-      <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="font-semibold text-gray-900 dark:text-white">Todas as Candidaturas</h2>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 dark:bg-gray-800/60">
-            <tr>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Candidato</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Contacto</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Etapa</th>
-              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Entrevistas</th>
-              <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acções</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+          {% for etapa_key, etapa_label, etapa_cor, etapa_icon in etapas %}
+          <div class="flex flex-col gap-3">
+            <!-- Cabeçalho da coluna -->
+            <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-{{ etapa_cor }}-50 dark:bg-{{ etapa_cor }}-900/20 border border-{{ etapa_cor }}-200 dark:border-{{ etapa_cor }}-800">
+              <div class="flex items-center gap-2">
+                <i class="fas text-{{ etapa_cor }}-600 text-base">{{ etapa_icon }}</i>
+                <span class="font-semibold text-{{ etapa_cor }}-800 dark:text-{{ etapa_cor }}-300 text-sm">{{ etapa_label }}</span>
+              </div>
+              <span class="w-6 h-6 rounded-full bg-{{ etapa_cor }}-200 dark:bg-{{ etapa_cor }}-800 text-{{ etapa_cor }}-800 dark:text-{{ etapa_cor }}-200 text-xs font-bold flex items-center justify-center">
+                {% for c in candidaturas %}{% if c.etapa_key == etapa_key %}{% with count=forloop.counter %}{% endwith %}{% endif %}{% endfor %}
+                {{ candidaturas|length }}
+              </span>
+            </div>
+
+            <!-- Cards das candidaturas desta etapa -->
             {% for c in candidaturas %}
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-              <td class="px-5 py-4">
-                <p class="font-semibold text-gray-900 dark:text-white">{{ c.nome }}</p>
-              </td>
-              <td class="px-5 py-4">
-                <p class="text-gray-700 dark:text-gray-300">{{ c.email }}</p>
-                {% if c.telefone %}<p class="text-xs text-gray-500">{{ c.telefone }}</p>{% endif %}
-              </td>
-              <td class="px-5 py-4 text-gray-600 dark:text-gray-400">{{ c.criado_em|date:"d/m/Y" }}</td>
-              <td class="px-5 py-4">
-                {% if c.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><i class="fas fa-check text-xs"></i> Aprovado</span>
-                {% elif c.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700"><i class="fas fa-times text-xs"></i> Rejeitado</span>
-                {% elif c.estado == 'Entrevista' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Entrevista</span>
-                {% elif c.estado == 'Em Análise' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Em Análise</span>
-                {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Recebida</span>{% endif %}
-              </td>
-              <td class="px-5 py-4 text-gray-600 dark:text-gray-400">
-                {{ c.entrevistas.count }} agendada{{ c.entrevistas.count|pluralize:"s" }}
-              </td>
-              <td class="px-5 py-4 text-right">
-                <a href="{% url 'rh_candidatura_detalhe' c.pk %}"
-                   class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-semibold hover:bg-primary/20 transition-all">
-                  <i class="fas fa-external-link-alt text-xs"></i>Ver
-                </a>
-              </td>
-            </tr>
+            {% if c.etapa_key == etapa_key %}
+            <a href="{% url 'rh_candidatura_detalhe' c.pk %}"
+               class="block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-{{ etapa_cor }}-300 transition-all p-4 group">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="w-9 h-9 rounded-full bg-{{ etapa_cor }}-100 dark:bg-{{ etapa_cor }}-900/30 flex items-center justify-center flex-shrink-0">
+                  <span class="text-{{ etapa_cor }}-700 dark:text-{{ etapa_cor }}-300 font-bold text-sm">{{ c.nome|slice:":1"|upper }}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-{{ etapa_cor }}-700 transition-colors">{{ c.nome }}</p>
+                  <p class="text-xs text-gray-500 truncate">{{ c.email }}</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <span class="text-xs text-gray-500">{{ c.criado_em|date:"d/m/Y" }}</span>
+                {% if c.entrevistas.exists %}
+                <span class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                  <i class="fas fa-calendar-alt text-xs"></i>
+                  {{ c.entrevistas.count }} entrevista{{ c.entrevistas.count|pluralize:"s" }}
+                </span>
+                {% endif %}
+                {% if c.plano_integracao %}
+                <span class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                  <i class="fas fa-check-circle text-xs"></i>
+                  {{ c.plano_integracao.progresso }}%
+                </span>
+                {% endif %}
+              </div>
+            </a>
+            {% endif %}
             {% endfor %}
-          </tbody>
-        </table>
+          </div>
+          {% endfor %}
+
+        </div>
       </div>
-      {% if page_obj.has_other_pages %}
-      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-        {% include 'includes/pagination.html' %}
+
+      <div data-list-view class="hidden">
+        <!-- Tabela completa abaixo do kanban -->
+        <div class="mt-8 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="font-semibold text-gray-900 dark:text-white">Todas as Candidaturas</h2>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 dark:bg-gray-800/60">
+                <tr>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Candidato</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Contacto</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Etapa</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Entrevistas</th>
+                  <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acções</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                {% for c in candidaturas %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                  <td class="px-5 py-4">
+                    <p class="font-semibold text-gray-900 dark:text-white">{{ c.nome }}</p>
+                  </td>
+                  <td class="px-5 py-4">
+                    <p class="text-gray-700 dark:text-gray-300">{{ c.email }}</p>
+                    {% if c.telefone %}<p class="text-xs text-gray-500">{{ c.telefone }}</p>{% endif %}
+                  </td>
+                  <td class="px-5 py-4 text-gray-600 dark:text-gray-400">{{ c.criado_em|date:"d/m/Y" }}</td>
+                  <td class="px-5 py-4">
+                    {% if c.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><i class="fas fa-check text-xs"></i> Aprovado</span>
+                    {% elif c.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700"><i class="fas fa-times text-xs"></i> Rejeitado</span>
+                    {% elif c.estado == 'Entrevista' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Entrevista</span>
+                    {% elif c.estado == 'Em Análise' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Em Análise</span>
+                    {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Recebida</span>{% endif %}
+                  </td>
+                  <td class="px-5 py-4 text-gray-600 dark:text-gray-400">
+                    {{ c.entrevistas.count }} agendada{{ c.entrevistas.count|pluralize:"s" }}
+                  </td>
+                  <td class="px-5 py-4 text-right">
+                    <a href="{% url 'rh_candidatura_detalhe' c.pk %}"
+                       class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-semibold hover:bg-primary/20 transition-all">
+                      <i class="fas fa-external-link-alt text-xs"></i>Ver
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if page_obj.has_other_pages %}
+          <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+            {% include 'includes/pagination.html' %}
+          </div>
+          {% endif %}
+        </div>
       </div>
-      {% endif %}
     </div>
     {% endif %}
 

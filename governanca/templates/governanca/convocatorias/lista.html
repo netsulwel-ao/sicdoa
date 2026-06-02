@@ -8,13 +8,16 @@
 
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <a href="{% url 'governanca_detalhe' assembleia.pk %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary mb-2 flex items-center gap-1">
-          <i class="fas fa-arrow-left text-base"></i> Voltar à assembleia
-        </a>
-        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black mt-2">Convocatórias</h1>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Convocatórias</h1>
         <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ assembleia.titulo }}</p>
       </div>
-      {% if papel == 'Administrador' %}
+      <div class="flex items-center gap-2">
+        <a href="{% url 'governanca_detalhe' assembleia.pk %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+          <i class="fas fa-arrow-left text-base"></i>Voltar
+        </a>
+        {% include 'includes/view-toggle.html' %}
+        {% if papel == 'Administrador' %}
       <a href="{% url 'governanca_criar_convocatoria' assembleia.pk %}"
          class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
         <i class="fas fa-plus text-base"></i> Nova Convocatória
@@ -22,7 +25,8 @@
       {% endif %}
     </div>
 
-    <div class="space-y-3">
+    <div class="space-y-3" data-view-container>
+      <div data-grid-view>
       {% if convocatorias %}
       {% for c in convocatorias %}
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
@@ -80,6 +84,46 @@
         <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma convocatória publicada</p>
       </div>
       {% endif %}
+      </div>
+
+      <div data-list-view class="hidden">
+      {% if convocatorias %}
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-800/50 text-left">
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Título</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Data de Envio</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Prazo</th>
+                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Documento</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              {% for c in convocatorias %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ c.titulo }}</td>
+                <td class="px-4 py-3">
+                  <span class="px-2 py-0.5 text-xs font-medium rounded-full
+                    {% if c.status == 'Publicada' %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                    {{ c.get_status_display }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.data_envio|date:"d/m/Y H:i" }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.prazo_confirmacao|date:"d/m/Y H:i"|default:"—" }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{% if c.documento %}<a href="{{ c.documento.url }}" class="text-primary hover:underline">Download</a>{% else %}—{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
+          <i class="fas fa-envelope-open-text text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
+          <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma convocatória publicada</p>
+        </div>
+      {% endif %}
+      </div>
     </div>
 
   {% include 'includes/confirm-modal.html' %}

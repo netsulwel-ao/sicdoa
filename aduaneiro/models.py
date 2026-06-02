@@ -46,7 +46,7 @@ class DeclaracaoUnica(models.Model):
     porto_embarque       = models.CharField(max_length=100, blank=True, null=True)
     porto_desembarque    = models.CharField(max_length=100, blank=True, null=True)
     meio_transporte      = models.CharField(max_length=50, blank=True, null=True)
-    status               = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Rascunho')
+    status               = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Rascunho', db_index=True)
     data_submissao       = models.DateTimeField(null=True, blank=True)
     data_aprovacao       = models.DateTimeField(null=True, blank=True)
     usuario_id           = models.IntegerField(db_index=True)

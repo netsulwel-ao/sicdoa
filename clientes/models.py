@@ -11,7 +11,7 @@ class Cliente(models.Model):
     telefone = models.CharField(max_length=30, blank=True, default='', verbose_name='Telefone')
     email = models.EmailField(blank=True, default='', verbose_name='Email')
     observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
-    usuario_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Despachante')
+    usuario_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='ID do Despachante')
     ativo = models.BooleanField(default=True, verbose_name='Ativo')
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Data de Criação')
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name='Última Atualização')

@@ -1,0 +1,59 @@
+<div class="documento-gerado" style="font-family:Georgia,serif;max-width:800px;margin:0 auto;padding:40px;color:#1a1a1a;line-height:1.6;">
+  <div style="text-align:center;margin-bottom:40px;border-bottom:2px solid #1a1a1a;padding-bottom:20px;">
+    <h1 style="font-size:22px;margin:0 0 5px 0;text-transform:uppercase;letter-spacing:1px;">Relatório — {{ assembleia.titulo }}</h1>
+    <p style="margin:2px 0;font-size:14px;color:#555;">{{ assembleia.data_hora|date:"d \d\e F \d\e Y" }} às {{ assembleia.data_hora|date:"H:i" }}</p>
+    <p style="margin:2px 0;font-size:14px;color:#555;">Local: {{ assembleia.local }}</p>
+  </div>
+
+  <div style="margin-bottom:30px;">
+    <h2 style="font-size:16px;border-bottom:1px solid #ddd;padding-bottom:5px;">Resumo</h2>
+    <p style="font-size:14px;">{{ assembleia.descricao|default:"Sem descrição registada." }}</p>
+  </div>
+
+  <div style="margin-bottom:30px;">
+    <h2 style="font-size:16px;border-bottom:1px solid #ddd;padding-bottom:5px;">Participação</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+      <tr><td style="padding:5px 0;"><strong>Total de presentes:</strong></td><td style="padding:5px 0;">{{ total_presentes }}</td></tr>
+      <tr><td style="padding:5px 0;"><strong>Membros da Mesa:</strong></td><td style="padding:5px 0;">{{ membros_mesa|length }}</td></tr>
+      <tr><td style="padding:5px 0;"><strong>Total de Pautas:</strong></td><td style="padding:5px 0;">{{ pautas|length }}</td></tr>
+    </table>
+  </div>
+
+  <div style="margin-bottom:30px;">
+    <h2 style="font-size:16px;border-bottom:1px solid #ddd;padding-bottom:5px;">Mesa</h2>
+    <ul style="list-style:none;padding:0;margin:10px 0;">
+      {% for usuario, funcao in membros_mesa %}
+      <li style="padding:3px 0;font-size:14px;"><strong>{{ funcao }}:</strong> {{ usuario.nome }}</li>
+      {% empty %}
+      <li style="padding:3px 0;font-size:14px;color:#888;">Nenhum membro registado na mesa.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div style="margin-bottom:30px;">
+    <h2 style="font-size:16px;border-bottom:1px solid #ddd;padding-bottom:5px;">Resultados das Votações</h2>
+    {% for item in votos_por_pauta %}
+    <div style="margin-bottom:20px;padding:15px;background:#f9f9f9;border-radius:4px;">
+      <h3 style="font-size:15px;margin:0 0 8px 0;">{{ item.pauta.ordem }}. {{ item.pauta.titulo }}</h3>
+      <p style="font-size:13px;color:#555;margin:0 0 8px 0;">{{ item.pauta.descricao|default:"Sem descrição." }}</p>
+      <p style="font-size:13px;margin:2px 0;">Tipo de votação: <strong>{{ item.pauta.get_tipo_votacao_display }}</strong></p>
+      <p style="font-size:13px;margin:2px 0;">Total de votos: <strong>{{ item.total }}</strong></p>
+      <p style="font-size:13px;margin:2px 0;">
+        <span style="color:#166534;">A Favor: {{ item.favor }}</span> |
+        <span style="color:#991b1b;">Contra: {{ item.contra }}</span> |
+        <span style="color:#92400e;">Abstenções: {{ item.abstencao }}</span>
+      </p>
+      {% if item.resultado %}
+      <p style="font-size:13px;margin:8px 0 0 0;padding-top:8px;border-top:1px solid #ddd;font-weight:bold;">Deliberação: {{ item.resultado }}</p>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p style="font-size:14px;color:#888;">Nenhuma pauta registada nesta assembleia.</p>
+    {% endfor %}
+  </div>
+
+  <div style="margin-top:50px;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#777;">
+    <p>{{ assinatura }}</p>
+    <p>Hash de integridade: {{ hash }}</p>
+  </div>
+</div>

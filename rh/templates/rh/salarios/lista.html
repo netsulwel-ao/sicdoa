@@ -48,85 +48,133 @@
 
     {% else %}
 
-    {# ── Grelha de cards (6 por página) ─────────────────────────────────── #}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      {% for proc in processamentos %}
-      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden group">
+    <div data-view-container>
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-500">{{ processamentos|length }} processamento{{ processamentos|length|pluralize:"s" }}</p>
+        {% include 'includes/view-toggle.html' %}
+      </div>
 
-        {# Faixa de cor no topo por estado #}
-        <div class="h-1
-          {% if proc.estado == 'Pago' %}bg-green-500
-          {% elif proc.estado == 'Processado' %}bg-blue-500
-          {% else %}bg-amber-400{% endif %}">
-        </div>
+      <div data-grid-view>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {% for proc in processamentos %}
+          <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden group">
 
-        <div class="p-5">
-          {# Cabeçalho do card #}
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-xl flex items-center justify-center
-                {% if proc.estado == 'Pago' %}bg-green-50 dark:bg-green-900/20
-                {% elif proc.estado == 'Processado' %}bg-blue-50 dark:bg-blue-900/20
-                {% else %}bg-amber-50 dark:bg-amber-900/20{% endif %}">
-                <i class="fas fa-calendar-alt text-2xl
-                  {% if proc.estado == 'Pago' %}text-green-600 dark:text-green-400
-                  {% elif proc.estado == 'Processado' %}text-blue-600 dark:text-blue-400
-                  {% else %}text-amber-600 dark:text-amber-400{% endif %}"></i>
+            {# Faixa de cor no topo por estado #}
+            <div class="h-1
+              {% if proc.estado == 'Pago' %}bg-green-500
+              {% elif proc.estado == 'Processado' %}bg-blue-500
+              {% else %}bg-amber-400{% endif %}">
+            </div>
+
+            <div class="p-5">
+              {# Cabeçalho do card #}
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-xl flex items-center justify-center
+                    {% if proc.estado == 'Pago' %}bg-green-50 dark:bg-green-900/20
+                    {% elif proc.estado == 'Processado' %}bg-blue-50 dark:bg-blue-900/20
+                    {% else %}bg-amber-50 dark:bg-amber-900/20{% endif %}">
+                    <i class="fas fa-calendar-alt text-2xl
+                      {% if proc.estado == 'Pago' %}text-green-600 dark:text-green-400
+                      {% elif proc.estado == 'Processado' %}text-blue-600 dark:text-blue-400
+                      {% else %}text-amber-600 dark:text-amber-400{% endif %}"></i>
+                  </div>
+                  <div>
+                    <p class="font-bold text-gray-900 dark:text-white text-lg leading-tight">
+                      {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}
+                    </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                      {{ proc.recibos.count }} recibo{{ proc.recibos.count|pluralize }}
+                    </p>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+                  {% if proc.estado == 'Pago' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                  {% elif proc.estado == 'Processado' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                  {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">
+                  {{ proc.estado }}
+                </span>
               </div>
-              <div>
-                <p class="font-bold text-gray-900 dark:text-white text-lg leading-tight">
-                  {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}
+
+              {# Total líquido #}
+              <div class="py-3 border-t border-b border-gray-100 dark:border-gray-800 mb-4">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Total Líquido</p>
+                <p class="text-xl font-black text-gray-900 dark:text-white">
+                  {{ proc.total_liquido|floatformat:2 }} <span class="text-sm font-semibold text-gray-500">KZ</span>
                 </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                  {{ proc.recibos.count }} recibo{{ proc.recibos.count|pluralize }}
-                </p>
+              </div>
+
+              {# Acções #}
+              <div class="flex gap-2">
+                <a href="{% url 'rh_salario_detalhe' proc.pk %}"
+                   class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+                     {% if proc.estado == 'Pago' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40
+                     {% elif proc.estado == 'Processado' %}bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40
+                     {% else %}bg-primary/10 text-primary hover:bg-primary/20{% endif %}">
+                  <i class="fas fa-external-link-alt text-base"></i>
+                  Abrir
+                </a>
+                {# Apagar — só Rascunho e Processado #}
+                {% if proc.estado != 'Pago' %}
+                <a href="{% url 'rh_salario_apagar' proc.pk %}"
+                   class="p-2.5 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                   title="Apagar processamento">
+                  <i class="fas fa-trash text-base"></i>
+                </a>
+                {% endif %}
               </div>
             </div>
-            <span class="px-2.5 py-1 rounded-full text-xs font-semibold
-              {% if proc.estado == 'Pago' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
-              {% elif proc.estado == 'Processado' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
-              {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">
-              {{ proc.estado }}
-            </span>
           </div>
+          {% endfor %}
+        </div>
+      </div>
 
-          {# Total líquido #}
-          <div class="py-3 border-t border-b border-gray-100 dark:border-gray-800 mb-4">
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Total Líquido</p>
-            <p class="text-xl font-black text-gray-900 dark:text-white">
-              {{ proc.total_liquido|floatformat:2 }} <span class="text-sm font-semibold text-gray-500">KZ</span>
-            </p>
-          </div>
-
-          {# Acções #}
-          <div class="flex gap-2">
-            <a href="{% url 'rh_salario_detalhe' proc.pk %}"
-               class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
-                 {% if proc.estado == 'Pago' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40
-                 {% elif proc.estado == 'Processado' %}bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40
-                 {% else %}bg-primary/10 text-primary hover:bg-primary/20{% endif %}">
-              <i class="fas fa-external-link-alt text-base"></i>
-              Abrir
-            </a>
-            {# Apagar — só Rascunho e Processado #}
-            {% if proc.estado != 'Pago' %}
-            <a href="{% url 'rh_salario_apagar' proc.pk %}"
-               class="p-2.5 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-               title="Apagar processamento">
-              <i class="fas fa-trash text-base"></i>
-            </a>
-            {% endif %}
+      <div data-list-view class="hidden">
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-50 dark:bg-gray-800/60">
+                <tr>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Período</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Recibos</th>
+                  <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total Líquido</th>
+                  <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
+                  <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acções</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                {% for proc in processamentos %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                  <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white">{{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}</td>
+                  <td class="px-5 py-4 text-sm text-gray-600">{{ proc.recibos.count }} recibo{{ proc.recibos.count|pluralize }}</td>
+                  <td class="px-5 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ proc.total_liquido|floatformat:2 }} KZ</td>
+                  <td class="px-5 py-4 text-center">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold
+                      {% if proc.estado == 'Pago' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                      {% elif proc.estado == 'Processado' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                      {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">
+                      {{ proc.estado }}
+                    </span>
+                  </td>
+                  <td class="px-5 py-4 text-right">
+                    <a href="{% url 'rh_salario_detalhe' proc.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-semibold hover:bg-primary/20 transition-all">
+                      <i class="fas fa-external-link-alt text-xs"></i>Abrir
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
-      {% endfor %}
-    </div>
 
-    {% if paginator.num_pages > 1 %}
-    <div class="flex items-center justify-between mt-8">
-      {% include 'includes/pagination.html' %}
+      {% if paginator.num_pages > 1 %}
+      <div class="flex items-center justify-between mt-8">
+        {% include 'includes/pagination.html' %}
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
 
     {% endif %}
   </main>

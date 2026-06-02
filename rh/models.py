@@ -800,3 +800,27 @@ class Avaliacao(models.Model):
         if n >= 3.5: return ('Bom', 'blue')
         if n >= 2.5: return ('Satisfatório', 'amber')
         return ('Necessita Melhoria', 'red')
+
+
+# ─── Mesa da Assembleia (cargos globais) ───────────────────────────────────────
+
+class CargoMesa(models.Model):
+    FUNCOES = [
+        ('Presidente', 'Presidente'),
+        ('Vice-Presidente', 'Vice-Presidente'),
+        ('1º Secretário', '1º Secretário'),
+        ('2º Secretário', '2º Secretário'),
+        ('Secretário', 'Secretário'),
+        ('Vogal', 'Vogal'),
+    ]
+    usuario = models.OneToOneField('users.Usuario', on_delete=models.CASCADE, related_name='cargo_mesa')
+    funcao = models.CharField(max_length=30, choices=FUNCOES, unique=True)
+    atribuido_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'rh_cargos_mesa'
+        verbose_name = 'Cargo da Mesa'
+        verbose_name_plural = 'Cargos da Mesa'
+
+    def __str__(self):
+        return f'{self.usuario.nome} — {self.funcao}'

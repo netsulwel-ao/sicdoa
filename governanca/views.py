@@ -26,6 +26,7 @@ from utils.email_utils import _enviar
 from .models import (
     QuotaConfig, QuotaGerada, PagamentoQuota, EstadoFinanceiro,
     CertidaoRegularidade, CarteiraProfissional,
+    CategoriaMembro, TipoQuota,
     Assembleia, PautaVotacao, PresencaAssembleia,
     Procuracao, Voto, ReciboVoto, ManifestoIntegridade, AtaDigital, Notificacao,
     DocumentoAssembleia, MembroMesa, MensagemChat,
@@ -157,33 +158,31 @@ def _verificar_elegibilidade(usuario_id):
 def index(request):
     usuario_obj = request.usuario_obj
     hoje = timezone.now()
-    cache_key = safe_cache_key('dash_governanca', usuario_obj.id, usuario_obj.papel)
 
-    def _compute():
-        if usuario_obj.papel == 'Administrador':
-            qs_quotas = QuotaGerada.objects.all()
-            quotas_pendentes = qs_quotas.filter(status='Pendente').count()
-            quotas_pagas = qs_quotas.filter(status='Paga').count()
-        else:
-            qs_quotas = QuotaGerada.objects.filter(usuario=usuario_obj)
-            quotas_pendentes = qs_quotas.filter(status='Pendente').count()
-            quotas_pagas = qs_quotas.filter(status='Paga').count()
-        return {
-            'usuario': request.session['usuario'],
-            'nome': request.session['usuario']['nome'],
-            'papel': request.session['usuario']['papel'],
-            'active_menu': 'Governanca',
-            'assembleias': Assembleia.objects.all()[:5],
-            'proximas': Assembleia.objects.filter(status='Agendada', data_hora__gte=hoje).order_by('data_hora')[:5],
-            'assembleias_em_curso': Assembleia.objects.filter(status='Em Curso')[:5],
-            'total_assembleias': Assembleia.objects.count(),
-            'atas_count': AtaDigital.objects.count(),
-            'notificacoes_nao_lidas': Notificacao.objects.filter(usuario=usuario_obj, lida=False).count(),
-            'quotas_pendentes': quotas_pendentes,
-            'quotas_pagas': quotas_pagas,
-        }
-
-    context = cache_get_or_set(cache_key, _compute, timeout=300)
+    if usuario_obj.papel == 'Administrador':
+        qs_quotas = QuotaGerada.objects.all()
+        quotas_pendentes = qs_quotas.filter(status='Pendente').count()
+        quotas_pagas = qs_quotas.filter(status='Paga').count()
+    else:
+        qs_quotas = QuotaGerada.objects.filter(despachante=usuario_obj)
+        quotas_pendentes = qs_quotas.filter(status='Pendente').count()
+        quotas_pagas = qs_quotas.filter(status='Paga').count()
+    context = {
+        'usuario': request.session['usuario'],
+        'nome': request.session['usuario']['nome'],
+        'papel': request.session['usuario']['papel'],
+        'active_menu': 'Governanca',
+        'assembleias': Assembleia.objects.all()[:5],
+        'proximas': Assembleia.objects.filter(status='Agendada', data_hora__gte=hoje).order_by('data_hora')[:5],
+        'assembleias_em_curso': Assembleia.objects.filter(status='Em Curso')[:5],
+        'total_assembleias': Assembleia.objects.count(),
+        'documentos_recentes': DocumentoAssembleia.objects.filter(publicado=True).select_related('assembleia', 'created_by').order_by('-created_at')[:5],
+        'total_docs_publicados': DocumentoAssembleia.objects.filter(publicado=True).count(),
+        'notificacoes_nao_lidas': Notificacao.objects.filter(usuario=usuario_obj, lida=False).count(),
+        'quotas_pendentes': quotas_pendentes,
+        'quotas_pagas': quotas_pagas,
+        'assembleias_concluidas': Assembleia.objects.filter(status='Concluida').order_by('-data_hora'),
+    }
     return render(request, 'governanca/index.html', context)
 
 
@@ -233,6 +232,7 @@ def nova_assembleia(request):
         data_hora_str = request.POST.get('data_hora', '').strip()
         livekit_room = request.POST.get('livekit_room', '').strip()
         iniciar_agora = request.POST.get('iniciar_agora') == 'on'
+        quorum_minimo = request.POST.get('quorum_minimo', '').strip()
 
         if not titulo:
             messages.error(request, 'Preencha todos os campos obrigatórios.')
@@ -265,6 +265,10 @@ def nova_assembleia(request):
             status = 'Agendada'
 
         total_ativos = Usuario.objects.filter(status='Ativo').count()
+        try:
+            quorum_minimo_val = int(quorum_minimo) if quorum_minimo else total_ativos
+        except (ValueError, TypeError):
+            quorum_minimo_val = total_ativos
 
         assembleia = Assembleia.objects.create(
             titulo=titulo,
@@ -273,7 +277,7 @@ def nova_assembleia(request):
             status=status,
             local='Sala Virtual CDOA',
             livekit_room=livekit_room,
-            quorum_minimo=total_ativos,
+            quorum_minimo=quorum_minimo_val,
             total_eleitores=total_ativos,
             max_procuracao=1,
             created_by=request.usuario_obj,
@@ -331,12 +335,14 @@ def nova_assembleia(request):
         messages.success(request, 'Assembleia criada com sucesso!')
         return redirect('governanca_detalhe', pk=assembleia.pk)
 
+    total_ativos = Usuario.objects.filter(status='Ativo').count()
     context = {
         'usuario': request.session['usuario'],
         'nome': request.session['usuario']['nome'],
         'papel': request.session['usuario']['papel'],
         'active_menu': 'Governanca',
         'active_sub': 'assembleias',
+        'total_ativos': total_ativos,
     }
     return render(request, 'governanca/nova_assembleia.html', context)
 
@@ -394,6 +400,12 @@ def editar_assembleia(request, pk):
         assembleia.link_streaming = request.POST.get('link_streaming', assembleia.link_streaming)
         assembleia.local = request.POST.get('local', '').strip() or 'Sala Virtual CDOA'
         assembleia.livekit_room = request.POST.get('livekit_room', assembleia.livekit_room)
+        quorum_str = request.POST.get('quorum_minimo', '').strip()
+        if quorum_str:
+            try:
+                assembleia.quorum_minimo = int(quorum_str)
+            except (ValueError, TypeError):
+                pass
         assembleia.save()
 
         pautas_titulos = request.POST.getlist('pauta_titulo[]')
@@ -484,7 +496,7 @@ def sala_assembleia(request, pk):
         'papel': request.session['usuario']['papel'],
         'active_menu': 'Governanca',
         'assembleia': assembleia,
-        'pautas': assembleia.pautas.all(),
+        'pautas': assembleia.pautas.with_vote_counts(),
         'pauta_ativa': pauta_ativa,
         'minhas_procuracao': minhas_procuracao,
         'pautas_ja_votadas': pautas_ja_votadas,
@@ -518,7 +530,7 @@ def gerir_assembleia(request, pk):
         'papel': papel,
         'active_menu': 'Governanca',
         'assembleia': assembleia,
-        'pautas': assembleia.pautas.all(),
+        'pautas': assembleia.pautas.with_vote_counts(),
         'presentes': assembleia.presencas.filter(presente_em__isnull=False).select_related('usuario'),
         'procuracao': Procuracao.objects.filter(assembleia=assembleia).select_related('outorgante', 'outorgado'),
         'documentos': assembleia.documentos.all(),
@@ -526,6 +538,7 @@ def gerir_assembleia(request, pk):
         'despachantes': Usuario.objects.filter(
             papel__in=['Administrador', 'Despachante Oficial'], status='Ativo'
         ).exclude(id=request.session['usuario_id']),
+        'tem_convocatoria_publicada': assembleia.convocatorias.filter(status='Publicada').exists(),
     }
     return render(request, 'governanca/gerir_assembleia.html', context)
 
@@ -802,6 +815,8 @@ def api_encerrar_votacao(request, pk):
         'favor': pauta.votos_favor,
         'contra': pauta.votos_contra,
         'abstencao': pauta.votos_abstencao,
+        'quorum': pauta.assembleia.presentes_count,
+        'quorum_minimo': pauta.assembleia.quorum_minimo,
     })
 
     _log_assembleia(pauta.assembleia_id, request.session['usuario_id'], 'votacao_encerrada', {
@@ -826,24 +841,30 @@ def api_votar(request, pk):
     pauta = get_object_or_404(PautaVotacao, pk=pk)
     assembleia = pauta.assembleia
 
+    print(f'[API_VOTAR] pauta={pk} status={pauta.status} tipo={pauta.tipo_votacao}')
+
     if pauta.status != 'Em Votacao':
+        print(f'[API_VOTAR] ERRO: status={pauta.status} != Em Votacao')
         return JsonResponse({'status': 'error', 'message': 'Votação não está ativa.'}, status=400)
 
     usuario_id = request.session['usuario_id']
 
     elegivel, msg = _verificar_elegibilidade(usuario_id)
     if not elegivel:
+        print(f'[API_VOTAR] ERRO: usuario {usuario_id} não elegível: {msg}')
         return JsonResponse({'status': 'error', 'message': msg}, status=403)
 
     data = json.loads(request.body)
     opcao = data.get('opcao', '')
     if opcao not in ('Favor', 'Contra', 'Abstencao'):
+        print(f'[API_VOTAR] ERRO: opção inválida: {opcao}')
         return JsonResponse({'status': 'error', 'message': 'Opção inválida.'}, status=400)
 
     em_delegacao = data.get('em_delegacao', False)
     delegado_de_id = data.get('delegado_de_id')
 
     if Voto.objects.filter(pauta=pauta, usuario_id=usuario_id, em_delegacao=em_delegacao).exists():
+        print(f'[API_VOTAR] ERRO: usuario {usuario_id} já votou pauta={pk}')
         return JsonResponse({'status': 'error', 'message': 'Já votou nesta pauta.'}, status=400)
 
     with transaction.atomic():
@@ -991,6 +1012,8 @@ def api_iniciar_assembleia(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem iniciar assembleias.'}, status=403)
     if assembleia.status != 'Agendada':
         return JsonResponse({'status': 'error', 'message': 'Assembleia já foi iniciada ou concluída.'}, status=400)
+    if not assembleia.convocatorias.filter(status='Publicada').exists():
+        return JsonResponse({'status': 'error', 'message': 'É necessário publicar pelo menos uma Convocatória antes de iniciar a assembleia.'}, status=400)
     assembleia.status = 'Em Curso'
     assembleia.save()
     _notificar_para_papel('Administrador', 'assembleia_iniciada', f'Assembleia em curso: {assembleia.titulo}', 'A assembleia já está em curso. Entre na sala virtual!', f'/governanca/assembleia/{assembleia.pk}/sala/')
@@ -1010,7 +1033,8 @@ def api_concluir_assembleia(request, pk):
     if assembleia.status != 'Em Curso':
         return JsonResponse({'status': 'error', 'message': 'Assembleia não está em curso.'}, status=400)
 
-    for pauta in assembleia.pautas.filter(status='Em Votacao'):
+    pautas_em_votacao = assembleia.pautas.with_vote_counts().filter(status='Em Votacao')
+    for pauta in pautas_em_votacao:
         pauta.status = 'Concluida'
         pauta.encerrado_em = timezone.now()
         pauta.apurar_resultado()
@@ -1020,13 +1044,14 @@ def api_concluir_assembleia(request, pk):
     assembleia.hash_integridade = assembleia.gerar_hash_integridade()
     assembleia.save()
 
+    todas_pautas = assembleia.pautas.with_vote_counts()
     manifesto = ManifestoIntegridade.objects.create(
         assembleia=assembleia,
         hash_consolidado=assembleia.hash_integridade,
         dados_json=json.dumps({
             'presentes': assembleia.presentes_count,
             'total_pautas': assembleia.total_pautas,
-            'pautas': [{'id': p.id, 'titulo': p.titulo, 'resultado': p.resultado_final} for p in assembleia.pautas.all()],
+            'pautas': [{'id': p.id, 'titulo': p.titulo, 'resultado': p.resultado_final} for p in todas_pautas],
         }, ensure_ascii=False),
         gerado_por=request.usuario_obj,
     )
@@ -1121,8 +1146,17 @@ def api_publicar_ata(request, pk):
 @_requer_login
 def api_upload_documento(request, pk):
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
+    papel = request.session['usuario']['papel']
+    usuario_id = request.session['usuario_id']
+    is_admin = papel == 'Administrador'
+    usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
+    is_secretario = MembroMesa.objects.filter(
+        assembleia=assembleia,
+        usuario_id=usuario_id,
+        funcao__in=('1º Secretário', '2º Secretário')
+    ).exists() or (usuario_obj and (usuario_obj.is_secretario or usuario_obj.is_vice_secretario))
+    if not is_admin and not is_secretario:
+        return JsonResponse({'status': 'error', 'message': 'Apenas administradores e secretários (1º/2º).'}, status=403)
     titulo = request.POST.get('titulo', '').strip()
     tipo = request.POST.get('tipo', 'ata')
     if not titulo:
@@ -1161,8 +1195,13 @@ def api_listar_documentos(request, pk):
 @_requer_login
 def api_publicar_documento(request, pk, doc_pk):
     doc = get_object_or_404(DocumentoAssembleia, pk=doc_pk, assembleia_id=pk)
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
+    papel = request.session['usuario']['papel']
+    usuario_id = request.session['usuario_id']
+    is_admin = papel == 'Administrador'
+    usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
+    is_secretario = usuario_obj and (usuario_obj.is_secretario or usuario_obj.is_vice_secretario)
+    if not is_admin and not is_secretario:
+        return JsonResponse({'status': 'error', 'message': 'Apenas administradores e secretários.'}, status=403)
     doc.publicado = True
     doc.publicado_em = timezone.now()
     doc.save()
@@ -1208,10 +1247,164 @@ def api_publicar_documento(request, pk, doc_pk):
 @_requer_login
 def api_remover_documento(request, pk, doc_pk):
     doc = get_object_or_404(DocumentoAssembleia, pk=doc_pk, assembleia_id=pk)
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
+    papel = request.session['usuario']['papel']
+    usuario_id = request.session['usuario_id']
+    is_admin = papel == 'Administrador'
+    is_criador = doc.created_by_id == usuario_id if doc.created_by_id else False
+    usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
+    is_secretario = MembroMesa.objects.filter(
+        assembleia=doc.assembleia,
+        usuario_id=usuario_id,
+        funcao__in=('1º Secretário', '2º Secretário')
+    ).exists() or (usuario_obj and (usuario_obj.is_secretario or usuario_obj.is_vice_secretario))
+    if not is_admin and not is_criador and not is_secretario:
+        return JsonResponse({'status': 'error', 'message': 'Sem permissão para remover este documento.'}, status=403)
     doc.delete()
     return JsonResponse({'status': 'ok'})
+
+
+def _pode_admin_ou_secretario(papel, usuario_obj):
+    if papel == 'Administrador':
+        return True
+    if usuario_obj and (usuario_obj.is_secretario or usuario_obj.is_vice_secretario):
+        return True
+    if usuario_obj:
+        from rh.models import CargoMesa
+        return CargoMesa.objects.filter(
+            usuario=usuario_obj,
+            funcao__in=('1º Secretário', '2º Secretário', 'Secretário', 'Vice-Presidente'),
+        ).exists()
+    return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API: Gerar documento a partir de assembleia
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@require_http_methods(['POST'])
+@_requer_login
+def api_gerar_documento(request):
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
+        return JsonResponse({'status': 'error', 'message': 'Sem permissão.'}, status=403)
+
+    assembleia_id = request.POST.get('assembleia_id', '').strip()
+    tipo = request.POST.get('tipo', 'ata')
+    if not assembleia_id:
+        return JsonResponse({'status': 'error', 'message': 'Assembleia não especificada.'}, status=400)
+    assembleia = get_object_or_404(Assembleia, pk=assembleia_id)
+    if tipo not in dict(DocumentoAssembleia.TIPOS):
+        return JsonResponse({'status': 'error', 'message': 'Tipo inválido.'}, status=400)
+
+    from .utils import gerar_conteudo_documento
+    titulo_map = {'ata': f'Ata — {assembleia.titulo}', 'relatorio': f'Relatório — {assembleia.titulo}', 'decreto': f'Decreto — {assembleia.titulo}'}
+    titulo = titulo_map.get(tipo, f'Documento — {assembleia.titulo}')
+    conteudo = gerar_conteudo_documento(assembleia, tipo, created_by=usuario_obj)
+
+    doc = DocumentoAssembleia.objects.create(
+        assembleia=assembleia,
+        tipo=tipo,
+        titulo=titulo,
+        conteudo=conteudo,
+        created_by=usuario_obj,
+    )
+    return JsonResponse({'status': 'ok', 'id': doc.id, 'titulo': doc.titulo, 'tipo': doc.tipo})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Visualizar documento gerado (conteúdo HTML)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@_requer_login
+def visualizar_documento(request, pk):
+    doc = get_object_or_404(DocumentoAssembleia, pk=pk)
+    context = {
+        'usuario': request.session.get('usuario', {}),
+        'nome': request.session.get('usuario', {}).get('nome', ''),
+        'papel': request.session.get('usuario', {}).get('papel', ''),
+        'active_menu': 'Governanca',
+        'doc': doc,
+    }
+    return render(request, 'governanca/visualizar_documento.html', context)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Secretário - Gestão de Actas, Decretos e Relatórios
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@_requer_login
+def secretario_documentos(request):
+    usuario = _get_usuario(request)
+    if not usuario:
+        return redirect('login')
+    papel = usuario.get('papel', '')
+    usuario_id = usuario.get('id')
+    usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
+    if not usuario_obj or not (usuario_obj.is_secretario or usuario_obj.is_vice_secretario):
+        return redirect('governanca_index')
+
+    from django.db.models import Count, Q, Prefetch
+    todas_qs = DocumentoAssembleia.objects.select_related('assembleia', 'created_by')
+    rascunhos = todas_qs.filter(publicado=False).order_by('-created_at')
+    publicados = todas_qs.filter(publicado=True).order_by('-publicado_em')
+    stats = todas_qs.aggregate(
+        total=Count('id'),
+        total_rascunhos=Count('id', filter=Q(publicado=False)),
+        total_publicados=Count('id', filter=Q(publicado=True)),
+        atas=Count('id', filter=Q(tipo='ata')),
+        decretos=Count('id', filter=Q(tipo='decreto')),
+        relatorios=Count('id', filter=Q(tipo='relatorio')),
+    )
+    assembleias = Assembleia.objects.prefetch_related(
+        Prefetch('documentos', queryset=DocumentoAssembleia.objects.select_related('created_by').order_by('-created_at'), to_attr='todos_docs')
+    ).annotate(
+        total_docs=Count('documentos'),
+        docs_rascunho=Count('documentos', filter=Q(documentos__publicado=False)),
+    ).order_by('-data_hora')
+
+    return render(request, 'governanca/secretario_documentos.html', {
+        'usuario': usuario,
+        'papel': papel,
+        'stats': stats,
+        'rascunhos': rascunhos[:20],
+        'publicados': publicados[:20],
+        'assembleias': assembleias,
+        'active_menu': 'Governanca',
+        'active_sub': 'secretario_docs',
+        'TIPOS_DOC': DocumentoAssembleia.TIPOS,
+    })
+
+
+@_requer_login
+def api_secretario_assembleias(request):
+    usuario = _get_usuario(request)
+    if not usuario:
+        return JsonResponse({'status': 'error', 'message': 'Sessão expirada.'}, status=401)
+    usuario_id = usuario.get('id')
+    usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
+    if not usuario_obj or not (usuario_obj.is_secretario or usuario_obj.is_vice_secretario):
+        return JsonResponse({'status': 'error', 'message': 'Apenas Secretário e Vice-Secretário.'}, status=403)
+    assembleias = Assembleia.objects.all().order_by('-data_hora')
+    data = []
+    for assem in assembleias:
+        docs = [{
+            'id': d.id, 'tipo': d.tipo, 'titulo': d.titulo,
+            'descricao': d.descricao,
+            'arquivo': d.arquivo.url if d.arquivo else '',
+            'publicado': d.publicado,
+            'publicado_em': d.publicado_em.isoformat() if d.publicado_em else None,
+            'created_at': d.created_at.isoformat(),
+            'created_by': d.created_by.nome if d.created_by else '',
+        } for d in assem.documentos.all()]
+        data.append({
+            'id': assem.id,
+            'titulo': assem.titulo,
+            'data_hora': assem.data_hora.isoformat(),
+            'status': assem.status,
+            'local': assem.local,
+            'documentos': docs,
+        })
+    return JsonResponse({'assembleias': data})
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1526,7 +1719,7 @@ def api_presencas_listar(request, pk):
 def api_assembleia_dados(request, pk):
     """Retorna dados completos da assembleia para o frontend."""
     a = get_object_or_404(Assembleia, pk=pk)
-    pautas = a.pautas.order_by('ordem')
+    pautas = a.pautas.with_vote_counts().order_by('ordem')
     user_id = request.session.get('usuario_id')
     votos_usuario = set(
         Voto.objects.filter(pauta__assembleia=a, usuario_id=user_id)
@@ -1588,12 +1781,16 @@ def _calcular_multa(pagamento, config_override=None):
     """Calcula multa por atraso para um PagamentoQuota."""
     if not pagamento or not pagamento.quota:
         return {'dias_atraso': 0, 'multa_valor': 0, 'total_sugerido': 0}
-    config = config_override or QuotaConfig.objects.filter(ano=pagamento.quota.ano, mes=pagamento.quota.mes).first()
-    if not config or not config.multa_percentual or not config.data_vencimento:
+    if pagamento.quota.ano and pagamento.quota.mes:
+        config = config_override or QuotaConfig.objects.filter(ano=pagamento.quota.ano, mes=pagamento.quota.mes).first()
+    else:
+        config = None
+    vencimento = config.data_vencimento if config else pagamento.quota.data_vencimento
+    if not config or not config.multa_percentual or not vencimento:
         return {'dias_atraso': 0, 'multa_valor': 0, 'total_sugerido': pagamento.quota.valor}
-    vencimento = config.data_vencimento
     hoje = timezone.now().date()
-    dias_atraso = (hoje - vencimento).days
+    inicio_multa = max(vencimento, pagamento.quota.created_at.date())
+    dias_atraso = (hoje - inicio_multa).days
     if dias_atraso <= 0:
         return {'dias_atraso': 0, 'multa_valor': 0, 'total_sugerido': pagamento.quota.valor}
     multa_valor = pagamento.quota.valor * (config.multa_percentual / _Decimal(100)) * dias_atraso
@@ -1662,7 +1859,7 @@ def quotas_fatura_detalhe(request, fatura_uuid):
     paginator = Paginator(pagamentos_qs, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    config = QuotaConfig.objects.filter(ano=quota.ano, mes=quota.mes).first()
+    config = QuotaConfig.objects.filter(ano=quota.ano, mes=quota.mes).first() if quota.ano and quota.mes else None
     multa_info = {'dias_atraso': 0, 'multa_valor': 0, 'total_sugerido': quota.valor}
     if not quota.data_pagamento and config and config.multa_percentual and config.data_vencimento:
         dias_atraso = (timezone.now().date() - config.data_vencimento).days
@@ -1715,26 +1912,22 @@ def quotas_admin_dashboard(request):
     if request.session['usuario']['papel'] != 'Administrador':
         return redirect('governanca_quotas_dashboard')
 
-    def _compute():
-        from django.db.models import Count, Q
-        stats = QuotaGerada.objects.aggregate(
-            total=Count('id'),
-            pendentes=Count('id', filter=Q(status__in=['Pendente','Atrasada'])),
-            pagas=Count('id', filter=Q(status='Paga')),
-        )
-        return {
-            'total_quotas': stats['total'],
-            'pendentes': stats['pendentes'],
-            'pagas': stats['pagas'],
-            'pagamentos_pendentes': PagamentoQuota.objects.filter(status='Pendente Confirmacao').count(),
-            'config': QuotaConfig.objects.order_by('-ano','-mes').first(),
-        }
-
-    cached = cache_get_or_set('dash_quotas_admin', _compute, timeout=300)
+    from django.db.models import Count, Q
+    stats = QuotaGerada.objects.aggregate(
+        total=Count('id'),
+        pendentes=Count('id', filter=Q(status__in=['Pendente','Atrasada'])),
+        pagas=Count('id', filter=Q(status='Paga')),
+    )
     context = {
         'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
-        **cached,
+        'total_quotas': stats['total'],
+        'pendentes': stats['pendentes'],
+        'pagas': stats['pagas'],
+        'pagamentos_pendentes': PagamentoQuota.objects.filter(status='Pendente Confirmacao').count(),
+        'config': QuotaConfig.objects.order_by('-ano','-mes').first(),
+        'categorias': CategoriaMembro.objects.all(),
+        'tipos_quota': TipoQuota.objects.all(),
     }
     return render(request, 'governanca/quotas/admin_dashboard.html', context)
 
@@ -1779,6 +1972,8 @@ def quotas_admin_config(request):
         'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'configs': page_obj, 'page_obj': page_obj,
+        'categorias': CategoriaMembro.objects.all(),
+        'tipos_quota': TipoQuota.objects.all(),
     }
     return render(request, 'governanca/quotas/admin_config.html', context)
 
@@ -1788,55 +1983,49 @@ def quotas_admin_relatorios(request):
     if request.session['usuario']['papel'] != 'Administrador':
         return redirect('governanca_quotas_dashboard')
 
-    def _compute():
-        from django.db.models import Sum, Count, Q
-        total_arrecadado = PagamentoQuota.objects.filter(
-            status='Confirmado'
-        ).aggregate(total=Sum('valor_pago'))['total'] or 0
-        stats = QuotaGerada.objects.aggregate(
-            atrasadas=Count('id', filter=Q(status='Atrasada')),
+    from django.db.models import Sum, Count, Q
+    total_arrecadado = PagamentoQuota.objects.filter(
+        status='Confirmado'
+    ).aggregate(total=Sum('valor_pago'))['total'] or 0
+    stats = QuotaGerada.objects.aggregate(
+        atrasadas=Count('id', filter=Q(status='Atrasada')),
+        pendentes=Count('id', filter=Q(status='Pendente')),
+    )
+    inadimplentes = list(
+        Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')
+        .annotate(
+            quotas_pend=Count('quotas', filter=Q(quotas__status__in=['Pendente', 'Atrasada'])),
+            total_devido=Sum('quotas__valor', filter=Q(quotas__status__in=['Pendente', 'Atrasada']), distinct=True),
+        )
+        .filter(quotas_pend__gt=0)
+        .order_by('-total_devido')
+    )[:20]
+    historico = list(
+        PagamentoQuota.objects.filter(status='Confirmado').select_related(
+            'quota', 'despachante', 'confirmado_por'
+        ).order_by('-confirmado_em')[:50]
+    )
+    resumo_mensal = list(
+        QuotaGerada.objects.values('ano', 'mes')
+        .annotate(
+            total=Count('id'),
+            pagas=Count('id', filter=Q(status='Paga')),
             pendentes=Count('id', filter=Q(status='Pendente')),
+            atrasadas=Count('id', filter=Q(status='Atrasada')),
+            valor_total=Sum('valor'),
+            arrecadado=Sum('valor', filter=Q(status='Paga'), distinct=True),
         )
-        inadimplentes = list(
-            Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')
-            .annotate(
-                quotas_pend=Count('quotas', filter=Q(quotas__status__in=['Pendente', 'Atrasada'])),
-                total_devido=Sum('quotas__valor', filter=Q(quotas__status__in=['Pendente', 'Atrasada']), distinct=True),
-            )
-            .filter(quotas_pend__gt=0)
-            .order_by('-total_devido')
-        )[:20]
-        historico = list(
-            PagamentoQuota.objects.filter(status='Confirmado').select_related(
-                'quota', 'despachante', 'confirmado_por'
-            ).order_by('-confirmado_em')[:50]
-        )
-        resumo_mensal = list(
-            QuotaGerada.objects.values('ano', 'mes')
-            .annotate(
-                total=Count('id'),
-                pagas=Count('id', filter=Q(status='Paga')),
-                pendentes=Count('id', filter=Q(status='Pendente')),
-                atrasadas=Count('id', filter=Q(status='Atrasada')),
-                valor_total=Sum('valor'),
-                arrecadado=Sum('valor', filter=Q(status='Paga'), distinct=True),
-            )
-            .order_by('-ano', '-mes')[:12]
-        )
-        return {
-            'total_arrecadado': total_arrecadado,
-            'quotas_em_atraso': stats['atrasadas'],
-            'quotas_pendentes': stats['pendentes'],
-            'inadimplentes': inadimplentes,
-            'historico': historico,
-            'resumo_mensal': resumo_mensal,
-        }
-
-    cached = cache_get_or_set('dash_quotas_relatorios', _compute, timeout=600)
+        .order_by('-ano', '-mes')[:12]
+    )
     context = {
         'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
-        **cached,
+        'total_arrecadado': total_arrecadado,
+        'quotas_em_atraso': stats['atrasadas'],
+        'quotas_pendentes': stats['pendentes'],
+        'inadimplentes': inadimplentes,
+        'historico': historico,
+        'resumo_mensal': resumo_mensal,
     }
     return render(request, 'governanca/quotas/admin_relatorios.html', context)
 
@@ -2073,21 +2262,30 @@ def api_quotas_salvar_config(request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
         ano = int(request.POST.get('ano', 0))
-        mes = int(request.POST.get('mes', 0))
+        mes_s = request.POST.get('mes', '')
+        mes = int(mes_s) if mes_s else None
         valor = _Decimal(request.POST.get('valor', '0'))
         vencimento = request.POST.get('data_vencimento', '')
         multa_percentual = _Decimal(request.POST.get('multa_percentual', '0.50'))
         ativa = request.POST.get('ativa', '1') == '1'
         publicar = request.POST.get('publicar', '0') == '1'
+        categoria_id = request.POST.get('categoria_id', '') or None
+        tipo_id = request.POST.get('tipo_id', '') or None
     except (ValueError, TypeError):
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
-    if ano < 2000 or ano > 2100 or mes < 1 or mes > 12 or valor <= 0:
-        return JsonResponse({'erro': 'Ano, mês ou valor inválidos'}, status=400)
+    if ano < 2000 or ano > 2100 or valor <= 0:
+        return JsonResponse({'erro': 'Ano ou valor inválidos'}, status=400)
+    if mes and (mes < 1 or mes > 12):
+        return JsonResponse({'erro': 'Mês inválido'}, status=400)
     defaults = {
         'valor': valor,
         'multa_percentual': multa_percentual,
         'ativa': ativa,
     }
+    if categoria_id:
+        defaults['categoria_id'] = int(categoria_id)
+    if tipo_id:
+        defaults['tipo_id'] = int(tipo_id)
     if vencimento:
         try:
             defaults['data_vencimento'] = _dt.datetime.strptime(vencimento, '%Y-%m-%d').date()
@@ -2095,16 +2293,37 @@ def api_quotas_salvar_config(request):
             return JsonResponse({'erro': 'Data de vencimento inválida (use AAAA-MM-DD)'}, status=400)
     elif not QuotaConfig.objects.filter(ano=ano, mes=mes).exists():
         return JsonResponse({'erro': 'Data de vencimento é obrigatória na primeira configuração'}, status=400)
-    config, created = QuotaConfig.objects.update_or_create(ano=ano, mes=mes, defaults=defaults)
+
+    lookup = {'ano': ano}
+    if mes is not None:
+        lookup['mes'] = mes
+    config, created = QuotaConfig.objects.update_or_create(**lookup, defaults=defaults)
 
     if publicar and ativa:
         despachantes = Usuario.objects.filter(papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
+        tipo = TipoQuota.objects.filter(id=tipo_id).first() if tipo_id else None
+        if not tipo:
+            tipo = TipoQuota.objects.filter(slug='mensal').first()
+        descricao = f'{tipo.nome} {mes:02d}/{ano}' if mes else f'{tipo.nome} {ano}'
         geradas = 0
         for d in despachantes:
-            if QuotaGerada.objects.filter(despachante=d, ano=ano, mes=mes).exists():
+            if d.categoria and d.categoria.isento:
                 continue
+            if tipo.recorrente and mes:
+                if QuotaGerada.objects.filter(despachante=d, tipo=tipo, ano=ano, mes=mes).exists():
+                    continue
+            elif not tipo.recorrente:
+                if QuotaGerada.objects.filter(despachante=d, tipo=tipo, ano=ano).exists():
+                    continue
+            pi = _dt.date(ano, mes, 1) if mes else None
+            pf = None
+            if pi and tipo.dias_intervalo:
+                from dateutil.relativedelta import relativedelta
+                pf = pi + relativedelta(months=(tipo.dias_intervalo // 30)) - _dt.timedelta(days=1)
             QuotaGerada.objects.create(
-                despachante=d, ano=ano, mes=mes,
+                despachante=d, tipo=tipo, ano=ano, mes=mes,
+                periodo_inicio=pi, periodo_fim=pf,
+                descricao=descricao,
                 valor=config.valor, data_vencimento=config.data_vencimento,
             )
             ef, _ = EstadoFinanceiro.objects.get_or_create(despachante=d, defaults={'estado': 'Irregular'})
@@ -2114,31 +2333,24 @@ def api_quotas_salvar_config(request):
             multa_str = f' Multa de {config.multa_percentual}%/dia após o vencimento.' if config.multa_percentual else ''
             Notificacao.objects.create(
                 usuario=d, tipo='quota_gerada',
-                titulo=f'Quota de {mes:02d}/{ano} — Pagamento Disponível',
-                mensagem=(
-                    f'Foi publicada a sua quota de {mes:02d}/{ano} no valor de Kz {config.valor}.'
-                    f' Vencimento: {config.data_vencimento}.{multa_str}'
-                ),
+                titulo=descricao + ' — Pagamento Disponível',
+                mensagem=f'Foi publicada a sua {descricao} no valor de Kz {config.valor}. Vencimento: {config.data_vencimento}.{multa_str}',
                 link='/governanca/quotas/',
             )
             if d.email:
-            # Criamos a linha da multa de forma limpa antes
                 texto_multa = f"Multa de {config.multa_percentual}%/dia após o vencimento.\n" if config.multa_percentual else ""
-            
                 _enviar(
-                'Quota Associativa — Pagamento Disponível',
-                f'Olá {d.nome},\n\n'
-                f'A sua quota de {mes:02d}/{ano} no valor de Kz {config.valor} foi publicada.\n'
-                f'Data de vencimento: {config.data_vencimento}\n'
-                f'{texto_multa}'  # Inserimos o texto sem lógicas complexas aqui dentro
-                f'\nAceda ao sistema para efetuar o pagamento dentro do prazo.\n\nCDOA Angola',
-                None, 
-                [d.email]
-            )
+                    'Quota Associativa — Pagamento Disponível',
+                    f'Olá {d.nome},\n\nA sua {descricao} no valor de Kz {config.valor} foi publicada.\n'
+                    f'Data de vencimento: {config.data_vencimento}\n{texto_multa}'
+                    f'\nAceda ao sistema para efetuar o pagamento dentro do prazo.\n\nCDOA Angola',
+                    None, [d.email],
+                )
             geradas += 1
-        msg = f'Configuração de {mes:02d}/{ano} publicada. {geradas} quotas geradas e notificações enviadas.'
+        msg = f'Configuração de {descricao} publicada. {geradas} quotas geradas.'
     else:
-        msg = f'Configuração de {mes:02d}/{ano} salva: Kz {valor:.2f}'
+        label = f'{mes:02d}/{ano}' if mes else f'{ano}'
+        msg = f'Configuração de {label} salva: Kz {valor:.2f}'
     return JsonResponse({'status': 'ok', 'mensagem': msg})
 
 
@@ -2156,11 +2368,11 @@ def api_quotas_gerar_retroativo(request):
         despachante_id = request.POST.get('despachante_id', '')
         todos = request.POST.get('todos', '1') == '1'
         force = request.POST.get('force', '0') == '1'
+        tipo_id = request.POST.get('tipo_id', '') or None
     except (ValueError, TypeError):
         return JsonResponse({'erro': 'Dados inválidos'}, status=400)
 
     meses_para_gerar = []
-
     if mes and ano:
         meses_para_gerar.append((ano, mes))
     elif data_inicio and data_fim:
@@ -2191,6 +2403,7 @@ def api_quotas_gerar_retroativo(request):
     else:
         despachantes = Usuario.objects.filter(papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
 
+    tipo = TipoQuota.objects.filter(id=tipo_id).first() if tipo_id else TipoQuota.objects.filter(slug='mensal').first()
     erros = []
     geradas = 0
     for aa, mm in meses_para_gerar:
@@ -2199,14 +2412,18 @@ def api_quotas_gerar_retroativo(request):
             erros.append(f'{mm:02d}/{aa}: sem configuração ativa')
             continue
         for d in despachantes:
-            existente = QuotaGerada.objects.filter(despachante=d, ano=aa, mes=mm).first()
+            if d.categoria and d.categoria.isento:
+                continue
+            existente = QuotaGerada.objects.filter(despachante=d, tipo=tipo, ano=aa, mes=mm).first()
             if existente:
                 if force:
                     existente.delete()
                 else:
                     continue
+            descricao = f'{tipo.nome} {mm:02d}/{aa}'
             QuotaGerada.objects.create(
-                despachante=d, ano=aa, mes=mm,
+                despachante=d, tipo=tipo, ano=aa, mes=mm,
+                descricao=descricao,
                 valor=config.valor, data_vencimento=config.data_vencimento,
             )
             ef, _ = EstadoFinanceiro.objects.get_or_create(despachante=d, defaults={'estado': 'Irregular'})
@@ -2216,26 +2433,18 @@ def api_quotas_gerar_retroativo(request):
             multa_str = f' Multa de {config.multa_percentual}%/dia após o vencimento.' if config.multa_percentual else ''
             Notificacao.objects.create(
                 usuario=d, tipo='quota_gerada',
-                titulo=f'Quota de {mm:02d}/{aa} — Gerada Retroativamente',
-                mensagem=(
-                    f'Foi gerada retroativamente a sua quota de {mm:02d}/{aa}'
-                    f' no valor de Kz {config.valor}.{multa_str}'
-                ),
+                titulo=f'{descricao} — Gerada Retroativamente',
+                mensagem=f'Foi gerada retroativamente a sua {descricao} no valor de Kz {config.valor}.{multa_str}',
                 link='/governanca/quotas/',
             )
             if d.email:
-                # Criamos a variável da multa de forma limpa antes do envio
-                texto_multa_retroativa = f"Multa de {config.multa_percentual}%/dia após o vencimento.\n" if config.multa_percentual else ""
-                
+                texto_multa = f"Multa de {config.multa_percentual}%/dia após o vencimento.\n" if config.multa_percentual else ""
                 _enviar(
                     'Quota Associativa — Geração Retroativa',
-                    f'Olá {d.nome},\n\n'
-                    f'A sua quota de {mm:02d}/{aa} no valor de Kz {config.valor} foi gerada retroativamente.\n'
-                    f'Vencimento: {config.data_vencimento}\n'
-                    f'{texto_multa_retroativa}'  # Chamada direta e segura
+                    f'Olá {d.nome},\n\nA sua {descricao} no valor de Kz {config.valor} foi gerada retroativamente.\n'
+                    f'Vencimento: {config.data_vencimento}\n{texto_multa}'
                     f'\nAceda ao sistema para efetuar o pagamento.\n\nCDOA Angola',
-                    None, 
-                    [d.email]
+                    None, [d.email],
                 )
             geradas += 1
 
@@ -2244,115 +2453,6 @@ def api_quotas_gerar_retroativo(request):
         msg += ' Erros: ' + '; '.join(erros)
     return JsonResponse({'status': 'ok', 'mensagem': msg, 'geradas': geradas, 'erros': erros})
 
-@csrf_exempt
-@require_http_methods(['POST'])
-@_requer_login
-def api_quotas_gerar_retroativo(request):
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
-        
-    try:
-        mes = int(request.POST.get('mes', 0))
-        ano = int(request.POST.get('ano', 0))
-        data_inicio = request.POST.get('data_inicio', '')
-        data_fim = request.POST.get('data_fim', '')
-        despachante_id = request.POST.get('despachante_id', '')
-        todos = request.POST.get('todos', '1') == '1'
-        force = request.POST.get('force', '0') == '1'
-    except (ValueError, TypeError):
-        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
-
-    meses_para_gerar = []
-
-    if mes and ano:
-        meses_para_gerar.append((ano, mes))
-    elif data_inicio and data_fim:
-        try:
-            di = _dt.datetime.strptime(data_inicio, '%Y-%m-%d').date()
-            df = _dt.datetime.strptime(data_fim, '%Y-%m-%d').date()
-        except (ValueError, TypeError):
-            return JsonResponse({'erro': 'Datas inválidas (use AAAA-MM-DD)'}, status=400)
-            
-        m = di.replace(day=1)
-        while m <= df:
-            meses_para_gerar.append((m.year, m.month))
-            if m.month == 12:
-                m = m.replace(year=m.year + 1, month=1)
-            else:
-                m = m.replace(month=m.month + 1)
-    else:
-        return JsonResponse({'erro': 'Informe mês/ano ou um intervalo de datas'}, status=400)
-
-    if todos:
-        despachantes = Usuario.objects.filter(papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
-    elif despachante_id:
-        try:
-            despachantes = Usuario.objects.filter(id=int(despachante_id), papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
-            if not despachantes.exists():
-                return JsonResponse({'erro': 'Despachante não encontrado ou inativo'}, status=404)
-        except ValueError:
-            return JsonResponse({'erro': 'ID de despachante inválido'}, status=400)
-    else:
-        despachantes = Usuario.objects.filter(papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
-
-    erros = []
-    geradas = 0
-    
-    for aa, mm in meses_para_gerar:
-        config = QuotaConfig.objects.filter(ano=aa, mes=mm, ativa=True).first()
-        if not config:
-            erros.append(f'{mm:02d}/{aa}: sem configuração ativa')
-            continue
-            
-        for d in despachantes:
-            existente = QuotaGerada.objects.filter(despachante=d, ano=aa, mes=mm).first()
-            if existente:
-                if force:
-                    existente.delete()
-                else:
-                    continue
-                    
-            QuotaGerada.objects.create(
-                despachante=d, ano=aa, mes=mm,
-                valor=config.valor, data_vencimento=config.data_vencimento,
-            )
-            
-            ef, _ = EstadoFinanceiro.objects.get_or_create(despachante=d, defaults={'estado': 'Irregular'})
-            if ef.estado == 'Regular':
-                ef.estado = 'Irregular'
-                ef.save()
-                
-            multa_str = f' Multa de {config.multa_percentual}%/dia após o vencimento.' if config.multa_percentual else ''
-            Notificacao.objects.create(
-                usuario=d, tipo='quota_gerada',
-                titulo=f'Quota de {mm:02d}/{aa} — Gerada Retroativamente',
-                mensagem=(
-                    f'Foi gerada retroativamente a sua quota de {mm:02d}/{aa}'
-                    f' no valor de Kz {config.valor}.{multa_str}'
-                ),
-                link='/governanca/quotas/',
-            )
-            
-            if d.email:
-                texto_multa_retroativa = f"Multa de {config.multa_percentual}%/dia após o vencimento.\n" if config.multa_percentual else ""
-                
-                _enviar(
-                    'Quota Associativa — Geração Retroativa',
-                    f'Olá {d.nome},\n\n'
-                    f'A sua quota de {mm:02d}/{aa} no valor de Kz {config.valor} foi gerada retroativamente.\n'
-                    f'Vencimento: {config.data_vencimento}\n'
-                    f'{texto_multa_retroativa}'
-                    f'\nAceda ao sistema para efetuar o pagamento.\n\nCDOA Angola',
-                    None, 
-                    [d.email]
-                )
-                geradas += 1
-
-    msg = f'{geradas} quotas geradas.'
-    if erros:
-        msg += ' Erros: ' + '; '.join(erros)
-        
-    return JsonResponse({'status': 'ok', 'mensagem': msg, 'geradas': geradas, 'erros': erros})
 
 @csrf_exempt
 @require_http_methods(['POST'])
@@ -2448,8 +2548,10 @@ def consulta_detalhe(request, pk):
 
 @_requer_login
 def consulta_criar(request):
-    if request.session['usuario']['papel'] != 'Administrador':
-        messages.error(request, 'Apenas administradores podem criar consultas.')
+    papel = request.session['usuario']['papel']
+    usuario_obj = request.usuario_obj
+    if not _pode_admin_ou_secretario(papel, usuario_obj):
+        messages.error(request, 'Apenas administradores e secretários podem criar consultas.')
         return redirect('governanca_consultas')
     if request.method == 'POST':
         titulo = request.POST.get('titulo', '').strip()
@@ -2494,8 +2596,10 @@ def consulta_criar(request):
 @_requer_login
 def consulta_editar(request, pk):
     consulta = get_object_or_404(ConsultaPublica, pk=pk)
-    if request.session['usuario']['papel'] != 'Administrador':
-        messages.error(request, 'Apenas administradores podem editar consultas.')
+    papel = request.session['usuario']['papel']
+    usuario_obj = request.usuario_obj
+    if not _pode_admin_ou_secretario(papel, usuario_obj):
+        messages.error(request, 'Apenas administradores e secretários podem editar consultas.')
         return redirect('governanca_consultas')
     if consulta.status != 'Rascunho':
         messages.error(request, 'Apenas consultas em rascunho podem ser editadas.')
@@ -2547,7 +2651,7 @@ def consulta_relatorio(request, pk):
 
 @_requer_login
 def api_consulta_publicar(request, pk):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Rascunho')
     consulta.status = 'Publicada'
@@ -2620,7 +2724,8 @@ def api_consulta_responder(request, pk):
 
 @_requer_login
 def api_consulta_abrir_votacao(request, pk):
-    if request.session['usuario']['papel'] != 'Administrador':
+    papel = request.session['usuario']['papel']
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Publicada')
     consulta.status = 'EmVotacao'
@@ -2655,7 +2760,7 @@ def api_consulta_votar(request, pk):
 
 @_requer_login
 def api_consulta_encerrar(request, pk):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='EmVotacao')
     votacao = consulta.votacoes.filter(ativa=True).first()
@@ -2677,7 +2782,7 @@ def api_consulta_encerrar(request, pk):
 
 @_requer_login
 def api_consulta_gerar_relatorio(request, pk):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     if hasattr(consulta, 'relatorio'):
@@ -2721,7 +2826,7 @@ def api_consulta_gerar_relatorio(request, pk):
 
 @_requer_login
 def api_consulta_publicar_versao_final(request, pk):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     consulta.status = 'Aprovada'
@@ -2738,7 +2843,7 @@ def api_consulta_publicar_versao_final(request, pk):
 
 @_requer_login
 def api_consulta_rejeitar(request, pk):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     consulta.status = 'Rejeitada'
@@ -2753,6 +2858,9 @@ def api_consulta_rejeitar(request, pk):
 @_requer_login
 def lista_convocatorias(request, pk):
     assembleia = get_object_or_404(Assembleia, pk=pk)
+    if assembleia.status != 'Agendada':
+        messages.error(request, 'Convocatórias só estão disponíveis para assembleias agendadas.')
+        return redirect('governanca_detalhe', pk=pk)
     qs = assembleia.convocatorias.all()
     paginator = Paginator(qs, 8)
     page_number = request.GET.get('page')
@@ -2774,6 +2882,9 @@ def criar_convocatoria(request, pk):
     assembleia = get_object_or_404(Assembleia, pk=pk)
     if request.session['usuario']['papel'] != 'Administrador':
         messages.error(request, 'Sem permissão.')
+        return redirect('governanca_detalhe', pk=pk)
+    if assembleia.status != 'Agendada':
+        messages.error(request, 'Só é possível criar convocatórias para assembleias agendadas.')
         return redirect('governanca_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2814,6 +2925,8 @@ def api_convocatoria_publicar(request, pk):
     conv = get_object_or_404(Convocatoria, pk=pk)
     if request.session['usuario']['papel'] != 'Administrador':
         return JsonResponse({'status': 'error', 'message': 'Sem permissão.'}, status=403)
+    if conv.assembleia.status != 'Agendada':
+        return JsonResponse({'status': 'error', 'message': 'A assembleia já não está agendada.'}, status=400)
     conv.status = 'Publicada'
     conv.save()
     _notificar_para_papel('Administrador', 'convocatoria_publicada',
@@ -2957,7 +3070,8 @@ def exportar_resultados_pdf(request, pk):
     c.drawString(40, y, f'Presentes: {assembleia.presentes_count} / Quórum: {assembleia.quorum_minimo}')
     y -= 25
 
-    for pauta in assembleia.pautas.all():
+    pautas_com_votos = assembleia.pautas.with_vote_counts()
+    for pauta in pautas_com_votos:
         c.setFont('Helvetica-Bold', 12)
         c.setFillColor(HexColor('#1a3a5c'))
         c.drawString(40, y, f'{pauta.ordem}. {pauta.titulo}')
@@ -3012,7 +3126,9 @@ def exportar_resultados_excel(request, pk):
     ws.cell(1, 6, 'Resultado').fill = header_fill
     ws.cell(1, 6).font = header_font
 
-    for i, pauta in enumerate(assembleia.pautas.all(), 2):
+    pautas_com_votos = assembleia.pautas.with_vote_counts()
+
+    for i, pauta in enumerate(pautas_com_votos, 2):
         ws.cell(i, 1, pauta.titulo)
         ws.cell(i, 2, pauta.votos_favor)
         ws.cell(i, 3, pauta.votos_contra)
@@ -3031,7 +3147,7 @@ def exportar_resultados_excel(request, pk):
     ws2.cell(1, 4, 'Delegação').fill = header_fill
     ws2.cell(1, 4).font = header_font
     row = 2
-    for pauta in assembleia.pautas.all():
+    for pauta in pautas_com_votos:
         for voto in pauta.votos.select_related('usuario', 'delegado_de').all():
             if pauta.tipo_votacao == 'Secreta':
                 opcao = '*** (voto secreto)'
@@ -3064,7 +3180,7 @@ def exportar_resultados_csv(request, pk):
     response['Content-Disposition'] = f'attachment; filename="resultados_{assembleia.pk}_{assembleia.titulo[:30]}.csv"'
     w = csv.writer(response)
     w.writerow(['Pauta', 'Favor', 'Contra', 'Abstenção', 'Total', 'Resultado'])
-    for pauta in assembleia.pautas.all():
+    for pauta in assembleia.pautas.with_vote_counts():
         w.writerow([pauta.titulo, pauta.votos_favor, pauta.votos_contra, pauta.votos_abstencao, pauta.total_votos, pauta.resultado_final or '---'])
     return response
 

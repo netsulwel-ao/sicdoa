@@ -4,12 +4,15 @@
 {% include 'includes/header.html' %}
 {% csrf_token %}
 <main class="p-4 md:p-6 lg:p-8">
-  <div class="mb-6 flex items-center gap-4">
-    <a href="{% url 'governanca_quotas_dashboard' %}" class="text-gray-500 hover:text-[#111418]"><i class="fas fa-arrow-left"></i></a>
+  <div class="mb-6 flex items-center justify-between">
     <div>
       <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Certidão de Regularidade</h1>
       <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Comprovativo de situação financeira regular</p>
     </div>
+    <a href="{% url 'governanca_quotas_dashboard' %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+      <i class="fas fa-arrow-left text-base"></i>Voltar
+    </a>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -22,38 +25,76 @@
       {% endif %}
 
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
-        <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Certidões Emitidas</h2>
-        {% if certidoes %}
-        <div class="space-y-3">
-          {% for cert in certidoes %}
-          <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-            <div class="flex items-center gap-3">
-              <div class="p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <i class="fas fa-certificate text-amber-600 text-lg"></i>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200">Certidões Emitidas</h2>
+          {% include 'includes/view-toggle.html' %}
+        </div>
+        <div data-view-container>
+          <div data-grid-view>
+            {% if certidoes %}
+            <div class="space-y-3">
+              {% for cert in certidoes %}
+              <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                <div class="flex items-center gap-3">
+                  <div class="p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <i class="fas fa-certificate text-amber-600 text-lg"></i>
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-[#111418] dark:text-gray-200">Certidão {{ cert.codigo_certidao|truncatechars:20 }}</p>
+                    <p class="text-xs text-gray-500">Emitida em {{ cert.data_emissao|date:"d/m/Y" }} — Válida até {{ cert.data_validade|date:"d/m/Y" }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5 font-mono">Hash: {{ cert.assinatura_hash|truncatechars:20 }}</p>
+                  </div>
+                </div>
+                <a href="/media/{{ cert.arquivo_pdf }}" target="_blank" class="px-4 py-2.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
+                  <i class="fas fa-download"></i> Baixar PDF
+                </a>
               </div>
-              <div>
-                <p class="text-sm font-semibold text-[#111418] dark:text-gray-200">Certidão {{ cert.codigo_certidao|truncatechars:20 }}</p>
-                <p class="text-xs text-gray-500">Emitida em {{ cert.data_emissao|date:"d/m/Y" }} — Válida até {{ cert.data_validade|date:"d/m/Y" }}</p>
-                <p class="text-xs text-gray-400 mt-0.5 font-mono">Hash: {{ cert.assinatura_hash|truncatechars:20 }}</p>
-              </div>
+              {% endfor %}
             </div>
-            <a href="/media/{{ cert.arquivo_pdf }}" target="_blank" class="px-4 py-2.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
-              <i class="fas fa-download"></i> Baixar PDF
-            </a>
+            {% else %}
+            <div class="text-center py-8">
+              <i class="fas fa-file-pdf text-gray-300 text-4xl mb-3"></i>
+              <p class="text-sm text-gray-500">Nenhuma certidão emitida ainda</p>
+            </div>
+            {% endif %}
           </div>
-          {% endfor %}
+          <div data-list-view class="hidden">
+            {% if certidoes %}
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Código</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Emissão</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Validade</th>
+                  <th class="text-right px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">PDF</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                {% for cert in certidoes %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                  <td class="px-4 py-3 text-sm font-semibold text-[#111418] dark:text-gray-200 font-mono">{{ cert.codigo_certidao|truncatechars:20 }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ cert.data_emissao|date:"d/m/Y" }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ cert.data_validade|date:"d/m/Y" }}</td>
+                  <td class="px-4 py-3 text-right">
+                    <a href="/media/{{ cert.arquivo_pdf }}" target="_blank" class="text-primary hover:underline text-sm font-medium"><i class="fas fa-download"></i> Baixar</a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-8">
+              <i class="fas fa-file-pdf text-gray-300 text-4xl mb-3"></i>
+              <p class="text-sm text-gray-500">Nenhuma certidão emitida ainda</p>
+            </div>
+            {% endif %}
+          </div>
+          {% if page_obj.has_other_pages %}
+          <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+            {% include 'includes/pagination.html' %}
+          </div>
+          {% endif %}
         </div>
-      {% if page_obj.has_other_pages %}
-      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-        {% include 'includes/pagination.html' %}
-      </div>
-      {% endif %}
-        {% else %}
-        <div class="text-center py-8">
-          <i class="fas fa-file-pdf text-gray-300 text-4xl mb-3"></i>
-          <p class="text-sm text-gray-500">Nenhuma certidão emitida ainda</p>
-        </div>
-        {% endif %}
       </div>
     </div>
 

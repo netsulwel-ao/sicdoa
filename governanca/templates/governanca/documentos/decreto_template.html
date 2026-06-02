@@ -1,0 +1,48 @@
+<div class="documento-gerado" style="font-family:Georgia,serif;max-width:800px;margin:0 auto;padding:40px;color:#1a1a1a;line-height:1.8;">
+  <div style="text-align:center;margin-bottom:40px;">
+    <p style="font-size:13px;text-transform:uppercase;letter-spacing:2px;color:#555;margin:0 0 5px 0;">República de Angola</p>
+    <p style="font-size:13px;text-transform:uppercase;letter-spacing:2px;color:#555;margin:0 0 20px 0;">Círculo de Despachantes Oficiosos de Angola</p>
+    <hr style="border:none;border-top:2px solid #1a1a1a;margin:0 0 20px 0;">
+    <h1 style="font-size:24px;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:1px;">Decreto N.º {{ hash }}</h1>
+    <p style="font-size:14px;color:#555;margin:0;">{{ assembleia.data_hora|date:"d \d\e F \d\e Y" }}</p>
+  </div>
+
+  <div style="margin-bottom:30px;">
+    <p style="font-size:14px;text-align:justify;">
+      <strong>O Presidente da Mesa da Assembleia Geral</strong> do Círculo de Despachantes Oficiosos de Angola, no uso das suas atribuições legais e estatutárias, faz saber que a <strong>{{ assembleia.titulo }}</strong>, realizada em {{ assembleia.data_hora|date:"d \d\e F \d\e Y" }} no {{ assembleia.local }}, com a presença de <strong>{{ total_presentes }} membros</strong>, deliberou aprovar o seguinte:
+    </p>
+  </div>
+
+  <div style="margin-bottom:30px;">
+    <h2 style="font-size:16px;border-bottom:1px solid #ddd;padding-bottom:5px;">Considerandos</h2>
+    {% for item in votos_por_pauta %}
+    <p style="font-size:14px;text-align:justify;">Considerando que a pauta "{{ item.pauta.titulo }}" foi submetida a votação e {{ item.resultado|default:"deliberada" }} pelos membros presentes;</p>
+    {% empty %}
+    <p style="font-size:14px;color:#888;">Nenhuma pauta foi registada.</p>
+    {% endfor %}
+  </div>
+
+  <div style="margin-bottom:30px;">
+    <h2 style="font-size:16px;border-bottom:1px solid #ddd;padding-bottom:5px;">Deliberações Aprovadas</h2>
+    {% for item in votos_por_pauta %}
+    <div style="margin-bottom:15px;padding-left:15px;border-left:3px solid #1a6b3c;">
+      <h3 style="font-size:15px;margin:0 0 5px 0;">Artigo {{ forloop.counter }}.º — {{ item.pauta.titulo }}</h3>
+      <p style="font-size:13px;color:#444;margin:0 0 5px 0;">{{ item.pauta.descricao|default:"Sem descrição." }}</p>
+      <p style="font-size:13px;">
+        Aprovado com {{ item.favor }} voto{{ item.favor|pluralize:"s" }} a favor,
+        {{ item.contra }} contra e {{ item.abstencao }} abstenção{{ item.abstencao|pluralize:"ões" }}.
+      </p>
+      {% if item.resultado %}
+      <p style="font-size:13px;font-weight:bold;">{{ item.resultado }}</p>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p style="font-size:14px;color:#888;">Nenhuma deliberação aprovada.</p>
+    {% endfor %}
+  </div>
+
+  <div style="margin-top:50px;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#777;">
+    <p>{{ assinatura }}</p>
+    <p>Hash de integridade: {{ hash }}</p>
+  </div>
+</div>

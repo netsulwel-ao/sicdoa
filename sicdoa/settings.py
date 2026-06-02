@@ -62,6 +62,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'rh.context_processors.cargos_mesa',
             ],
             'loaders': [
                 'django.template.loaders.filesystem.Loader',
@@ -290,5 +291,15 @@ LOGGING = {
         'django': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
         'django.db.backends': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
         'apscheduler': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+        'governanca': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
     },
 }
+
+# ── Startup warnings ───────────────────────────────────────────────────
+import logging
+_logger = logging.getLogger(__name__)
+if IS_PRODUCTION and not REDIS_ENABLED:
+    _logger.critical(
+        'REDIS_ENABLED=0 em produção! O WebSocket vai falhar com múltiplos workers. '
+        'Define REDIS_ENABLED=1 e configura REDIS_URL / REDIS_URL_CHANNELS.'
+    )

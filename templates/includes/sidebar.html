@@ -186,7 +186,7 @@
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'Governanca' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
       <i class="fas fa-vote-yea flex-shrink-0"></i>
-      <span class="text-sm font-medium flex-1 truncate">CDOA Governança Digital</span>
+      <span class="text-sm font-medium flex-1 truncate">CDOA Governança</span>
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'Governanca' %}rotate-180{% endif %}"></i>
     </button>
     <ul data-submenu="governanca" class="ml-4 space-y-0.5 {% if active != 'Governanca' %}hidden{% endif %}">
@@ -194,7 +194,7 @@
         <a href="{% url 'governanca_assembleias' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'assembleias' or sub == '' and active == 'Governanca' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-poll text-base"></i>Democracia Digital & Assembleias
+          <i class="fas fa-poll text-base"></i>Democracia Digital
         </a>
       </li>
       <li>
@@ -204,18 +204,27 @@
           <i class="fas fa-file-alt text-base"></i>Atas & Decretos
         </a>
       </li>
+      {% if is_membro_mesa %}
+      <li>
+        <a href="{% url 'governanca_secretario_documentos' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'secretario_docs' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-file-signature text-base"></i>Secretaria - Documentos
+        </a>
+      </li>
+      {% endif %}
       <li>
         <a href="{% url 'governanca_quotas_dashboard' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'quotas' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-wallet text-base"></i>Gestão Financeira de Quotas
+          <i class="fas fa-wallet text-base"></i>Gestão Financeira
         </a>
       </li>
       <li>
         <a href="{% url 'governanca_consultas' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'consulta' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-comments text-base"></i>Escuta Activa & Fórum
+          <i class="fas fa-comments text-base"></i>Escuta Activa
         </a>
       </li>
     </ul>

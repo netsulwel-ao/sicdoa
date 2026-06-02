@@ -20,6 +20,7 @@
           </p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
+          {% include 'includes/view-toggle.html' %}
           {% if papel == 'Administrador' %}
           <a href="{% url 'governanca_nova_assembleia' %}"
              class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 flex items-center gap-2.5 shrink-0 active:scale-[0.97]">
@@ -77,7 +78,8 @@
     </div>
 
     <!-- Lista -->
-    <div class="space-y-3" id="assembleias-lista">
+    <div class="space-y-3" id="assembleias-lista" data-view-container>
+      <div data-grid-view>
       {% if assembleias %}
       {% for a in assembleias %}
       <div class="group relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200">
@@ -158,12 +160,6 @@
       </div>
       {% endfor %}
 
-      {% if page_obj.has_other_pages %}
-      <div class="border-t border-gray-100 dark:border-gray-800 pt-4 mt-4">
-        {% include 'includes/pagination.html' %}
-      </div>
-      {% endif %}
-
       {% else %}
       <!-- Empty state -->
       <div class="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm py-20 px-6 text-center overflow-hidden">
@@ -184,6 +180,72 @@
           </a>
           {% endif %}
         </div>
+      </div>
+      {% endif %}
+      </div>
+
+      <div data-list-view class="hidden">
+      {% if assembleias %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-800/50 text-left">
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Título</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Data/Hora</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Local</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Pautas</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Presentes</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for a in assembleias %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" onclick="window.location='{% url 'governanca_detalhe' a.pk %}'">
+              <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ a.titulo }}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-0.5 text-xs font-medium rounded-full
+                  {% if a.status == 'Em Curso' %}bg-green-100 text-green-700
+                  {% elif a.status == 'Agendada' %}bg-blue-100 text-blue-700
+                  {% elif a.status == 'Concluida' %}bg-gray-100 text-gray-600
+                  {% else %}bg-red-100 text-red-700{% endif %}">
+                  {{ a.get_status_display }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ a.data_hora|date:"d/m/Y H:i" }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ a.local|default:"Sala Virtual CDOA" }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ a.total_pautas }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ a.presentes_count }}/{{ a.quorum_minimo|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="relative bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm py-20 px-6 text-center overflow-hidden">
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl"></div>
+        <div class="relative">
+          <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-blue-500/10 flex items-center justify-center mx-auto mb-5 shadow-sm">
+            <i class="fa-regular fa-calendar-circle-plus text-3xl text-primary/60"></i>
+          </div>
+          <h3 class="text-lg font-bold text-gray-800 dark:text-gray-200 mb-1.5">Nenhuma assembleia encontrada</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-7">
+            {% if status_atual %}Nenhuma assembleia com o filtro <strong class="text-gray-700 dark:text-gray-300">{{ status_atual }}</strong>.
+            {% else %}Ainda não foi criada nenhuma assembleia. Crie a primeira para começar.{% endif %}
+          </p>
+          {% if papel == 'Administrador' %}
+          <a href="{% url 'governanca_nova_assembleia' %}" class="inline-flex items-center gap-2.5 px-6 py-3 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 active:scale-[0.97]">
+            <i class="fa-regular fa-calendar-plus"></i> Criar Assembleia
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      </div>
+
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 pt-4 mt-4">
+        {% include 'includes/pagination.html' %}
       </div>
       {% endif %}
     </div>

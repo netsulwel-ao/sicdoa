@@ -36,10 +36,61 @@
 {% endif %}
 
 <!-- Tabela de registos -->
-<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden" data-view-container>
   {% if not registos %}
   <div class="p-12 text-center"><i class="fas fa-calendar-times text-gray-400 text-5xl mb-4 block"></i><h3 class="text-lg font-bold text-gray-700 dark:text-gray-300">Nenhum registo para este período</h3></div>
   {% else %}
+  <div class="flex items-center justify-between mb-4">
+    <p class="text-sm text-gray-500">{{ registos|length }} registo{{ registos|length|pluralize:"s" }}</p>
+    {% include 'includes/view-toggle.html' %}
+  </div>
+
+  <div data-grid-view class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for r in registos %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-gray-900 dark:text-white">{{ r.colaborador.nome }}</h3>
+          <span class="text-xs text-gray-500">{{ r.data|date:"d/m/Y" }}</span>
+        </div>
+        <div class="space-y-2 text-sm mb-4">
+          <div class="flex justify-between">
+            <span class="text-gray-500">Tipo</span>
+            <span>{% if r.tipo == 'Presenca' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Presença</span>
+              {% elif r.tipo == 'Falta' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Falta</span>
+              {% elif r.tipo == 'Falta_Justificada' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Falta Just.</span>
+              {% elif r.tipo == 'Ferias' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Férias</span>
+              {% elif r.tipo == 'Hora_Extra' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">H. Extra</span>
+              {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ r.get_tipo_display }}</span>{% endif %}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Entrada/Saída</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ r.hora_entrada|default:"—" }} / {{ r.hora_saida|default:"—" }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">H. Extra</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ r.horas_extras|default:"0" }}h</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
+          <div>
+            {% if r.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aprovado</span>
+            {% elif r.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
+            {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
+          </div>
+          {% if r.estado == 'Pendente' %}
+          <div class="flex gap-1">
+            <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
+            <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div data-list-view>
   <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-800/60"><tr>
     <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Colaborador</th>
     <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
@@ -84,6 +135,7 @@
     {% include 'includes/pagination.html' %}
   </div>
   {% endif %}
+  </div>
   {% endif %}
 </div>
 

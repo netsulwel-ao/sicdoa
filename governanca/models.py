@@ -19,14 +19,14 @@ class Assembleia(models.Model):
 
     titulo = models.CharField(max_length=300)
     descricao = models.TextField(blank=True, default='')
-    data_hora = models.DateTimeField()
+    data_hora = models.DateTimeField(db_index=True)
     data_encerramento = models.DateTimeField(null=True, blank=True)
     local = models.CharField(max_length=300, blank=True, default='Sala Virtual CDOA')
 
     link_streaming = models.CharField(max_length=500, blank=True, default='')
     livekit_room = models.CharField(max_length=100, blank=True, default='')
 
-    status = models.CharField(max_length=20, choices=STATUS, default='Agendada')
+    status = models.CharField(max_length=20, choices=STATUS, default='Agendada', db_index=True)
 
     quorum_minimo = models.IntegerField(default=0, help_text='Número mínimo de presentes para quórum')
     total_eleitores = models.IntegerField(default=0, help_text='Total de despachantes com direito a voto')
@@ -79,13 +79,25 @@ class Assembleia(models.Model):
                     'resultado': p.resultado_final,
                     'total_votos': p.total_votos,
                 }
-                for p in self.pautas.all()
+                for p in self.pautas.with_vote_counts()
             ],
             'presentes': self.presentes_count,
             'encerramento': str(self.data_encerramento or ''),
         }
         raw = json.dumps(dados, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(raw.encode()).hexdigest()
+
+
+class PautaVotacaoManager(models.Manager):
+    def with_vote_counts(self):
+        from django.db.models import Count, Q
+        return self.get_queryset().annotate(
+            total_votos_count=Count('votos'),
+            votos_favor_count=Count('votos', filter=Q(votos__opcao='Favor')),
+            votos_contra_count=Count('votos', filter=Q(votos__opcao='Contra')),
+            votos_abstencao_count=Count('votos', filter=Q(votos__opcao='Abstencao')),
+            votos_delegados_count=Count('votos', filter=Q(votos__em_delegacao=True)),
+        )
 
 
 class PautaVotacao(models.Model):
@@ -102,7 +114,7 @@ class PautaVotacao(models.Model):
         ('Aberta', 'Aberta'),
         ('Secreta', 'Secreta'),
     ], default='Aberta')
-    status = models.CharField(max_length=20, choices=STATUS, default='Pendente')
+    status = models.CharField(max_length=20, choices=STATUS, default='Pendente', db_index=True)
 
     resultado_final = models.CharField(max_length=50, blank=True, default='')
 
@@ -112,6 +124,8 @@ class PautaVotacao(models.Model):
     reaberta_em = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = PautaVotacaoManager()
 
     class Meta:
         db_table = 'governanca_pautas'
@@ -124,28 +138,45 @@ class PautaVotacao(models.Model):
 
     @property
     def total_votos(self):
+        if hasattr(self, 'total_votos_count'):
+            return self.total_votos_count
         return self.votos.count()
 
     @property
     def votos_favor(self):
+        if hasattr(self, 'votos_favor_count'):
+            return self.votos_favor_count
         return self.votos.filter(opcao='Favor').count()
 
     @property
     def votos_contra(self):
+        if hasattr(self, 'votos_contra_count'):
+            return self.votos_contra_count
         return self.votos.filter(opcao='Contra').count()
 
     @property
     def votos_abstencao(self):
+        if hasattr(self, 'votos_abstencao_count'):
+            return self.votos_abstencao_count
         return self.votos.filter(opcao='Abstencao').count()
 
     @property
     def votos_delegados(self):
+        if hasattr(self, 'votos_delegados_count'):
+            return self.votos_delegados_count
         return self.votos.filter(em_delegacao=True).count()
 
     def apurar_resultado(self):
         if self.total_votos == 0:
             self.resultado_final = 'Sem votos'
-        elif self.votos_favor > self.votos_contra:
+            self.save()
+            return
+        quorum_atingido = self.assembleia.presentes_count >= self.assembleia.quorum_minimo
+        if not quorum_atingido:
+            self.resultado_final = 'Quórum não atingido'
+            self.save()
+            return
+        if self.votos_favor > self.votos_contra:
             self.resultado_final = 'Aprovada'
         elif self.votos_contra > self.votos_favor:
             self.resultado_final = 'Rejeitada'
@@ -181,7 +212,7 @@ class Procuracao(models.Model):
     outorgante = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='procuracao_outorgante')
     outorgado = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='procuracao_outorgado')
     codigo_otp = models.CharField(max_length=64, blank=True, default='')
-    status = models.CharField(max_length=20, choices=STATUS, default='Pendente')
+    status = models.CharField(max_length=20, choices=STATUS, default='Pendente', db_index=True)
     confirmado_em = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -279,7 +310,7 @@ class AtaDigital(models.Model):
     assinado_presidente_em = models.DateTimeField(null=True, blank=True)
     assinatura_hash_secretario = models.CharField(max_length=64, blank=True, default='')
     assinado_secretario_em = models.DateTimeField(null=True, blank=True)
-    status_assinatura = models.CharField(max_length=25, choices=STATUS_ASSINATURA, default='Pendente')
+    status_assinatura = models.CharField(max_length=25, choices=STATUS_ASSINATURA, default='Pendente', db_index=True)
     publicado_em = models.DateTimeField(null=True, blank=True)
     arquivo_pdf = models.CharField(max_length=500, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -320,11 +351,11 @@ class Notificacao(models.Model):
         ('ata_assinada', 'Ata Assinada'),
     ]
     usuario = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='notificacoes')
-    tipo = models.CharField(max_length=30, choices=TIPOS)
+    tipo = models.CharField(max_length=30, choices=TIPOS, db_index=True)
     titulo = models.CharField(max_length=300)
     mensagem = models.TextField(blank=True, default='')
     link = models.CharField(max_length=500, blank=True, default='')
-    lida = models.BooleanField(default=False)
+    lida = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -341,14 +372,16 @@ class DocumentoAssembleia(models.Model):
     TIPOS = [
         ('ata', 'Ata'),
         ('relatorio', 'Relatório'),
+        ('decreto', 'Decreto'),
         ('outro', 'Outro'),
     ]
     assembleia = models.ForeignKey(Assembleia, on_delete=models.CASCADE, related_name='documentos')
     tipo = models.CharField(max_length=20, choices=TIPOS, default='ata')
     titulo = models.CharField(max_length=300)
     descricao = models.TextField(blank=True, default='')
-    arquivo = models.FileField(upload_to='documentos_assembleia/%Y/%m/', max_length=500)
-    publicado = models.BooleanField(default=False)
+    conteudo = models.TextField(blank=True, default='')
+    arquivo = models.FileField(upload_to='documentos_assembleia/%Y/%m/', max_length=500, blank=True, null=True)
+    publicado = models.BooleanField(default=False, db_index=True)
     publicado_em = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -403,6 +436,9 @@ class MensagemChat(models.Model):
     class Meta:
         db_table = 'governanca_chat'
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['assembleia', '-created_at'], name='idx_chat_assembleia_data'),
+        ]
         verbose_name = 'Mensagem de Chat'
         verbose_name_plural = 'Mensagens de Chat'
 
@@ -428,7 +464,7 @@ class ConsultaPublica(models.Model):
     descricao = models.TextField(blank=True, default='')
     documento = models.FileField(upload_to='consultas_publicas/%Y/%m/', max_length=500, blank=True, default='')
     prazo_fim = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS, default='Rascunho')
+    status = models.CharField(max_length=20, choices=STATUS, default='Rascunho', db_index=True)
     criado_por = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='consultas_criadas')
     publicado_em = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -537,9 +573,39 @@ class RelatorioConsulta(models.Model):
 # Submódulo: Gestão Financeira de Quotas
 # ═══════════════════════════════════════════════════════════════════════════════
 
+class CategoriaMembro(models.Model):
+    nome = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    isento = models.BooleanField(default=False)
+    ordem = models.IntegerField(default=0)
+    class Meta:
+        db_table = 'governanca_categorias_membro'
+        ordering = ['ordem', 'nome']
+        verbose_name = 'Categoria de Membro'
+        verbose_name_plural = 'Categorias de Membro'
+    def __str__(self):
+        return self.nome
+
+
+class TipoQuota(models.Model):
+    nome = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    recorrente = models.BooleanField(default=False)
+    dias_intervalo = models.IntegerField(null=True, blank=True)
+    class Meta:
+        db_table = 'governanca_tipos_quota'
+        ordering = ['pk']
+        verbose_name = 'Tipo de Quota'
+        verbose_name_plural = 'Tipos de Quota'
+    def __str__(self):
+        return self.nome
+
+
 class QuotaConfig(models.Model):
+    categoria = models.ForeignKey(CategoriaMembro, on_delete=models.SET_NULL, null=True, blank=True)
+    tipo = models.ForeignKey(TipoQuota, on_delete=models.SET_NULL, null=True, blank=True)
     ano = models.IntegerField()
-    mes = models.IntegerField()
+    mes = models.IntegerField(null=True, blank=True)
     valor = models.DecimalField(max_digits=12, decimal_places=2)
     data_vencimento = models.DateField()
     multa_percentual = models.DecimalField(max_digits=5, decimal_places=2, default=0.50, help_text='Percentagem de multa ao dia sobre o valor da quota (ex: 0.50 = 0.5%)')
@@ -548,32 +614,38 @@ class QuotaConfig(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     class Meta:
         db_table = 'governanca_quota_config'
-        unique_together = ('ano', 'mes')
         verbose_name = 'Configuração de Quota'
         verbose_name_plural = 'Configurações de Quotas'
     def __str__(self):
-        return f'{self.mes:02d}/{self.ano} — Kz {self.valor}'
+        label = f'{self.tipo}' if self.tipo else 'Mensal'
+        cat = f' [{self.categoria}]' if self.categoria else ''
+        return f'{label} {self.mes:02d}/{self.ano}{cat} — Kz {self.valor}' if self.mes else f'{label} {self.ano}{cat} — Kz {self.valor}'
 
 
 class QuotaGerada(models.Model):
     STATUS = [('Pendente','Pendente'),('Paga','Paga'),('Atrasada','Atrasada'),('Cancelada','Cancelada')]
     despachante = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='quotas')
-    ano = models.IntegerField(); mes = models.IntegerField()
+    tipo = models.ForeignKey(TipoQuota, on_delete=models.SET_NULL, null=True, blank=True)
+    ano = models.IntegerField(null=True, blank=True, db_index=True)
+    mes = models.IntegerField(null=True, blank=True, db_index=True)
+    periodo_inicio = models.DateField(null=True, blank=True)
+    periodo_fim = models.DateField(null=True, blank=True)
+    descricao = models.CharField(max_length=300, blank=True, default='')
     valor = models.DecimalField(max_digits=12, decimal_places=2)
     data_vencimento = models.DateField()
     data_pagamento = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=15, choices=STATUS, default='Pendente')
+    status = models.CharField(max_length=15, choices=STATUS, default='Pendente', db_index=True)
     fatura_uuid = models.CharField(max_length=36, unique=True, default=uuid.uuid4)
     observacoes = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
         db_table = 'governanca_quotas_geradas'
-        unique_together = ('despachante', 'ano', 'mes')
         ordering = ['-ano', '-mes']
         verbose_name = 'Quota Gerada'
         verbose_name_plural = 'Quotas Geradas'
     def __str__(self):
-        return f'{self.despachante.nome} — {self.mes:02d}/{self.ano} — {self.status}'
+        t = f'{self.tipo}' if self.tipo else 'Mensal'
+        return f'{self.despachante.nome} — {t} {self.mes:02d}/{self.ano} — {self.status}'
 
 
 class PagamentoQuota(models.Model):
@@ -587,7 +659,7 @@ class PagamentoQuota(models.Model):
     codigo_transferencia = models.CharField(max_length=100, blank=True, default='')
     iban_origem = models.CharField(max_length=50, blank=True, default='')
     data_pagamento = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=25, choices=STATUS, default='Pendente Confirmacao')
+    status = models.CharField(max_length=25, choices=STATUS, default='Pendente Confirmacao', db_index=True)
     confirmado_por = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='pagamentos_confirmados')
     confirmado_em = models.DateTimeField(null=True, blank=True)
     observacoes = models.TextField(blank=True, default='')
@@ -603,7 +675,7 @@ class PagamentoQuota(models.Model):
 class EstadoFinanceiro(models.Model):
     ESTADOS = [('Regular','Regular'),('Irregular','Irregular'),('Suspenso','Suspenso')]
     despachante = models.OneToOneField('users.Usuario', on_delete=models.CASCADE, related_name='estado_financeiro')
-    estado = models.CharField(max_length=15, choices=ESTADOS, default='Regular')
+    estado = models.CharField(max_length=15, choices=ESTADOS, default='Regular', db_index=True)
     ultima_atualizacao = models.DateTimeField(auto_now=True)
     observacoes = models.TextField(blank=True, default='')
     class Meta:
@@ -612,6 +684,23 @@ class EstadoFinanceiro(models.Model):
         verbose_name_plural = 'Estados Financeiros'
     def __str__(self):
         return f'{self.despachante.nome} — {self.estado}'
+
+
+class IsencaoMembro(models.Model):
+    despachante = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='isencoes')
+    tipo_quota = models.ForeignKey(TipoQuota, on_delete=models.SET_NULL, null=True, blank=True)
+    data_inicio = models.DateField()
+    data_fim = models.DateField(null=True, blank=True)
+    motivo = models.TextField(blank=True, default='')
+    aprovado_por = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='isencoes_aprovadas')
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        db_table = 'governanca_isencoes_membro'
+        verbose_name = 'Isenção de Membro'
+        verbose_name_plural = 'Isenções de Membro'
+    def __str__(self):
+        t = f' ({self.tipo_quota})' if self.tipo_quota else ''
+        return f'{self.despachante.nome}{t} — {self.data_inicio} a {self.data_fim or "indeterminado"}'
 
 
 class CertidaoRegularidade(models.Model):
@@ -638,7 +727,7 @@ class CarteiraProfissional(models.Model):
     data_emissao = models.DateField(); data_validade = models.DateField()
     data_renovacao = models.DateField(null=True, blank=True)
     arquivo_pdf = models.CharField(max_length=500, blank=True, default='')
-    status = models.CharField(max_length=15, choices=STATUS, default='Activa')
+    status = models.CharField(max_length=15, choices=STATUS, default='Activa', db_index=True)
     class Meta:
         db_table = 'governanca_carteiras_profissionais'
         verbose_name = 'Carteira Profissional'
@@ -658,7 +747,7 @@ class Convocatoria(models.Model):
     documento = models.FileField(upload_to='convocatorias/%Y/%m/', max_length=500, blank=True, default='')
     data_envio = models.DateTimeField(auto_now_add=True)
     prazo_confirmacao = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS, default='Rascunho')
+    status = models.CharField(max_length=20, choices=STATUS, default='Rascunho', db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

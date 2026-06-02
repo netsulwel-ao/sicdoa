@@ -11,13 +11,16 @@
         <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Consultas Públicas</h1>
         <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">{{ page_obj.paginator.count }} consulta{{ page_obj.paginator.count|pluralize:"s" }}</p>
       </div>
-      {% if papel == 'Administrador' %}
-      <a href="{% url 'governanca_consulta_criar' %}"
-         class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shrink-0">
-        <i class="fas fa-plus text-base"></i>
-        Nova Consulta
-      </a>
-      {% endif %}
+      <div class="flex items-center gap-2">
+        {% include 'includes/view-toggle.html' %}
+        {% if papel == 'Administrador' or is_secretario_mesa %}
+        <a href="{% url 'governanca_consulta_criar' %}"
+           class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shrink-0">
+          <i class="fas fa-plus text-base"></i>
+          Nova Consulta
+        </a>
+        {% endif %}
+      </div>
     </div>
 
     <div class="flex gap-2 mb-6 flex-wrap">
@@ -35,7 +38,8 @@
       {% endfor %}
     </div>
 
-    <div class="space-y-3" id="consultas-lista">
+    <div class="space-y-3" id="consultas-lista" data-view-container>
+      <div data-grid-view>
       {% if page_obj.object_list %}
       {% for c in page_obj %}
       <a href="{% url 'governanca_consulta_detalhe' c.id %}"
@@ -94,11 +98,69 @@
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
         <i class="fas fa-bullhorn text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
         <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma consulta pública encontrada</p>
-        {% if papel == 'Administrador' %}
+        {% if papel == 'Administrador' or is_secretario_mesa %}
         <a href="{% url 'governanca_consulta_criar' %}" class="mt-4 inline-flex px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
           Criar primeira consulta
         </a>
         {% endif %}
+      </div>
+      {% endif %}
+      </div>
+
+      <div data-list-view class="hidden">
+      {% if page_obj.object_list %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-800/50 text-left">
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Título</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Data</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Prazo</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Autor</th>
+              <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Artigos</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for c in page_obj %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" onclick="window.location='{% url 'governanca_consulta_detalhe' c.id %}'">
+              <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ c.titulo }}</td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-0.5 text-xs font-medium rounded-full
+                  {% if c.status == 'Rascunho' %}bg-gray-100 text-gray-600
+                  {% elif c.status == 'Publicada' %}bg-blue-100 text-blue-700
+                  {% elif c.status == 'EmVotacao' %}bg-purple-100 text-purple-700
+                  {% elif c.status == 'Encerrada' %}bg-amber-100 text-amber-700
+                  {% elif c.status == 'Aprovada' %}bg-green-100 text-green-700
+                  {% else %}bg-red-100 text-red-700{% endif %}">
+                  {{ c.get_status_display }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.created_at|date:"d/m/Y" }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.prazo_fim|date:"d/m/Y H:i"|default:"—" }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ c.criado_por.nome }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ c.artigos.count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
+        <i class="fas fa-bullhorn text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma consulta pública encontrada</p>
+        {% if papel == 'Administrador' or is_secretario_mesa %}
+        <a href="{% url 'governanca_consulta_criar' %}" class="mt-4 inline-flex px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
+          Criar primeira consulta
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+      </div>
+
+      {% if page_obj.has_other_pages %}
+      <div class="border-t border-gray-100 dark:border-gray-800 pt-3">
+        {% include 'includes/pagination.html' %}
       </div>
       {% endif %}
     </div>

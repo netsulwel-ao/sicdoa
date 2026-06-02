@@ -172,4 +172,14 @@ urlpatterns = [
 
     # Logs
     path('assembleia/<int:pk>/logs/', views.assembleia_logs, name='governanca_logs'),
+
+    # Secretário - Gestão de Documentos
+    path('secretario/', views.secretario_documentos, name='governanca_secretario_documentos'),
+    path('api/secretario/assembleias/', views.api_secretario_assembleias, name='governanca_api_secretario_assembleias'),
+
+    # API: Gerar documentos (atas, relatórios, decretos)
+    path('api/gerar-documento/', views.api_gerar_documento, name='governanca_api_gerar_documento'),
+
+    # Visualizar documento gerado
+    path('documento/<int:pk>/visualizar/', views.visualizar_documento, name='governanca_visualizar_documento'),
 ]

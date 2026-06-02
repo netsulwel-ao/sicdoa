@@ -41,7 +41,7 @@
       </a>
     </div>
     {% else %}
-    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden" data-view-container>
       <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3">
         <div class="relative flex-1 max-w-sm">
           <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
@@ -49,8 +49,65 @@
                  class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
         </div>
         <span class="text-sm text-gray-500">{{ colaboradores|length }} colaborador{{ colaboradores|length|pluralize:"es" }}</span>
+        {% include 'includes/view-toggle.html' %}
       </div>
-      <div class="overflow-x-auto">
+
+      <div data-grid-view class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-5">
+        {% for f in colaboradores %}
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
+          <div class="p-5">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-user text-primary text-xl"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold text-gray-900 dark:text-white truncate">{{ f.nome }}</p>
+                {% if f.bi %}<p class="text-xs text-gray-500">BI: {{ f.bi }}</p>{% endif %}
+              </div>
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-500">Cargo</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ f.cargo_label }}</span>
+              </div>
+              {% if f.departamento %}
+              <div class="flex justify-between">
+                <span class="text-gray-500">Depart.</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ f.departamento }}</span>
+              </div>
+              {% endif %}
+              <div class="flex justify-between">
+                <span class="text-gray-500">Contacto</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ f.telefone|default:"—" }}</span>
+              </div>
+              {% if f.email %}<div class="flex justify-between"><span class="text-gray-500">Email</span><span class="font-medium text-gray-900 dark:text-white truncate">{{ f.email }}</span></div>{% endif %}
+              <div class="flex justify-between">
+                <span class="text-gray-500">Admissão</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ f.data_admissao|date:"d/m/Y"|default:"—" }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-500">Salário</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{% if f.salario_efetivo %}{{ f.salario_efetivo|floatformat:2 }} KZ{% else %}—{% endif %}</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+              <div>
+                {% if f.estado == 'Ativo' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> Ativo</span>
+                {% elif f.estado == 'Inativo' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span> Inativo</span>
+                {% elif f.estado == 'Suspenso' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700"><span class="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"></span> Suspenso</span>
+                {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span> {{ f.estado }}</span>{% endif %}
+              </div>
+              <a href="{% url 'rh_colaborador_editar' f.pk %}" class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all" title="Editar">
+                <i class="fas fa-edit text-lg"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div data-list-view>
+        <div class="overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50 dark:bg-gray-800/60">
             <tr>
@@ -137,6 +194,7 @@
           </tbody>
         </table>
       </div>
+    </div>
       {% if page_obj.has_other_pages %}
       <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
         {% include 'includes/pagination.html' %}

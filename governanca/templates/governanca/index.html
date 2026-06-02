@@ -8,24 +8,15 @@
 
     {# ── Cabeçalho ─────────────────────────────────────────────────────── #}
     <div class="mb-8">
-      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl lg:text-4xl font-black leading-tight">
-        CDOA Governança Digital
-      </h1>
-      <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm md:text-base max-w-3xl">
-        O módulo CDOA Governança Digital é o coração político e administrativo do portal. Ele foi desenhado para digitalizar a relação do Despachante Oficial com a Câmara, eliminando a necessidade de deslocações físicas para votações, regularização de status ou prova de vida profissional. O módulo transforma o portal numa ferramenta de cidadania corporativa e compliance associativo.
-      </p>
+      <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl lg:text-4xl font-black leading-tight">
+          CDOA Governança Digital
+        </h1>
+      </div>
+        {% include 'includes/view-toggle.html' %}
+      </div>
     </div>
-
-    {# ── Banner notificações ───────────────────────────────────────────── #}
-    {% if notificacoes_nao_lidas > 0 %}
-    <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center gap-3">
-      <i class="fas fa-bell text-blue-600 dark:text-blue-400"></i>
-      <span class="text-sm text-blue-800 dark:text-blue-200 font-medium">
-        {{ notificacoes_nao_lidas }} notificaç{{ notificacoes_nao_lidas|pluralize:"ão,ções" }} não lida{{ notificacoes_nao_lidas|pluralize:"s" }}
-      </span>
-      <a href="{% url 'governanca_notificacoes' %}" class="ml-auto text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline">Ver</a>
-    </div>
-    {% endif %}
 
     {# ── Stats Rápidos ─────────────────────────────────────────────────── #}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -44,8 +35,8 @@
       </div>
       <div class="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
         <div class="flex items-center gap-3">
-          <div class="p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg"><i class="fas fa-file-alt text-amber-600 dark:text-amber-400 text-xl"></i></div>
-          <div><p class="text-xl font-bold text-[#111418] dark:text-gray-200">{{ atas_count }}</p><p class="text-xs text-gray-500 dark:text-gray-400">Atas Publicadas</p></div>
+          <div class="p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg"><i class="fas fa-archive text-amber-600 dark:text-amber-400 text-xl"></i></div>
+          <div><p class="text-xl font-bold text-[#111418] dark:text-gray-200">{{ total_docs_publicados }}</p><p class="text-xs text-gray-500 dark:text-gray-400">Documentos Publicados</p></div>
         </div>
         <a href="{% url 'governanca_atas' %}" class="mt-3 block text-xs text-primary font-medium hover:underline">Repositório <i class="fas fa-arrow-right text-xs"></i></a>
       </div>
@@ -66,158 +57,280 @@
       </div>
     </div>
 
-    {# ── Objetivos Estratégicos ────────────────────────────────────────── #}
-    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 mb-6">
-      <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 mb-3 flex items-center gap-2">
-        <i class="fas fa-bullseye text-primary"></i> Objetivos Estratégicos
-      </h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400">
-        <div class="flex gap-3">
-          <span class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</span>
-          <div>
-            <strong class="text-gray-900 dark:text-gray-100">Inovação</strong><br>
-            Votação digital segura para Assembleias Gerais com verificação de identidade e auditoria de quórum em tempo real.
-          </div>
-        </div>
-        <div class="flex gap-3">
-          <span class="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</span>
-          <div>
-            <strong class="text-gray-900 dark:text-gray-100">Indispensabilidade</strong><br>
-            Nenhum despachante pode exercer sem a Cédula Profissional regularizada. O módulo automatiza o aviso, pagamento de quotas e emissão da certidão de regularidade em segundos.
-          </div>
-        </div>
-        <div class="flex gap-3">
-          <span class="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</span>
-          <div>
-            <strong class="text-gray-900 dark:text-gray-100">Transparência</strong><br>
-            Centralização de atas, orçamentos e deliberações da Direção Nacional com acesso indexado e pesquisável.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {# ── Três Pilares ─────────────────────────────────────────────────── #}
-    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Pilares do Módulo</h2>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
-
-      {# Pilar 1 — Democracia Digital #}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div class="h-1.5 bg-primary"></div>
-        <div class="p-5">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><i class="fas fa-vote-yea text-primary text-lg"></i></div>
-            <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">Democracia Digital &amp; Assembleias Gerais</h3>
-          </div>
-          <ul class="space-y-2.5 text-xs text-gray-600 dark:text-gray-400">
-            <li class="flex gap-2"><i class="fas fa-video text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Transmissão e Plenário Virtual</strong> — Sala de streaming integrada diretamente no portal para assistência em tempo real das Assembleias Gerais (Ordinárias, Extraordinárias e Eleitorais).</span></li>
-            <li class="flex gap-2"><i class="fas fa-users text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Controlo de Quórum Eletrónico</strong> — Registo automático de presença e validação de quórum legal (conforme os estatutos da CDOA) assim que o despachante entra na sessão.</span></li>
-            <li class="flex gap-2"><i class="fas fa-lock text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Votação Criptografada em Tempo Real</strong> — Sistema de votação nominal ou secreta (com anonimato garantido por criptografia) para aprovação de orçamentos, relatórios de contas ou novos regulamentos.</span></li>
-            <li class="flex gap-2"><i class="fas fa-file-signature text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Central de Procurações (Delegação de Voto)</strong> — Permite que um despachante impossibilitado de comparecer delegue legalmente o seu direito de voto a outro colega. O processo é assinado digitalmente no portal e validado via código OTP (SMS).</span></li>
-            <li class="flex gap-2"><i class="fas fa-check-double text-primary shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Manifesto de Integridade</strong> — Geração de um relatório matemático auditável no final de cada votação para provar a transparência dos resultados à Mesa da Assembleia.</span></li>
-          </ul>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <a href="{% url 'governanca_assembleias' %}" class="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-lg hover:bg-primary/20 transition-colors">Assembleias</a>
-            <a href="{% url 'governanca_atas' %}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Atas</a>
-          </div>
-        </div>
-      </div>
-
-      {# Pilar 2 — Gestão Financeira #}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div class="h-1.5 bg-green-500"></div>
-        <div class="p-5">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center"><i class="fas fa-wallet text-green-600 dark:text-green-400 text-lg"></i></div>
-            <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">Gestão Financeira de Quotas &amp; Carteira Profissional</h3>
-          </div>
-          <ul class="space-y-2.5 text-xs text-gray-600 dark:text-gray-400">
-            <li class="flex gap-2"><i class="fas fa-bell text-green-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Faturação e Alertas Automáticos</strong> — Geração mensal automática de quotas com notificações diretas por SMS e Email para o telemóvel do despachante.</span></li>
-            <li class="flex gap-2"><i class="fas fa-credit-card text-green-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Pagamento Multicaixa e GPO</strong> — Integração de gateway de pagamento para liquidação de quotas por Referência Bancária, Aplicações Multicaixa ou GPO (Gestão de Pagamentos Eletrónicos).</span></li>
-            <li class="flex gap-2"><i class="fas fa-certificate text-green-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Emissão Instantânea de Certidões</strong> — Emissão automática da Guia de Regularidade Financeira e declarações de conformidade em segundos, eliminando as deslocações físicas à sede da CDOA.</span></li>
-            <li class="flex gap-2"><i class="fas fa-toggle-on text-green-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Desativação e Reabilitação de Status</strong> — Mudança em tempo real do estado do membro (REGULAR, IRREGULAR, SUSPENSO) com base no histórico financeiro, impactando imediatamente as suas permissões no portal.</span></li>
-          </ul>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <a href="{% url 'governanca_quotas_dashboard' %}" class="px-3 py-1.5 bg-green-600/10 text-green-700 dark:text-green-400 text-xs font-medium rounded-lg hover:bg-green-600/20 transition-colors">Dashboard Financeiro</a>
-            <a href="{% url 'governanca_quotas_faturas' %}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Faturas</a>
-          </div>
-        </div>
-      </div>
-
-      {# Pilar 3 — Escuta Activa #}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div class="h-1.5 bg-amber-500"></div>
-        <div class="p-5">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center"><i class="fas fa-comments text-amber-600 dark:text-amber-400 text-lg"></i></div>
-            <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">Escuta Activa, Fórum &amp; Transparência</h3>
-          </div>
-          <ul class="space-y-2.5 text-xs text-gray-600 dark:text-gray-400">
-            <li class="flex gap-2"><i class="fas fa-comments text-amber-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Fórum de Consulta Pública</strong> — Espaço onde a Direção Nacional publica minutas de novas leis ou alterações na Tabela de Honorários, permitindo que a classe comente, sugira e vote artigo por artigo antes da aprovação final.</span></li>
-            <li class="flex gap-2"><i class="fas fa-archive text-amber-600 shrink-0 mt-0.5"></i><span><strong class="text-gray-900 dark:text-gray-100">Repositório Digital de Atas e Decretos</strong> — Arquivo histórico, indexado e com motor de busca de todas as decisões, atas de assembleias e comunicados emitidos pela Câmara, todos autenticados com Assinatura Digital Qualificada.</span></li>
-          </ul>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <a href="{% url 'governanca_atas' %}" class="px-3 py-1.5 bg-amber-600/10 text-amber-700 dark:text-amber-400 text-xs font-medium rounded-lg hover:bg-amber-600/20 transition-colors">Repositório de Atas</a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {# ── Próximas Assembleias ─────────────────────────────────────────── #}
-    {% if proximas %}
-    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm mb-6">
-      <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+    {# ── Repositório Digital de Atas e Decretos ────────────────────────── #}
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm mb-8">
+      <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between flex-wrap gap-2">
         <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
-          <i class="fas fa-calendar-alt text-primary"></i> Próximas Assembleias
+          <i class="fas fa-archive text-amber-500"></i> Repositório Digital de Atas e Decretos
         </h2>
-        <a href="{% url 'governanca_assembleias' %}" class="text-xs text-primary font-medium hover:underline">Ver todas</a>
+        <div class="flex items-center gap-2">
+          {% if is_membro_mesa or papel == 'Administrador' %}
+          <button onclick="document.getElementById('gerarDocumentoModal').classList.remove('hidden')" class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-1.5">
+            <i class="fas fa-plus-circle text-xs"></i> Gerar Documento
+          </button>
+          {% endif %}
+          {% if total_docs_publicados %}
+          <a href="{% url 'governanca_atas' %}" class="text-xs text-primary font-medium hover:underline">Ver todos os {{ total_docs_publicados }} documentos <i class="fas fa-arrow-right text-xs"></i></a>
+          {% endif %}
+        </div>
       </div>
+      {% if documentos_recentes %}
       <div class="divide-y divide-gray-100 dark:divide-gray-800">
-        {% for a in proximas %}
-        <a href="{% url 'governanca_detalhe' a.pk %}" class="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-          <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <i class="fas fa-calendar-alt text-primary"></i>
+        {% for doc in documentos_recentes %}
+        <div class="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+            {% if doc.tipo == 'ata' %}bg-blue-100 dark:bg-blue-900/30
+            {% elif doc.tipo == 'decreto' %}bg-purple-100 dark:bg-purple-900/30
+            {% elif doc.tipo == 'relatorio' %}bg-green-100 dark:bg-green-900/30
+            {% else %}bg-gray-100 dark:bg-gray-800{% endif %}">
+            <i class="fas {% if doc.tipo == 'ata' %}fa-file-alt text-blue-600 dark:text-blue-400
+              {% elif doc.tipo == 'decreto' %}fa-gavel text-purple-600 dark:text-purple-400
+              {% elif doc.tipo == 'relatorio' %}fa-chart-bar text-green-600 dark:text-green-400
+              {% else %}fa-file text-gray-500{% endif %} text-lg"></i>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ a.titulo }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ a.data_hora|date:"d/m/Y H:i" }}</p>
+            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ doc.titulo }}</p>
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span class="text-xs px-1.5 py-0.5 rounded-full font-medium
+                {% if doc.tipo == 'ata' %}bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400
+                {% elif doc.tipo == 'decreto' %}bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400
+                {% elif doc.tipo == 'relatorio' %}bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400
+                {% else %}bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+                {{ doc.get_tipo_display }}
+              </span>
+              <span class="text-xs text-gray-400">{{ doc.assembleia.titulo|truncatechars:25 }}</span>
+              {% if doc.publicado_em %}
+              <span class="text-xs text-gray-400">{{ doc.publicado_em|date:"d/m/Y" }}</span>
+              {% endif %}
+            </div>
           </div>
-          <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shrink-0">
-            {{ a.total_pautas }} pauta{{ a.total_pautas|pluralize:"s" }}
-          </span>
-        </a>
+          {% if doc.arquivo %}
+          <a href="{{ doc.arquivo.url }}" target="_blank"
+             class="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1 shrink-0">
+            <i class="fas fa-download text-xs"></i> Descarregar
+          </a>
+          {% elif doc.conteudo %}
+          <a href="{% url 'governanca_visualizar_documento' doc.pk %}" target="_blank"
+             class="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1 shrink-0">
+            <i class="fas fa-eye text-xs"></i> Visualizar
+          </a>
+          {% endif %}
+        </div>
         {% endfor %}
       </div>
+      {% else %}
+      <div class="p-8 text-center">
+        <i class="fas fa-archive text-3xl text-gray-300 dark:text-gray-600 mb-3"></i>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Nenhum documento publicado ainda.</p>
+        <p class="text-xs text-gray-400 mt-1">Os documentos (actas, decretos, relatórios) aparecerão aqui assim que o Secretário os publicar.</p>
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
 
-    {# ── Assembleias em Curso ─────────────────────────────────────────── #}
-    {% if assembleias_em_curso %}
-    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
-      <div class="p-5 border-b border-gray-200 dark:border-gray-800">
-        <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
-          <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Assembleias em Curso
-        </h2>
+    <div data-view-container class="space-y-6">
+      <div data-grid-view class="space-y-6">
+        {# ── Próximas Assembleias ─────────────────────────────────────────── #}
+        {% if proximas %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+            <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+              <i class="fas fa-calendar-alt text-primary"></i> Próximas Assembleias
+            </h2>
+            <a href="{% url 'governanca_assembleias' %}" class="text-xs text-primary font-medium hover:underline">Ver todas</a>
+          </div>
+          <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for a in proximas %}
+            <a href="{% url 'governanca_detalhe' a.pk %}" class="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+              <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <i class="fas fa-calendar-alt text-primary"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ a.titulo }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ a.data_hora|date:"d/m/Y H:i" }}</p>
+              </div>
+              <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shrink-0">
+                {{ a.total_pautas }} pauta{{ a.total_pautas|pluralize:"s" }}
+              </span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {# ── Assembleias em Curso ─────────────────────────────────────────── #}
+        {% if assembleias_em_curso %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div class="p-5 border-b border-gray-200 dark:border-gray-800">
+            <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+              <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Assembleias em Curso
+            </h2>
+          </div>
+          <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for a in assembleias_em_curso %}
+            <a href="{% url 'governanca_sala' a.pk %}" class="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+              <div class="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center shrink-0">
+                <i class="fas fa-play-circle text-green-600 dark:text-green-400"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ a.titulo }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ a.presentes_count }} presente{{ a.presentes_count|pluralize:"s" }}</p>
+              </div>
+              <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 animate-pulse">
+                Ao Vivo
+              </span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
-      <div class="divide-y divide-gray-100 dark:divide-gray-800">
-        {% for a in assembleias_em_curso %}
-        <a href="{% url 'governanca_sala' a.pk %}" class="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-          <div class="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center shrink-0">
-            <i class="fas fa-play-circle text-green-600 dark:text-green-400"></i>
+
+      <div data-list-view class="hidden space-y-6">
+        {# ── Próximas Assembleias (table) ─────────────────────────────────── #}
+        {% if proximas %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+            <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+              <i class="fas fa-calendar-alt text-primary"></i> Próximas Assembleias
+            </h2>
+            <a href="{% url 'governanca_assembleias' %}" class="text-xs text-primary font-medium hover:underline">Ver todas</a>
           </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ a.titulo }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ a.presentes_count }} presente{{ a.presentes_count|pluralize:"s" }}</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Título</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Data</th>
+                  <th class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Pautas</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                {% for a in proximas %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" onclick="window.location='{% url 'governanca_detalhe' a.pk %}'">
+                  <td class="px-4 py-3 font-semibold text-[#111418] dark:text-gray-200">{{ a.titulo }}</td>
+                  <td class="px-4 py-3 text-gray-500">{{ a.data_hora|date:"d/m/Y H:i" }}</td>
+                  <td class="px-4 py-3 text-center"><span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ a.total_pautas }}</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
-          <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 animate-pulse">
-            Ao Vivo
-          </span>
-        </a>
-        {% endfor %}
+        </div>
+        {% endif %}
+
+        {# ── Assembleias em Curso (table) ─────────────────────────────────── #}
+        {% if assembleias_em_curso %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <div class="p-5 border-b border-gray-200 dark:border-gray-800">
+            <h2 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+              <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Assembleias em Curso
+            </h2>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Título</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Presentes</th>
+                  <th class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                {% for a in assembleias_em_curso %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" onclick="window.location='{% url 'governanca_sala' a.pk %}'">
+                  <td class="px-4 py-3 font-semibold text-[#111418] dark:text-gray-200">{{ a.titulo }}</td>
+                  <td class="px-4 py-3 text-gray-500">{{ a.presentes_count }} presente{{ a.presentes_count|pluralize:"s" }}</td>
+                  <td class="px-4 py-3 text-center"><span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 animate-pulse">Ao Vivo</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
-    {% endif %}
 
   </main>
 </div>
 {% include 'includes/footer.html' %}
+
+{# ── Modal: Gerar Documento ──────────────────────────────────────────── #}
+<div id="gerarDocumentoModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-800">
+    <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+      <h3 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+        <i class="fas fa-file-alt text-primary"></i> Gerar Documento
+      </h3>
+      <button onclick="document.getElementById('gerarDocumentoModal').classList.add('hidden')" class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form id="gerarDocumentoForm" class="p-5 space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 uppercase tracking-wider">Assembleia</label>
+        <select name="assembleia_id" required class="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-[#111418] dark:text-gray-200 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all">
+          <option value="">Seleccionar assembleia...</option>
+          {% for a in assembleias_concluidas %}
+          <option value="{{ a.pk }}">{{ a.titulo }} — {{ a.data_hora|date:"d/m/Y" }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 uppercase tracking-wider">Tipo de Documento</label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="flex flex-col items-center gap-1.5 p-3 border border-gray-300 dark:border-gray-700 rounded-xl cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20">
+            <input type="radio" name="tipo" value="ata" checked class="sr-only peer">
+            <i class="fas fa-file-alt text-blue-500 text-xl"></i>
+            <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Ata</span>
+          </label>
+          <label class="flex flex-col items-center gap-1.5 p-3 border border-gray-300 dark:border-gray-700 rounded-xl cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:has-[:checked]:bg-green-900/20">
+            <input type="radio" name="tipo" value="relatorio" class="sr-only peer">
+            <i class="fas fa-chart-bar text-green-500 text-xl"></i>
+            <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Relatório</span>
+          </label>
+          <label class="flex flex-col items-center gap-1.5 p-3 border border-gray-300 dark:border-gray-700 rounded-xl cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-900/20">
+            <input type="radio" name="tipo" value="decreto" class="sr-only peer">
+            <i class="fas fa-gavel text-purple-500 text-xl"></i>
+            <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Decreto</span>
+          </label>
+        </div>
+      </div>
+      <button type="submit" id="gerarBtn" class="w-full py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+        <i class="fas fa-magic"></i> Gerar Documento
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('gerarDocumentoForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var btn = document.getElementById('gerarBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A gerar...';
+  var formData = new FormData(this);
+  fetch('{% url "governanca_api_gerar_documento" %}', {
+    method: 'POST',
+    body: formData,
+    headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.status === 'ok') {
+      document.getElementById('gerarDocumentoModal').classList.add('hidden');
+      window.location.reload();
+    } else {
+      alert('Erro: ' + (data.message || 'Erro ao gerar documento'));
+    }
+  })
+  .catch(function() {
+    alert('Erro de rede ao gerar documento.');
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-magic"></i> Gerar Documento';
+  });
+});
+</script>

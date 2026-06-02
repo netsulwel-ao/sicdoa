@@ -11,26 +11,74 @@
   {% if is_despachante %}<a href="{% url 'rh_ciclo_novo' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all mt-4"><i class="fas fa-plus"></i>Criar Ciclo</a>{% else %}<p class="text-sm text-gray-500 mt-4">Os ciclos são criados pelo despachante. Avalie a sua equipa dentro de cada ciclo activo.</p>{% endif %}
 </div>
 {% else %}
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-{% for c in ciclos %}
-<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
-  <div class="p-5">
-    <div class="flex items-start justify-between mb-3">
-      <div><h3 class="font-bold text-gray-900 dark:text-white">{{ c.nome }}</h3><p class="text-xs text-gray-500 mt-0.5">{{ c.periodo_inicio|date:"d/m/Y" }} → {{ c.periodo_fim|date:"d/m/Y" }}</p></div>
-      {% if c.estado == 'Encerrado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 flex-shrink-0">Encerrado</span>
-      {% elif c.estado == 'Em Curso' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 flex-shrink-0">Em Curso</span>
-      {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex-shrink-0">Aberto</span>{% endif %}
-    </div>
-    <div class="flex items-center gap-2 text-sm text-gray-600 mb-4"><i class="fas fa-chart-bar text-base"></i>{{ c.avaliacoes.count }} avaliação{{ c.avaliacoes.count|pluralize:"ões" }}</div>
-    <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="w-full text-center block px-4 py-2.5 bg-primary/10 text-primary rounded-xl text-sm font-semibold hover:bg-primary/20 transition-all">Ver Detalhes</a>
+
+<div data-view-container>
+  <div class="flex items-center justify-between mb-4">
+    <p class="text-sm text-gray-500">{{ ciclos|length }} ciclo{{ ciclos|length|pluralize:"s" }}</p>
+    {% include 'includes/view-toggle.html' %}
   </div>
+
+  <div data-grid-view>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for c in ciclos %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
+      <div class="p-5">
+        <div class="flex items-start justify-between mb-3">
+          <div><h3 class="font-bold text-gray-900 dark:text-white">{{ c.nome }}</h3><p class="text-xs text-gray-500 mt-0.5">{{ c.periodo_inicio|date:"d/m/Y" }} → {{ c.periodo_fim|date:"d/m/Y" }}</p></div>
+          {% if c.estado == 'Encerrado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 flex-shrink-0">Encerrado</span>
+          {% elif c.estado == 'Em Curso' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 flex-shrink-0">Em Curso</span>
+          {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex-shrink-0">Aberto</span>{% endif %}
+        </div>
+        <div class="flex items-center gap-2 text-sm text-gray-600 mb-4"><i class="fas fa-chart-bar text-base"></i>{{ c.avaliacoes.count }} avaliação{{ c.avaliacoes.count|pluralize:"ões" }}</div>
+        <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="w-full text-center block px-4 py-2.5 bg-primary/10 text-primary rounded-xl text-sm font-semibold hover:bg-primary/20 transition-all">Ver Detalhes</a>
+      </div>
+    </div>
+    {% endfor %}
+    </div>
+  </div>
+
+  <div data-list-view class="hidden">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 dark:bg-gray-800/60">
+            <tr>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ciclo</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Período</th>
+              <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Avaliações</th>
+              <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Estado</th>
+              <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acções</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for c in ciclos %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+              <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white">{{ c.nome }}</td>
+              <td class="px-5 py-4 text-sm text-gray-600">{{ c.periodo_inicio|date:"d/m/Y" }} → {{ c.periodo_fim|date:"d/m/Y" }}</td>
+              <td class="px-5 py-4 text-center text-sm text-gray-600">{{ c.avaliacoes.count }} avaliação{{ c.avaliacoes.count|pluralize:"ões" }}</td>
+              <td class="px-5 py-4 text-center">
+                {% if c.estado == 'Encerrado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Encerrado</span>
+                {% elif c.estado == 'Em Curso' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Em Curso</span>
+                {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aberto</span>{% endif %}
+              </td>
+              <td class="px-5 py-4 text-right">
+                <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-semibold hover:bg-primary/20 transition-all">
+                  <i class="fas fa-external-link-alt text-xs"></i>Ver Detalhes
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+    {% include 'includes/pagination.html' %}
+  </div>
+  {% endif %}
 </div>
-{% endfor %}
-</div>
-{% if page_obj.has_other_pages %}
-<div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-  {% include 'includes/pagination.html' %}
-</div>
-{% endif %}
 {% endif %}
 </main></div>{% include 'includes/footer.html' %}

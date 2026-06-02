@@ -953,8 +953,12 @@
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CONFIG.CSRF },
       body: JSON.stringify({ opcao: opcao }),
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      console.log('[VOTAR] HTTP', r.status);
+      return r.json();
+    })
     .then(function(data) {
+      console.log('[VOTAR] Response:', data);
       if (data.status === 'ok') {
         state.jaVotou[pautaId] = true;
         mostrarToast('Voto registado com sucesso!', '#22c55e');
@@ -963,7 +967,8 @@
         mostrarToast(data.message || 'Erro ao votar', '#ef4444');
       }
     })
-    .catch(function() {
+    .catch(function(err) {
+      console.error('[VOTAR] Error:', err);
       mostrarToast('Erro de conexão ao votar', '#ef4444');
     });
   }
@@ -978,7 +983,6 @@
     var pautaId = va.pauta_id;
 
     if (state.jaVotou[pautaId]) {
-      // Já votou — verificar se tem procurações para votar em nome de outrem
       var procs = CONFIG.MINHAS_PROCURACAO || [];
       if (procs.length > 0) {
         renderProxyVoting(procs);
@@ -1000,7 +1004,7 @@
         '<div class="text-xs text-gray-400 font-medium mb-2">Votos registados</div>' +
         '<div id="votos-individuais" class="space-y-1"></div>' +
       '</div>';
-    renderVotosIndividuais();
+    carregarVotosPauta(pautaId);
   }
 
   function renderProxyVoting(procs) {
@@ -1035,7 +1039,9 @@
         '<div class="text-xs text-gray-400 font-medium mb-2">Votos registados</div>' +
         '<div id="votos-individuais" class="space-y-1"></div>' +
       '</div>';
-    renderVotosIndividuais();
+    if (state.votacaoAtiva) {
+      carregarVotosPauta(state.votacaoAtiva.pauta_id);
+    }
   }
 
   function renderVotingResults(msg) {

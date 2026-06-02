@@ -2,6 +2,7 @@
 Views de administração do RH — apenas para utilizadores com papel 'Administrador'.
 Permite gerir todos os despachantes e as suas bancas.
 """
+import json
 import bcrypt
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -10,6 +11,9 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.db import connection
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.http import JsonResponse
 
 from .acesso import obter_acesso_admin
 from .models import Banca, FilialBanca, Colaborador, GestorFilial
@@ -547,3 +551,68 @@ def admin_banca_toggle_view(request, banca_id):
     estado = 'ativada' if banca.ativa else 'desativada'
     messages.success(request, f'Banca "{banca.nome}" {estado} com sucesso.')
     return redirect('admin_banca_detalhe', banca_id=banca_id)
+
+
+@_requer_admin
+def admin_atribuir_cargo_view(request, usuario_id):
+    usuario = get_object_or_404(Usuario, pk=usuario_id)
+    from .models import CargoMesa
+    FUNCOES = [f[0] for f in CargoMesa.FUNCOES]
+    cargo_atual = CargoMesa.objects.filter(usuario=usuario).first()
+
+    if request.method == 'POST':
+        funcao = request.POST.get('funcao', '').strip()
+        if not funcao or funcao not in FUNCOES:
+            messages.error(request, 'Selecione um cargo válido.')
+            return redirect('admin_atribuir_cargo', usuario_id=usuario_id)
+
+        ocupante_anterior = CargoMesa.objects.filter(funcao=funcao).exclude(usuario=usuario).first()
+        if ocupante_anterior:
+            nome_anterior = ocupante_anterior.usuario.nome
+            ocupante_anterior.delete()
+            _criar_notificacao(ocupante_anterior.usuario.id, 'cargo_mesa_removido',
+                f'Cargo removido: {funcao}',
+                f'Foi removido do cargo de {funcao} da Mesa porque {usuario.nome} foi designado.',
+                '/rh/admin/despachantes/')
+
+        CargoMesa.objects.update_or_create(
+            usuario=usuario,
+            defaults={'funcao': funcao, 'atribuido_em': timezone.now()}
+        )
+
+        is_secretario = funcao in ('1º Secretário', '2º Secretário', 'Secretário')
+        is_vice = 'Vice-Presidente' in funcao
+        usuario.is_secretario = is_secretario
+        usuario.is_vice_secretario = is_vice
+        usuario.save(update_fields=['is_secretario', 'is_vice_secretario'])
+
+        _criar_notificacao(usuario.id, 'cargo_mesa_atribuido',
+            f'Novo cargo: {funcao}',
+            f'Foi designado como {funcao} da Mesa.',
+            '/governanca/secretario/')
+
+        if request.session.get('usuario_id') == usuario.id:
+            sessao = request.session['usuario']
+            sessao['is_secretario'] = usuario.is_secretario
+            sessao['is_vice_secretario'] = usuario.is_vice_secretario
+            request.session.modified = True
+
+        messages.success(request, f'{usuario.nome} agora é {funcao} da Mesa.')
+        return redirect('admin_despachantes')
+
+    ocupantes = {c.funcao: c.usuario.nome for c in CargoMesa.objects.select_related('usuario').all()}
+    ctx = _ctx_admin(request, sub='admin_despachantes', extra={
+        'usuario_alvo': usuario,
+        'cargo_atual': cargo_atual.funcao if cargo_atual else None,
+        'ocupantes': ocupantes,
+        'funcoes': CargoMesa.FUNCOES,
+    })
+    return render(request, 'rh/admin/atribuir_cargo.html', ctx)
+
+
+def _criar_notificacao(usuario_id, tipo, titulo, mensagem, link):
+    from governanca.models import Notificacao
+    Notificacao.objects.create(
+        usuario_id=usuario_id, tipo=tipo,
+        titulo=titulo, mensagem=mensagem, link=link,
+    )

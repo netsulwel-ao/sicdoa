@@ -587,65 +587,60 @@ def banca_view(request):
     if not banca:
         return redirect('rh_banca_criar')
 
-    cache_key = safe_cache_key('dash_banca', uid)
-
-    def _compute():
-        filiais = list(banca.filiais.filter(ativa=True).order_by('provincia'))
-        colaboradores_recentes = list(
-            banca.colaboradores.select_related('filial').order_by('-criado_em')[:5]
-        )
-        stats_colab = banca.colaboradores.aggregate(
-            total=Count('id'),
-            sede=Count('id', filter=Q(filial__isnull=True)),
-        )
-        colaboradores_filiais = stats_colab['total'] - stats_colab['sede']
-        filiais_stats = list(
-            banca.colaboradores
-            .values('filial__provincia')
-            .annotate(total=Count('id'))
-            .order_by('filial__provincia')
-        )
-        colaboradores_stats = [{'filial': 'Sede', 'total': stats_colab['sede']}] + [
-            {'filial': s['filial__provincia'] or 'Sede', 'total': s['total']}
-            for s in filiais_stats if s['filial__provincia']
-        ]
-        vagas_qs = banca.vagas.aggregate(
-            vagas_abertas=Count('id', filter=Q(estado='Aberta')),
-            total_vagas=Count('id'),
-            total_candidaturas=Count('candidaturas'),
-            candidaturas_pendentes=Count('candidaturas', filter=Q(candidaturas__estado='Recebida')),
-            entrevistas_agendadas=Count('candidaturas', filter=Q(candidaturas__estado='Entrevista')),
-            candidatos_aprovados=Count('candidaturas', filter=Q(candidaturas__estado='Aprovado')),
-            integracoes_em_curso=Count(
-                'candidaturas',
-                filter=Q(candidaturas__plano_integracao__estado='Em Curso')
-            ),
-        )
-        candidaturas_recentes = list(
-            Candidatura.objects
-            .filter(vaga__banca=banca)
-            .select_related('vaga')
-            .order_by('-criado_em')[:5]
-        )
-        return {
-            'banca': banca,
-            'filiais': filiais,
-            'colaboradores_recentes': colaboradores_recentes,
-            'total_colaboradores': stats_colab['total'],
-            'total_filiais': len(filiais),
-            'colaboradores_stats': colaboradores_stats,
-            'colaboradores_filiais': colaboradores_filiais,
-            'vagas_abertas': vagas_qs['vagas_abertas'],
-            'total_vagas': vagas_qs['total_vagas'],
-            'total_candidaturas': vagas_qs['total_candidaturas'],
-            'candidaturas_pendentes': vagas_qs['candidaturas_pendentes'],
-            'entrevistas_agendadas': vagas_qs['entrevistas_agendadas'],
-            'candidatos_aprovados': vagas_qs['candidatos_aprovados'],
-            'candidaturas_recentes': candidaturas_recentes,
-            'integracoes_em_curso': vagas_qs['integracoes_em_curso'],
-        }
-
-    cached_data = cache_get_or_set(cache_key, _compute, timeout=300)
+    filiais = list(banca.filiais.filter(ativa=True).order_by('provincia'))
+    colaboradores_recentes = list(
+        banca.colaboradores.select_related('filial').order_by('-criado_em')[:5]
+    )
+    stats_colab = banca.colaboradores.aggregate(
+        total=Count('id'),
+        sede=Count('id', filter=Q(filial__isnull=True)),
+    )
+    colaboradores_filiais = stats_colab['total'] - stats_colab['sede']
+    filiais_stats = list(
+        banca.colaboradores
+        .values('filial__provincia')
+        .annotate(total=Count('id'))
+        .order_by('filial__provincia')
+    )
+    colaboradores_stats = [{'filial': 'Sede', 'total': stats_colab['sede']}] + [
+        {'filial': s['filial__provincia'] or 'Sede', 'total': s['total']}
+        for s in filiais_stats if s['filial__provincia']
+    ]
+    vagas_qs = banca.vagas.aggregate(
+        vagas_abertas=Count('id', filter=Q(estado='Aberta')),
+        total_vagas=Count('id'),
+        total_candidaturas=Count('candidaturas'),
+        candidaturas_pendentes=Count('candidaturas', filter=Q(candidaturas__estado='Recebida')),
+        entrevistas_agendadas=Count('candidaturas', filter=Q(candidaturas__estado='Entrevista')),
+        candidatos_aprovados=Count('candidaturas', filter=Q(candidaturas__estado='Aprovado')),
+        integracoes_em_curso=Count(
+            'candidaturas',
+            filter=Q(candidaturas__plano_integracao__estado='Em Curso')
+        ),
+    )
+    candidaturas_recentes = list(
+        Candidatura.objects
+        .filter(vaga__banca=banca)
+        .select_related('vaga')
+        .order_by('-criado_em')[:5]
+    )
+    cached_data = {
+        'banca': banca,
+        'filiais': filiais,
+        'colaboradores_recentes': colaboradores_recentes,
+        'total_colaboradores': stats_colab['total'],
+        'total_filiais': len(filiais),
+        'colaboradores_stats': colaboradores_stats,
+        'colaboradores_filiais': colaboradores_filiais,
+        'vagas_abertas': vagas_qs['vagas_abertas'],
+        'total_vagas': vagas_qs['total_vagas'],
+        'total_candidaturas': vagas_qs['total_candidaturas'],
+        'candidaturas_pendentes': vagas_qs['candidaturas_pendentes'],
+        'entrevistas_agendadas': vagas_qs['entrevistas_agendadas'],
+        'candidatos_aprovados': vagas_qs['candidatos_aprovados'],
+        'candidaturas_recentes': candidaturas_recentes,
+        'integracoes_em_curso': vagas_qs['integracoes_em_curso'],
+    }
     return render(request, 'rh/banca/dashboard.html', _ctx(request, 'banca', cached_data))
 
 
