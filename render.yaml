@@ -3,11 +3,70 @@ services:
     name: sicdoa
     runtime: python
     buildCommand: ./build.sh
-    startCommand: daphne -b 0.0.0.0 -p $PORT sicdoa.asgi:application
+    startCommand: python manage.py migrate --noinput && daphne -b 0.0.0.0 -p $PORT sicdoa.asgi:application
     envVars:
       - key: ENVIRONMENT
         value: production
       - key: REDIS_ENABLED
-        value: "0"
+        value: "1"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+      - key: REDIS_URL_CHANNELS
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
       - key: PYTHON_VERSION
         value: 3.11.0
+    healthCheckPath: /
+
+  - type: redis
+    name: redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  - type: worker
+    name: sicdoa-worker
+    runtime: python
+    buildCommand: ./build.sh
+    startCommand: celery -A sicdoa worker --loglevel=info --concurrency=2
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_ENABLED
+        value: "1"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+  - type: worker
+    name: sicdoa-beat
+    runtime: python
+    buildCommand: ./build.sh
+    startCommand: celery -A sicdoa beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_ENABLED
+        value: "1"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+
