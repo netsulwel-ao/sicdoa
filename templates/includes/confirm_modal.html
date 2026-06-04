@@ -155,11 +155,7 @@
       textoBotao: 'Confirmar',
     }, opts || {}, {
       onConfirm: function () {
-        if (typeof form.requestSubmit === 'function') {
-          form.requestSubmit();
-        } else {
-          form.submit();
-        }
+        form.submit();
       },
     }));
   };

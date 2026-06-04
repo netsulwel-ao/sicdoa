@@ -1,4 +1,4 @@
-﻿{% include 'includes/head.html' %}
+﻿{% load rh_extras %}{% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 <div class="flex-1 ml-0 lg:ml-64 min-w-0">
   {% include 'includes/header.html' %}
@@ -87,7 +87,7 @@
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500">Salário</span>
-                <span class="font-semibold text-gray-900 dark:text-white">{% if f.salario_efetivo %}{{ f.salario_efetivo|floatformat:2 }} KZ{% else %}—{% endif %}</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{% if f.salario_efetivo %}{{ f.salario_efetivo|fmtkz }} KZ{% else %}—{% endif %}</span>
               </div>
             </div>
             <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
@@ -144,7 +144,7 @@
               </td>
               <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{{ f.data_admissao|date:"d/m/Y"|default:"—" }}</td>
               <td class="px-5 py-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                {% if f.salario_efetivo %}{{ f.salario_efetivo|floatformat:2 }} KZ{% else %}—{% endif %}
+                {% if f.salario_efetivo %}{{ f.salario_efetivo|fmtkz }} KZ{% else %}—{% endif %}
               </td>
               <td class="px-5 py-4">
                 {% if f.estado == 'Ativo' %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>Ativo</span>

@@ -6,8 +6,12 @@
 <main class="p-4 md:p-6 lg:p-8">
   <div class="mb-6 flex items-center justify-between">
     <div>
-      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Fatura {{ quota.mes|stringformat:"02d" }}/{{ quota.ano }}</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">UUID: {{ quota.fatura_uuid }}</p>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">
+        Fatura {{ quota.mes|stringformat:"02d" }}/{{ quota.ano }}
+      </h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">
+        Ref: {{ quota.referencia|default:quota.fatura_uuid }}
+      </p>
     </div>
     <a href="{% url 'governanca_quotas_faturas' %}"
        class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
@@ -17,31 +21,40 @@
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
+      <!-- Detalhes -->
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
         <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Detalhes da Fatura</h2>
         <dl class="grid grid-cols-2 gap-4 text-sm">
           <div><dt class="text-gray-500">Despachante</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.despachante.nome }}</dd></div>
           <div><dt class="text-gray-500">Período</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.mes|stringformat:"02d" }}/{{ quota.ano }}</dd></div>
-          <div><dt class="text-gray-500">Valor</dt><dd class="font-semibold text-[#111418]">Kz {{ quota.valor|floatformat:2 }}</dd></div>
-          <div><dt class="text-gray-500">Vencimento</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.data_vencimento|date:"d/m/Y" }}</dd></div>
-          <div><dt class="text-gray-500">Status</dt><dd class="font-semibold"><span class="px-2 py-1 text-xs font-medium rounded-full {% if quota.status == 'Paga' %}bg-emerald-100 text-emerald-700{% elif quota.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ quota.status }}</span></dd></div>
-          {% if quota.data_pagamento %}<div><dt class="text-gray-500">Data Pagamento</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.data_pagamento|date:"d/m/Y H:i" }}</dd></div>{% endif %}
-          {% if multa_info.dias_atraso > 0 and quota.status != 'Paga' %}
-          <div class="col-span-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p class="text-xs text-red-600 dark:text-red-400 font-medium mb-1">
-              <i class="fas fa-exclamation-triangle"></i> {{ multa_info.dias_atraso }} dia{{ multa_info.dias_atraso|pluralize }} de atraso
-            </p>
-            <p class="text-sm text-red-700 dark:text-red-300">
-              Multa ({{ config_multa|floatformat:2 }}%/dia): +Kz {{ multa_info.multa_valor|floatformat:2 }}
-            </p>
-            <p class="text-sm font-bold text-red-800 dark:text-red-200">
-              Total devido: Kz {{ multa_info.total_sugerido|floatformat:2 }}
-            </p>
-          </div>
+          <div><dt class="text-gray-500">Referência</dt><dd class="font-semibold text-[#111418] dark:text-gray-200 font-mono text-xs">{{ quota.referencia|default:"—" }}</dd></div>
+          <div><dt class="text-gray-500">Valor Original</dt><dd class="font-semibold text-[#111418]">Kz {{ quota.valor_original|default:quota.valor|floatformat:2 }}</dd></div>
+          {% if quota.valor_multa > 0 %}
+          <div><dt class="text-gray-500">Multa</dt><dd class="font-semibold text-red-600">+ Kz {{ quota.valor_multa|floatformat:2 }}</dd></div>
+          <div><dt class="text-gray-500">Valor Total</dt><dd class="font-semibold text-red-700">Kz {{ quota.valor_total|floatformat:2 }}</dd></div>
           {% endif %}
+          <div><dt class="text-gray-500">Data de Vencimento</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.data_vencimento|date:"d/m/Y" }}</dd></div>
+          {% if quota.data_envio %}<div><dt class="text-gray-500">Data de Envio</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.data_envio|date:"d/m/Y" }}</dd></div>{% endif %}
+          {% if quota.data_pagamento %}<div><dt class="text-gray-500">Data Pagamento</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.data_pagamento|date:"d/m/Y H:i" }}</dd></div>{% endif %}
+          <div><dt class="text-gray-500">Status</dt><dd class="font-semibold">
+            {% if quota.status == 'Paga' %}
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700">{{ quota.status }}</span>
+            {% elif quota.status == 'Atrasada' %}
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">{{ quota.status }}</span>
+            {% elif quota.status == 'Pendente Confirmacao' %}
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">Pendente Confirmação</span>
+            {% elif quota.status == 'Cancelada' %}
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">{{ quota.status }}</span>
+            {% elif quota.status == 'Isenta' %}
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">{{ quota.status }}</span>
+            {% else %}
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">{{ quota.status }}</span>
+            {% endif %}
+          </dd></div>
         </dl>
       </div>
 
+      <!-- Histórico de Pagamentos -->
       {% if pagamentos %}
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
         <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Histórico de Pagamentos</h2>
@@ -51,71 +64,141 @@
             <div>
               <p class="text-sm font-semibold text-[#111418]">Kz {{ pag.valor_pago|floatformat:2 }} — {{ pag.metodo }}</p>
               <p class="text-xs text-gray-500">{{ pag.data_pagamento|date:"d/m/Y H:i" }}</p>
+              {% if pag.observacoes %}<p class="text-xs text-gray-500 mt-1">{{ pag.observacoes|truncatechars:100 }}</p>{% endif %}
             </div>
             <span class="px-2 py-1 text-xs font-medium rounded-full {% if pag.status == 'Confirmado' %}bg-green-200 text-green-800{% elif pag.status == 'Rejeitado' %}bg-red-200 text-red-800{% else %}bg-yellow-200 text-yellow-800{% endif %}">{{ pag.status }}</span>
           </div>
           {% endfor %}
-      {% if page_obj.has_other_pages %}
-      <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-        {% include 'includes/pagination.html' %}
+        </div>
+        {% if page_obj.has_other_pages %}
+        <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+          {% include 'includes/pagination.html' %}
+        </div>
+        {% endif %}
       </div>
       {% endif %}
+
+      <!-- Histórico de Auditoria -->
+      {% if historico %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+        <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2">
+          <i class="fas fa-history text-gray-400"></i> Histórico de Auditoria
+        </h2>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          {% for h in historico %}
+          <div class="flex items-start gap-3 text-xs text-gray-600 dark:text-gray-400 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+            <span class="shrink-0 font-mono w-28">{{ h.created_at|date:"d/m/Y H:i" }}</span>
+            <span class="px-1.5 py-0.5 rounded font-medium
+              {% if h.acao == 'QUOTA_GERADA' %}bg-blue-100 text-blue-700
+              {% elif h.acao == 'QUOTA_VENCIDA' %}bg-red-100 text-red-700
+              {% elif h.acao == 'PAGAMENTO_SUBMETIDO' %}bg-yellow-100 text-yellow-700
+              {% elif h.acao == 'PAGAMENTO_APROVADO' %}bg-green-100 text-green-700
+              {% elif h.acao == 'PAGAMENTO_REJEITADO' %}bg-red-100 text-red-700
+              {% elif h.acao == 'QUOTA_CANCELADA' %}bg-gray-100 text-gray-700
+              {% elif h.acao == 'QUOTA_ISENTADA' %}bg-purple-100 text-purple-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ h.get_acao_display }}
+            </span>
+            <span class="flex-1">{{ h.descricao }}</span>
+            {% if h.utilizador %}<span class="shrink-0 text-gray-400">por {{ h.utilizador.nome }}</span>{% endif %}
+          </div>
+          {% endfor %}
         </div>
       </div>
       {% endif %}
     </div>
 
+    <!-- Sidebar -->
     <div>
-      {% if papel == 'Administrador' and quota.status != 'Paga' %}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-4">
-        <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2"><i class="fas fa-user-shield text-primary"></i> Administração</h2>
-        <p class="text-sm text-gray-500 mb-4">Marque esta quota como paga manualmente (sem comprovativo).</p>
-        <button onclick="marcarPagaAdmin('{{ quota.fatura_uuid }}')" class="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-          <i class="fas fa-check-double"></i> Marcar como Paga
-        </button>
+      <!-- Multa info (quando atrasada) -->
+      {% if multa_info.dias_atraso > 0 and quota.status != 'Paga' and quota.status != 'Cancelada' and quota.status != 'Isenta' and quota.status != 'Pendente Confirmacao' %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-red-200 dark:border-red-800 shadow-sm p-6 mb-4">
+        <h2 class="text-lg font-bold text-red-700 dark:text-red-400 mb-3 flex items-center gap-2">
+          <i class="fas fa-exclamation-triangle"></i> Multa por Atraso
+        </h2>
+        <div class="space-y-2 text-sm">
+          <p class="text-gray-600 dark:text-gray-400">Dias em atraso: <strong class="text-red-600">{{ multa_info.dias_atraso }}</strong></p>
+          <p class="text-gray-600 dark:text-gray-400">Carência: <strong>{{ config_dias_carencia }} dias</strong></p>
+          <p class="text-gray-600 dark:text-gray-400">Multa: <strong class="text-red-600">+ Kz {{ multa_info.multa_valor|floatformat:2 }}</strong></p>
+          <p class="text-gray-600 dark:text-gray-400 text-base">Total devido: <strong class="text-red-700">Kz {{ multa_info.total_sugerido|floatformat:2 }}</strong></p>
+        </div>
       </div>
       {% endif %}
-      {% if quota.status != 'Paga' %}
+
+      <!-- Admin: Ações -->
+      {% if papel == 'Administrador' or 'gerir_quotas' in user_permissoes and quota.status != 'Paga' and quota.status != 'Cancelada' %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-4">
+        <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2"><i class="fas fa-user-shield text-primary"></i> Administração</h2>
+        <div class="space-y-3">
+          {% if quota.status == 'Pendente Confirmacao' or quota.status == 'Pendente' or quota.status == 'Atrasada' or quota.status == 'Isenta' %}
+          <button onclick="cancelarQuota('{{ quota.fatura_uuid }}')" class="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2">
+            <i class="fas fa-ban"></i> Cancelar Quota
+          </button>
+          {% endif %}
+          {% if quota.status != 'Paga' and quota.status != 'Pendente Confirmacao' %}
+          <button onclick="marcarPagaAdmin('{{ quota.fatura_uuid }}')" class="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+            <i class="fas fa-check-double"></i> Marcar como Paga
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Formulário de Pagamento -->
+      {% if quota.status != 'Paga' and quota.status != 'Cancelada' and quota.status != 'Isenta' and quota.status != 'Pendente Confirmacao' %}
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
         <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Efetuar Pagamento</h2>
-        {% if multa_info.dias_atraso > 0 %}
-        <div class="p-3 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm">
-          <p class="text-red-700 dark:text-red-300"><strong>{{ multa_info.dias_atraso }} dia{{ multa_info.dias_atraso|pluralize }} de atraso</strong></p>
-          <p class="text-red-600 dark:text-red-400">Multa {{ config_multa|floatformat:2 }}%/dia: +Kz {{ multa_info.multa_valor|floatformat:2 }}</p>
-          <p class="text-red-800 dark:text-red-200 font-bold">Total: Kz {{ multa_info.total_sugerido|floatformat:2 }}</p>
+        <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-1 text-sm">
+          <p class="text-gray-600 dark:text-gray-400">Valor Original: <strong class="text-[#111418] dark:text-gray-200">Kz {{ quota.valor_original|default:quota.valor|floatformat:2 }}</strong></p>
+          {% if multa_info.dias_atraso > 0 %}
+          <p class="text-red-600">Multa ({{ multa_info.dias_atraso }}d): <strong>+ Kz {{ multa_info.multa_valor|floatformat:2 }}</strong></p>
+          <p class="text-red-700 font-bold">Total a Pagar: Kz {{ multa_info.total_sugerido|floatformat:2 }}</p>
+          {% else %}
+          <p class="text-gray-600 dark:text-gray-400">Total a Pagar: <strong class="text-[#111418] dark:text-gray-200">Kz {{ quota.valor_total|default:quota.valor|floatformat:2 }}</strong></p>
+          {% endif %}
         </div>
-        {% endif %}
-        <p class="text-sm text-gray-500 mb-4">Valor base: <strong class="text-[#111418]">Kz {{ quota.valor|floatformat:2 }}</strong></p>
         <form id="form-pagamento" enctype="multipart/form-data">
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método de Pagamento</label>
             <select name="metodo" id="metodo" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary" required>
               <option value="">Selecionar...</option>
               <option value="Multicaixa Express">Multicaixa Express</option>
               <option value="Transferencia IBAN">Transferência IBAN</option>
+              <option value="Deposito Bancario">Depósito Bancário</option>
             </select>
-          </div>
-          <div class="mb-4 hidden" id="campos-multicaixa">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código de Transferência</label>
-            <input type="text" name="codigo_transferencia" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-          </div>
-          <div class="mb-4 hidden" id="campos-iban">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">IBAN de Origem</label>
-            <input type="text" name="iban_origem" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary" placeholder="AO06...">
-          </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Pago (Kz)</label>
-            <input type="number" step="0.01" name="valor_pago" value="{% if multa_info.dias_atraso > 0 %}{{ multa_info.total_sugerido|floatformat:2 }}{% else %}{{ quota.valor }}{% endif %}" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Comprovativo (PDF/Imagem)</label>
             <input type="file" name="comprovativo" accept=".pdf,.jpg,.jpeg,.png" class="w-full text-sm text-gray-500 file:mr-4 file:px-4 file:py-2 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary file:text-white hover:file:cursor-pointer">
+            <p class="text-xs text-gray-400 mt-1">Máx: 10 MB. Formatos: PDF, PNG, JPG</p>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observação (opcional)</label>
+            <textarea name="observacao" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary" placeholder="Informação adicional..."></textarea>
           </div>
           <button type="submit" class="w-full px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
             <i class="fas fa-credit-card"></i> Submeter Pagamento
           </button>
         </form>
         <div id="mensagem-pagamento" class="mt-4 hidden"></div>
+      </div>
+      {% endif %}
+      {% if quota.status == 'Pendente Confirmacao' %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-orange-200 dark:border-orange-800 shadow-sm p-6">
+        <div class="text-center">
+          <i class="fas fa-clock text-orange-500 text-3xl mb-2"></i>
+          <h2 class="text-lg font-bold text-orange-700 dark:text-orange-400">Pagamento Pendente</h2>
+          <p class="text-sm text-gray-500 mt-2">O seu pagamento foi submetido e aguarda confirmação da administração.</p>
+        </div>
+      </div>
+      {% endif %}
+      {% if quota.status == 'Isenta' %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-purple-200 dark:border-purple-800 shadow-sm p-6">
+        <div class="text-center">
+          <i class="fas fa-star text-purple-500 text-3xl mb-2"></i>
+          <h2 class="text-lg font-bold text-purple-700 dark:text-purple-400">Quota Isenta</h2>
+          <p class="text-sm text-gray-500 mt-2">Esta quota foi isenta por administração.</p>
+        </div>
       </div>
       {% endif %}
     </div>
@@ -125,12 +208,10 @@
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('metodo')?.addEventListener('change', function() {
-    document.getElementById('campos-multicaixa').classList.toggle('hidden', this.value !== 'Multicaixa Express');
-    document.getElementById('campos-iban').classList.toggle('hidden', this.value !== 'Transferencia IBAN');
-  });
   document.getElementById('form-pagamento')?.addEventListener('submit', function(e) {
     e.preventDefault();
+    var metodo = document.getElementById('metodo').value;
+    if (!metodo) { alert('Selecione um método de pagamento.'); return; }
     var btn = this.querySelector('button[type="submit"]');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A processar...';
     var fd = new FormData(this);
@@ -138,8 +219,9 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(r => r.json()).then(d => {
       var m = document.getElementById('mensagem-pagamento');
       m.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'bg-green-50', 'text-green-700');
-      if (d.erro) { m.classList.add('bg-red-50', 'text-red-700', 'p-3', 'rounded-lg'); m.textContent = d.erro; } else { m.classList.add('bg-green-50', 'text-green-700', 'p-3', 'rounded-lg'); m.textContent = d.mensagem; }
-      btn.disabled = false; btn.innerHTML = '<i class="fas fa-credit-card"></i> Submeter Pagamento';
+      m.className = 'mt-4 p-3 rounded-lg text-sm flex items-center gap-2';
+      if (d.erro) { m.classList.add('bg-red-50', 'text-red-700'); m.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + d.erro; btn.disabled = false; btn.innerHTML = '<i class="fas fa-credit-card"></i> Submeter Pagamento'; }
+      else { m.classList.add('bg-green-50', 'text-green-700'); m.innerHTML = '<i class="fas fa-check-circle"></i> ' + d.mensagem; setTimeout(function() { location.reload(); }, 2000); }
     }).catch(function() { btn.disabled = false; btn.innerHTML = '<i class="fas fa-credit-card"></i> Submeter Pagamento'; });
   });
 });
@@ -149,6 +231,22 @@ async function marcarPagaAdmin(faturaUuid) {
   var MARCA_URL = '{% url "governanca_api_quotas_marcar_paga" fatura_uuid="00000000-0000-0000-0000-000000000000" %}';
   const res = await fetch(MARCA_URL.replace('00000000-0000-0000-0000-000000000000', faturaUuid), {
     method: 'POST',
+    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+  });
+  const d = await res.json();
+  if (d.erro) { alert(d.erro); }
+  else { location.reload(); }
+}
+
+async function cancelarQuota(faturaUuid) {
+  const motivo = prompt('Motivo do cancelamento (obrigatório):');
+  if (!motivo || motivo.trim() === '') return;
+  const ok = await showConfirm('Cancelar Quota', 'Tem certeza que deseja cancelar esta quota?\nMotivo: ' + motivo);
+  if (!ok) return;
+  var CANCELAR_URL = '{% url "governanca_api_quotas_cancelar" fatura_uuid="00000000-0000-0000-0000-000000000000" %}';
+  var fd = new FormData(); fd.append('motivo', motivo);
+  const res = await fetch(CANCELAR_URL.replace('00000000-0000-0000-0000-000000000000', faturaUuid), {
+    method: 'POST', body: fd,
     headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
   });
   const d = await res.json();

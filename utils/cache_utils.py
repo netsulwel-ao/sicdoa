@@ -1,4 +1,7 @@
+import logging
 from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
 
 def safe_cache_key(*parts):
     return ':'.join(str(p).replace(' ', '_') for p in parts if p is not None)
@@ -19,7 +22,7 @@ def cache_invalidate(pattern):
         if keys:
             r.delete(*keys)
     except Exception:
-        pass
+        cache.clear()
 
 def cache_invalidate_prefix(prefix):
     cache_invalidate(f'*{prefix}*')

@@ -7,6 +7,14 @@ from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+
+from .utils import (
+    validate_date_not_past,
+    validate_date_not_future,
+    validate_date_range,
+    validate_no_overlap,
+)
 
 
 class Assembleia(models.Model):
@@ -46,6 +54,22 @@ class Assembleia(models.Model):
 
     def __str__(self):
         return f'{self.titulo} - {self.data_hora:%d/%m/%Y %H:%M}'
+
+    def clean(self):
+        # Assembleia não pode ser criada para data passada, a menos que seja edição
+        if self.pk:
+            # Se já existe, permitir editar, mas não alterar data para passado?
+            pass
+        else:
+            validate_date_not_past(self.data_hora, field_name="Data e Hora", allow_today=True)
+        
+        # Se data de encerramento existe, deve ser depois da data de início
+        if self.data_encerramento:
+            validate_date_range(self.data_hora, self.data_encerramento, "Data e Hora", "Data de Encerramento")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def presentes_count(self):
@@ -135,6 +159,15 @@ class PautaVotacao(models.Model):
 
     def __str__(self):
         return f'{self.ordem}. {self.titulo}'
+
+    def clean(self):
+        # Valida que data de encerramento é depois de início
+        if self.iniciado_em and self.encerrado_em:
+            validate_date_range(self.iniciado_em, self.encerrado_em, "Iniciado em", "Encerrado em")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def total_votos(self):
@@ -243,7 +276,7 @@ class Voto(models.Model):
 
     class Meta:
         db_table = 'governanca_votos'
-        unique_together = ('pauta', 'usuario', 'em_delegacao')
+        unique_together = ('pauta', 'usuario', 'em_delegacao', 'delegado_de')
         verbose_name = 'Voto'
         verbose_name_plural = 'Votos'
 
@@ -349,6 +382,8 @@ class Notificacao(models.Model):
         ('convocatoria_publicada', 'Convocatória Publicada'),
         ('votacao_reaberta', 'Votação Reaberta'),
         ('ata_assinada', 'Ata Assinada'),
+        ('cargo_atribuido', 'Cargo Atribuído'),
+        ('cargo_removido', 'Cargo Removido'),
     ]
     usuario = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='notificacoes')
     tipo = models.CharField(max_length=30, choices=TIPOS, db_index=True)
@@ -478,6 +513,16 @@ class ConsultaPublica(models.Model):
 
     def __str__(self):
         return self.titulo
+
+    def clean(self):
+        if self.prazo_fim:
+            validate_date_not_past(self.prazo_fim, field_name="Prazo de Fim", allow_today=True)
+        if self.publicado_em:
+            validate_date_not_future(self.publicado_em, field_name="Data de Publicação")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class ArtigoDocumento(models.Model):
@@ -609,6 +654,7 @@ class QuotaConfig(models.Model):
     valor = models.DecimalField(max_digits=12, decimal_places=2)
     data_vencimento = models.DateField()
     multa_percentual = models.DecimalField(max_digits=5, decimal_places=2, default=0.50, help_text='Percentagem de multa ao dia sobre o valor da quota (ex: 0.50 = 0.5%)')
+    dias_carencia = models.PositiveSmallIntegerField(default=5, help_text='Dias de tolerância após vencimento antes de aplicar multa')
     ativa = models.BooleanField(default=True, help_text='Se ativa, a configuração está disponível para geração de quotas')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -623,7 +669,14 @@ class QuotaConfig(models.Model):
 
 
 class QuotaGerada(models.Model):
-    STATUS = [('Pendente','Pendente'),('Paga','Paga'),('Atrasada','Atrasada'),('Cancelada','Cancelada')]
+    STATUS = [
+        ('Pendente','Pendente'),
+        ('Atrasada','Atrasada'),
+        ('Pendente Confirmacao','Pendente Confirmação'),
+        ('Paga','Paga'),
+        ('Cancelada','Cancelada'),
+        ('Isenta','Isenta'),
+    ]
     despachante = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='quotas')
     tipo = models.ForeignKey(TipoQuota, on_delete=models.SET_NULL, null=True, blank=True)
     ano = models.IntegerField(null=True, blank=True, db_index=True)
@@ -632,9 +685,14 @@ class QuotaGerada(models.Model):
     periodo_fim = models.DateField(null=True, blank=True)
     descricao = models.CharField(max_length=300, blank=True, default='')
     valor = models.DecimalField(max_digits=12, decimal_places=2)
+    valor_original = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text='Valor base sem multa')
+    valor_multa = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    valor_total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text='Valor original + multa')
     data_vencimento = models.DateField()
+    data_envio = models.DateField(null=True, blank=True, help_text='Data em que a quota foi enviada ao membro')
     data_pagamento = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=15, choices=STATUS, default='Pendente', db_index=True)
+    referencia = models.CharField(max_length=100, unique=True, null=True, blank=True, help_text='Referência amigável (ex: QUOTA-MENSAL-06-2026-00001)')
+    status = models.CharField(max_length=20, choices=STATUS, default='Pendente', db_index=True)
     fatura_uuid = models.CharField(max_length=36, unique=True, default=uuid.uuid4)
     observacoes = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -645,12 +703,34 @@ class QuotaGerada(models.Model):
         verbose_name_plural = 'Quotas Geradas'
     def __str__(self):
         t = f'{self.tipo}' if self.tipo else 'Mensal'
-        return f'{self.despachante.nome} — {t} {self.mes:02d}/{self.ano} — {self.status}'
+        r = f' [{self.referencia}]' if self.referencia else ''
+        return f'{self.despachante.nome} - {t} {self.mes:02d}/{self.ano}{r} - {self.status}'
+
+    def clean(self):
+        # Valida período
+        if self.periodo_inicio and self.periodo_fim:
+            validate_date_range(self.periodo_inicio, self.periodo_fim, "Período Início", "Período Fim")
+        
+        # Data de pagamento não pode ser futura
+        if self.data_pagamento:
+            validate_date_not_future(self.data_pagamento, field_name="Data de Pagamento")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class PagamentoQuota(models.Model):
-    METODOS = [('Multicaixa Express','Multicaixa Express'),('Transferencia IBAN','Transferência IBAN')]
-    STATUS = [('Pendente Confirmacao','Pendente Confirmação'),('Confirmado','Confirmado'),('Rejeitado','Rejeitado')]
+    METODOS = [
+        ('Multicaixa Express','Multicaixa Express'),
+        ('Transferencia IBAN','Transferência IBAN'),
+        ('Deposito Bancario','Depósito Bancário'),
+    ]
+    STATUS = [
+        ('Pendente Confirmacao','Pendente Confirmação'),
+        ('Confirmado','Confirmado'),
+        ('Rejeitado','Rejeitado'),
+    ]
     quota = models.ForeignKey(QuotaGerada, on_delete=models.CASCADE, related_name='pagamentos')
     despachante = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='pagamentos_quota')
     metodo = models.CharField(max_length=30, choices=METODOS)
@@ -660,6 +740,7 @@ class PagamentoQuota(models.Model):
     iban_origem = models.CharField(max_length=50, blank=True, default='')
     data_pagamento = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=25, choices=STATUS, default='Pendente Confirmacao', db_index=True)
+    status_anterior_quota = models.CharField(max_length=20, blank=True, default='', help_text='Estado da quota antes da submissão do pagamento (para reverter se rejeitado)')
     confirmado_por = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='pagamentos_confirmados')
     confirmado_em = models.DateTimeField(null=True, blank=True)
     observacoes = models.TextField(blank=True, default='')
@@ -669,7 +750,17 @@ class PagamentoQuota(models.Model):
         verbose_name = 'Pagamento de Quota'
         verbose_name_plural = 'Pagamentos de Quotas'
     def __str__(self):
-        return f'{self.despachante.nome} — {self.metodo} — {self.status}'
+        return f'{self.despachante.nome} - {self.metodo} - {self.status}'
+
+    def clean(self):
+        # Data de pagamento não pode ser futura
+        validate_date_not_future(self.data_pagamento, field_name="Data de Pagamento")
+        if self.confirmado_em:
+            validate_date_not_future(self.confirmado_em, field_name="Data de Confirmação")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class EstadoFinanceiro(models.Model):
@@ -700,7 +791,49 @@ class IsencaoMembro(models.Model):
         verbose_name_plural = 'Isenções de Membro'
     def __str__(self):
         t = f' ({self.tipo_quota})' if self.tipo_quota else ''
-        return f'{self.despachante.nome}{t} — {self.data_inicio} a {self.data_fim or "indeterminado"}'
+        return f'{self.despachante.nome}{t} - {self.data_inicio} a {self.data_fim or "indeterminado"}'
+
+    def clean(self):
+        if self.data_inicio and self.data_fim:
+            validate_date_range(self.data_inicio, self.data_fim, "Data de Início", "Data de Fim")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class HistoricoQuota(models.Model):
+    ACOES = [
+        ('QUOTA_GERADA', 'Quota Gerada'),
+        ('QUOTA_VENCIDA', 'Quota Vencida'),
+        ('PAGAMENTO_SUBMETIDO', 'Pagamento Submetido'),
+        ('PAGAMENTO_APROVADO', 'Pagamento Aprovado'),
+        ('PAGAMENTO_REJEITADO', 'Pagamento Rejeitado'),
+        ('QUOTA_CANCELADA', 'Quota Cancelada'),
+        ('QUOTA_ISENTADA', 'Quota Isentada'),
+        ('ISENCAO_CRIADA', 'Isenção Criada'),
+        ('ISENCAO_REMOVIDA', 'Isenção Removida'),
+        ('ESTADO_FINANCEIRO_ALTERADO', 'Estado Financeiro Alterado'),
+    ]
+    membro = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='historico_quotas')
+    quota = models.ForeignKey(QuotaGerada, on_delete=models.SET_NULL, null=True, blank=True, related_name='historico')
+    pagamento = models.ForeignKey(PagamentoQuota, on_delete=models.SET_NULL, null=True, blank=True, related_name='historico')
+    acao = models.CharField(max_length=30, choices=ACOES, db_index=True)
+    descricao = models.TextField(blank=True, default='')
+    utilizador = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='historico_quotas_acao')
+    ip = models.GenericIPAddressField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    class Meta:
+        db_table = 'governanca_historico_quotas'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['membro', 'created_at']),
+            models.Index(fields=['quota', 'created_at']),
+        ]
+        verbose_name = 'Histórico de Quota'
+        verbose_name_plural = 'Históricos de Quotas'
+    def __str__(self):
+        return f'{self.membro.nome} — {self.acao} ({self.created_at:%d/%m/%Y %H:%M})'
 
 
 class CertidaoRegularidade(models.Model):
@@ -733,7 +866,17 @@ class CarteiraProfissional(models.Model):
         verbose_name = 'Carteira Profissional'
         verbose_name_plural = 'Carteiras Profissionais'
     def __str__(self):
-        return f'{self.numero_carteira} — {self.despachante.nome} ({self.status})'
+        return f'{self.numero_carteira} - {self.despachante.nome} ({self.status})'
+
+    def clean(self):
+        validate_date_range(self.data_emissao, self.data_validade, "Data de Emissão", "Data de Validade")
+        if self.data_renovacao:
+            validate_date_range(self.data_emissao, self.data_renovacao, "Data de Emissão", "Data de Renovação")
+            validate_date_not_future(self.data_renovacao, field_name="Data de Renovação")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Convocatoria(models.Model):

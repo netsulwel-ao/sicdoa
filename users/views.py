@@ -815,6 +815,18 @@ def meu_perfil_view(request):
     if erro:
         return erro
 
+    from users.models import UsuarioCargo
+    vinculo = UsuarioCargo.objects.filter(usuario=usuario).select_related('cargo', 'atribuido_por').first()
+    cargo_info = None
+    if vinculo:
+        cargo_info = {
+            'nome': vinculo.cargo.nome,
+            'slug': vinculo.cargo.slug,
+            'descricao': vinculo.cargo.descricao,
+            'atribuido_em': vinculo.atribuido_em,
+            'atribuido_por': vinculo.atribuido_por.nome if vinculo.atribuido_por else None,
+        }
+
     from aduaneiro.models import DeclaracaoUnica
     total_dus   = DeclaracaoUnica.objects.filter(usuario_id=usuario.id).count()
     dus_mes     = DeclaracaoUnica.objects.filter(
@@ -836,9 +848,10 @@ def meu_perfil_view(request):
             "foto": usuario.foto or "",
             "status": usuario.status,
             "ultimo_acesso": usuario.ultimo_acesso,
-            "password": usuario.password,  # necessário para detectar utilizador portal sem senha
+            "password": usuario.password,
         },
-        "tem_senha": bool(usuario.password),  # True = já tem senha definida
+        "cargo_info": cargo_info,
+        "tem_senha": bool(usuario.password),
         "nome": usuario.nome,
         "papel": usuario.papel,
         "active_menu": "Perfil",

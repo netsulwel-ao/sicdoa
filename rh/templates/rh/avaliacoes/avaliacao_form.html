@@ -1,4 +1,5 @@
-﻿{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+﻿{% load avaliacao_extras %}
+{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
 <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
   <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
   <i class="fas fa-chevron-right text-xs"></i>
@@ -38,13 +39,30 @@
   </div>
   {% endif %}
 
-  <!-- KPIs -->
+  {% if readonly %}
+  <!-- KPIs (read-only) -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><i class="fas fa-trophy text-primary"></i><h2 class="font-semibold text-gray-900 dark:text-white">KPIs de Avaliação</h2></div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for kpi_name, kpi_label, kpi_desc, kpi_val, _ in kpis_list %}
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{{ kpi_label }}</label>
+        {% if kpi_desc %}<p class="text-xs text-gray-500 mb-2">{{ kpi_desc }}</p>{% endif %}
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-700 font-bold text-lg">{{ kpi_val }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <!-- KPIs (edit) -->
   <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
     <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><i class="fas fa-trophy text-primary"></i><h2 class="font-semibold text-gray-900 dark:text-white">KPIs de Avaliação (1 = Insuficiente, 5 = Excelente)</h2></div>
     <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    {% for kpi_name, kpi_label, kpi_val in kpis_list %}
+    {% for item in kpis_list %}
+      {% with kpi_name=item.0 kpi_label=item.1 kpi_desc=item.2 kpi_val=item.3 %}
       <div>
-        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{{ kpi_label }}</label>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{{ kpi_label }}</label>
+        {% if kpi_desc %}<p class="text-xs text-gray-500 mb-2">{{ kpi_desc }}</p>{% endif %}
         <div class="flex gap-2">
           {% for i in "12345" %}
           <label class="flex-1 cursor-pointer">
@@ -54,19 +72,21 @@
           {% endfor %}
         </div>
       </div>
+      {% endwith %}
       {% endfor %}
     </div>
   </div>
+  {% endif %}
 
   <!-- Comentários -->
   <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
     <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"><i class="fas fa-comment text-primary"></i><h2 class="font-semibold text-gray-900 dark:text-white">Comentários e Plano de Desenvolvimento</h2></div>
     <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
-      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Pontos Fortes</label><textarea name="pontos_fortes" rows="4" placeholder="Descreva os pontos fortes..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.pontos_fortes|default:'' }}</textarea></div>
-      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Pontos a Melhorar</label><textarea name="pontos_melhoria" rows="4" placeholder="Áreas de melhoria..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.pontos_melhoria|default:'' }}</textarea></div>
-      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Plano de Desenvolvimento</label><textarea name="plano_desenvolvimento" rows="4" placeholder="Acções de desenvolvimento..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.plano_desenvolvimento|default:'' }}</textarea></div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Pontos Fortes</label>{% if readonly %}<p class="text-gray-900 dark:text-white">{{ aval.pontos_fortes|default:'—' }}</p>{% else %}<textarea name="pontos_fortes" rows="4" placeholder="Descreva os pontos fortes..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.pontos_fortes|default:'' }}</textarea>{% endif %}</div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Pontos a Melhorar</label>{% if readonly %}<p class="text-gray-900 dark:text-white">{{ aval.pontos_melhoria|default:'—' }}</p>{% else %}<textarea name="pontos_melhoria" rows="4" placeholder="Áreas de melhoria..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.pontos_melhoria|default:'' }}</textarea>{% endif %}</div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Plano de Desenvolvimento</label>{% if readonly %}<p class="text-gray-900 dark:text-white">{{ aval.plano_desenvolvimento|default:'—' }}</p>{% else %}<textarea name="plano_desenvolvimento" rows="4" placeholder="Acções de desenvolvimento..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.plano_desenvolvimento|default:'' }}</textarea>{% endif %}</div>
     </div>
   </div>
 
-  <div class="flex justify-end gap-3"><a href="{% url 'rh_ciclo_detalhe' ciclo.pk %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a><button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2"><i class="fas fa-save text-lg"></i>{% if aval %}Actualizar{% else %}Guardar Avaliação{% endif %}</button></div>
+  <div class="flex justify-end gap-3"><a href="{% url 'rh_ciclo_detalhe' ciclo.pk %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">{% if readonly %}Voltar{% else %}Cancelar{% endif %}</a>{% if not readonly %}<button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2"><i class="fas fa-save text-lg"></i>{% if aval %}Actualizar{% else %}Guardar Avaliação{% endif %}</button>{% endif %}</div>
 </form></main></div>{% include 'includes/footer.html' %}

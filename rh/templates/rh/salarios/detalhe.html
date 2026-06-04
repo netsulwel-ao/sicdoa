@@ -1,4 +1,4 @@
-﻿{% include 'includes/head.html' %}
+﻿{% load rh_extras %}{% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 <div class="flex-1 ml-0 lg:ml-64 min-w-0">
   {% include 'includes/header.html' %}
@@ -188,7 +188,7 @@
                   {% endif %}
                 </td>
                 <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300 font-medium">
-                  <span class="salario-base">{{ r.salario_base|floatformat:2 }}</span>
+                  <span class="salario-base">{{ r.salario_base|fmtkz }}</span>
                 </td>
                 {% for subsidio in subsidios_ativos %}
                 <td class="px-4 py-3">
@@ -196,44 +196,43 @@
                     {% if subsidio.obrigatorio %}
                     <!-- Subsídio obrigatório - apenas exibir valor calculado -->
                     <div class="w-28 px-2 py-1.5 rounded-lg border-2 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-700 text-right text-sm font-semibold text-red-700 dark:text-red-400">
-                      {% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|floatformat:2 }}{% endif %}{% endfor %}
+                      {% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|fmtkz }}{% endif %}{% endfor %}
                     </div>
                     <input type="hidden"
                            name="rec_{{ r.pk }}_subsidio_{{ subsidio.pk }}"
-                           value="{% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|floatformat:2 }}{% endif %}{% endfor %}" />
+                           value="{% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|fmtkz }}{% endif %}{% endfor %}" />
                     {% else %}
                     <!-- Subsídio opcional - editável -->
-                    <input type="number"
+                    <input type="text" inputmode="decimal"
                            name="rec_{{ r.pk }}_subsidio_{{ subsidio.pk }}"
-                           value="{% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|floatformat:2 }}{% endif %}{% endfor %}"
-                           step="0.01" min="0"
+                           value="{% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|fmtkz }}{% endif %}{% endfor %}"
                            class="subsidio-{{ subsidio.pk }} w-28 px-2 py-1.5 rounded-lg border-2 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700 text-right text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
                            oninput="recalcularLinha(this)" />
                     {% endif %}
                   {% else %}
                   <span class="block text-right text-gray-700 dark:text-gray-300">
-                    {% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|floatformat:2 }}{% endif %}{% endfor %}
+                    {% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|fmtkz }}{% endif %}{% endfor %}
                   </span>
                   {% endif %}
                 </td>
                 {% endfor %}
                 <td class="px-4 py-3 text-right font-semibold text-gray-800 dark:text-gray-200">
-                  <span class="bruto">{{ r.bruto|floatformat:2 }}</span>
+                  <span class="bruto">{{ r.bruto|fmtkz }}</span>
                 </td>
                 <td class="px-4 py-3 text-right text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-900/10">
-                  {% if r.outros_descontos > 0 %}-<span class="faltas">{{ r.outros_descontos|floatformat:2 }}</span>
+                  {% if r.outros_descontos > 0 %}-<span class="faltas">{{ r.outros_descontos|fmtkz }}</span>
                   {% else %}<span class="text-gray-400">—</span>{% endif %}
                 </td>
                 <td class="px-4 py-3 text-right text-red-600 dark:text-red-400 bg-gray-50/50 dark:bg-gray-800/30">
-                  -<span class="irt">{{ r.irt|floatformat:2 }}</span>
+                  -<span class="irt">{{ r.irt|fmtkz }}</span>
                   <div class="text-xs text-gray-400">IRT</div>
                 </td>
                 <td class="px-4 py-3 text-right text-red-600 dark:text-red-400 bg-gray-50/50 dark:bg-gray-800/30">
-                  -<span class="inss">{{ r.inss_trabalhador|floatformat:2 }}</span>
+                  -<span class="inss">{{ r.inss_trabalhador|fmtkz }}</span>
                   <div class="text-xs text-gray-400">3%</div>
                 </td>
                 <td class="px-4 py-3 text-right font-black text-green-700 dark:text-green-400 bg-green-50/50 dark:bg-green-900/10">
-                  <span class="liquido">{{ r.liquido|floatformat:2 }}</span>
+                  <span class="liquido">{{ r.liquido|fmtkz }}</span>
                   <div class="text-xs font-normal text-gray-500">KZ</div>
                 </td>
               </tr>
@@ -243,7 +242,7 @@
               <tr>
                 <td colspan="8" class="px-4 py-3 text-right font-bold text-gray-700 dark:text-gray-300">Total Líquido:</td>
                 <td class="px-4 py-3 text-right font-black text-xl text-primary" id="totalLiquido">
-                  {{ proc.total_liquido|floatformat:2 }} KZ
+                  {{ proc.total_liquido|fmtkz }} KZ
                 </td>
               </tr>
             </tfoot>
@@ -274,7 +273,7 @@
           <li>· <strong>IRT</strong> - calculado pela tabela angolana vigente sobre (Salário Base - Faltas)</li>
           <li>· <strong>INSS</strong> - 3% do (Salário Base - Faltas) (trabalhador) + 8% entidade patronal</li>
           <li>· <strong>Faltas</strong> - desconto proporcional: salário ÷ 22 dias úteis × nº faltas aprovadas</li>
-          <li>· <strong>Subsídios</strong> - alimentação e transporte editáveis (padrão: 15.000 KZ cada)</li>
+          <li>· <strong>Subsídios</strong> - valores editáveis por colaborador</li>
           <li>· <strong>Líquido</strong> = (Salário Base - Faltas - IRT - INSS) + Subsídios</li>
         </ul>
       </div>
@@ -285,6 +284,21 @@
 </div>
 
 <script>
+// Helpers para formato pt_AO: 1.234,56
+function parseKZ(s) {
+  if (!s) return 0;
+  return parseFloat(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function fmtKZ(n) {
+  var p = n.toFixed(2).split('.');
+  var i = p[0], d = p[1];
+  var grupos = [];
+  while (i.length > 3) { grupos.unshift(i.slice(-3)); i = i.slice(0, -3); }
+  grupos.unshift(i);
+  return grupos.join('.') + ',' + d;
+}
+
 // Tabela IRT Angola (escalões em KZ) — isento até 150.000 KZ
 function calcularIRT(salario) {
   const s = parseFloat(salario) || 0;
@@ -300,23 +314,17 @@ function calcularIRT(salario) {
   return 2269000 + (s - 10000000) * 0.25;
 }
 
-function fmt(n) {
-  return n.toFixed(2);
-}
-
 function recalcularLinha(inputEl) {
   const row = inputEl.closest('tr');
-  const salarioBase = parseFloat(row.querySelector('.salario-base').textContent) || 0;
+  const salarioBase = parseKZ(row.querySelector('.salario-base').textContent);
   
   // Calcular total de subsídios dinâmicos
   let totalSubsidios = 0;
-  row.querySelectorAll('input[type="number"]').forEach(input => {
-    if (input.name.includes('subsidio_')) {
-      totalSubsidios += parseFloat(input.value) || 0;
-    }
+  row.querySelectorAll('input[name*="subsidio_"]').forEach(input => {
+    totalSubsidios += parseKZ(input.value);
   });
   
-  const faltas      = parseFloat(row.querySelector('.faltas')?.textContent) || 0;
+  const faltas      = parseKZ(row.querySelector('.faltas')?.textContent);
 
   // Nova lógica: IRT e INSS calculados sobre (salário_base - faltas)
   const baseImpostos = Math.max(0, salarioBase - faltas);
@@ -325,10 +333,10 @@ function recalcularLinha(inputEl) {
   const inss   = baseImpostos * 0.03;
   const liquido = (baseImpostos - irt - inss) + totalSubsidios;
 
-  row.querySelector('.bruto').textContent  = fmt(bruto);
-  row.querySelector('.irt').textContent    = fmt(irt);
-  row.querySelector('.inss').textContent   = fmt(inss);
-  row.querySelector('.liquido').textContent = fmt(Math.max(liquido, 0));
+  row.querySelector('.bruto').textContent  = fmtKZ(bruto);
+  row.querySelector('.irt').textContent    = fmtKZ(irt);
+  row.querySelector('.inss').textContent   = fmtKZ(inss);
+  row.querySelector('.liquido').textContent = fmtKZ(Math.max(liquido, 0));
 
   // Actualizar total
   recalcularTotal();
@@ -337,16 +345,16 @@ function recalcularLinha(inputEl) {
 function recalcularTotal() {
   let total = 0;
   document.querySelectorAll('.liquido').forEach(el => {
-    total += parseFloat(el.textContent) || 0;
+    total += parseKZ(el.textContent);
   });
   const totalEl = document.getElementById('totalLiquido');
-  if (totalEl) totalEl.textContent = total.toFixed(2) + ' KZ';
+  if (totalEl) totalEl.textContent = fmtKZ(total) + ' KZ';
 }
 
 // Inicializar cálculos ao carregar
 document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('input[type="number"]').forEach(function(inp) {
-    if (inp.name.includes('subsidio_')) {
+  document.querySelectorAll('input[name*="subsidio_"]').forEach(function(inp) {
+    if (inp.type !== 'hidden') {
       inp.addEventListener('input', function() { recalcularLinha(this); });
     }
   });

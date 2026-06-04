@@ -1,4 +1,5 @@
 {% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
 
 {% block breadcrumb %}
 <i class="fas fa-chevron-right text-xs"></i>
@@ -133,7 +134,7 @@
         </div>
         <div>
           <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Salário Base (Kz)</label>
-          <input type="number" name="salario_base" id="campoSalarioBase" placeholder="0.00" step="0.01"
+          <input type="text" inputmode="decimal" name="salario_base" id="campoSalarioBase" placeholder="0,00"
                  class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
         </div>
         <div class="md:col-span-2">
@@ -260,6 +261,18 @@ function limparCamposResponsavel() {
   document.getElementById('campoGenero').value = '';
 }
 
+function fmtKZ(n) {
+  if (n == null || n === '') return '';
+  var s = parseFloat(n.replace ? n.replace(/\./g,'').replace(',','.') : n);
+  if (isNaN(s)) return n;
+  var p = s.toFixed(2).split('.');
+  var i = p[0], d = p[1];
+  var grupos = [];
+  while (i.length > 3) { grupos.unshift(i.slice(-3)); i = i.slice(0, -3); }
+  grupos.unshift(i);
+  return grupos.join('.') + ',' + d;
+}
+
 function preencherCamposResponsavel(d) {
   document.getElementById('campoNome').value = d.nome || '';
   document.getElementById('campoEmail').value = d.email || '';
@@ -270,7 +283,7 @@ function preencherCamposResponsavel(d) {
   document.getElementById('campoDataNascimento').value = d.data_nascimento || '';
   document.getElementById('campoDepartamento').value = d.departamento || '';
   document.getElementById('campoDataAdmissao').value = d.data_admissao || '';
-  document.getElementById('campoSalarioBase').value = d.salario_base || '';
+  document.getElementById('campoSalarioBase').value = fmtKZ(d.salario_base);
   document.getElementById('campoObservacoes').value = d.observacoes || '';
 }
 

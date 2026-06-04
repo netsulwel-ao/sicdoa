@@ -1,14 +1,16 @@
 {% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+<div class="flex-1 ml-0 lg:ml-64 min-w-0 flex flex-col">
   {% include 'includes/header.html' %}
   {% csrf_token %}
-  <main class="p-4 md:p-6 lg:p-8">
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
 
-    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Convocatórias</h1>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">
+          <i class="fas fa-envelope-open-text text-primary mr-2"></i>Convocatórias
+        </h1>
         <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ assembleia.titulo }}</p>
       </div>
       <div class="flex items-center gap-2">
@@ -17,58 +19,106 @@
           <i class="fas fa-arrow-left text-base"></i>Voltar
         </a>
         {% include 'includes/view-toggle.html' %}
-        {% if papel == 'Administrador' %}
-      <a href="{% url 'governanca_criar_convocatoria' assembleia.pk %}"
-         class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
-        <i class="fas fa-plus text-base"></i> Nova Convocatória
-      </a>
-      {% endif %}
+        {% if papel == 'Administrador' or 'gerir_convocatorias' in user_permissoes %}
+        <a href="{% url 'governanca_criar_convocatoria' assembleia.pk %}"
+           class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2">
+          <i class="fas fa-plus text-base"></i> Nova Convocatória
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <i class="fas fa-envelope text-primary"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ total_conv }}</p>
+            <p class="text-xs text-gray-500">Total</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center shrink-0">
+            <i class="fas fa-check-circle text-green-600"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ publicadas_conv }}</p>
+            <p class="text-xs text-gray-500">Publicadas</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
+            <i class="fas fa-pen text-amber-600"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ rascunhos_conv }}</p>
+            <p class="text-xs text-gray-500">Rascunhos</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="space-y-3" data-view-container>
       <div data-grid-view>
       {% if convocatorias %}
       {% for c in convocatorias %}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-1">
-              <i class="fas fa-envelope text-primary text-lg"></i>
-              <h3 class="text-sm font-bold text-[#111418] dark:text-gray-200">{{ c.titulo }}</h3>
-              <span class="px-2 py-0.5 text-xs font-medium rounded-full
-                {% if c.status == 'Publicada' %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
-                {{ c.get_status_display }}
-              </span>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="p-4 md:p-5">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-9 h-9 rounded-lg {% if c.status == 'Publicada' %}bg-green-50 dark:bg-green-900/20{% else %}bg-amber-50 dark:bg-amber-900/20{% endif %} flex items-center justify-center shrink-0">
+                  <i class="fas {% if c.status == 'Publicada' %}fa-check-circle text-green-600{% else %}fa-pen text-amber-600{% endif %}"></i>
+                </div>
+                <div class="min-w-0">
+                  <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate">{{ c.titulo }}</h3>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full
+                      {% if c.status == 'Publicada' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">
+                      {{ c.get_status_display }}
+                    </span>
+                    <span class="text-xs text-gray-400">{{ c.data_envio|date:"d/m/Y H:i" }}</span>
+                  </div>
+                </div>
+              </div>
+              {% if c.descricao %}
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-2 ml-11">{{ c.descricao|truncatechars:120 }}</p>
+              {% endif %}
+              <div class="flex items-center gap-4 mt-2 ml-11 text-xs text-gray-400">
+                {% if c.prazo_confirmacao %}
+                <span><i class="fas fa-clock mr-1"></i>Prazo: {{ c.prazo_confirmacao|date:"d/m/Y H:i" }}</span>
+                {% endif %}
+                {% if c.documento %}
+                <span><i class="fas fa-paperclip mr-1"></i>1 anexo</span>
+                {% endif %}
+              </div>
             </div>
-            {% if c.descricao %}
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ c.descricao }}</p>
-            {% endif %}
-            <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
-              <span><i class="fas fa-calendar mr-1"></i>{{ c.data_envio|date:"d/m/Y H:i" }}</span>
-              {% if c.prazo_confirmacao %}
-              <span><i class="fas fa-clock mr-1"></i>Prazo: {{ c.prazo_confirmacao|date:"d/m/Y H:i" }}</span>
+            <div class="flex items-center gap-2 shrink-0">
+              {% if c.documento %}
+              <a href="{{ c.documento.url }}" target="_blank"
+                 class="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
+                <i class="fas fa-download text-xs"></i> Anexo
+              </a>
+              {% endif %}
+              {% if c.status == 'Rascunho' and papel == 'Administrador' or c.status == 'Rascunho' and 'gerir_convocatorias' in user_permissoes %}
+              <button class="btn-publicar-convocatoria px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
+                      data-conv-id="{{ c.id }}">
+                <i class="fas fa-paper-plane text-xs mr-1"></i> Publicar
+              </button>
+              {% endif %}
+              {% if c.status == 'Publicada' %}
+              <button class="btn-confirmar-rececao px-3 py-1.5 text-xs font-medium border border-green-300 text-green-700 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors cursor-pointer"
+                      data-conv-id="{{ c.id }}">
+                <i class="fas fa-check text-xs mr-1"></i> Confirmar
+              </button>
               {% endif %}
             </div>
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            {% if c.documento %}
-            <a href="{{ c.documento.url }}" target="_blank"
-               class="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1">
-              <i class="fas fa-download text-xs"></i> Documento
-            </a>
-            {% endif %}
-            {% if c.status == 'Rascunho' and papel == 'Administrador' %}
-            <button class="btn-publicar-convocatoria px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
-                    data-conv-id="{{ c.id }}">
-              <i class="fas fa-paper-plane text-xs mr-1"></i> Publicar
-            </button>
-            {% endif %}
-            {% if c.status == 'Publicada' %}
-            <button class="btn-confirmar-rececao px-3 py-1.5 text-xs font-medium border border-green-300 text-green-700 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
-                    data-conv-id="{{ c.id }}">
-              <i class="fas fa-check text-xs mr-1"></i> Confirmar Receção
-            </button>
-            {% endif %}
           </div>
         </div>
       </div>
@@ -79,9 +129,16 @@
       </div>
       {% endif %}
       {% else %}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
-        <i class="fas fa-envelope-open-text text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
-        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma convocatória publicada</p>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-16 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-envelope-open-text text-3xl text-gray-300 dark:text-gray-600"></i>
+        </div>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma convocatória encontrada</p>
+        {% if papel == 'Administrador' or 'gerir_convocatorias' in user_permissoes %}
+        <a href="{% url 'governanca_criar_convocatoria' assembleia.pk %}" class="inline-flex items-center gap-2 mt-3 text-sm text-primary hover:underline">
+          <i class="fas fa-plus"></i> Criar primeira convocatória
+        </a>
+        {% endif %}
       </div>
       {% endif %}
       </div>
@@ -92,35 +149,62 @@
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-gray-50 dark:bg-gray-800/50 text-left">
-                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Título</th>
-                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
-                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Data de Envio</th>
-                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Prazo</th>
-                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Documento</th>
+                <th class="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Título</th>
+                <th class="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                <th class="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Data</th>
+                <th class="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Prazo</th>
+                <th class="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Anexo</th>
+                <th class="px-4 py-3.5"></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
               {% for c in convocatorias %}
               <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ c.titulo }}</td>
-                <td class="px-4 py-3">
-                  <span class="px-2 py-0.5 text-xs font-medium rounded-full
-                    {% if c.status == 'Publicada' %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                <td class="px-4 py-3.5">
+                  <div class="flex items-center gap-2">
+                    <i class="fas fa-envelope text-primary text-sm shrink-0"></i>
+                    <span class="font-medium text-gray-900 dark:text-white truncate max-w-[250px]">{{ c.titulo }}</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3.5">
+                  <span class="px-2 py-0.5 text-xs font-semibold rounded-full
+                    {% if c.status == 'Publicada' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300{% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">
                     {{ c.get_status_display }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.data_envio|date:"d/m/Y H:i" }}</td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.prazo_confirmacao|date:"d/m/Y H:i"|default:"—" }}</td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{% if c.documento %}<a href="{{ c.documento.url }}" class="text-primary hover:underline">Download</a>{% else %}—{% endif %}</td>
+                <td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.data_envio|date:"d/m/Y" }}<br><span class="text-xs">{{ c.data_envio|date:"H:i" }}</span></td>
+                <td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ c.prazo_confirmacao|date:"d/m/Y"|default:"—" }}</td>
+                <td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-400">
+                  {% if c.documento %}
+                  <a href="{{ c.documento.url }}" class="text-primary hover:underline text-xs flex items-center gap-1">
+                    <i class="fas fa-paperclip"></i> Download
+                  </a>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-3.5 text-right">
+                  {% if c.status == 'Rascunho' and papel == 'Administrador' or c.status == 'Rascunho' and 'gerir_convocatorias' in user_permissoes %}
+                  <button class="btn-publicar-convocatoria text-xs font-medium bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
+                          data-conv-id="{{ c.id }}">
+                    <i class="fas fa-paper-plane text-xs mr-1"></i> Publicar
+                  </button>
+                  {% elif c.status == 'Publicada' %}
+                  <button class="btn-confirmar-rececao text-xs font-medium border border-green-300 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
+                          data-conv-id="{{ c.id }}">
+                    <i class="fas fa-check text-xs mr-1"></i> Confirmar
+                  </button>
+                  {% endif %}
+                </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% else %}
-        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
-          <i class="fas fa-envelope-open-text text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
-          <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma convocatória publicada</p>
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-16 text-center">
+          <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-envelope-open-text text-3xl text-gray-300 dark:text-gray-600"></i>
+          </div>
+          <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma convocatória encontrada</p>
         </div>
       {% endif %}
       </div>
@@ -160,8 +244,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.status === 'ok') {
           alert('Receção confirmada com sucesso!');
           this.disabled = true;
-          this.classList.add('opacity-50');
-          this.textContent = 'Receção Confirmada';
+          this.classList.add('opacity-50', 'cursor-not-allowed');
+          this.innerHTML = '<i class="fas fa-check text-xs mr-1"></i> Confirmado';
         } else alert(data.message || 'Erro');
       } catch(e) { alert('Erro de conexão.'); }
     });

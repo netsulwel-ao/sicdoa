@@ -173,7 +173,7 @@
       <!-- Multa e Estado -->
       <div class="space-y-3">
         <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
-          <span class="w-1 h-4 bg-amber-400 rounded-full"></span> Multa e Estado
+          <span class="w-1 h-4 bg-amber-400 rounded-full"></span> Multa, Carência e Estado
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -182,6 +182,12 @@
                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/30"
                    placeholder="0.00">
             <p class="text-xs text-gray-400 mt-1">Percentagem do valor da quota por cada dia de atraso</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dias de Carência</label>
+            <input type="number" name="dias_carencia" id="input-carencia" value="5" min="0"
+                   class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <p class="text-xs text-gray-400 mt-1">Dias de tolerância após vencimento antes de aplicar multa</p>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
@@ -259,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
     atualizarPreview();
   });
 
-  ['input-ano', 'input-mes', 'input-valor', 'input-vencimento', 'input-multa', 'input-tipo', 'input-categoria'].forEach(function(id) {
+  ['input-ano', 'input-mes', 'input-valor', 'input-vencimento', 'input-multa', 'input-carencia', 'input-tipo', 'input-categoria'].forEach(function(id) {
     document.getElementById(id)?.addEventListener('input', atualizarPreview);
     document.getElementById(id)?.addEventListener('change', atualizarPreview);
   });
@@ -333,6 +339,7 @@ function atualizarPreview() {
   if (ano && valor && parseFloat(valor) > 0) {
     el.classList.remove('hidden');
     var periodo = mes ? (tipoNome + ' ' + parseInt(mes) + '/' + ano) : (tipoNome + ' ' + ano);
+    var carencia = document.getElementById('input-carencia').value;
     content.innerHTML =
       '<div><span class="text-gray-500">Tipo</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + tipoNome + '</p></div>' +
       '<div><span class="text-gray-500">Categoria</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + catNome + '</p></div>' +
@@ -340,6 +347,7 @@ function atualizarPreview() {
       '<div><span class="text-gray-500">Valor</span><p class="font-semibold text-[#111418] dark:text-gray-200">Kz ' + parseFloat(valor).toFixed(2) + '</p></div>' +
       '<div><span class="text-gray-500">Vencimento</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + (venc ? new Date(venc).toLocaleDateString('pt-PT') : '—') + '</p></div>' +
       '<div><span class="text-gray-500">Multa</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + (parseFloat(multa) > 0 ? parseFloat(multa).toFixed(2) + '%/dia' : '—') + '</p></div>' +
+      '<div><span class="text-gray-500">Carência</span><p class="font-semibold text-[#111418] dark:text-gray-200">' + (parseInt(carencia) > 0 ? carencia + ' dias' : '—') + '</p></div>' +
       '<div><span class="text-gray-500">Estado</span><p class="font-semibold ' + (ativa ? 'text-emerald-600' : 'text-gray-400') + '">' + (ativa ? 'Ativa' : 'Inativa') + '</p></div>';
   } else {
     el.classList.add('hidden');

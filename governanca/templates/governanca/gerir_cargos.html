@@ -1,0 +1,443 @@
+{% load cargo_filters %}
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0 flex flex-col">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+    <div class="flex items-center justify-between">
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">
+        <i class="fas fa-users-cog text-primary mr-2"></i>
+        Membros da Direção
+      </h1>
+      <button onclick="abrirModalCargo()"
+              class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2">
+        <i class="fas fa-plus"></i> Novo Cargo
+      </button>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <i class="fas fa-users text-primary"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_total }}</p>
+            <p class="text-xs text-gray-500">Total de Membros</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center shrink-0">
+            <i class="fas fa-check-circle text-green-600"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_com_cargo }}</p>
+            <p class="text-xs text-gray-500">Com Cargo</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+            <i class="fas fa-user-slash text-gray-400"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_sem_cargo }}</p>
+            <p class="text-xs text-gray-500">Sem Cargo</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="relative flex-1 max-w-md">
+        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar membro..."
+               class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30">
+      </div>
+      <button type="submit" class="px-4 py-2 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/20 transition-colors">
+        <i class="fas fa-search mr-1"></i> Buscar
+      </button>
+      {% if q %}
+      <a href="?" class="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        Limpar
+      </a>
+      {% endif %}
+    </form>
+
+    <div id="membros-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {% for m in membros %}
+      {% with slugs=membro_cargos|get_item:m.id %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-start justify-between gap-3 mb-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <i class="fas fa-user text-primary"></i>
+            </div>
+            <div class="min-w-0">
+              <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate">{{ m.nome }}</h3>
+              <span class="text-xs text-gray-400">{{ m.papel }}</span>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="text-xs font-semibold {% if slugs|length > 0 %}text-green-500{% else %}text-gray-400{% endif %}">
+              {{ slugs|length }}/1
+            </span>
+            <p class="text-[10px] text-gray-400">cargos</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5 min-h-[28px]">
+          {% for cargo in cargos %}
+          {% if cargo.slug in slugs %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg
+              {% if cargo.sistema %}bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300{% else %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300{% endif %}">
+            {{ cargo.nome }}
+            <button class="btn-remover-cargo ml-0.5 hover:text-red-500 transition-colors cursor-pointer bg-transparent border-none p-0"
+                    data-usuario-id="{{ m.id }}" data-cargo-id="{{ cargo.id }}" title="Remover {{ cargo.nome }}">
+              <i class="fas fa-times text-[10px]"></i>
+            </button>
+          </span>
+          {% endif %}
+          {% endfor %}
+          {% if slugs|length < 1 %}
+          <button class="btn-atribuir px-2 py-1 text-xs font-medium text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors cursor-pointer border border-dashed border-primary/30 hover:border-primary/50"
+                  data-usuario-id="{{ m.id }}" data-usuario-nome="{{ m.nome }}">
+            <i class="fas fa-plus text-[10px] mr-0.5"></i> Atribuir
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endwith %}
+      {% empty %}
+      <div class="col-span-full text-center py-16 text-gray-400">
+        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-users text-3xl text-gray-300 dark:text-gray-600"></i>
+        </div>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum membro disponível</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+      {% include 'includes/pagination.html' with extra_params=extra_params %}
+    </div>
+    {% endif %}
+
+    {# ── Permissões dos Cargos ─────────────────────────────────────────── #}
+    <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-[#111418] dark:text-white">
+          <i class="fas fa-lock text-primary mr-2"></i>
+          Permissões dos Cargos
+        </h2>
+      </div>
+      <div class="space-y-2">
+        {% for cargo in cargos %}
+        {% with cargo_perm_ids=cargo_permissoes|get_item:cargo.id %}
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="cargo-perm-header flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+               data-target="perm-{{ cargo.id }}" role="button" tabindex="0">
+            <div class="flex items-center gap-3">
+              <i class="fas fa-chevron-right text-xs text-gray-400 transition-transform duration-200"></i>
+              <span class="text-sm font-bold text-[#111418] dark:text-white">{{ cargo.nome }}</span>
+              {% if cargo.sistema %}<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300 font-medium">Sistema</span>{% endif %}
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold {% if cargo_perm_ids|length > 0 %}text-primary{% else %}text-gray-400{% endif %}">
+                {{ cargo_perm_ids|length }} permiss{{ cargo_perm_ids|length|pluralize:'ão,ões' }}
+              </span>
+              <button class="btn-eliminar-cargo text-gray-400 hover:text-red-500 transition-colors p-1 cursor-pointer bg-transparent border-none" data-cargo-id="{{ cargo.id }}" data-cargo-nome="{{ cargo.nome }}" title="Eliminar cargo">
+                <i class="fas fa-trash-alt text-xs"></i>
+              </button>
+            </div>
+          </div>
+          <div id="perm-{{ cargo.id }}" class="hidden border-t border-gray-100 dark:border-gray-700/50">
+            <div class="p-4">
+              {% regroup permissoes by grupo as perm_grupos %}
+              {% for grupo in perm_grupos %}
+              <div class="{% if not forloop.last %}mb-4{% endif %}">
+                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{{ grupo.grouper }}</p>
+                <div class="space-y-2">
+                  {% for p in grupo.list %}
+                  <label class="btn-toggle-permissao flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                         data-cargo-id="{{ cargo.id }}" data-permissao-id="{{ p.id }}"
+                         data-ativo="{% if p.id in cargo_perm_ids %}true{% else %}false{% endif %}">
+                    <div class="relative w-9 h-5 flex-shrink-0">
+                      <div class="toggle-track w-full h-full rounded-full transition-colors duration-200 {% if p.id in cargo_perm_ids %}bg-primary{% else %}bg-gray-300 dark:bg-gray-600{% endif %}"></div>
+                      <div class="toggle-thumb absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 {% if p.id in cargo_perm_ids %}translate-x-4{% endif %}"></div>
+                    </div>
+                    <span class="text-sm text-gray-700 dark:text-gray-300 select-none">{{ p.nome }}</span>
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endwith %}
+        {% empty %}
+        <p class="text-sm text-gray-400 text-center py-8">Nenhum cargo criado.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="modal-atribuir" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 p-6 w-full max-w-sm mx-4">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold text-[#111418] dark:text-white">Atribuir Cargo</h3>
+      <button onclick="fecharModalAtribuir()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer bg-transparent border-none">
+        <i class="fas fa-times text-xl"></i>
+      </button>
+    </div>
+    <p class="text-sm text-gray-500 mb-4" id="modal-atribuir-nome"></p>
+    <div class="space-y-3">
+      <select id="select-cargo" required
+              class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+        <option value="">Selecionar cargo...</option>
+        {% for cargo in cargos %}
+        <option value="{{ cargo.id }}" {% if cargo.id in cargo_ocupado_ids %}disabled{% endif %}>
+          {{ cargo.nome }}{% if cargo.id in cargo_ocupado_ids %} — {{ cargo_ocupado_por|get_item:cargo.id }}{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      <p id="modal-atribuir-erro" class="text-xs text-red-500 hidden"></p>
+      <button id="btn-confirmar-atribuir" class="w-full px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors">
+        Atribuir Cargo
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-cargo" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 p-6 w-full max-w-md mx-4">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold text-[#111418] dark:text-white">Novo Cargo</h3>
+      <button onclick="fecharModalCargo()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer bg-transparent border-none">
+        <i class="fas fa-times text-xl"></i>
+      </button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Nome do Cargo *</label>
+        <input type="text" id="input-cargo-nome" maxlength="100" placeholder="Ex: Tesoureiro"
+               class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Descrição</label>
+        <textarea id="input-cargo-descricao" rows="3" placeholder="Responsabilidades do cargo..."
+                  class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"></textarea>
+      </div>
+      <button id="btn-salvar-cargo" class="w-full px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors">
+        Criar Cargo
+      </button>
+    </div>
+  </div>
+</div>
+
+{% include 'includes/footer.html' %}
+{% include 'includes/confirm-modal.html' %}
+
+<script>
+(function() {
+  const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+  const apiToggle = '{% url "governanca_api_cargo_toggle" %}';
+  const apiCriar = '{% url "governanca_api_cargo_criar" %}';
+
+  let atribuirUsuarioId = null;
+
+  document.querySelectorAll('.btn-atribuir').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      atribuirUsuarioId = this.dataset.usuarioId;
+      document.getElementById('modal-atribuir-nome').textContent = 'Membro: ' + this.dataset.usuarioNome;
+      document.getElementById('select-cargo').value = '';
+      document.getElementById('modal-atribuir-erro').classList.add('hidden');
+      document.getElementById('modal-atribuir').classList.remove('hidden');
+    });
+  });
+
+  document.getElementById('btn-confirmar-atribuir')?.addEventListener('click', async function() {
+    const cargoId = document.getElementById('select-cargo').value;
+    const erroEl = document.getElementById('modal-atribuir-erro');
+    erroEl.classList.add('hidden');
+    if (!cargoId || !atribuirUsuarioId) { erroEl.textContent = 'Selecione um cargo.'; erroEl.classList.remove('hidden'); return; }
+    this.disabled = true;
+    this.textContent = 'A atribuir...';
+    try {
+      const res = await fetch(apiToggle, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({ usuario_id: parseInt(atribuirUsuarioId), cargo_id: parseInt(cargoId), ativar: true })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        location.reload();
+      } else {
+        erroEl.textContent = data.erro || data.message || 'Erro ao atribuir cargo.';
+        erroEl.classList.remove('hidden');
+      }
+    } catch(e) {
+      erroEl.textContent = 'Erro de conexão.';
+      erroEl.classList.remove('hidden');
+    }
+    this.disabled = false;
+    this.textContent = 'Atribuir Cargo';
+  });
+
+  document.querySelectorAll('.btn-remover-cargo').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const usuarioId = this.dataset.usuarioId;
+      const cargoId = this.dataset.cargoId;
+      const ok = await showConfirm('Remover Cargo', 'Remover este cargo do membro?', 'Remover');
+      if (!ok) return;
+      try {
+        const res = await fetch(apiToggle, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({ usuario_id: parseInt(usuarioId), cargo_id: parseInt(cargoId), ativar: false })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          location.reload();
+        } else {
+          await showConfirm('Erro', data.erro || data.message || 'Erro ao remover cargo.', 'OK');
+        }
+      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+    });
+  });
+
+  window.fecharModalAtribuir = function() {
+    document.getElementById('modal-atribuir').classList.add('hidden');
+    atribuirUsuarioId = null;
+  };
+  document.getElementById('modal-atribuir')?.addEventListener('click', function(e) {
+    if (e.target === this) fecharModalAtribuir();
+  });
+
+  const modalCargo = document.getElementById('modal-cargo');
+  window.abrirModalCargo = function() {
+    modalCargo.classList.remove('hidden');
+    document.getElementById('input-cargo-nome').value = '';
+    document.getElementById('input-cargo-descricao').value = '';
+    document.getElementById('input-cargo-nome').focus();
+  };
+  window.fecharModalCargo = function() {
+    modalCargo.classList.add('hidden');
+  };
+  modalCargo?.addEventListener('click', function(e) {
+    if (e.target === modalCargo) fecharModalCargo();
+  });
+
+  document.getElementById('btn-salvar-cargo')?.addEventListener('click', async function() {
+    const nome = document.getElementById('input-cargo-nome').value.trim();
+    const descricao = document.getElementById('input-cargo-descricao').value.trim();
+    if (!nome) { await showConfirm('Aviso', 'O nome do cargo é obrigatório.', 'OK'); return; }
+    try {
+      const res = await fetch(apiCriar, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({ nome: nome, descricao: descricao })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        location.reload();
+      } else {
+        await showConfirm('Erro', data.erro || data.message || 'Erro ao criar cargo.', 'OK');
+      }
+    } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+  });
+
+  // ── Accordion Cargos ───────────────────────────────────────────
+  document.querySelectorAll('.cargo-perm-header').forEach(function(header) {
+    header.addEventListener('click', function(e) {
+      // Ignore clicks on buttons inside the header
+      if (e.target.closest('.btn-eliminar-cargo')) return;
+      const target = document.getElementById(this.dataset.target);
+      const chevron = this.querySelector('.fa-chevron-right');
+      if (target.classList.contains('hidden')) {
+        target.classList.remove('hidden');
+        chevron.style.transform = 'rotate(90deg)';
+      } else {
+        target.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+      }
+    });
+  });
+
+  // ── Eliminar Cargo ──────────────────────────────────────────────
+  const apiRemover = '{% url "governanca_api_cargo_remover" 0 %}'.replace('/0/', '/');
+  document.querySelectorAll('.btn-eliminar-cargo').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      const cargoId = this.dataset.cargoId;
+      const cargoNome = this.dataset.cargoNome;
+      const ok = await showConfirm('Eliminar Cargo', `Eliminar o cargo "${cargoNome}"? Esta ação não pode ser desfeita.`, 'Eliminar');
+      if (!ok) return;
+      try {
+        const res = await fetch(apiRemover + cargoId + '/', {
+          method: 'POST',
+          headers: {'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest'}
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          location.reload();
+        } else {
+          await showConfirm('Erro', data.erro || 'Erro ao eliminar cargo.', 'OK');
+        }
+      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+    });
+  });
+
+  // ── Toggle Permissões ──────────────────────────────────────────
+  const apiPermissoes = '{% url "governanca_api_cargo_permissoes" %}';
+  document.querySelectorAll('.btn-toggle-permissao').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const cargoId = parseInt(this.dataset.cargoId);
+      const permissaoId = parseInt(this.dataset.permissaoId);
+      const ativo = this.dataset.ativo === 'true';
+      try {
+        const res = await fetch(apiPermissoes, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({ cargo_id: cargoId, permissao_id: permissaoId, ativar: !ativo })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          this.dataset.ativo = ativo ? 'false' : 'true';
+          const track = this.querySelector('.toggle-track');
+          const thumb = this.querySelector('.toggle-thumb');
+          if (!ativo) {
+            track.className = 'toggle-track w-full h-full rounded-full transition-colors duration-200 bg-primary';
+            thumb.className = 'toggle-thumb absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 translate-x-4';
+          } else {
+            track.className = 'toggle-track w-full h-full rounded-full transition-colors duration-200 bg-gray-300 dark:bg-gray-600';
+            thumb.className = 'toggle-thumb absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200';
+          }
+          // Update count in header
+          const panel = this.closest('[id^="perm-"]');
+          if (panel) {
+            const countEl = panel.previousElementSibling.querySelector('.text-xs.font-semibold');
+            if (countEl) {
+              const activeCount = panel.querySelectorAll('.btn-toggle-permissao[data-ativo="true"]').length;
+              countEl.textContent = activeCount + ' permiss' + (activeCount === 1 ? 'ão' : 'ões');
+              countEl.className = 'text-xs font-semibold ' + (activeCount > 0 ? 'text-primary' : 'text-gray-400');
+            }
+          }
+        } else {
+          await showConfirm('Erro', data.erro || 'Erro ao alterar permissão.', 'OK');
+        }
+      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+    });
+  });
+
+})();
+</script>

@@ -106,6 +106,26 @@
                   {{ usuario.status }}
                 </span>
               </div>
+              {% if cargo_info %}
+              <div class="col-span-2">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cargo na Direção</p>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                    <i class="fas fa-user-tie text-xs"></i>
+                    {{ cargo_info.nome }}
+                  </span>
+                  {% if cargo_info.descricao %}
+                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ cargo_info.descricao }}</span>
+                  {% endif %}
+                </div>
+                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                  <p><span class="font-medium">Atribuído em:</span> {{ cargo_info.atribuido_em|date:"d/m/Y H:i" }}</p>
+                  {% if cargo_info.atribuido_por %}
+                  <p><span class="font-medium">Atribuído por:</span> {{ cargo_info.atribuido_por }}</p>
+                  {% endif %}
+                </div>
+              </div>
+              {% endif %}
               {% if usuario.ultimo_acesso %}
               <div class="col-span-2">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Último Acesso</p>

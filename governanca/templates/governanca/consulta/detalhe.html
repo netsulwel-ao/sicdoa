@@ -16,7 +16,7 @@
         <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">{{ consulta.titulo }}</h1>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        {% if papel == 'Administrador' and consulta.status == 'Rascunho' %}
+        {% if papel == 'Administrador' or 'gerir_consultas' in user_permissoes and consulta.status == 'Rascunho' %}
         <a href="{% url 'governanca_consulta_editar' consulta.id %}" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center gap-1">
           <i class="fas fa-edit"></i> Editar
         </a>
@@ -57,7 +57,7 @@
         <p class="text-xs mt-0.5 opacity-80">Prazo: {{ consulta.prazo_fim|date:"d/m/Y H:i" }}</p>
         {% endif %}
       </div>
-      {% if papel == 'Administrador' %}
+      {% if papel == 'Administrador' or 'gerir_consultas' in user_permissoes %}
         {% if consulta.status == 'Rascunho' %}
         <button id="btn-publicar" data-id="{{ consulta.id }}" class="px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors">Publicar</button>
         {% elif consulta.status == 'Publicada' %}

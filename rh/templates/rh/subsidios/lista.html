@@ -1,4 +1,4 @@
-﻿{% include 'includes/head.html' %}
+﻿{% load rh_extras %}{% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 <div class="flex-1 ml-0 lg:ml-64 min-w-0">
   {% include 'includes/header.html' %}
@@ -83,7 +83,7 @@
                   {% if subsidio.tipo_calculo == 'PERCENTUAL' %}
                     {{ subsidio.percentual }}%
                   {% else %}
-                    {{ subsidio.valor_padrao|floatformat:2 }} Kz
+                    {{ subsidio.valor_padrao|fmtkz }} Kz
                   {% endif %}
                 </span>
               </div>
@@ -149,7 +149,7 @@
                 {% if subsidio.tipo_calculo == 'PERCENTUAL' %}
                 <span class="text-gray-500">-</span>
                 {% else %}
-                {{ subsidio.valor_padrao|floatformat:2 }} Kz
+                {{ subsidio.valor_padrao|fmtkz }} Kz
                 {% endif %}
               </td>
               <td class="px-4 py-3 text-center">

@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
-   MEET-GRID.CSS — Google Meet-like grid + layout
-   Suporta 1 a 500+ participantes com scroll/paginação
+   MEET-GRID.CSS — Redesign UI/UX (Junho 2026)
+   Estilo: YouTube Studio / Google Meet / Linear / Stripe / Notion
+   Paleta: bg #0f1117, cards #1a1d27, side #1e2030, primary #3b82f6
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Container principal da grelha ─────────────────────────── */
@@ -12,26 +13,30 @@
   gap: 8px;
   width: 100%;
   height: 100%;
-  padding: 8px;
-  overflow-y: auto;
-  transition: all 0.3s ease;
+  padding: 12px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .meet-grid.has-sidepanel {
-  width: calc(100% - 360px);
+  width: calc(100% - 380px);
 }
 
 /* ── Tile individual de participante ───────────────────────── */
 .meet-tile {
   position: relative;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  background: #2d2d3a;
+  background: #1a1d27;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+
+.meet-tile:hover {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
 
 .meet-tile video {
@@ -43,7 +48,7 @@
   width: 100% !important;
   height: 100% !important;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 16px;
   z-index: 2;
 }
 
@@ -74,7 +79,6 @@
 .layout-24 .meet-tile,
 .layout-25 .meet-tile { width: calc(20% - 7px); height: calc(20% - 7px); }
 
-/* 26-49: grids de 6 colunas */
 .layout-26 .meet-tile,
 .layout-27 .meet-tile,
 .layout-28 .meet-tile,
@@ -87,7 +91,6 @@
 .layout-35 .meet-tile,
 .layout-36 .meet-tile { width: calc(16.666% - 7px); height: calc(16.666% - 7px); }
 
-/* 37-64: grids de 8 colunas */
 .layout-37 .meet-tile,
 .layout-38 .meet-tile,
 .layout-39 .meet-tile,
@@ -117,20 +120,11 @@
 .layout-63 .meet-tile,
 .layout-64 .meet-tile { width: calc(12.5% - 7px); height: calc(12.5% - 7px); }
 
-/* 65-100: grids de 10 colunas */
 .layout-100 .meet-tile { width: calc(10% - 8px); height: calc(10% - 8px); }
 
-/* 100+ : grids de 12 colunas (tiles miniatura) */
 .layout-max .meet-tile { width: calc(8.333% - 8px); height: calc(8.333% - 8px); }
 
-/* ── Tile: video ───────────────────────────────────────────── */
-.meet-tile video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
+/* ── Tile placeholder (sem video) ──────────────────────────── */
 .meet-tile .tile-placeholder {
   position: absolute;
   top: 0;
@@ -142,11 +136,11 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  color: #9ca3af;
+  color: #94a3b8;
   pointer-events: none;
   z-index: 1;
-  background: #2d2d3a;
-  border-radius: 12px;
+  background: linear-gradient(145deg, #1a1d27 0%, #14171f 100%);
+  border-radius: 16px;
 }
 
 .meet-tile .tile-placeholder[style*="display: none"] {
@@ -161,6 +155,7 @@
   font-weight: 700;
   color: #fff;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
 .layout-1  .tile-placeholder .avatar-circle { width: 120px; height: 120px; font-size: 48px; }
@@ -188,7 +183,7 @@
 .tile-placeholder .avatar-name {
   font-size: 12px;
   font-weight: 500;
-  color: #d1d5db;
+  color: #cbd5e1;
   text-align: center;
   max-width: 90%;
   overflow: hidden;
@@ -216,11 +211,11 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 6px 10px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  padding: 10px 14px;
+  background: linear-gradient(transparent 0%, rgba(0,0,0,0.75) 100%);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   pointer-events: none;
   z-index: 2;
 }
@@ -228,7 +223,7 @@
 .layout-26 .tile-info,
 .layout-37 .tile-info,
 .layout-100 .tile-info,
-.layout-max .tile-info { padding: 3px 6px; }
+.layout-max .tile-info { padding: 4px 8px; }
 
 .layout-17 .tile-name,
 .layout-26 .tile-name,
@@ -244,8 +239,8 @@
 .meet-tile .tile-info .tile-name {
   font-size: 12px;
   font-weight: 500;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  color: #f1f5f9;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -254,10 +249,11 @@
 .meet-tile .tile-info .tile-badge {
   font-size: 10px;
   font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.2);
-  color: #fff;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(4px);
+  color: #f1f5f9;
   flex-shrink: 0;
 }
 
@@ -269,37 +265,42 @@
 
 /* ── Indicadores de estado no tile ─────────────────────────── */
 .meet-tile.tile-speaking {
-  box-shadow: 0 0 0 3px #22c55e;
+  box-shadow: 0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.3);
   z-index: 2;
 }
 
 .meet-tile.tile-muted::after {
-  content: '';
+  content: '\f131';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: rgba(239,68,68,0.85);
+  background: rgba(239,68,68,0.9);
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
+  color: #fff;
+  z-index: 3;
 }
 
 .layout-26 .tile-muted::after,
 .layout-37 .tile-muted::after,
 .layout-100 .tile-muted::after,
-.layout-max .tile-muted::after { width: 16px; height: 16px; top: 4px; right: 4px; }
+.layout-max .tile-muted::after { width: 20px; height: 20px; top: 4px; right: 4px; font-size: 10px; }
 
 .tile-raise-hand {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  font-size: 18px;
+  top: 10px;
+  left: 10px;
+  font-size: 20px;
   animation: hand-wave 0.6s ease-in-out infinite alternate;
   z-index: 3;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
 }
 
 @keyframes hand-wave {
@@ -310,25 +311,25 @@
 /* ── Indicador "A falar" (waveform) ────────────────────────── */
 .speaking-indicator {
   position: absolute;
-  bottom: 36px;
-  right: 8px;
+  bottom: 40px;
+  right: 10px;
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  height: 16px;
+  gap: 3px;
+  height: 18px;
 }
 
 .speaking-indicator span {
-  width: 3px;
-  background: #22c55e;
+  width: 4px;
+  background: #3b82f6;
   border-radius: 2px;
   animation: sound-wave 0.8s ease-in-out infinite;
 }
 
 .speaking-indicator span:nth-child(1) { height: 6px; animation-delay: 0s; }
-.speaking-indicator span:nth-child(2) { height: 12px; animation-delay: 0.15s; }
-.speaking-indicator span:nth-child(3) { height: 8px; animation-delay: 0.3s; }
-.speaking-indicator span:nth-child(4) { height: 14px; animation-delay: 0.45s; }
+.speaking-indicator span:nth-child(2) { height: 14px; animation-delay: 0.15s; }
+.speaking-indicator span:nth-child(3) { height: 10px; animation-delay: 0.3s; }
+.speaking-indicator span:nth-child(4) { height: 16px; animation-delay: 0.45s; }
 
 @keyframes sound-wave {
   0%, 100% { transform: scaleY(0.5); }
@@ -340,27 +341,28 @@
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  background: #1a1a2e;
+  background: #0f1117;
 }
 
 .meet-screen-share video {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border-radius: 12px;
+  border-radius: 16px;
 }
 
 .meet-screen-share .screen-share-info {
   position: absolute;
   top: 12px;
   left: 12px;
-  padding: 4px 10px;
-  background: rgba(0,0,0,0.6);
-  border-radius: 6px;
+  padding: 6px 12px;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
   font-size: 12px;
-  color: #fff;
+  color: #f1f5f9;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -371,49 +373,69 @@
 .meet-layout-share {
   display: grid;
   grid-template: 1fr / 1fr 320px;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   height: 100%;
-  padding: 8px;
+  padding: 10px;
   position: absolute;
   inset: 0;
 }
 
 .meet-layout-share .share-main {
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  background: #1a1a2e;
+  background: #0f1117;
 }
 
 .meet-layout-share .share-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
 }
 
 .meet-layout-share .share-sidebar .meet-tile {
-  min-height: 120px;
+  min-height: 140px;
+  border-radius: 12px;
   flex-shrink: 0;
   width: 100%;
   height: auto;
 }
 
-/* ── Top bar ───────────────────────────────────────────────── */
+/* ── Top Bar — Google Meet Premium style ───────────────────── */
 .meet-topbar {
+  position: fixed;
+  top: 60px;
+  left: 256px;
+  right: 0;
+  z-index: 35;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  background: #1e1e2e;
-  color: #e5e7eb;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  flex-shrink: 0;
+  padding: 10px 20px;
+  background: rgba(26,29,39,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #f1f5f9;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.popup .meet-topbar {
+  top: 0;
+  left: 0;
+}
+
+@media (max-width: 1023px) {
+  .meet-topbar {
+    left: 0;
+  }
 }
 
 .meet-topbar .meet-title {
   font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -422,68 +444,80 @@
 .meet-topbar .meet-status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   font-size: 13px;
-  color: #9ca3af;
+  color: #94a3b8;
 }
 
 .meet-topbar .meet-status .status-badge {
-  padding: 2px 10px;
-  border-radius: 999px;
+  padding: 3px 12px;
+  border-radius: 9999px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.status-badge.scheduled { background: #f59e0b20; color: #f59e0b; border: 1px solid #f59e0b40; }
-.status-badge.live      { background: #22c55e20; color: #22c55e; border: 1px solid #22c55e40; }
-.status-badge.ended     { background: #6b728020; color: #6b7280; border: 1px solid #6b728040; }
+.status-badge.scheduled { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+.status-badge.live      { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+.status-badge.ended     { background: rgba(107,114,128,0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.2); }
 
-/* ── Bottom bar (controlos Google Meet style) ────────────────── */
+/* ── Bottom Bar (controlos) — style Linear / YouTube Studio ── */
+#app-root {
+  padding-top: 48px;
+}
+
+.popup#app-root {
+  padding-top: 48px;
+}
+
 .meet-bottombar {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 10px 16px;
-  background: #1e1e2e;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(26,29,39,0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
   flex-wrap: wrap;
-  position: relative;
-  z-index: 10;
 }
 
 .meet-btn {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: 14px;
   border: none;
-  background: rgba(255,255,255,0.08);
-  color: #e5e7eb;
+  background: rgba(255,255,255,0.06);
+  color: #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   font-size: 18px;
   position: relative;
 }
 
-.meet-btn:hover { background: rgba(255,255,255,0.15); }
-.meet-btn:active { transform: scale(0.92); }
-.meet-btn.meet-btn-active { background: #22c55e; color: #fff; }
+.meet-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.05); }
+.meet-btn:active { transform: scale(0.95); }
+.meet-btn.meet-btn-active { background: #10b981; color: #fff; }
 .meet-btn.meet-btn-danger { background: #ef4444; color: #fff; }
 .meet-btn.meet-btn-danger:hover { background: #dc2626; }
 .meet-btn.meet-btn-warn { background: #f59e0b; color: #fff; }
 
 .meet-btn .btn-badge {
   position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 999px;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 9999px;
   background: #ef4444;
   color: #fff;
   font-size: 10px;
@@ -491,7 +525,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  padding: 0 5px;
+  box-shadow: 0 2px 8px rgba(239,68,68,0.4);
 }
 
 .meet-btn-label {
@@ -503,91 +538,105 @@
 
 .meet-btn-label span.label-text {
   font-size: 10px;
-  color: #9ca3af;
+  color: #94a3b8;
   white-space: nowrap;
 }
 
 .meet-btn.meet-btn-end {
   width: auto;
-  padding: 0 20px;
-  border-radius: 24px;
+  padding: 0 22px;
+  border-radius: 12px;
   background: #ef4444;
   color: #fff;
   font-size: 13px;
   font-weight: 600;
-  gap: 6px;
+  gap: 8px;
+  transition: all 0.2s ease;
 }
 
-.meet-btn.meet-btn-end:hover { background: #dc2626; }
+.meet-btn.meet-btn-end:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  transform: scale(1.03);
+}
+
 .meet-btn.meet-btn-end i { font-size: 15px; }
 
 /* Separador vertical */
 .meet-sep {
   width: 1px;
-  height: 32px;
-  background: rgba(255,255,255,0.1);
+  height: 28px;
+  background: rgba(255,255,255,0.06);
   margin: 0 4px;
 }
 
-/* ── Side panel (chat/participantes/pautas) ─────────────────── */
+/* ── Side Panel — style Notion / Linear ────────────────────── */
 .meet-sidepanel {
   position: absolute;
   top: 0;
   right: 0;
-  width: 360px;
+  width: 380px;
   height: 100%;
-  background: #252536;
-  border-left: 1px solid rgba(255,255,255,0.08);
+  background: #1e2030;
+  border-left: 1px solid rgba(255,255,255,0.05);
   display: flex;
   flex-direction: column;
   z-index: 20;
-  transform: translateX(0);
-  transition: transform 0.25s ease;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.3);
+  animation: panel-fade-in 0.2s ease;
 }
 
 .meet-sidepanel.hidden-panel {
-  transform: translateX(100%);
+  display: none;
+}
+
+@keyframes panel-fade-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 .meet-sidepanel .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
 .meet-sidepanel .panel-header h3 {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  color: #e5e7eb;
+  letter-spacing: -0.01em;
+  color: #f1f5f9;
 }
 
 .meet-sidepanel .panel-header button {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 10px;
   border: none;
   background: transparent;
-  color: #9ca3af;
+  color: #94a3b8;
   cursor: pointer;
   font-size: 16px;
+  transition: all 0.15s;
 }
 
-.meet-sidepanel .panel-header button:hover { background: rgba(255,255,255,0.08); }
+.meet-sidepanel .panel-header button:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
 
 .meet-sidepanel .panel-tabs {
   display: flex;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 0 4px;
+  gap: 0;
 }
 
 .meet-sidepanel .panel-tab {
   flex: 1;
-  padding: 8px;
+  padding: 10px 8px;
   text-align: center;
   font-size: 12px;
   font-weight: 500;
-  color: #9ca3af;
+  color: #94a3b8;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
@@ -595,104 +644,272 @@
   border-top: none;
   border-left: none;
   border-right: none;
+  border-radius: 0;
 }
 
-.meet-sidepanel .panel-tab:hover { color: #e5e7eb; background: rgba(255,255,255,0.04); }
-.meet-sidepanel .panel-tab.active { color: #22c55e; border-bottom-color: #22c55e; }
+.meet-sidepanel .panel-tab:hover { color: #e2e8f0; background: rgba(59,130,246,0.06); }
+.meet-sidepanel .panel-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
 
 .meet-sidepanel .panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  overflow-x: hidden;
+  padding: 12px 14px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* Chat messages */
+/* ── Chat — zig-zag bubble style ────────────────────────────── */
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-day-divider {
+  text-align: center;
+  margin: 10px 0 6px;
+  position: relative;
+}
+.chat-day-divider span {
+  font-size: 11px;
+  color: #64748b;
+  background: #1e2030;
+  padding: 0 10px;
+  position: relative;
+  z-index: 1;
+}
+.chat-day-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+}
+
+/* Wrapper de cada mensagem */
 .chat-msg {
-  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+  margin-bottom: 4px;
+  animation: msg-pop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes msg-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Mensagem própria — lado direito */
+.chat-msg.is-mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+/* Mensagem de outros — lado esquerdo */
+.chat-msg.is-other {
+  align-self: flex-start;
+  align-items: flex-start;
 }
 
 .chat-msg .chat-author {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: #e5e7eb;
-  margin-bottom: 2px;
+  color: #94a3b8;
+  margin-bottom: 3px;
+  padding: 0 4px;
 }
 
-.chat-msg .chat-text {
-  font-size: 13px;
-  color: #d1d5db;
-  line-height: 1.4;
+.chat-msg.is-mine .chat-author { display: none; }
+
+/* Bolha de texto */
+.chat-msg .chat-bubble {
+  padding: 9px 13px;
+  border-radius: 18px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  overflow-wrap: break-word;
   word-break: break-word;
+  max-width: 100%;
+  position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.chat-msg.is-mine .chat-bubble {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border-bottom-right-radius: 5px;
+}
+
+.chat-msg.is-other .chat-bubble {
+  background: rgba(255,255,255,0.07);
+  color: #e2e8f0;
+  border-bottom-left-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.06);
 }
 
 .chat-msg .chat-time {
   font-size: 10px;
-  color: #6b7280;
-  margin-top: 2px;
+  color: #475569;
+  margin-top: 3px;
+  padding: 0 4px;
 }
 
+/* Reação flutuante */
 .chat-reaction {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 16px;
-  margin-bottom: 6px;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  margin: 2px 0;
   font-size: 13px;
-  color: #d1d5db;
+  animation: msg-pop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Reação própria — lado direito */
+.chat-reaction.is-mine {
+  align-self: flex-end;
+  background: rgba(59,130,246,0.18);
+  border: 1px solid rgba(59,130,246,0.25);
+  color: #93c5fd;
+  flex-direction: row-reverse;
+}
+
+/* Reação de outros — lado esquerdo */
+.chat-reaction.is-other {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #94a3b8;
+}
+
+.chat-reaction .reaction-author {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.chat-reaction .reaction-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ── Chat Input Area ─────────────────────────────────────────── */
 .chat-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  background: #1a1d27;
+}
+
+.chat-reactions-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-reactions-row button {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.chat-reactions-row button:hover {
+  background: rgba(255,255,255,0.1);
+  transform: scale(1.15);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.chat-input-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 6px 6px 6px 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.chat-input-area input {
+.chat-input-row:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  background: rgba(255,255,255,0.07);
+}
+
+.chat-input-row input {
   flex: 1;
-  padding: 8px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: #e5e7eb;
-  font-size: 13px;
+  background: transparent;
+  border: none;
   outline: none;
+  color: #f1f5f9;
+  font-size: 13.5px;
+  min-height: 28px;
 }
 
-.chat-input-area input::placeholder { color: #6b7280; }
-.chat-input-area input:focus { border-color: #22c55e60; }
+.chat-input-row input::placeholder { color: #475569; }
 
-.chat-input-area button {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+.chat-send-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   border: none;
-  background: #22c55e;
+  background: #3b82f6;
   color: #fff;
   cursor: pointer;
   font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
 }
 
-.chat-input-area button:hover { background: #16a34a; }
+.chat-send-btn:hover {
+  background: #2563eb;
+  transform: scale(1.07);
+}
+
+.chat-send-btn:disabled {
+  background: rgba(59,130,246,0.3);
+  cursor: default;
+  transform: none;
+}
 
 /* Participant list in side panel */
 .participant-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0;
+  gap: 12px;
+  padding: 8px 8px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.participant-row:hover {
+  background: rgba(255,255,255,0.03);
 }
 
 .participant-row .part-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -708,9 +925,9 @@
 }
 
 .participant-row .part-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
-  color: #e5e7eb;
+  color: #f1f5f9;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -718,47 +935,132 @@
 
 .participant-row .part-role {
   font-size: 11px;
-  color: #9ca3af;
+  color: #94a3b8;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  display: inline-block;
+  margin-top: 1px;
 }
 
 .participant-row .part-icons {
   display: flex;
-  gap: 4px;
-  font-size: 12px;
-  color: #6b7280;
+  gap: 6px;
+  font-size: 14px;
+  color: #64748b;
+  align-items: center;
 }
 
-/* ── Voting panel ──────────────────────────────────────────── */
+/* ── Admin host controls ────────────────────────────────────── */
+.host-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 10px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.host-controls-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.host-ctrl-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.06);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.host-ctrl-btn:hover { background: rgba(255,255,255,0.12); }
+.host-ctrl-btn.host-ctrl-danger { border-color: rgba(239,68,68,0.25); color: #fca5a5; }
+.host-ctrl-btn.host-ctrl-danger:hover { background: rgba(239,68,68,0.15); }
+
+/* Botões individuais de controlo no participante */
+.part-admin-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.part-ctrl-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.05);
+  color: #94a3b8;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.part-ctrl-btn:hover {
+  background: rgba(239,68,68,0.15);
+  border-color: rgba(239,68,68,0.3);
+  color: #fca5a5;
+  transform: scale(1.08);
+}
+
+.part-you {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* ── Voting Panel style Linear ─────────────────────────────── */
 .voting-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .voting-panel .voting-title {
   font-size: 15px;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #f1f5f9;
 }
 
 .voting-panel .voting-desc {
   font-size: 13px;
-  color: #9ca3af;
-  line-height: 1.4;
+  color: #94a3b8;
+  line-height: 1.5;
 }
 
 .voting-panel .voting-options {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .voting-panel .voting-options button {
   flex: 1;
-  padding: 10px;
-  border-radius: 8px;
-  border: 2px solid rgba(255,255,255,0.1);
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.08);
   background: transparent;
-  color: #e5e7eb;
+  color: #e2e8f0;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -766,75 +1068,75 @@
 }
 
 .voting-panel .voting-options button:hover {
-  border-color: #22c55e;
-  background: rgba(34,197,94,0.1);
+  transform: translateY(-1px);
 }
 
-.voting-panel .voting-options button.vote-favor { border-color: #22c55e40; }
+.voting-panel .voting-options button.vote-favor { border-color: rgba(16,185,129,0.25); }
 .voting-panel .voting-options button.vote-favor:hover,
-.voting-panel .voting-options button.vote-favor.selected { border-color: #22c55e; background: rgba(34,197,94,0.15); }
+.voting-panel .voting-options button.vote-favor.selected { border-color: #10b981; background: rgba(16,185,129,0.1); }
 
-.voting-panel .voting-options button.vote-contra { border-color: #ef444440; }
+.voting-panel .voting-options button.vote-contra { border-color: rgba(239,68,68,0.25); }
 .voting-panel .voting-options button.vote-contra:hover,
-.voting-panel .voting-options button.vote-contra.selected { border-color: #ef4444; background: rgba(239,68,68,0.15); }
+.voting-panel .voting-options button.vote-contra.selected { border-color: #ef4444; background: rgba(239,68,68,0.1); }
 
-.voting-panel .voting-options button.vote-abst { border-color: #f59e0b40; }
+.voting-panel .voting-options button.vote-abst { border-color: rgba(245,158,11,0.25); }
 .voting-panel .voting-options button.vote-abst:hover,
-.voting-panel .voting-options button.vote-abst.selected { border-color: #f59e0b; background: rgba(245,158,11,0.15); }
+.voting-panel .voting-options button.vote-abst.selected { border-color: #f59e0b; background: rgba(245,158,11,0.1); }
 
 .voting-panel .voting-confirmed {
-  padding: 10px;
-  background: rgba(34,197,94,0.1);
-  border: 1px solid #22c55e40;
-  border-radius: 8px;
+  padding: 12px;
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 12px;
   text-align: center;
   font-size: 13px;
-  color: #22c55e;
+  color: #34d399;
 }
 
 .voting-panel .voting-results {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .voting-panel .voting-result-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .voting-panel .voting-result-row .result-label {
   width: 80px;
   font-size: 12px;
-  color: #9ca3af;
+  color: #94a3b8;
   flex-shrink: 0;
 }
 
 .voting-panel .voting-result-row .result-bar {
   flex: 1;
-  height: 20px;
-  border-radius: 4px;
+  height: 24px;
+  border-radius: 6px;
   position: relative;
   overflow: hidden;
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.05);
 }
 
 .voting-panel .voting-result-row .result-bar .bar-fill {
   height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease;
+  border-radius: 6px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .voting-panel .voting-result-row .result-count {
   width: 30px;
   text-align: right;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ── Toast / notificações flutuantes ────────────────────────── */
+/* ── Toast / Notificações flutuantes (meet) ────────────────── */
 .meet-toast {
   position: fixed;
   top: 16px;
@@ -842,23 +1144,27 @@
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   pointer-events: none;
 }
 
 .meet-toast-item {
-  padding: 10px 16px;
-  border-radius: 8px;
+  padding: 12px 20px;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 500;
   color: #fff;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  animation: toast-in 0.3s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .meet-toast-item.leave {
-  animation: toast-in 0.3s ease, toast-out 0.3s ease 3s forwards;
+  animation: toast-in 0.3s ease, toast-out 0.3s cubic-bezier(0.55, 0, 1, 0.45) 3s forwards;
 }
 
 @keyframes toast-in {
@@ -871,7 +1177,7 @@
   to   { transform: translateX(100%); opacity: 0; }
 }
 
-/* ── Overlay de confirmação tipo Google ─────────────────────── */
+/* ── Overlay de confirmação ────────────────────────────────── */
 .meet-overlay {
   position: fixed;
   inset: 0;
@@ -880,50 +1186,58 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
   animation: fade-in 0.2s;
 }
 
 .meet-overlay .overlay-box {
-  background: #252536;
-  border-radius: 16px;
-  padding: 24px 32px;
+  background: #1e2030;
+  border-radius: 20px;
+  padding: 32px;
   max-width: 400px;
   width: 90%;
   text-align: center;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
 }
 
 .meet-overlay .overlay-box h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #f1f5f9;
   margin-bottom: 8px;
 }
 
 .meet-overlay .overlay-box p {
   font-size: 14px;
-  color: #9ca3af;
-  margin-bottom: 20px;
+  color: #94a3b8;
+  margin-bottom: 24px;
+  line-height: 1.5;
 }
 
 .meet-overlay .overlay-box .overlay-buttons {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   justify-content: center;
 }
 
 .meet-overlay .overlay-box .overlay-buttons button {
-  padding: 8px 24px;
-  border-radius: 8px;
+  padding: 10px 28px;
+  border-radius: 10px;
   border: none;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s;
 }
 
 .meet-overlay .overlay-box .overlay-buttons .btn-cancel {
-  background: rgba(255,255,255,0.08);
-  color: #e5e7eb;
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(4px);
+  color: #e2e8f0;
+}
+
+.meet-overlay .overlay-box .overlay-buttons .btn-cancel:hover {
+  background: rgba(255,255,255,0.1);
 }
 
 .meet-overlay .overlay-box .overlay-buttons .btn-confirm {
@@ -931,22 +1245,26 @@
   color: #fff;
 }
 
+.meet-overlay .overlay-box .overlay-buttons .btn-confirm:hover {
+  background: #dc2626;
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-/* ── Votação Banner (persistente na área de vídeo) ──────────── */
+/* ── Votação Banner persistent — Stripe Notification style ─── */
 .votacao-banner {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 50;
-  background: linear-gradient(135deg, #1e40af, #2563eb);
-  border-bottom: 1px solid rgba(255,255,255,0.15);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  animation: slideDown 0.3s ease;
+  background: linear-gradient(135deg, #1e40af, #3b82f6, #6366f1);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .votacao-banner.hidden {
@@ -958,7 +1276,7 @@
 }
 
 .votacao-banner.minimized .votacao-banner-content {
-  padding: 4px 12px;
+  padding: 4px 14px;
 }
 
 .votacao-banner.minimized .votacao-banner-text .votacao-banner-title,
@@ -969,19 +1287,19 @@
 .votacao-banner-content {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 12px;
+  padding: 10px 18px;
   color: #fff;
 }
 
 .votacao-banner-icon {
-  font-size: 20px;
-  animation: pulse-vote 1.5s ease-in-out infinite;
+  font-size: 22px;
+  animation: pulse-vote 2s ease-in-out infinite;
 }
 
 @keyframes pulse-vote {
   0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.15); opacity: 0.8; }
+  50% { transform: scale(1.18); opacity: 0.85; }
 }
 
 .votacao-banner-text {
@@ -992,11 +1310,11 @@
 }
 
 .votacao-banner-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.9;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
 }
 
 .votacao-banner-pauta {
@@ -1008,45 +1326,48 @@
 }
 
 .votacao-banner-timer {
-  font-family: 'Courier New', monospace;
+  font-family: 'Geist Mono', 'JetBrains Mono', 'Courier New', monospace;
   font-size: 14px;
   font-weight: 700;
-  background: rgba(255,255,255,0.15);
-  padding: 2px 10px;
-  border-radius: 6px;
+  background: rgba(0,0,0,0.2);
+  padding: 3px 12px;
+  border-radius: 8px;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .votacao-banner-close {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: none;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.12);
   color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  transition: background 0.2s;
+  transition: all 0.2s;
   flex-shrink: 0;
 }
 
 .votacao-banner-close:hover {
-  background: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.2);
+  transform: scale(1.05);
 }
 
 .votacao-banner-progress {
   height: 2px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.15);
 }
 
 .votacao-banner-bar {
   height: 100%;
-  background: #fff;
+  background: linear-gradient(90deg, #fff, #93c5fd);
   width: 100%;
-  animation: progress-indeterminate 2s ease-in-out infinite;
+  animation: progress-indeterminate 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   transform-origin: left;
 }
 
@@ -1061,22 +1382,140 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
-/* ── Connection quality indicator ───────────────────────────── */
-.quality-indicator {
+/* ── Tile — botão maximizar ─────────────────────────────────── */
+.tile-maximize-btn {
   position: absolute;
   top: 8px;
   right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(6px);
+  color: rgba(255,255,255,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s, transform 0.15s;
+  z-index: 4;
+}
+
+.meet-tile:hover .tile-maximize-btn {
+  opacity: 1;
+}
+
+.tile-maximize-btn:hover {
+  background: rgba(59,130,246,0.75);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+/* Tile maximizado (spotlight) */
+.meet-tile.tile-maximized {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9990 !important;
+  border-radius: 0 !important;
+  animation: tile-maximize 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tile-maximize {
+  from { transform: scale(0.92); opacity: 0.7; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.meet-tile.tile-maximized .tile-maximize-btn {
+  opacity: 1;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  background: rgba(0,0,0,0.55);
+}
+
+.meet-tile.tile-maximized .tile-info {
+  padding: 20px 24px;
+}
+
+.meet-tile.tile-maximized .tile-info .tile-name {
+  font-size: 18px;
+}
+
+.meet-tile.tile-maximized .tile-placeholder .avatar-circle {
+  width: 140px;
+  height: 140px;
+  font-size: 56px;
+}
+
+/* Backdrop ao maximizar */
+.tile-maximize-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 9989;
+  animation: fade-in 0.2s;
+}
+
+/* ── Tile hover overlay com label ─────────────────────────── */
+.meet-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.meet-tile:hover::before {
+  border-color: rgba(255,255,255,0.08);
+}
+
+.meet-tile.tile-speaking::before {
+  border-color: transparent;
+}
+
+/* ── Side Panel scroll personalizado ─────────────────────── */
+.meet-sidepanel .panel-body::-webkit-scrollbar {
+  width: 4px;
+}
+.meet-sidepanel .panel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.meet-sidepanel .panel-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+}
+.meet-sidepanel .panel-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.18);
+}
+.quality-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   z-index: 2;
+  box-shadow: 0 0 6px rgba(0,0,0,0.4);
 }
-.quality-excellent { background: #22c55e; }
+.quality-excellent { background: #10b981; }
 .quality-good      { background: #f59e0b; }
 .quality-poor      { background: #ef4444; }
 .quality-lost      { background: #6b7280; }
 
-/* ── Admins only: participant count badge on grid ───────────── */
+/* ── Admin only: participant count badge on grid ───────────── */
 .meet-grid .grid-count-badge {
   position: absolute;
   top: 50%;
@@ -1086,9 +1525,74 @@
   pointer-events: none;
 }
 
+/* ── Grid Pagination — style Linear ────────────────────────── */
+.grid-pagination {
+  position: sticky;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(15,17,23,0.95);
+  backdrop-filter: blur(12px);
+  border-radius: 10px;
+  z-index: 10;
+  width: auto;
+  flex-shrink: 0;
+  margin: 4px auto;
+  max-width: fit-content;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.grid-pagination .pag-prev,
+.grid-pagination .pag-next {
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: #e2e8f0;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.grid-pagination .pag-prev:hover,
+.grid-pagination .pag-next:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.grid-pagination .pag-prev:disabled,
+.grid-pagination .pag-next:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.grid-pagination span {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Tile fade-in animation */
+@keyframes tile-fade-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.meet-tile {
+  animation: tile-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* ── Responsivo ────────────────────────────────────────────── */
-@media (max-width: 768px) {
+@media (max-width: 1199px) {
   .meet-sidepanel { width: 100%; }
+  .meet-grid.has-sidepanel { width: 100%; }
+}
+
+@media (max-width: 768px) {
   .meet-layout-share { grid-template: 1fr / 1fr; }
   .meet-layout-share .share-sidebar {
     flex-direction: row;
@@ -1099,10 +1603,26 @@
     min-width: 160px;
     min-height: 100%;
   }
-  .meet-btn { width: 38px; height: 38px; font-size: 15px; }
+  .meet-btn { width: 38px; height: 38px; font-size: 15px; border-radius: 12px; }
   .meet-btn.meet-btn-end { padding: 0 14px; font-size: 12px; }
-  .meet-bottombar { gap: 2px; padding: 8px; }
+  .meet-bottombar { gap: 4px; padding: 10px 8px; }
   .meet-topbar .meet-status .meet-clock { display: none; }
-  .meet-grid { gap: 4px; padding: 4px; }
+  .meet-grid { gap: 4px; padding: 6px; }
   .meet-grid.has-sidepanel { width: 100%; }
+}
+
+/* ── Emoji Float Animations ─────────────────────────────────── */
+@keyframes emoji-label-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.88); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+#emoji-float-zone {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  width: 90px;
+  height: 380px;
+  pointer-events: none;
+  z-index: 9995;
 }

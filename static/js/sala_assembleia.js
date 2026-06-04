@@ -196,6 +196,12 @@
       case 'chat_historico':
         carregarHistoricoChat(msg.mensagens);
         break;
+      case 'force_mute':
+        tratarForceMute(msg);
+        break;
+      case 'force_cam_off':
+        tratarForceCamOff(msg);
+        break;
     }
   }
 
@@ -575,7 +581,10 @@
         '<span class="tile-name">' + escapeHtml(nome) + (isLocal ? ' (Tu)' : '') + '</span>' +
         (papel ? '<span class="tile-badge">' + papel + '</span>' : '') +
         '<span class="tile-icon tile-mic-icon"><i class="fas fa-microphone"></i></span>' +
-      '</div>';
+      '</div>' +
+      '<button class="tile-maximize-btn" title="Maximizar" onclick="window.MEET_TOGGLE_MAXIMIZE(\'' + CSS.escape(identity) + '\')">' +
+        '<i class="fas fa-expand-alt"></i>' +
+      '</button>';
 
     DOM.grid.appendChild(tile);
 
@@ -756,42 +765,154 @@
   }
 
   function adicionarMensagemChat(msg) {
+    // Normalizar: garantir que msg.tipo existe
+    if (!msg.tipo) {
+      msg.tipo = (msg.action === 'chat_reaction') ? 'reacao' : 'texto';
+    }
+
     // Guardar no array de mensagens
     state.mensagensChat.push(msg);
 
-    // Incrementar badge se não estiver no chat
+    // Animação flutuante — só para mensagens de OUTROS (as próprias já tiveram feedback imediato em enviarReacao)
+    var ismine = (msg.nome === CONFIG.USER_NOME || msg.user_id === CONFIG.USER_ID);
+    if (msg.tipo === 'reacao' && !ismine) {
+      lancarEmojiFloat(msg);
+    }
+
+    // Se o painel chat não está aberto, só incrementar badge para textos
     if (state.sideAba !== 'chat' || !state.chatAberto) {
-      state.chatNaoLidas++;
-      if (DOM.chatBadge) {
-        DOM.chatBadge.classList.remove('hidden');
-        DOM.chatBadge.textContent = state.chatNaoLidas;
+      if (msg.tipo !== 'reacao') {
+        state.chatNaoLidas++;
+        if (DOM.chatBadge) {
+          DOM.chatBadge.classList.remove('hidden');
+          DOM.chatBadge.textContent = state.chatNaoLidas;
+        }
       }
-      return; // Não renderizar no DOM se não estiver na tab chat
+      return;
     }
 
     renderMensagemChat(msg);
     if (DOM.panelBody) DOM.panelBody.scrollTop = DOM.panelBody.scrollHeight;
   }
 
+  // ── EMOJI FLOAT ANIMATION ──────────────────────────────────
+  var _emojiFloatContainer = null;
+
+  function getEmojiFloatContainer() {
+    if (_emojiFloatContainer) return _emojiFloatContainer;
+    _emojiFloatContainer = document.createElement('div');
+    _emojiFloatContainer.id = 'emoji-float-zone';
+    _emojiFloatContainer.style.cssText =
+      'position:fixed;bottom:80px;right:24px;width:80px;height:360px;' +
+      'pointer-events:none;z-index:9995;overflow:hidden;';
+    document.body.appendChild(_emojiFloatContainer);
+    return _emojiFloatContainer;
+  }
+
+  function lancarEmojiFloat(msg) {
+    var emojis = { mao: '🖐️', palmas: '👏', coracao: '❤️' };
+    var emoji = emojis[msg.reacao] || '❤️';
+    var ismine = (msg.nome === CONFIG.USER_NOME || msg.user_id === CONFIG.USER_ID);
+    var container = getEmojiFloatContainer();
+
+    // Número de emojis a lançar: mais para o próprio
+    var count = ismine ? 5 : 2;
+
+    for (var i = 0; i < count; i++) {
+      (function(idx) {
+        setTimeout(function() {
+          var el = document.createElement('div');
+          var offsetX = Math.round((Math.random() - 0.5) * 50); // -25 a +25px
+          var scale   = 0.8 + Math.random() * 0.7;              // 0.8x a 1.5x
+          var dur     = 2200 + Math.random() * 1200;             // 2.2s a 3.4s
+          var swayAmp = 18 + Math.random() * 24;                 // balanço lateral
+
+          el.textContent = emoji;
+          el.style.cssText =
+            'position:absolute;bottom:0;' +
+            'left:calc(50% + ' + offsetX + 'px);' +
+            'font-size:' + (22 * scale) + 'px;' +
+            'line-height:1;' +
+            'transform:translateX(-50%) scale(' + scale + ');' +
+            'opacity:1;' +
+            'transition:none;' +
+            'will-change:transform,opacity;' +
+            'pointer-events:none;';
+
+          container.appendChild(el);
+
+          // Animação via Web Animations API
+          el.animate([
+            { transform: 'translateX(-50%) translateY(0) scale(' + scale + ') rotate(0deg)', opacity: 1 },
+            { transform: 'translateX(calc(-50% + ' + swayAmp + 'px)) translateY(-120px) scale(' + (scale * 0.95) + ') rotate(8deg)', opacity: 0.92, offset: 0.3 },
+            { transform: 'translateX(calc(-50% - ' + (swayAmp * 0.6) + 'px)) translateY(-240px) scale(' + (scale * 0.9) + ') rotate(-6deg)', opacity: 0.7, offset: 0.6 },
+            { transform: 'translateX(calc(-50% + ' + (swayAmp * 0.3) + 'px)) translateY(-360px) scale(' + (scale * 0.7) + ') rotate(4deg)', opacity: 0 },
+          ], {
+            duration: dur,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            fill: 'forwards',
+          }).onfinish = function() { el.remove(); };
+
+        }, idx * 140);
+      })(i);
+    }
+
+    // Label do remetente (só dos outros, aparece por 1.8s)
+    if (!ismine) {
+      setTimeout(function() {
+        var label = document.createElement('div');
+        label.textContent = msg.nome + ' ' + emoji;
+        label.style.cssText =
+          'position:fixed;bottom:90px;right:112px;' +
+          'background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);' +
+          'color:#f1f5f9;font-size:12px;font-weight:600;' +
+          'padding:5px 12px;border-radius:9999px;' +
+          'pointer-events:none;z-index:9996;' +
+          'animation:emoji-label-in 0.25s cubic-bezier(0.16,1,0.3,1) forwards;';
+        document.body.appendChild(label);
+        setTimeout(function() {
+          label.style.transition = 'opacity 0.4s';
+          label.style.opacity = '0';
+          setTimeout(function() { label.remove(); }, 420);
+        }, 1600);
+      }, 0);
+    }
+  }
+
   function renderMensagemChat(msg) {
     var container = DOM.panelBody;
     if (!container) return;
-    if (msg.tipo === 'reacao') {
+
+    // Normalizar tipo
+    var tipo = msg.tipo || ((msg.action === 'chat_reaction') ? 'reacao' : 'texto');
+    var ismine = (msg.nome === CONFIG.USER_NOME || msg.user_id === CONFIG.USER_ID);
+
+    if (tipo === 'reacao') {
       var div = document.createElement('div');
-      div.className = 'chat-reaction';
+      div.className = 'chat-reaction ' + (ismine ? 'is-mine' : 'is-other');
+      var emoji = msg.reacao === 'mao' ? '🖐️' : msg.reacao === 'palmas' ? '👏' : '❤️';
       div.innerHTML =
-        '<span>' + escapeHtml(msg.nome) + '</span> ' +
-        (msg.reacao === 'mao' ? '🖐️' : msg.reacao === 'palmas' ? '👏' : '❤️');
+        (!ismine ? '<span class="reaction-author">' + escapeHtml(msg.nome) + '</span>' : '') +
+        '<span class="reaction-emoji">' + emoji + '</span>';
       container.appendChild(div);
-    } else {
-      var div = document.createElement('div');
-      div.className = 'chat-msg';
-      div.innerHTML =
-        '<div class="chat-author">' + escapeHtml(msg.nome || 'Anónimo') + '</div>' +
-        '<div class="chat-text">' + escapeHtml(msg.texto || '') + '</div>' +
-        '<div class="chat-time">' + (msg.created_at || 'agora') + '</div>';
-      container.appendChild(div);
+      return;
     }
+
+    var div = document.createElement('div');
+    div.className = 'chat-msg ' + (ismine ? 'is-mine' : 'is-other');
+
+    var timeStr = '';
+    try {
+      var d = new Date(msg.created_at);
+      timeStr = d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    } catch(e) { timeStr = ''; }
+
+    div.innerHTML =
+      (!ismine ? '<div class="chat-author">' + escapeHtml(msg.nome || 'Anónimo') + '</div>' : '') +
+      '<div class="chat-bubble">' + escapeHtml(msg.texto || '') + '</div>' +
+      '<div class="chat-time">' + timeStr + '</div>';
+
+    container.appendChild(div);
   }
 
   function enviarMensagem(texto) {
@@ -801,6 +922,13 @@
   }
 
   function enviarReacao(reacao) {
+    // Feedback visual imediato — não esperar pelo WS
+    lancarEmojiFloat({
+      reacao: reacao,
+      nome: CONFIG.USER_NOME,
+      user_id: CONFIG.USER_ID,
+      tipo: 'reacao',
+    });
     enviarWS({ action: 'chat_reaction', reacao: reacao });
   }
 
@@ -1145,50 +1273,227 @@
     renderParticipantList();
   }
 
+  // ── CONTROLO DE MIC/CAM PELO ANFITRIÃO ────────────────────
+
+  async function tratarForceMute(msg) {
+    // Anfitrião nunca é afetado pelos seus próprios comandos globais
+    if (CONFIG.PAPEL === 'Administrador') return;
+
+    var identity = state.room?.localParticipant?.identity;
+    // Aplica se for para mim especificamente, ou para todos (target null)
+    if (msg.target && msg.target !== identity) return;
+    if (!state.room) return;
+    try {
+      await state.room.localParticipant.setMicrophoneEnabled(false);
+      if (state.participantes[identity]) {
+        state.participantes[identity].audioMuted = true;
+        atualizarTile(identity);
+      }
+      if (DOM.btnMic) DOM.btnMic.classList.add('meet-btn-danger');
+    } catch(e) {}
+    mostrarAvisoForcado('mic', msg.by);
+  }
+
+  async function tratarForceCamOff(msg) {
+    // Anfitrião nunca é afetado pelos seus próprios comandos globais
+    if (CONFIG.PAPEL === 'Administrador') return;
+
+    var identity = state.room?.localParticipant?.identity;
+    if (msg.target && msg.target !== identity) return;
+    if (!state.room) return;
+    try {
+      await state.room.localParticipant.setCameraEnabled(false);
+      if (state.participantes[identity]) {
+        state.participantes[identity].videoMuted = true;
+        state.participantes[identity].videoTrack = null;
+        atualizarTile(identity);
+      }
+      if (DOM.btnCam) DOM.btnCam.classList.add('meet-btn-danger');
+    } catch(e) {}
+    mostrarAvisoForcado('cam', msg.by);
+  }
+
+  function mostrarAvisoForcado(tipo, by) {
+    var texto = tipo === 'mic'
+      ? '🔇 O anfitrião desligou o teu microfone'
+      : '📷 O anfitrião desligou a tua câmara';
+    // Toast de aviso
+    mostrarToast(texto, '#f59e0b');
+    // Banner persistente com opção de reativar
+    var bannerId = 'aviso-forcado-' + tipo;
+    var old = document.getElementById(bannerId);
+    if (old) old.remove();
+    var banner = document.createElement('div');
+    banner.id = bannerId;
+    banner.style.cssText =
+      'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);' +
+      'background:rgba(245,158,11,0.95);backdrop-filter:blur(8px);' +
+      'color:#1c1009;padding:10px 20px;border-radius:12px;' +
+      'display:flex;align-items:center;gap:12px;z-index:9997;' +
+      'box-shadow:0 4px 20px rgba(245,158,11,0.4);font-size:13px;font-weight:600;' +
+      'animation:toast-in 0.3s cubic-bezier(0.16,1,0.3,1);';
+    banner.innerHTML =
+      '<span>' + texto + '</span>' +
+      '<button id="btn-reativar-' + tipo + '" style="' +
+        'background:rgba(0,0,0,0.15);border:none;border-radius:8px;' +
+        'padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;color:#1c1009;' +
+      '">Reativar</button>' +
+      '<button onclick="document.getElementById(\'' + bannerId + '\').remove()" style="' +
+        'background:none;border:none;cursor:pointer;font-size:16px;color:#1c1009;padding:0 4px;' +
+      '">✕</button>';
+    document.body.appendChild(banner);
+    // Handler do botão reativar
+    document.getElementById('btn-reativar-' + tipo)?.addEventListener('click', async function() {
+      if (!state.room) return;
+      try {
+        if (tipo === 'mic') {
+          await state.room.localParticipant.setMicrophoneEnabled(true);
+          var id = state.room.localParticipant.identity;
+          if (state.participantes[id]) { state.participantes[id].audioMuted = false; atualizarTile(id); }
+          if (DOM.btnMic) DOM.btnMic.classList.remove('meet-btn-danger');
+        } else {
+          await state.room.localParticipant.setCameraEnabled(true);
+          var id = state.room.localParticipant.identity;
+          if (state.participantes[id]) { state.participantes[id].videoMuted = false; atualizarTile(id); }
+          if (DOM.btnCam) DOM.btnCam.classList.remove('meet-btn-danger');
+        }
+        banner.remove();
+        mostrarToast(tipo === 'mic' ? '🎙️ Microfone reativado' : '📷 Câmara reativada', '#22c55e');
+      } catch(e) {
+        mostrarToast('Não foi possível reativar', '#ef4444');
+      }
+    });
+    // Auto-remover após 12s
+    setTimeout(function() { if (banner.parentElement) banner.remove(); }, 12000);
+  }
+
   function renderParticipantList() {
     if (!DOM.panelBody) return;
-    var html = '';
-    var mesaMap = {};
-    state.participantesMesa.forEach(function(m) {
-      mesaMap[m.usuario_nome] = m.funcao;
-    });
 
-    Object.keys(state.participantes).forEach(function(id) {
+    // Repor o flex do panel-body para lista normal (não zig-zag)
+    DOM.panelBody.style.display = 'block';
+    DOM.panelBody.style.padding = '12px 14px';
+
+    var isAdmin = CONFIG.PAPEL === 'Administrador';
+    var html = '';
+
+    // Barra de controlos do anfitrião
+    if (isAdmin) {
+      html +=
+        '<div class="host-controls-bar">' +
+          '<span class="host-controls-label"><i class="fas fa-crown" style="color:#fbbf24;margin-right:4px;"></i>Controlos do Anfitrião</span>' +
+          '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">' +
+            '<button class="host-ctrl-btn" id="btn-mute-all"><i class="fas fa-microphone-slash" style="margin-right:4px;"></i>Silenciar todos</button>' +
+            '<button class="host-ctrl-btn host-ctrl-danger" id="btn-cam-all"><i class="fas fa-video-slash" style="margin-right:4px;"></i>Câmaras off</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    var mesaMap = {};
+    state.participantesMesa.forEach(function(m) { mesaMap[m.usuario_nome] = m.funcao; });
+
+    var livekitIds = Object.keys(state.participantes);
+
+    // Participantes no LiveKit
+    livekitIds.forEach(function(id) {
       var p = state.participantes[id];
       var papel = mesaMap[p.nome] || '';
-      var cor = p.avatarColor;
+      var isMe = p.isLocal;
+
+      // Ícones de estado (mic + cam + mão)
+      var statusIcons =
+        (p.audioMuted
+          ? '<i class="fas fa-microphone-slash" style="color:#ef4444;font-size:12px;" title="Microfone desligado"></i>'
+          : '<i class="fas fa-microphone" style="color:#22c55e;font-size:12px;" title="Microfone ativo"></i>') +
+        (!p.videoMuted
+          ? '<i class="fas fa-video" style="color:#22c55e;font-size:12px;" title="Câmara ativa"></i>'
+          : '<i class="fas fa-video-slash" style="color:#6b7280;font-size:12px;" title="Câmara desligada"></i>') +
+        (p.handRaised ? '<span style="font-size:13px;">🖐️</span>' : '');
+
+      // Botões de controlo (só admin, só para outros)
+      var adminBtns = (isAdmin && !isMe)
+        ? '<div style="display:flex;gap:3px;margin-left:6px;border-left:1px solid rgba(255,255,255,0.07);padding-left:6px;">' +
+            '<button class="btn-force-mute" data-identity="' + escapeHtml(id) + '" title="Silenciar mic" style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#64748b;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">' +
+              '<i class="fas fa-microphone-slash"></i>' +
+            '</button>' +
+            '<button class="btn-force-cam" data-identity="' + escapeHtml(id) + '" title="Desligar câmara" style="width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#64748b;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">' +
+              '<i class="fas fa-video-slash"></i>' +
+            '</button>' +
+          '</div>'
+        : '';
+
       html +=
         '<div class="participant-row">' +
-          '<div class="part-avatar" style="background:' + cor + '">' + p.iniciais + '</div>' +
-          '<div class="part-info">' +
-            '<div class="part-name">' + escapeHtml(p.nome) + (p.isLocal ? ' (Tu)' : '') + '</div>' +
-            (papel ? '<div class="part-role">' + papel + '</div>' : '') +
+          '<div class="part-avatar" style="background:' + p.avatarColor + ';width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">' + p.iniciais + '</div>' +
+          '<div class="part-info" style="flex:1;min-width:0;">' +
+            '<div style="font-size:13px;font-weight:500;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+              escapeHtml(p.nome) +
+              (isMe ? ' <span style="font-size:10px;color:#94a3b8;">(Tu)</span>' : '') +
+            '</div>' +
+            (papel ? '<div style="font-size:10px;color:#94a3b8;margin-top:1px;">' + papel + '</div>' : '') +
           '</div>' +
-          '<div class="part-icons">' +
-            (p.audioMuted ? '<i class="fas fa-microphone-slash text-red-400"></i>' : '<i class="fas fa-microphone text-green-400"></i>') +
-            (p.handRaised ? '🖐️' : '') +
+          '<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">' +
+            statusIcons +
+            adminBtns +
           '</div>' +
         '</div>';
     });
 
-    // Adicionar presencas que nao estao no LiveKit
+    // Presenças sem LiveKit
     state.participantesPresenca.forEach(function(pr) {
       if (state.participantes[pr.nome]) return;
       var iniciais = obterIniciais(pr.nome);
       var cor = obterCorAvatar(pr.nome);
       var papel = mesaMap[pr.nome] || '';
       html +=
-        '<div class="participant-row opacity-60">' +
-          '<div class="part-avatar" style="background:' + cor + '">' + iniciais + '</div>' +
-          '<div class="part-info">' +
-            '<div class="part-name">' + escapeHtml(pr.nome) + ' (apenas áudio)</div>' +
-            (papel ? '<div class="part-role">' + papel + '</div>' : '') +
+        '<div class="participant-row" style="opacity:0.55;">' +
+          '<div class="part-avatar" style="background:' + cor + ';width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">' + iniciais + '</div>' +
+          '<div class="part-info" style="flex:1;min-width:0;">' +
+            '<div class="part-name" style="font-size:13px;font-weight:500;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(pr.nome) + '</div>' +
+            (papel ? '<div style="font-size:10px;color:#94a3b8;">' + papel + '</div>' : '') +
           '</div>' +
-          '<div class="part-icons"><i class="fas fa-video-slash text-gray-500"></i></div>' +
+          '<i class="fas fa-video-slash" style="color:#6b7280;font-size:13px;"></i>' +
         '</div>';
     });
 
+    if (livekitIds.length === 0 && state.participantesPresenca.length === 0) {
+      html += '<div style="text-align:center;padding:32px 16px;color:#475569;">' +
+        '<i class="fas fa-users" style="font-size:28px;opacity:0.3;display:block;margin-bottom:8px;"></i>' +
+        '<p style="font-size:13px;">A aguardar participantes...</p>' +
+      '</div>';
+    }
+
     DOM.panelBody.innerHTML = html;
+
+    // Bind botões admin
+    if (isAdmin) {
+      DOM.panelBody.querySelectorAll('.btn-force-mute').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          enviarWS({ action: 'force_mute', target: this.dataset.identity });
+          mostrarToast('🔇 Microfone desligado', '#f59e0b');
+        });
+        btn.addEventListener('mouseenter', function() { this.style.background = 'rgba(239,68,68,0.15)'; this.style.color = '#fca5a5'; });
+        btn.addEventListener('mouseleave', function() { this.style.background = 'rgba(255,255,255,0.05)'; this.style.color = '#94a3b8'; });
+      });
+      DOM.panelBody.querySelectorAll('.btn-force-cam').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          enviarWS({ action: 'force_cam_off', target: this.dataset.identity });
+          mostrarToast('📷 Câmara desligada', '#f59e0b');
+        });
+        btn.addEventListener('mouseenter', function() { this.style.background = 'rgba(239,68,68,0.15)'; this.style.color = '#fca5a5'; });
+        btn.addEventListener('mouseleave', function() { this.style.background = 'rgba(255,255,255,0.05)'; this.style.color = '#94a3b8'; });
+      });
+      var btnMuteAll = document.getElementById('btn-mute-all');
+      if (btnMuteAll) btnMuteAll.addEventListener('click', function() {
+        enviarWS({ action: 'force_mute', target: null });
+        mostrarToast('🔇 Todos os microfones desligados', '#f59e0b');
+      });
+      var btnCamAll = document.getElementById('btn-cam-all');
+      if (btnCamAll) btnCamAll.addEventListener('click', function() {
+        enviarWS({ action: 'force_cam_off', target: null });
+        mostrarToast('📷 Todas as câmaras desligadas', '#f59e0b');
+      });
+    }
   }
 
   // ── SIDE PANEL ─────────────────────────────────────────────
@@ -1246,10 +1551,18 @@
 
   function renderChat() {
     if (!DOM.panelBody) return;
+    // Repor flex para o chat zig-zag
+    DOM.panelBody.style.display = 'flex';
+    DOM.panelBody.style.flexDirection = 'column';
+    DOM.panelBody.style.padding = '12px 14px';
     DOM.panelBody.innerHTML = '';
     var msgs = state.mensagensChat || [];
     if (msgs.length === 0) {
-      DOM.panelBody.innerHTML = '<div class="text-center text-gray-500 mt-8"><i class="fas fa-comments text-3xl mb-2"></i><p class="text-sm">Mensagens aparecerão aqui</p></div>';
+      DOM.panelBody.innerHTML =
+        '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#475569;">' +
+          '<i class="fas fa-comments" style="font-size:32px;opacity:0.4;"></i>' +
+          '<p style="font-size:13px;">Nenhuma mensagem ainda</p>' +
+        '</div>';
       return;
     }
     msgs.forEach(function(m) { renderMensagemChat(m); });
@@ -1564,6 +1877,50 @@
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
   }
+
+  // ── MAXIMIZAR TILE ──────────────────────────────────────────
+  var _maximizedIdentity = null;
+  var _maximizeBackdrop = null;
+
+  function toggleMaximizeTile(escapedIdentity) {
+    // Procurar pelo id com escape
+    var tile = document.getElementById('tile-' + escapedIdentity);
+    if (!tile) return;
+
+    if (_maximizedIdentity === escapedIdentity) {
+      // Restaurar
+      tile.classList.remove('tile-maximized');
+      var btn = tile.querySelector('.tile-maximize-btn i');
+      if (btn) { btn.className = 'fas fa-expand-alt'; }
+      if (_maximizeBackdrop) { _maximizeBackdrop.remove(); _maximizeBackdrop = null; }
+      _maximizedIdentity = null;
+      document.removeEventListener('keydown', _escapeMaximize);
+    } else {
+      // Fechar o anterior se houver
+      if (_maximizedIdentity) toggleMaximizeTile(_maximizedIdentity);
+      // Criar backdrop
+      _maximizeBackdrop = document.createElement('div');
+      _maximizeBackdrop.className = 'tile-maximize-backdrop';
+      _maximizeBackdrop.addEventListener('click', function() {
+        toggleMaximizeTile(escapedIdentity);
+      });
+      document.body.appendChild(_maximizeBackdrop);
+      // Maximizar
+      tile.classList.add('tile-maximized');
+      var btn = tile.querySelector('.tile-maximize-btn i');
+      if (btn) { btn.className = 'fas fa-compress-alt'; }
+      _maximizedIdentity = escapedIdentity;
+      document.addEventListener('keydown', _escapeMaximize);
+    }
+  }
+
+  function _escapeMaximize(e) {
+    if (e.key === 'Escape' && _maximizedIdentity) {
+      toggleMaximizeTile(_maximizedIdentity);
+    }
+  }
+
+  window.MEET_TOGGLE_MAXIMIZE = toggleMaximizeTile;
 
   // ── Expor ─────────────────────────────────────────────────
   window.MEET = {

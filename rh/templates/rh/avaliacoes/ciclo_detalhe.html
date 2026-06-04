@@ -1,4 +1,5 @@
-﻿{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+﻿{% load avaliacao_extras %}
+{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
 <div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'rh_avaliacoes' %}" class="hover:text-primary">Avaliações</a><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">{{ ciclo.nome }}</span></div>
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
   <div><h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">{{ ciclo.nome }}</h1><p class="text-gray-500 mt-1 text-sm">{{ ciclo.periodo_inicio|date:"d/m/Y" }} → {{ ciclo.periodo_fim|date:"d/m/Y" }}</p></div>
@@ -22,11 +23,9 @@
   <div class="overflow-x-auto"><table class="w-full">
     <thead class="bg-gray-50 dark:bg-gray-800/60"><tr>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Colaborador</th>
-      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Pontualidade</th>
-      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Produtividade</th>
-      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Qualidade</th>
-      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Equipa</th>
-      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Iniciativa</th>
+      {% for m in metricas %}
+      <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">{{ m.nome }}</th>
+      {% endfor %}
       <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Nota Global</th>
       <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acção</th>
     </tr></thead>
@@ -35,18 +34,30 @@
     {% with cls=a.classificacao %}
     <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
       <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white text-sm">{{ a.colaborador.nome }}</td>
-      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.pontualidade }}</span></td>
-      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.produtividade }}</span></td>
-      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.qualidade_trabalho }}</span></td>
-      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.trabalho_equipa }}</span></td>
-      <td class="px-5 py-4 text-center"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">{{ a.iniciativa }}</span></td>
+      {% for m in metricas %}
+      <td class="px-5 py-4 text-center">
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">
+          {% if a.notas_map %}
+            {{ a.notas_map|dict_get:m.id|default:3 }}
+          {% else %}
+            {{ a|attr:m.chave }}
+          {% endif %}
+        </span>
+      </td>
+      {% endfor %}
       <td class="px-5 py-4 text-center">
         <div class="flex flex-col items-center gap-1">
           <span class="text-xl font-black text-gray-900 dark:text-white">{{ a.nota_global }}</span>
           <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-{{ cls.1 }}-100 text-{{ cls.1 }}-700">{{ cls.0 }}</span>
         </div>
       </td>
-      <td class="px-5 py-4 text-right"><a href="{% url 'rh_avaliacao_editar' ciclo.pk a.colaborador.pk %}" class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all inline-flex"><i class="fas fa-edit text-lg"></i></a></td>
+      <td class="px-5 py-4 text-right">
+        <div class="flex items-center justify-end gap-1">
+          <a href="{% url 'rh_avaliacao_editar' ciclo.pk a.colaborador.pk %}" title="Editar" class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all inline-flex"><i class="fas fa-edit text-lg"></i></a>
+          <a href="{% url 'rh_avaliacao_detalhe' ciclo.pk a.colaborador.pk %}" title="Ver detalhes" class="p-2 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all inline-flex"><i class="fas fa-eye text-lg"></i></a>
+          <form method="POST" action="{% url 'rh_avaliacao_apagar' ciclo.pk a.colaborador.pk %}" class="inline">{% csrf_token %}<button type="button" onclick="confirmarFormPost(this.form, { titulo: 'Remover avaliação', mensagem: 'Tem certeza que deseja remover a avaliação de {{ a.colaborador.nome }}?', textoBotao: 'Remover' })" class="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all inline-flex" title="Remover"><i class="fas fa-trash-alt text-lg"></i></button></form>
+        </div>
+      </td>
     </tr>
     {% endwith %}
     {% endfor %}

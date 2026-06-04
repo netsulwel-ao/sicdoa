@@ -18,7 +18,7 @@ def invalida_cache_assembleia(sender, **kwargs):
 @receiver(post_save, sender=Notificacao)
 @receiver(post_delete, sender=Notificacao)
 def invalida_cache_notificacao(sender, instance, **kwargs):
-    pass
+    cache_invalidate_prefix(f'notificacoes_{instance.usuario_id}')
 
 
 @receiver(post_save, sender=AtaDigital)

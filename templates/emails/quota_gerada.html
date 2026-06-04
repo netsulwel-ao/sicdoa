@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt">
+<body style="margin:0;padding:0;background:#f6f7f8;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 20px;">
+    <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+      <tr><td style="background:linear-gradient(135deg,#137fec,#0ea5e9);padding:32px 40px;">
+        <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">CDOA Sistema</h1>
+        <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:14px;">Quota Associativa — Pagamento Disponível</p>
+      </td></tr>
+      <tr><td style="padding:36px 40px;">
+        <p style="margin:0 0 16px;color:#374151;font-size:15px;">Prezado(a) <strong>{{ nome }}</strong>,</p>
+        <p style="margin:0 0 24px;color:#6b7280;font-size:14px;line-height:1.6;">
+          Foi gerada a sua quota associativa referente ao período <strong>{{ periodo }}</strong>.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;margin-bottom:24px;">
+          <tr><td style="padding:20px 24px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;width:140px;">Referência</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">{{ referencia }}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Valor</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">Kz {{ valor }}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Vencimento</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">{{ vencimento }}</td></tr>
+              {% if multa %}
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Multa</td><td style="padding:4px 0;font-size:14px;color:#dc2626;">{{ multa }}% ao dia após carência</td></tr>
+              {% endif %}
+            </table>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:24px;">
+          <tr><td style="padding:20px 24px;">
+            <p style="margin:0 0 10px;font-size:13px;color:#15803d;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Dados para Pagamento</p>
+            <p style="margin:0 0 4px;font-size:14px;color:#374151;"><strong>IBAN:</strong> AO06 0040 0000 1234 5678 9010 0</p>
+            <p style="margin:0 0 4px;font-size:14px;color:#374151;"><strong>Banco:</strong> Banco Angolano de Investimentos (BAI)</p>
+            <p style="margin:0 0 4px;font-size:14px;color:#374151;"><strong>Titular:</strong> SICDOA - Associação</p>
+            <p style="margin:0;font-size:14px;color:#374151;"><strong>Multicaixa Express:</strong> 999 999 999</p>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+          <tr><td align="center">
+            <a href="{{ link_pagamento }}" style="display:inline-block;background:#137fec;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;">
+              Pagar Agora
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
+        <p style="margin:0;color:#9ca3af;font-size:12px;">© 2026 CDOA Sistema · Câmara dos Despachantes Oficiais de Angola</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

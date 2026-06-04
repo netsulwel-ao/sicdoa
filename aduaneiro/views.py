@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 
 from clientes.models import Cliente
 from users.models import Usuario
+from utils.validators import email_ja_existe
 from django.core.paginator import Paginator
 from .models import DeclaracaoUnica
 
@@ -967,6 +968,9 @@ def criar_cliente_rapido(request):
 
         if Cliente.objects.filter(nif=nif, usuario_id=uid, ativo=True).exists():
             return JsonResponse({'error': 'Já existe um cliente com este NIF'}, status=400)
+
+        if email and email_ja_existe(email):
+            return JsonResponse({'error': 'Este email já está registado no sistema.'}, status=400)
 
         cliente = Cliente.objects.create(
             nome=nome, nif=nif, localizacao=localizacao,

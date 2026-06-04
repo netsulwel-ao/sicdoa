@@ -1,3 +1,4 @@
+{% load rh_extras %}
 <!DOCTYPE html>
 <html lang="pt-AO">
 <head>
@@ -45,9 +46,9 @@
                     {% if vaga.salario_min or vaga.salario_max %}
                     <div class="flex items-center gap-2">
                         <i class="fas fa-credit-card text-lg"></i>
-                        {% if vaga.salario_min %}{{ vaga.salario_min|floatformat:0 }}{% endif %}
+                        {% if vaga.salario_min %}{{ vaga.salario_min|fmtkz }}{% endif %}
                         {% if vaga.salario_min and vaga.salario_max %} - {% endif %}
-                        {% if vaga.salario_max %}{{ vaga.salario_max|floatformat:0 }}{% endif %} Kz
+                        {% if vaga.salario_max %}{{ vaga.salario_max|fmtkz }}{% endif %} Kz
                     </div>
                     {% endif %}
                 </div>

@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Cliente
+from utils.validators import email_ja_existe
 
 
 def _requer_sessao(fn):
@@ -82,6 +83,14 @@ def criar_cliente(request):
                     'form_data': request.POST
                 })
                 return render(request, 'clientes/form.html', context)
+
+            # Verificar se email já existe no sistema
+            if email and email_ja_existe(email):
+                messages.error(request, 'Este email já está registado no sistema.')
+                context = _ctx(request, 'criar', {
+                    'form_data': request.POST
+                })
+                return render(request, 'clientes/form.html', context)
             
             cliente = Cliente.objects.create(
                 nome=nome,
@@ -132,6 +141,15 @@ def editar_cliente(request, pk):
             # Verificar se NIF já existe (exceto para este cliente)
             if Cliente.objects.filter(nif=nif).exclude(pk=pk).exists():
                 messages.error(request, 'Já existe um cliente cadastrado com este NIF.')
+                context = _ctx(request, 'editar', {
+                    'cliente': cliente,
+                    'form_data': request.POST
+                })
+                return render(request, 'clientes/form.html', context)
+
+            # Verificar se email já existe no sistema (exceto para este cliente)
+            if email and email_ja_existe(email, exclude_model=Cliente, exclude_pk=pk):
+                messages.error(request, 'Este email já está registado no sistema.')
                 context = _ctx(request, 'editar', {
                     'cliente': cliente,
                     'form_data': request.POST

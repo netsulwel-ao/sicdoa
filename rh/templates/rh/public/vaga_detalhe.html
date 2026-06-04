@@ -1,3 +1,4 @@
+{% load rh_extras %}
 <!DOCTYPE html>
 <html lang="pt-AO">
 <head>
@@ -68,9 +69,9 @@
                     <div>
                         <p class="text-sm text-gray-500">Salário</p>
                         <p class="font-semibold text-gray-900">
-                            {% if vaga.salario_min %}{{ vaga.salario_min|floatformat:0 }}{% endif %}
+                            {% if vaga.salario_min %}{{ vaga.salario_min|fmtkz }}{% endif %}
                             {% if vaga.salario_min and vaga.salario_max %} - {% endif %}
-                            {% if vaga.salario_max %}{{ vaga.salario_max|floatformat:0 }}{% endif %} Kz
+                            {% if vaga.salario_max %}{{ vaga.salario_max|fmtkz }}{% endif %} Kz
                         </p>
                     </div>
                 </div>

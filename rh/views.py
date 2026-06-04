@@ -6,10 +6,13 @@ from django.db import models
 from django.db.models import Count, Prefetch, Q
 from django.core.paginator import Paginator
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
+from utils.format_kz import parse_kz
 import bcrypt
 from utils.email_utils import gerar_senha_aleatoria, enviar_senha_colaborador
 from utils.cache_utils import cache_get_or_set, safe_cache_key
+from utils.validators import email_ja_existe
 from .acesso import (
     obter_acesso_rh,
     escopo_colaboradores,
@@ -26,7 +29,7 @@ from .models import (
     ProcessamentoSalarial, ReciboSalarial, Subsidio, SubsidioRecibo, Fatura,
     Vaga, Candidatura, Entrevista, PlanoIntegracao, TarefaIntegracao,
     RegistoPresenca, PedidoFerias,
-    CicloAvaliacao, Avaliacao,
+    CicloAvaliacao, Avaliacao, MetricaAvaliacao, NotaMetrica,
 )
 
 # ─── Constantes ───────────────────────────────────────────────────────────────
@@ -89,6 +92,42 @@ def _redirect_se_nao_despachante(request, acc, destino='rh_presencas'):
     return None
 
 
+# ─── Helpers de Presenças / Férias ─────────────────────────────────────────────
+
+def marcar_ferias_no_registo(pedido):
+    """Quando férias são aprovadas, marca todos os dias úteis como 'Ferias' e remove faltas."""
+    from datetime import timedelta
+    data = pedido.data_inicio
+    while data <= pedido.data_fim:
+        if data.weekday() < 5:
+            RegistoPresenca.objects.update_or_create(
+                colaborador=pedido.colaborador, data=data,
+                defaults={
+                    'tipo': 'Ferias', 'estado': 'Aprovado',
+                    'hora_entrada': None, 'hora_saida': None,
+                    'horas_extras': 0, 'justificacao': '',
+                },
+            )
+        data += timedelta(days=1)
+
+
+def auto_marcar_faltas(banca, data_alvo=None):
+    """Marca 'Falta' para colaboradores activos sem registo de presença num dia útil."""
+    from datetime import date
+    data_alvo = data_alvo or date.today()
+    if data_alvo.weekday() >= 5:
+        return
+    cols = banca.colaboradores.filter(estado='Ativo').only('id', 'nome')
+    for col in cols:
+        if not RegistoPresenca.objects.filter(colaborador=col, data=data_alvo).exists():
+            reg = RegistoPresenca(colaborador=col, data=data_alvo)
+            reg.tipo = 'Falta'
+            reg.estado = 'Pendente'
+            reg.justificacao = 'Falta automática — não registou presença'
+            reg.full_clean()
+            reg.save()
+
+
 def _redirect_se_vaga_inacessivel(request, acc, vaga):
     banca, col_log, gestor, is_desp = acc
     if not pode_aceder_vaga(gestor, is_desp, vaga):
@@ -105,8 +144,9 @@ def _e_despachante_principal(request):
 
 def _dec(val, default=Decimal('0')):
     try:
-        return Decimal(str(val)) if val else default
-    except InvalidOperation:
+        parsed = parse_kz(val)
+        return Decimal(str(parsed)) if parsed else default
+    except (InvalidOperation, ValueError, TypeError):
         return default
 
 
@@ -215,6 +255,10 @@ def _criar_colaborador_responsavel(request, banca, filial):
     """Cria novo colaborador e designa-o gestor da filial. Retorna (col, mensagem_email)."""
     nome = request.POST.get('nome', '').strip()
     email_gestor = request.POST.get('email', '').strip()
+
+    if email_gestor and email_ja_existe(email_gestor):
+        return None, 'Este email já está registado no sistema.'
+
     senha_gerada = None
     senha_hash = None
 
@@ -236,7 +280,7 @@ def _criar_colaborador_responsavel(request, banca, filial):
         email=email_gestor,
         telefone=request.POST.get('telefone', '').strip(),
         data_admissao=request.POST.get('data_admissao') or None,
-        salario_base=_dec(request.POST.get('salario_base')),
+        salario_base=_dec(request.POST.get('salario_base')) or None,
         estado='Ativo',
         observacoes=request.POST.get('observacoes', '').strip(),
         password=senha_hash,
@@ -290,6 +334,8 @@ def _processar_responsavel_filial_post(request, banca, filial):
         return False, None, None, 'O nome é obrigatório.'
 
     col, mensagem_email = _criar_colaborador_responsavel(request, banca, filial)
+    if col is None:
+        return False, None, None, mensagem_email or 'Erro ao criar responsável.'
     return True, col, mensagem_email, None
 
 
@@ -670,6 +716,10 @@ def banca_criar_view(request):
         if Banca.objects.filter(nif=dados['nif']).exists():
             return _render({'erro': 'Já existe uma banca com este NIF.'})
 
+        # Verificar se email já existe no sistema
+        if dados['email'] and email_ja_existe(dados['email']):
+            return _render({'erro': 'Este email já está registado no sistema.'})
+
         banca = Banca(usuario_id=uid, **dados)
         if 'logo' in request.FILES:
             banca.logo = request.FILES['logo']
@@ -708,6 +758,10 @@ def banca_editar_view(request):
         # Verificar se NIF já existe (excluindo atual)
         if Banca.objects.filter(nif=dados['nif']).exclude(pk=banca.pk).exists():
             return _render({'erro': 'Já existe outra banca com este NIF.'})
+
+        # Verificar se email já existe no sistema (excluindo atual)
+        if dados['email'] and email_ja_existe(dados['email'], exclude_model=Banca, exclude_pk=banca.pk):
+            return _render({'erro': 'Este email já está registado no sistema.'})
 
         for k, v in dados.items():
             setattr(banca, k, v)
@@ -751,6 +805,10 @@ def filial_nova_view(request):
         # Verificar se já existe filial nesta província
         if FilialBanca.objects.filter(banca=banca, provincia=dados['provincia']).exists():
             return _render({'erro': 'Já existe uma filial nesta província.'})
+
+        # Verificar se email já existe no sistema
+        if dados['email'] and email_ja_existe(dados['email']):
+            return _render({'erro': 'Este email já está registado no sistema.'})
 
         # Se tem responsável, criar o colaborador responsável primeiro
         if tem_responsavel:
@@ -815,6 +873,10 @@ def filial_editar_view(request, pk):
             banca=banca, provincia=dados['provincia']
         ).exclude(pk=filial.pk).exists():
             return _render({'erro': 'Já existe uma filial nesta província.'})
+
+        # Verificar se email já existe no sistema (excluindo atual)
+        if dados['email'] and email_ja_existe(dados['email'], exclude_model=FilialBanca, exclude_pk=filial.pk):
+            return _render({'erro': 'Este email já está registado no sistema.'})
 
         for k, v in dados.items():
             setattr(filial, k, v)
@@ -967,8 +1029,18 @@ def filial_apagar_view(request, pk):
     provincia = filial.provincia
 
     try:
+        # Desassociar gestores antes de remover a filial
+        gestores = list(filial.gestores.select_related('colaborador').all())
+        for gestor in gestores:
+            colaborador = gestor.colaborador
+            gestor.delete()
+            if colaborador.filial_id == filial.pk:
+                colaborador.filial = None
+                colaborador.save(update_fields=['filial'])
         # Desassociar colaboradores e vagas antes de remover a filial
-        filial.colaboradores.update(filial=None)
+        filial.colaboradores.exclude(
+            pk__in=[g.colaborador.pk for g in gestores]
+        ).update(filial=None)
         filial.vagas.update(filial=None)
         filial.delete()
         messages.success(request, f'Filial {provincia} removida com sucesso.')
@@ -1033,7 +1105,12 @@ def colaborador_novo_view(request):
             return _render()
         
         email_colaborador = request.POST.get('email', '').strip()
-        
+
+        # Verificar se email já existe no sistema
+        if email_colaborador and email_ja_existe(email_colaborador):
+            messages.error(request, 'Este email já está registado no sistema.')
+            return _render()
+
         # Gerar senha apenas se tiver email
         senha_gerada = None
         senha_hash = None
@@ -1058,7 +1135,7 @@ def colaborador_novo_view(request):
             email=email_colaborador,
             telefone=request.POST.get('telefone', '').strip(),
             data_admissao=request.POST.get('data_admissao') or None,
-            salario_base=_dec(request.POST.get('salario_base')),
+            salario_base=_dec(request.POST.get('salario_base')) or None,
             estado=request.POST.get('estado', 'Ativo'),
             observacoes=request.POST.get('observacoes', '').strip(),
             password=senha_hash,
@@ -1213,9 +1290,12 @@ def colaborador_editar_view(request, pk):
         col.cargo_personalizado = request.POST.get('cargo_personalizado', '').strip()
         col.departamento = request.POST.get('departamento', '').strip()
         col.email = request.POST.get('email', '').strip()
+        if col.email and email_ja_existe(col.email, exclude_model=Colaborador, exclude_pk=col.pk):
+            messages.error(request, 'Este email já está registado no sistema.')
+            return _render()
         col.telefone = request.POST.get('telefone', '').strip()
         col.data_admissao = request.POST.get('data_admissao') or None
-        col.salario_base = _dec(request.POST.get('salario_base'))
+        col.salario_base = _dec(request.POST.get('salario_base')) or None
         col.estado = request.POST.get('estado', 'Ativo')
         col.observacoes = request.POST.get('observacoes', '').strip()
         if 'foto' in request.FILES:
@@ -1359,17 +1439,19 @@ def subsidio_novo_view(request):
         return bloqueio
     banca = acc[0]
 
-    from .models import Subsidio
+    from .models import Subsidio, Colaborador
 
     def _render(extra=None):
         return render(request, 'rh/subsidios/form.html',
                       _ctx(request, 'subsidios', {
-                          'banca': banca, 'subsidio': None,
+                          'banca': banca, 'subsidio': None, 'form': {},
                           'tipos_calculo': Subsidio.TIPOS_CALCULO,
+                          'colaboradores_banca': banca.colaboradores.filter(estado='Ativo').order_by('nome'),
                           **(extra or {}),
                       }))
 
     if request.method == 'POST':
+        apenas_especificos = request.POST.get('apenas_especificos') == 'on'
         dados = {
             'nome': request.POST.get('nome', '').strip(),
             'codigo': request.POST.get('codigo', '').strip().upper(),
@@ -1381,6 +1463,7 @@ def subsidio_novo_view(request):
             ),
             'ativo': request.POST.get('ativo') == 'on',
             'obrigatorio': request.POST.get('obrigatorio') == 'on',
+            'apenas_especificos': apenas_especificos,
             'descricao': request.POST.get('descricao', '').strip(),
         }
 
@@ -1391,14 +1474,25 @@ def subsidio_novo_view(request):
             return _render({'erro': 'Código do subsídio é obrigatório.'})
         if dados['tipo_calculo'] == 'PERCENTUAL' and not dados['percentual']:
             return _render({'erro': 'Percentual é obrigatório para tipo Percentual.'})
+        if apenas_especificos and not request.POST.getlist('colaboradores_ids'):
+            return _render({'erro': 'Selecione pelo menos um colaborador para subsídio específico.'})
+
+        # obrigatorio e apenas_especificos são mutuamente exclusivos
+        if dados['obrigatorio']:
+            dados['apenas_especificos'] = False
 
         # Verificar código duplicado
         if banca.subsidios.filter(codigo=dados['codigo']).exists():
             return _render({'erro': 'Já existe um subsídio com este código.'})
 
-        # Criar subsídio
         subsidio = Subsidio(banca=banca, **dados)
         subsidio.save()
+
+        # Guardar colaboradores específicos
+        if dados['apenas_especificos']:
+            ids = request.POST.getlist('colaboradores_ids')
+            cols = banca.colaboradores.filter(pk__in=ids)
+            subsidio.colaboradores_especificos.set(cols)
 
         return redirect('rh_subsidios')
 
@@ -1428,16 +1522,20 @@ def subsidio_editar_view(request, pk):
             'percentual': subsidio.percentual,
             'ativo': subsidio.ativo,
             'obrigatorio': subsidio.obrigatorio,
+            'apenas_especificos': subsidio.apenas_especificos,
             'descricao': subsidio.descricao,
         }
         return render(request, 'rh/subsidios/form.html',
                       _ctx(request, 'subsidios', {
-                          'banca': banca, 'subsidio': subsidio,
+                          'banca': banca, 'subsidio': subsidio, 'form': form_data,
                           'tipos_calculo': Subsidio.TIPOS_CALCULO,
+                          'colaboradores_banca': banca.colaboradores.filter(estado='Ativo').order_by('nome'),
+                          'colaboradores_selecionados': list(subsidio.colaboradores_especificos.values_list('pk', flat=True)),
                           'form': form_data, **(extra or {}),
                       }))
 
     if request.method == 'POST':
+        apenas_especificos = request.POST.get('apenas_especificos') == 'on'
         dados = {
             'nome': request.POST.get('nome', '').strip(),
             'codigo': request.POST.get('codigo', '').strip().upper(),
@@ -1449,6 +1547,7 @@ def subsidio_editar_view(request, pk):
             ),
             'ativo': request.POST.get('ativo') == 'on',
             'obrigatorio': request.POST.get('obrigatorio') == 'on',
+            'apenas_especificos': apenas_especificos,
             'descricao': request.POST.get('descricao', '').strip(),
         }
 
@@ -1459,15 +1558,27 @@ def subsidio_editar_view(request, pk):
             return _render({'erro': 'Código do subsídio é obrigatório.'})
         if dados['tipo_calculo'] == 'PERCENTUAL' and not dados['percentual']:
             return _render({'erro': 'Percentual é obrigatório para tipo Percentual.'})
+        if apenas_especificos and not request.POST.getlist('colaboradores_ids'):
+            return _render({'erro': 'Selecione pelo menos um colaborador para subsídio específico.'})
+
+        if dados['obrigatorio']:
+            dados['apenas_especificos'] = False
 
         # Verificar código duplicado (exceto o atual)
         if banca.subsidios.filter(codigo=dados['codigo']).exclude(pk=pk).exists():
             return _render({'erro': 'Já existe um subsídio com este código.'})
 
-        # Atualizar subsídio
         for campo, valor in dados.items():
             setattr(subsidio, campo, valor)
         subsidio.save()
+
+        # Atualizar colaboradores específicos
+        if subsidio.apenas_especificos:
+            ids = request.POST.getlist('colaboradores_ids')
+            cols = banca.colaboradores.filter(pk__in=ids)
+            subsidio.colaboradores_especificos.set(cols)
+        else:
+            subsidio.colaboradores_especificos.clear()
 
         return redirect('rh_subsidios')
 
@@ -1522,8 +1633,10 @@ def salarios_view(request):
         return redirect('colaborador_salario')
     banca = acc[0]
 
+    from django.db.models import Sum
     todos = banca.processamentos.annotate(
-        total_recibos=Count('recibos')
+        total_recibos=Count('recibos'),
+        total_liquido_annotated=Sum('recibos__liquido'),
     ).order_by('-ano', '-mes')
 
     paginator = Paginator(todos, 8)
@@ -1566,7 +1679,16 @@ def salario_novo_view(request):
                               'ano_atual': timezone.now().year,
                               'erro': f'Já existe processamento para {MESES[mes-1]}/{ano}.',
                           }))
-        subsidios_banca = list(banca.subsidios.filter(ativo=True))
+        # Obter todos os subsídios ativos da banca (excluindo ALIM e TRANS)
+        subsidios_banca = list(banca.subsidios.filter(ativo=True).exclude(codigo__in=['ALIM', 'TRANS']))
+
+        # Pré-carregar M2M de subsídios específicos (bulk, 1 query por subsídio)
+        subsidio_colab_ids = {}
+        for s in subsidios_banca:
+            if s.apenas_especificos:
+                subsidio_colab_ids[s.pk] = set(
+                    s.colaboradores_especificos.values_list('id', flat=True)
+                )
 
         for col in banca.colaboradores.filter(estado='Ativo'):
             salario = col.salario_efetivo
@@ -1588,10 +1710,21 @@ def salario_novo_view(request):
             # INSS entidade 8%
             inss_ent = (salario_apos_faltas * Decimal('0.08')).quantize(Decimal('0.01'))
 
-            # Calcular total dos subsídios padrão da banca
+            # Filtrar subsídios aplicáveis ao colaborador
+            subsidios_aplicaveis = []
+            for subsidio in subsidios_banca:
+                if subsidio.apenas_especificos:
+                    # Verificar em Python (dict O(1)) em vez de N×M queries
+                    if col.id in subsidio_colab_ids.get(subsidio.pk, set()):
+                        subsidios_aplicaveis.append(subsidio)
+                else:
+                    # Subsídio geral para todos os colaboradores
+                    subsidios_aplicaveis.append(subsidio)
+
+            # Calcular total dos subsídios aplicáveis
             total_subsidios = Decimal('0')
             
-            for subsidio in subsidios_banca:
+            for subsidio in subsidios_aplicaveis:
                 if subsidio.tipo_calculo == 'PERCENTUAL':
                     # Para percentual, calcular baseado no salário do colaborador
                     if subsidio.percentual and salario:
@@ -1627,9 +1760,9 @@ def salario_novo_view(request):
                 }
             )
 
-            # Inicializar SubsidioRecibo com os valores calculados para cada subsídio ativo
+            # Inicializar SubsidioRecibo com os valores calculados para cada subsídio aplicável
             if recibo_criado:
-                for subsidio in subsidios_banca:
+                for subsidio in subsidios_aplicaveis:
                     # Calcular valor baseado no tipo de cálculo
                     if subsidio.tipo_calculo == 'PERCENTUAL':
                         if subsidio.percentual and salario:
@@ -1654,6 +1787,14 @@ def salario_novo_view(request):
                             'valor_padrao': subsidio.valor_padrao,
                         }
                     )
+        if proc.total_liquido == 0:
+            proc.delete()
+            return render(request, 'rh/salarios/novo.html',
+                          _ctx(request, 'salarios', {
+                              'banca': banca, 'meses': MESES,
+                              'ano_atual': timezone.now().year,
+                              'erro': 'Não é possível gerar o processamento porque o total líquido é 0,00 KZ. Verifique os salários base e subsídios dos colaboradores ativos.',
+                          }))
         return redirect('rh_salario_detalhe', pk=proc.pk)
     return render(request, 'rh/salarios/novo.html',
                   _ctx(request, 'salarios', {
@@ -1761,14 +1902,25 @@ def salario_detalhe_view(request, pk):
 
         action = request.POST.get('action', '')
         if action == 'salvar':
-            subsidios_ativos = list(banca.subsidios.filter(ativo=True))
+            subsidios_ativos = list(banca.subsidios.filter(ativo=True).exclude(codigo__in=['ALIM', 'TRANS']))
 
             for r in recibos:
                 p = f'rec_{r.pk}_'
                 total_subsidios_dinamicos = Decimal('0')
 
-                # Guardar cada subsídio dinâmico e acumular o total
+                # Filtrar subsídios aplicáveis ao colaborador do recibo
+                subsidios_aplicaveis = []
                 for subsidio in subsidios_ativos:
+                    if subsidio.apenas_especificos:
+                        # Se o subsídio é apenas para específicos, verificar se o colaborador está na lista
+                        if subsidio.colaboradores_especificos.filter(id=r.colaborador.id).exists():
+                            subsidios_aplicaveis.append(subsidio)
+                    else:
+                        # Subsídio geral para todos os colaboradores
+                        subsidios_aplicaveis.append(subsidio)
+
+                # Guardar cada subsídio dinâmico aplicável e acumular o total
+                for subsidio in subsidios_aplicaveis:
                     if subsidio.obrigatorio:
                         # Subsídios obrigatórios - recalcular valor automaticamente
                         if subsidio.tipo_calculo == 'PERCENTUAL':
@@ -1804,6 +1956,10 @@ def salario_detalhe_view(request, pk):
 
                     total_subsidios_dinamicos += valor_subsidio
 
+                # Remover vínculos de subsídios que não são mais aplicáveis
+                subsidios_aplicaveis_ids = [s.pk for s in subsidios_aplicaveis]
+                SubsidioRecibo.objects.filter(recibo=r).exclude(subsidio_id__in=subsidios_aplicaveis_ids).delete()
+
                 # Sincronizar o total dos subsídios dinâmicos no campo outros_subsidios
                 # para que bruto e liquido reflitam os valores alterados pelo utilizador
                 r.outros_subsidios = total_subsidios_dinamicos
@@ -1818,11 +1974,17 @@ def salario_detalhe_view(request, pk):
                 r.inss_entidade    = (base_impostos * Decimal('0.08')).quantize(Decimal('0.01'))
                 r.save()
         elif action == 'processar':
+            if proc.total_liquido == 0:
+                messages.error(request, 'Não é possível processar porque o total líquido é 0,00 KZ. Atribua salários ou subsídios antes de processar.')
+                return redirect('rh_salario_detalhe', pk=proc.pk)
             proc.estado = 'Processado'
             proc.processado_em = timezone.now()
             proc.save()
             messages.success(request, f'Processamento {proc.mes:02d}/{proc.ano} marcado como Processado.')
         elif action == 'pagar':
+            if proc.total_liquido == 0:
+                messages.error(request, 'Não é possível pagar porque o total líquido é 0,00 KZ.')
+                return redirect('rh_salario_detalhe', pk=proc.pk)
             proc.estado = 'Pago'
             proc.save()
             # Gerar faturas para o despachante e colaboradores
@@ -1840,41 +2002,36 @@ def salario_detalhe_view(request, pk):
             else:
                 messages.error(request, 'Apenas processamentos no estado Processado podem ser reabertos.')
         return redirect('rh_salario_detalhe', pk=proc.pk)
-    # Obter subsídios ativos para o template
-    subsidios_ativos = banca.subsidios.filter(ativo=True)
+    # Obter subsídios ativos para o template (excluindo ALIM e TRANS)
+    subsidios_ativos = banca.subsidios.filter(ativo=True).exclude(codigo__in=['ALIM', 'TRANS'])
 
-    # Criar subsídios padrão se não existirem
-    if not subsidios_ativos.exists():
-        subsidios_padrao = [
-            {
-                'nome': 'Subsídio de Alimentação',
-                'codigo': 'ALIM',
-                'tipo_calculo': 'FIXO',
-                'valor_padrao': Decimal('15000.00'),
-                'ativo': True,
-                'obrigatorio': False,
-                'descricao': 'Subsídio para refeições diárias'
-            },
-            {
-                'nome': 'Subsídio de Transporte',
-                'codigo': 'TRANS',
-                'tipo_calculo': 'FIXO',
-                'valor_padrao': Decimal('15000.00'),
-                'ativo': True,
-                'obrigatorio': False,
-                'descricao': 'Subsídio para custos de transporte'
-            }
-        ]
-
-        for dados in subsidios_padrao:
-            Subsidio.objects.get_or_create(
-                banca=banca,
-                codigo=dados['codigo'],
-                defaults=dados
+    # Garantir que subsídios obrigatórios tenham SubsidioRecibo (mesmo que criados após o processamento)
+    tem_faltantes = False
+    for r in recibos:
+        for subsidio in subsidios_ativos:
+            if not subsidio.obrigatorio:
+                continue
+            if SubsidioRecibo.objects.filter(recibo=r, subsidio=subsidio).exists():
+                continue
+            tem_faltantes = True
+            if subsidio.tipo_calculo == 'PERCENTUAL':
+                if subsidio.percentual and r.salario_base:
+                    valor = (r.salario_base * subsidio.percentual) / 100
+                else:
+                    valor = subsidio.valor_padrao
+            elif subsidio.tipo_calculo == 'DIAS_TRABALHO':
+                valor = subsidio.valor_padrao * 22
+            elif subsidio.tipo_calculo == 'DEPENDENTES':
+                valor = subsidio.valor_padrao * 1
+            else:
+                valor = subsidio.valor_padrao
+            SubsidioRecibo.objects.get_or_create(
+                recibo=r, subsidio=subsidio,
+                defaults={'valor': valor, 'valor_padrao': subsidio.valor_padrao}
             )
-
-        # Recarregar subsídios após criação
-        subsidios_ativos = banca.subsidios.filter(ativo=True)
+    if tem_faltantes:
+        # Re-fetch para o prefetch_related incluir os novos vínculos
+        recibos = proc.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
 
     return render(request, 'rh/salarios/detalhe.html',
                   _ctx(request, 'salarios', {
@@ -1972,21 +2129,29 @@ def vaga_nova_view(request):
                               'banca': banca, 'vaga': None, 'filiais': filiais,
                               'erro': 'O título é obrigatório.',
                           }))
-        Vaga.objects.create(
-            banca=banca,
-            filial_id=filial_id_obrigatoria_gestor(
-                gestor, is_desp, request.POST.get('filial') or None,
-            ),
-            titulo=titulo,
-            departamento=request.POST.get('departamento', '').strip(),
-            descricao=request.POST.get('descricao', '').strip(),
-            requisitos=request.POST.get('requisitos', '').strip(),
-            salario_min=_dec(request.POST.get('salario_min')) or None,
-            salario_max=_dec(request.POST.get('salario_max')) or None,
-            vagas_numero=int(request.POST.get('vagas_numero') or 1),
-            data_encerramento=request.POST.get('data_encerramento') or None,
-        )
-        return redirect('rh_vagas')
+        try:
+            Vaga.objects.create(
+                banca=banca,
+                filial_id=filial_id_obrigatoria_gestor(
+                    gestor, is_desp, request.POST.get('filial') or None,
+                ),
+                titulo=titulo,
+                departamento=request.POST.get('departamento', '').strip(),
+                descricao=request.POST.get('descricao', '').strip(),
+                requisitos=request.POST.get('requisitos', '').strip(),
+                salario_min=_dec(request.POST.get('salario_min')) or None,
+                salario_max=_dec(request.POST.get('salario_max')) or None,
+                vagas_numero=int(request.POST.get('vagas_numero') or 1),
+                data_encerramento=request.POST.get('data_encerramento') or None,
+            )
+            return redirect('rh_vagas')
+        except ValidationError as e:
+            if hasattr(e, 'message_dict'):
+                for field, messages_list in e.message_dict.items():
+                    for msg in messages_list:
+                        messages.error(request, msg)
+            else:
+                messages.error(request, str(e))
     return render(request, 'rh/recrutamento/vaga_form.html',
                   _ctx(request, 'recrutamento', {
                       'banca': banca, 'vaga': None, 'filiais': filiais,
@@ -2008,20 +2173,28 @@ def vaga_editar_view(request, pk):
         else [gestor.filial]
     )
     if request.method == 'POST':
-        vaga.filial_id = filial_id_obrigatoria_gestor(
-            gestor, is_desp, request.POST.get('filial') or None,
-        )
-        vaga.titulo = request.POST.get('titulo', '').strip()
-        vaga.departamento = request.POST.get('departamento', '').strip()
-        vaga.descricao = request.POST.get('descricao', '').strip()
-        vaga.requisitos = request.POST.get('requisitos', '').strip()
-        vaga.salario_min = _dec(request.POST.get('salario_min')) or None
-        vaga.salario_max = _dec(request.POST.get('salario_max')) or None
-        vaga.vagas_numero = int(request.POST.get('vagas_numero') or 1)
-        vaga.estado = request.POST.get('estado', 'Aberta')
-        vaga.data_encerramento = request.POST.get('data_encerramento') or None
-        vaga.save()
-        return redirect('rh_vagas')
+        try:
+            vaga.filial_id = filial_id_obrigatoria_gestor(
+                gestor, is_desp, request.POST.get('filial') or None,
+            )
+            vaga.titulo = request.POST.get('titulo', '').strip()
+            vaga.departamento = request.POST.get('departamento', '').strip()
+            vaga.descricao = request.POST.get('descricao', '').strip()
+            vaga.requisitos = request.POST.get('requisitos', '').strip()
+            vaga.salario_min = _dec(request.POST.get('salario_min')) or None
+            vaga.salario_max = _dec(request.POST.get('salario_max')) or None
+            vaga.vagas_numero = int(request.POST.get('vagas_numero') or 1)
+            vaga.estado = request.POST.get('estado', 'Aberta')
+            vaga.data_encerramento = request.POST.get('data_encerramento') or None
+            vaga.save()
+            return redirect('rh_vagas')
+        except ValidationError as e:
+            if hasattr(e, 'message_dict'):
+                for field, messages_list in e.message_dict.items():
+                    for msg in messages_list:
+                        messages.error(request, msg)
+            else:
+                messages.error(request, str(e))
     return render(request, 'rh/recrutamento/vaga_form.html',
                   _ctx(request, 'recrutamento', {
                       'banca': banca, 'vaga': vaga, 'filiais': filiais,
@@ -2251,6 +2424,9 @@ def integracao_nova_view(request, candidatura_pk):
         # Criar colaborador automaticamente se solicitado
         if request.POST.get('criar_colaborador') == '1':
             email_col = cand.email.strip() if cand.email else ''
+            if email_col and email_ja_existe(email_col):
+                messages.error(request, f'O email {email_col} já está registado no sistema.')
+                return redirect('rh_integracao_detalhe', pk=plano.pk)
             senha_gerada = None
             senha_hash = None
             if email_col:
@@ -2266,7 +2442,7 @@ def integracao_nova_view(request, candidatura_pk):
                 cargo_personalizado=request.POST.get('cargo_personalizado', '').strip(),
                 departamento=request.POST.get('departamento', departamento_sugerido),
                 data_admissao=request.POST.get('data_inicio'),
-                salario_base=_dec(request.POST.get('salario_base')),
+                salario_base=_dec(request.POST.get('salario_base')) or None,
                 estado='Ativo',
                 password=senha_hash,
             )
@@ -2366,25 +2542,37 @@ def presencas_view(request):
     hoje = timezone.now().date()
     mes  = int(request.GET.get('mes') or hoje.month)
     ano  = int(request.GET.get('ano') or hoje.year)
+    from datetime import date
+    primeiro_dia = date(ano, mes, 1)
+    if mes == 12:
+        ultimo_dia = date(ano, 12, 31)
+    else:
+        ultimo_dia = date(ano, mes + 1, 1) - timezone.timedelta(days=1)
     cols = escopo_colaboradores_ativos(banca, col_log, gestor, is_desp).only(
         'id', 'nome', 'cargo', 'cargo_personalizado', 'filial_id'
     )
+
     registos = RegistoPresenca.objects.filter(
         colaborador__in=cols, data__month=mes, data__year=ano,
     ).select_related('colaborador').order_by('-data')
-    pedidos = PedidoFerias.objects.filter(
+    pedidos_pendentes = PedidoFerias.objects.filter(
         colaborador__in=cols, estado='Pendente',
     ).select_related('colaborador').only(
         'id', 'colaborador_id', 'data_inicio', 'data_fim', 'motivo', 'estado', 'criado_em'
     )
+    pedidos_todos = PedidoFerias.objects.filter(
+        colaborador__in=cols,
+        data_inicio__lte=ultimo_dia, data_fim__gte=primeiro_dia,
+    ).select_related('colaborador').order_by('-criado_em')
     paginator = Paginator(registos, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     return render(request, 'rh/presencas/lista.html',
                   _ctx(request, 'presencas', {
                       'banca': banca, 'colaboradores': cols,
-                      'registos': page_obj, 'pedidos': pedidos,
+                      'registos': page_obj, 'pedidos': pedidos_pendentes,
                       'page_obj': page_obj,
+                      'pedidos_todos': pedidos_todos,
                       'mes': mes, 'ano': ano, 'meses': MESES, 'hoje': hoje,
                   }))
 
@@ -2402,17 +2590,29 @@ def presenca_registar_view(request):
         if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, col):
             messages.error(request, 'Sem permissão para registar presença deste colaborador.')
             return redirect('rh_presencas')
-        RegistoPresenca.objects.update_or_create(
-            colaborador=col, data=request.POST.get('data'),
-            defaults={
-                'tipo': request.POST.get('tipo', 'Presenca'),
-                'hora_entrada': request.POST.get('hora_entrada') or None,
-                'hora_saida': request.POST.get('hora_saida') or None,
-                'horas_extras': _dec(request.POST.get('horas_extras', '0')),
-                'justificacao': request.POST.get('justificacao', '').strip(),
-                'estado': 'Pendente',
-            }
-        )
+        try:
+            # Criar ou actualizar registo de presença
+            data_str = request.POST.get('data')
+            reg, created = RegistoPresenca.objects.get_or_create(
+                colaborador=col,
+                data=data_str,
+            )
+            reg.tipo = request.POST.get('tipo', 'Entrada')
+            reg.hora_entrada = request.POST.get('hora_entrada') or None
+            reg.hora_saida = request.POST.get('hora_saida') or None
+            reg.horas_extras = _dec(request.POST.get('horas_extras', '0'))
+            reg.justificacao = request.POST.get('justificacao', '').strip()
+            reg.estado = 'Pendente'
+            reg.full_clean()
+            reg.save()
+            messages.success(request, 'Registo de presença salvo com sucesso.')
+        except ValidationError as e:
+            if hasattr(e, 'message_dict'):
+                for field, msgs in e.message_dict.items():
+                    for msg in msgs:
+                        messages.error(request, msg)
+            else:
+                messages.error(request, str(e))
     return redirect('rh_presencas')
 
 
@@ -2443,13 +2643,23 @@ def ferias_pedir_view(request):
         if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, col):
             messages.error(request, 'Sem permissão para criar pedido para este colaborador.')
             return redirect('rh_presencas')
-        PedidoFerias.objects.create(
-            colaborador=col,
-            data_inicio=request.POST.get('data_inicio'),
-            data_fim=request.POST.get('data_fim'),
-            motivo=request.POST.get('motivo', '').strip(),
-        )
-    return redirect('rh_presencas')
+        try:
+            PedidoFerias.objects.create(
+                colaborador=col,
+                data_inicio=request.POST.get('data_inicio'),
+                data_fim=request.POST.get('data_fim'),
+                motivo=request.POST.get('motivo', '').strip(),
+            )
+            messages.success(request, 'Pedido de férias submetido com sucesso.')
+        except ValidationError as e:
+            if hasattr(e, 'message_dict'):
+                for field, messages_list in e.message_dict.items():
+                    for msg in messages_list:
+                        messages.error(request, msg)
+            else:
+                messages.error(request, str(e))
+    next_url = request.POST.get('next') or 'rh_presencas'
+    return redirect(next_url)
 
 
 @_requer_sessao
@@ -2463,9 +2673,61 @@ def ferias_aprovar_view(request, pk):
         messages.error(request, 'Sem permissão para gerir este pedido de férias.')
         return redirect('rh_presencas')
     if request.method == 'POST':
-        pedido.estado = request.POST.get('estado', 'Aprovado')
-        pedido.save()
+        try:
+            pedido.estado = request.POST.get('estado', 'Aprovado')
+            pedido.save()
+            if pedido.estado == 'Aprovado':
+                marcar_ferias_no_registo(pedido)
+        except ValidationError as e:
+            if hasattr(e, 'message_dict'):
+                for field, messages_list in e.message_dict.items():
+                    for msg in messages_list:
+                        messages.error(request, msg)
+            else:
+                messages.error(request, str(e))
+    next_url = request.POST.get('next') or 'rh_presencas'
+    return redirect(next_url)
+
+
+@_requer_sessao
+def presenca_apagar_view(request, pk):
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    reg = get_object_or_404(RegistoPresenca, pk=pk, colaborador__banca=banca)
+    if request.method == 'POST':
+        if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, reg.colaborador):
+            messages.error(request, 'Sem permissão para remover este registo.')
+        else:
+            reg.delete()
+            messages.success(request, 'Registo removido com sucesso.')
     return redirect('rh_presencas')
+
+
+@_requer_sessao
+def ferias_apagar_view(request, pk):
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    pedido = get_object_or_404(PedidoFerias, pk=pk, colaborador__banca=banca)
+    if request.method == 'POST':
+        if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, pedido.colaborador):
+            messages.error(request, 'Sem permissão para remover este pedido.')
+        else:
+            pedido.delete()
+            messages.success(request, 'Pedido de férias removido com sucesso.')
+    return redirect('rh_ferias')
+
+
+@_requer_sessao
+def ferias_lista_view(request):
+    from django.urls import reverse
+    from django.utils import timezone
+    hoje = timezone.now().date()
+    url = reverse('rh_presencas')
+    return redirect(f'{url}?tab=ferias&mes={hoje.month}&ano={hoje.year}')
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2497,12 +2759,33 @@ def ciclo_novo_view(request):
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
         if nome:
-            CicloAvaliacao.objects.create(
-                banca=banca, nome=nome,
-                periodo_inicio=request.POST.get('periodo_inicio'),
-                periodo_fim=request.POST.get('periodo_fim'),
-            )
-        return redirect('rh_avaliacoes')
+            try:
+                ciclo = CicloAvaliacao.objects.create(
+                    banca=banca, nome=nome,
+                    periodo_inicio=request.POST.get('periodo_inicio'),
+                    periodo_fim=request.POST.get('periodo_fim'),
+                )
+                # Guardar métricas do ciclo
+                metricas_nomes = request.POST.getlist('metrica_nome[]')
+                metricas_desc = request.POST.getlist('metrica_descricao[]')
+                for i, mnome in enumerate(metricas_nomes):
+                    mnome = mnome.strip()
+                    if mnome:
+                        MetricaAvaliacao.objects.create(
+                            ciclo=ciclo, nome=mnome,
+                            descricao=(metricas_desc[i] if i < len(metricas_desc) else '').strip(),
+                            ordem=i,
+                        )
+                return redirect('rh_avaliacoes')
+            except ValidationError as e:
+                if hasattr(e, 'message_dict'):
+                    for field, messages_list in e.message_dict.items():
+                        for msg in messages_list:
+                            messages.error(request, msg)
+                else:
+                    messages.error(request, str(e))
+        else:
+            messages.error(request, 'O nome do ciclo é obrigatório.')
     return render(request, 'rh/avaliacoes/ciclo_form.html',
                   _ctx(request, 'avaliacoes', {'banca': banca}))
 
@@ -2514,21 +2797,35 @@ def ciclo_detalhe_view(request, pk):
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
     ciclo = get_object_or_404(CicloAvaliacao, pk=pk, banca=banca)
-    avaliacoes = ciclo.avaliacoes.select_related('colaborador').all()
+    metricas = ciclo.metricas.all()
+    avaliacoes = ciclo.avaliacoes.select_related('colaborador').prefetch_related('notas_metricas__metrica').all()
     if not is_desp:
         avaliacoes = avaliacoes.filter(
             colaborador__filial=gestor.filial,
         ).exclude(colaborador=col_log)
+    # Construir mapa de notas por avaliação para template
+    for a in avaliacoes:
+        a.notas_map = {nm.metrica_id: nm.nota for nm in a.notas_metricas.all()}
     avaliados = {a.colaborador_id for a in avaliacoes}
     pendentes = escopo_colaboradores_ativos(
         banca, col_log, gestor, is_desp,
     ).exclude(pk__in=avaliados)
     if col_log:
         pendentes = pendentes.exclude(pk=col_log.pk)
+    # Se não há métricas definidas, usar padrão
+    if not metricas:
+        metricas = [
+            {'nome': 'Pontualidade', 'chave': 'pontualidade'},
+            {'nome': 'Produtividade', 'chave': 'produtividade'},
+            {'nome': 'Qualidade do Trabalho', 'chave': 'qualidade_trabalho'},
+            {'nome': 'Trabalho em Equipa', 'chave': 'trabalho_equipa'},
+            {'nome': 'Iniciativa', 'chave': 'iniciativa'},
+        ]
     return render(request, 'rh/avaliacoes/ciclo_detalhe.html',
                   _ctx(request, 'avaliacoes', {
                       'banca': banca, 'ciclo': ciclo,
                       'avaliacoes': avaliacoes,
+                      'metricas': metricas,
                       'funcs_pendentes': pendentes,
                       'cols_pendentes': pendentes,
                   }))
@@ -2570,21 +2867,43 @@ def avaliacao_form_view(request, ciclo_pk, col_pk=None):
         if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, col):
             messages.error(request, 'Sem permissão para avaliar este colaborador.')
             return redirect('rh_ciclo_detalhe', pk=ciclo.pk)
+        if not col_pk and Avaliacao.objects.filter(ciclo=ciclo, colaborador=col).exists():
+            messages.error(request, f'{col.nome} já foi avaliado neste ciclo.')
+            return redirect('rh_ciclo_detalhe', pk=ciclo.pk)
         kpis = {}
-        for k in ['pontualidade', 'produtividade', 'qualidade_trabalho',
-                  'trabalho_equipa', 'iniciativa']:
-            v = request.POST.get(k)
-            kpis[k] = int(v) if v else 3
-        nota = round(sum(kpis.values()) / len(kpis), 1)
-        Avaliacao.objects.update_or_create(
+        for m in ciclo.metricas.all():
+            v = request.POST.get(f'metrica_{m.pk}')
+            kpis[m.nome] = int(v) if v else 3
+        if not ciclo.metricas.exists():
+            for k in ['pontualidade', 'produtividade', 'qualidade_trabalho',
+                      'trabalho_equipa', 'iniciativa']:
+                v = request.POST.get(k)
+                kpis[k] = int(v) if v else 3
+        nota = round(sum(kpis.values()) / len(kpis), 1) if kpis else 3
+        aval, created = Avaliacao.objects.update_or_create(
             ciclo=ciclo, colaborador=col,
             defaults={
-                **kpis, 'nota_global': nota,
+                'nota_global': nota,
                 'pontos_fortes': request.POST.get('pontos_fortes', '').strip(),
                 'pontos_melhoria': request.POST.get('pontos_melhoria', '').strip(),
                 'plano_desenvolvimento': request.POST.get('plano_desenvolvimento', '').strip(),
             }
         )
+        # Guardar notas das métricas dinâmicas
+        NotaMetrica.objects.filter(avaliacao=aval).delete()
+        for m in ciclo.metricas.all():
+            v = request.POST.get(f'metrica_{m.pk}')
+            if v:
+                NotaMetrica.objects.create(avaliacao=aval, metrica=m, nota=int(v))
+
+        # Backward compat: preencher campos antigos se as métricas forem as padrão
+        if not ciclo.metricas.exists():
+            aval.pontualidade = kpis.get('pontualidade', 3)
+            aval.produtividade = kpis.get('produtividade', 3)
+            aval.qualidade_trabalho = kpis.get('qualidade_trabalho', 3)
+            aval.trabalho_equipa = kpis.get('trabalho_equipa', 3)
+            aval.iniciativa = kpis.get('iniciativa', 3)
+            aval.save(update_fields=['pontualidade', 'produtividade', 'qualidade_trabalho', 'trabalho_equipa', 'iniciativa'])
         return redirect('rh_ciclo_detalhe', pk=ciclo.pk)
 
     cols_avaliaveis = escopo_colaboradores_ativos(
@@ -2593,15 +2912,82 @@ def avaliacao_form_view(request, ciclo_pk, col_pk=None):
     if col_log:
         cols_avaliaveis = cols_avaliaveis.exclude(pk=col_log.pk)
 
+    # Excluir colaboradores já avaliados neste ciclo (apenas na criação)
+    if not col_pk:
+        cols_avaliaveis = cols_avaliaveis.exclude(
+            pk__in=Avaliacao.objects.filter(ciclo=ciclo).values_list('colaborador', flat=True)
+        )
+
+    metricas = ciclo.metricas.all()
+    kpis_list = []
+    if metricas:
+        for m in metricas:
+            nota = aval.notas_metricas.filter(metrica=m).first() if aval else None
+            kpis_list.append((f'metrica_{m.pk}', m.nome, m.descricao, nota.nota if nota else 3))
+    else:
+        kpis_list = [
+            ('pontualidade',      'Pontualidade',          '', aval.pontualidade if aval else 3),
+            ('produtividade',     'Produtividade',         '', aval.produtividade if aval else 3),
+            ('qualidade_trabalho','Qualidade do Trabalho', '', aval.qualidade_trabalho if aval else 3),
+            ('trabalho_equipa',   'Trabalho em Equipa',    '', aval.trabalho_equipa if aval else 3),
+            ('iniciativa',        'Iniciativa',            '', aval.iniciativa if aval else 3),
+        ]
+
     return render(request, 'rh/avaliacoes/avaliacao_form.html',
                   _ctx(request, 'avaliacoes', {
                       'banca': banca, 'ciclo': ciclo, 'aval': aval, 'col': col,
                       'colaboradores': cols_avaliaveis,
-                      'kpis_list': [
-                          ('pontualidade',      'Pontualidade',          aval.pontualidade if aval else 3),
-                          ('produtividade',     'Produtividade',         aval.produtividade if aval else 3),
-                          ('qualidade_trabalho','Qualidade do Trabalho', aval.qualidade_trabalho if aval else 3),
-                          ('trabalho_equipa',   'Trabalho em Equipa',    aval.trabalho_equipa if aval else 3),
-                          ('iniciativa',        'Iniciativa',            aval.iniciativa if aval else 3),
-                      ],
+                      'kpis_list': kpis_list,
+                  }))
+
+
+@_requer_sessao
+def avaliacao_apagar_view(request, ciclo_pk, col_pk):
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    if not is_desp:
+        messages.error(request, 'Apenas o despachante pode remover avaliações.')
+        return redirect('rh_ciclo_detalhe', pk=ciclo_pk)
+    if request.method == 'POST':
+        ciclo = get_object_or_404(CicloAvaliacao, pk=ciclo_pk, banca=banca)
+        aval = get_object_or_404(Avaliacao, ciclo=ciclo, colaborador__pk=col_pk)
+        nome = aval.colaborador.nome
+        aval.delete()
+        messages.success(request, f'Avaliação de {nome} removida com sucesso.')
+    return redirect('rh_ciclo_detalhe', pk=ciclo_pk)
+
+
+@_requer_sessao
+def avaliacao_detalhe_view(request, ciclo_pk, col_pk):
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    ciclo = get_object_or_404(CicloAvaliacao, pk=ciclo_pk, banca=banca)
+    col = get_object_or_404(Colaborador, pk=col_pk, banca=banca)
+    aval = get_object_or_404(Avaliacao, ciclo=ciclo, colaborador=col)
+
+    metricas = ciclo.metricas.all()
+    kpis_list = []
+    if metricas:
+        for m in metricas:
+            nota = aval.notas_metricas.filter(metrica=m).first()
+            kpis_list.append((f'metrica_{m.pk}', m.nome, m.descricao, nota.nota if nota else 3, True))
+    else:
+        kpis_list = [
+            ('pontualidade',      'Pontualidade',          '', getattr(aval, 'pontualidade', 3), True),
+            ('produtividade',     'Produtividade',         '', getattr(aval, 'produtividade', 3), True),
+            ('qualidade_trabalho','Qualidade do Trabalho', '', getattr(aval, 'qualidade_trabalho', 3), True),
+            ('trabalho_equipa',   'Trabalho em Equipa',    '', getattr(aval, 'trabalho_equipa', 3), True),
+            ('iniciativa',        'Iniciativa',            '', getattr(aval, 'iniciativa', 3), True),
+        ]
+
+    return render(request, 'rh/avaliacoes/avaliacao_form.html',
+                  _ctx(request, 'avaliacoes', {
+                      'banca': banca, 'ciclo': ciclo, 'aval': aval, 'col': col,
+                      'colaboradores': [],
+                      'kpis_list': kpis_list,
+                      'readonly': True,
                   }))

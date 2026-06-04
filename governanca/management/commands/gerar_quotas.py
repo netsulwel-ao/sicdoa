@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from users.models import Usuario
-from governanca.models import TipoQuota, QuotaConfig, QuotaGerada, EstadoFinanceiro, Notificacao
+from governanca.models import TipoQuota, QuotaConfig, QuotaGerada, IsencaoMembro, HistoricoQuota, Notificacao
 from utils.email_utils import _enviar
 
 
@@ -32,7 +32,7 @@ def _periodo(tipo_slug, ano, mes=None):
 
 
 class Command(BaseCommand):
-    help = 'Gera quotas para todos os despachantes ativos por tipo'
+    help = 'Gera quotas para todos os despachantes ativos por tipo (NÃO altera EstadoFinanceiro)'
 
     def add_arguments(self, parser):
         parser.add_argument('--mes', type=int, help='Mês (1-12)')
@@ -65,8 +65,17 @@ class Command(BaseCommand):
 
         despachantes = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')
         criadas = 0
+        hoje_dt = timezone.now().date()
+        seq = QuotaGerada.objects.filter(ano=ano, mes=mes, tipo=tipo).count() + 1
+        slug_tipo = tipo.slug.upper()
+
         for d in despachantes:
             if d.categoria and d.categoria.isento:
+                continue
+            if IsencaoMembro.objects.filter(
+                despachante=d, tipo_quota=tipo,
+                data_inicio__lte=date(ano, mes, 1),
+            ).exclude(data_fim__lt=date(ano, mes, 1)).exists():
                 continue
             filtro = {'despachante': d, 'tipo': tipo}
             if slug == 'mensal':
@@ -87,25 +96,34 @@ class Command(BaseCommand):
                 'extraordinaria': f'{tipo.nome} {hoje:%d/%m/%Y}',
             }
             descricao = descricao_map.get(slug, f'{tipo.nome} {mes:02d}/{ano}')
+            referencia = f'QUOTA-{slug_tipo}-{mes:02d}-{ano}-{seq:05d}'
+            seq += 1
             kwargs = {
                 'despachante': d, 'tipo': tipo, 'ano': ano,
                 'descricao': descricao,
-                'valor': config.valor, 'data_vencimento': config.data_vencimento,
+                'valor': config.valor,
+                'valor_original': config.valor,
+                'valor_total': config.valor,
+                'data_vencimento': config.data_vencimento,
+                'data_envio': hoje_dt,
+                'referencia': referencia,
                 'periodo_inicio': periodo_ini, 'periodo_fim': periodo_fim,
             }
             if slug == 'mensal':
                 kwargs['mes'] = mes
-            QuotaGerada.objects.create(**kwargs)
-            ef, _ = EstadoFinanceiro.objects.get_or_create(despachante=d, defaults={'estado': 'Irregular'})
-            if ef.estado == 'Regular':
-                ef.estado = 'Irregular'
-                ef.save()
+            q = QuotaGerada.objects.create(**kwargs)
+            HistoricoQuota.objects.create(
+                membro=d, quota=q, pagamento=None,
+                acao='QUOTA_GERADA',
+                descricao=f'Quota gerada automaticamente. Config: {descricao}. Referência: {referencia}',
+            )
             multa_str = f' Multa de {config.multa_percentual}%/dia após vencimento.' if config.multa_percentual else ''
+            carencia_str = f' Período de carência: {config.dias_carencia} dias.' if config.dias_carencia else ''
             link = '/governanca/quotas/'
             Notificacao.objects.create(
                 usuario=d, tipo='quota_gerada',
                 titulo=descricao,
-                mensagem=f'Foi gerada a sua {descricao} no valor de Kz {config.valor}. Vencimento: {config.data_vencimento}.{multa_str}',
+                mensagem=f'Foi gerada a sua {descricao} no valor de Kz {config.valor}. Vencimento: {config.data_vencimento}.{multa_str}{carencia_str}',
                 link=link,
             )
             if d.email:
@@ -113,6 +131,7 @@ class Command(BaseCommand):
                     f'Olá {d.nome},\n\nA sua {descricao} no valor de Kz {config.valor} foi gerada.\n'
                     f'Data de vencimento: {config.data_vencimento}\n'
                     f'{f"Multa de {config.multa_percentual}%/dia após o vencimento.\n" if config.multa_percentual else ""}'
+                    f'{f"Período de carência de {config.dias_carencia} dias.\n" if config.dias_carencia else ""}'
                     f'\nAceda ao sistema para pagar.\n\nCDOA Angola',
                     None, [d.email])
             criadas += 1

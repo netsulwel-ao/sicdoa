@@ -1,4 +1,4 @@
-﻿{% include 'includes/head.html' %}
+﻿{% load rh_extras %}{% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 <div class="flex-1 ml-0 lg:ml-64 min-w-0">
   {% include 'includes/header.html' %}
@@ -229,8 +229,8 @@
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Salário Base (KZ)</label>
-            <input type="number" name="salario_base" step="0.01" min="0"
-                   value="{{ col.salario_efetivo|default:'' }}" placeholder="0.00"
+            <input type="text" inputmode="decimal" name="salario_base"
+                   value="{% if col.salario_base is not None %}{{ col.salario_base|fmtkz }}{% endif %}" placeholder="0,00"
                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
           </div>
 
@@ -264,8 +264,8 @@
             <form method="POST" class="flex-shrink-0">
               {% csrf_token %}
               <input type="hidden" name="acao_gestor" value="remover_gestor" />
-              <button type="submit"
-                      onclick="return confirm('Remover a responsabilidade de gestão de filial deste colaborador?');"
+              <button type="button"
+                      onclick="confirmarFormPost(this.closest('form'), { titulo: 'Remover responsabilidade', mensagem: 'Remover a responsabilidade de gestão de filial deste colaborador?', tipo: 'warning', textoBotao: 'Remover' })"
                       class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-red-200 text-red-700 dark:text-red-300 font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all text-sm">
                 <i class="fas fa-user-minus text-base"></i>Remover responsabilidade
               </button>

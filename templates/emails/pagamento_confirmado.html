@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt">
+<body style="margin:0;padding:0;background:#f6f7f8;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 20px;">
+    <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
+      <tr><td style="background:linear-gradient(135deg,#16a34a,#15803d);padding:32px 40px;">
+        <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">CDOA Sistema</h1>
+        <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:14px;">Pagamento Confirmado</p>
+      </td></tr>
+      <tr><td style="padding:36px 40px;">
+        <p style="margin:0 0 16px;color:#374151;font-size:15px;">Prezado(a) <strong>{{ nome }}</strong>,</p>
+        <p style="margin:0 0 24px;color:#6b7280;font-size:14px;line-height:1.6;">
+          O pagamento da sua quota associativa foi confirmado com sucesso.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:24px;">
+          <tr><td style="padding:20px 24px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;width:140px;">Referência</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">{{ referencia }}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Período</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">{{ periodo }}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Valor Pago</td><td style="padding:4px 0;font-size:14px;color:#16a34a;font-weight:600;">Kz {{ valor_pago }}</td></tr>
+              {% if multa %}
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Multa</td><td style="padding:4px 0;font-size:14px;color:#dc2626;">Kz {{ multa }}</td></tr>
+              {% endif %}
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Método</td><td style="padding:4px 0;font-size:14px;color:#111827;">{{ metodo }}</td></tr>
+            </table>
+          </td></tr>
+        </table>
+        <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+          O seu estado financeiro encontra-se atualizado. Obrigado pela regularização.
+        </p>
+      </td></tr>
+      <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
+        <p style="margin:0;color:#9ca3af;font-size:12px;">© 2026 CDOA Sistema · Câmara dos Despachantes Oficiais de Angola</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

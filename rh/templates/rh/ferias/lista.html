@@ -1,0 +1,75 @@
+{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a><i class="fas fa-chevron-right text-xs"></i><span class="text-primary">RH</span><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">Férias</span></div>
+<div class="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+  <a href="{% url 'rh_presencas' %}" class="px-4 py-2 text-sm font-semibold rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-all">Presenças</a>
+  <span class="px-4 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-gray-900 text-primary shadow-sm">Férias</span>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+  <div><h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Pedidos de Férias</h1><p class="text-gray-500 mt-1 text-sm">Gerir pedidos de férias dos colaboradores</p></div>
+  <button onclick="document.getElementById('modalFerias').classList.remove('hidden')" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm"><i class="fas fa-plus text-base"></i>Novo Pedido</button>
+</div>
+
+{% if pedidos|length == 0 %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center"><i class="fas fa-umbrella-beach text-gray-400 text-5xl mb-4 block"></i><h3 class="text-lg font-bold text-gray-700 dark:text-gray-300">Nenhum pedido de férias</h3></div>
+{% else %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-800/60"><tr>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Colaborador</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Período</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dias</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Motivo</th>
+    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
+    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acção</th>
+  </tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+  {% for p in pedidos %}
+  <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+    <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white text-sm">{{ p.colaborador.nome }}</td>
+    <td class="px-5 py-4 text-sm text-gray-600">{{ p.data_inicio|date:"d/m/Y" }} → {{ p.data_fim|date:"d/m/Y" }}</td>
+    <td class="px-5 py-4 text-sm text-gray-600">{{ p.dias }}</td>
+    <td class="px-5 py-4 text-sm text-gray-600 max-w-[200px] truncate">{{ p.motivo|default:"—" }}</td>
+    <td class="px-5 py-4">
+      {% if p.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Em Férias</span>
+      {% elif p.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
+      {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
+    </td>
+    <td class="px-5 py-4 text-right">
+      <div class="flex items-center justify-end gap-1">
+        {% if p.estado == 'Pendente' %}
+        <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
+        <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
+        {% endif %}
+        <a href="#" class="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all" title="Editar"><i class="fas fa-edit text-base"></i></a>
+        <form method="POST" action="{% url 'rh_ferias_apagar' p.pk %}" class="inline">{% csrf_token %}<button type="button" onclick="confirmarFormPost(this.form, { titulo: 'Remover pedido de férias', mensagem: 'Tem certeza que deseja remover o pedido de férias de {{ p.colaborador.nome }}?', textoBotao: 'Remover' })" class="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" title="Remover"><i class="fas fa-trash-alt text-base"></i></button></form>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody></table></div>
+  {% if page_obj.has_other_pages %}
+  <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+    {% include 'includes/pagination.html' %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Modal Novo Pedido de Férias -->
+<div id="modalFerias" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="font-bold text-gray-900 dark:text-white">Novo Pedido de Férias</h3>
+      <button onclick="document.getElementById('modalFerias').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="POST" action="{% url 'rh_ferias_pedir' %}" class="p-6 space-y-4">{% csrf_token %}
+      <input type="hidden" name="next" value="rh_ferias">
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Colaborador</label><select name="colaborador" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none"><option value="">Selecione...</option>{% for f in colaboradores %}<option value="{{ f.pk }}">{{ f.nome }}</option>{% endfor %}</select></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data Início</label><input type="date" name="data_inicio" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
+        <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data Fim</label><input type="date" name="data_fim" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
+      </div>
+      <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Motivo</label><textarea name="motivo" rows="2" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"></textarea></div>
+      <div class="flex justify-end gap-3"><button type="button" onclick="document.getElementById('modalFerias').classList.add('hidden')" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button><button type="submit" class="px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">Submeter</button></div>
+    </form>
+  </div>
+</div>
+</main></div>{% include 'includes/footer.html' %}

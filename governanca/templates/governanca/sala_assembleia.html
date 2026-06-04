@@ -1,9 +1,9 @@
 {% load static %}{% if request.GET.popup %}<head><title>Reunião - CDOA</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" /></head>{% else %}{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}{% endif %}
-{% if request.GET.popup %}<div class="min-w-0">{% else %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}{% endif %}
+{% if request.GET.popup %}<div class="min-w-0 flex flex-col">{% else %}<div class="flex-1 ml-0 lg:ml-64 min-w-0 flex flex-col">{% include 'includes/header.html' %}{% endif %}
 {% csrf_token %}
-<div id="app-root" class="h-screen flex flex-col bg-[#1a1a2e] text-white overflow-hidden">
+<div id="app-root" class="flex-1 min-h-0 flex flex-col bg-[#0f1117] text-[#f1f5f9] overflow-y-auto{% if request.GET.popup %} popup{% endif %}">
   {% if request.GET.popup %}
-  <style>body{background:#1a1a2e;overflow:hidden;margin:0}#app-root{height:100vh;display:flex;flex-direction:column}</style>
+  <style>body{background:#0f1117;overflow:hidden;margin:0}#app-root{flex:1;min-height:0;display:flex;flex-direction:column}</style>
   {% endif %}
 
   {# ── Meet Data (JSON inject) ──────────────────────────────────────── #}
@@ -93,13 +93,15 @@
       <div id="panel-body" class="panel-body"></div>
       {# ── Chat input ─────────────────────────────────────────── #}
       <div class="chat-input-area" id="chat-input-area">
-        <div id="chat-reactions" class="flex gap-1 mr-1">
-          <button data-reacao="mao" class="text-lg cursor-pointer bg-transparent border-none hover:scale-110 transition-transform" title="Levantar mão">🖐️</button>
-          <button data-reacao="palmas" class="text-lg cursor-pointer bg-transparent border-none hover:scale-110 transition-transform" title="Palmas">👏</button>
-          <button data-reacao="coracao" class="text-lg cursor-pointer bg-transparent border-none hover:scale-110 transition-transform" title="Coração">❤️</button>
+        <div class="chat-reactions-row" id="chat-reactions">
+          <button data-reacao="mao" title="Levantar mão">🖐️</button>
+          <button data-reacao="palmas" title="Palmas">👏</button>
+          <button data-reacao="coracao" title="Coração">❤️</button>
         </div>
-        <input id="chat-input" type="text" placeholder="Enviar mensagem..." autocomplete="off">
-        <button id="chat-send" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center transition-colors cursor-pointer border-none text-sm"><i class="fas fa-paper-plane"></i></button>
+        <div class="chat-input-row">
+          <input id="chat-input" type="text" placeholder="Enviar mensagem..." autocomplete="off">
+          <button id="chat-send" class="chat-send-btn" title="Enviar"><i class="fas fa-paper-plane"></i></button>
+        </div>
       </div>
     </div>
 
@@ -160,13 +162,13 @@
   </div>
 
   {# ── Admin controls (hidden overlay) ───────────────────────────── #}
-  <div id="admin-controls" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30 bg-[#252536] rounded-xl p-4 shadow-2xl border border-gray-700/50 min-w-[300px]">
+  <div id="admin-controls" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30 bg-[#1e2030] rounded-xl p-4 shadow-2xl border border-white/5 min-w-[300px]">
     <div class="flex items-center justify-between mb-3">
       <h4 class="text-sm font-semibold text-gray-200">Controlo da Sala</h4>
       <button onclick="document.getElementById('admin-controls').classList.add('hidden')" class="text-gray-400 hover:text-white cursor-pointer bg-transparent border-none"><i class="fas fa-times"></i></button>
     </div>
 
-    {% if papel == 'Administrador' and assembleia.status == 'Em Curso' %}
+    {% if papel == 'Administrador' or 'gerir_assembleia' in user_permissoes and assembleia.status == 'Em Curso' %}
     <div class="mb-2 text-xs text-gray-400 font-medium">Votações das Pautas</div>
     {% for pauta in pautas %}
     <div class="flex items-center justify-between py-1.5 text-sm" data-pauta-id="{{ pauta.id }}">
@@ -211,7 +213,7 @@
       {% endwith %}
     {% endif %}
   </div>
-  {% if papel != 'Administrador' %}
+  {% if papel != 'Administrador' and 'gerir_assembleia' not in user_permissoes %}
   <div id="admin-controls-placeholder" class="hidden"></div> {# placeholder para JS não quebrar #}
   {% endif %}
 
@@ -229,7 +231,7 @@
 <script src="{% static 'js/sala_assembleia.js' %}?v=20260601"></script>
 
 {# ── Admin JS (voting controls, concluir, ata) ─────────────── #}
-{% if papel == 'Administrador' %}
+{% if papel == 'Administrador' or 'gerir_assembleia' in user_permissoes %}
 <script>
 (function() {
   const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';

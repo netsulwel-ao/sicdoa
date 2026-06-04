@@ -1,4 +1,5 @@
-from .models import CargoMesa
+from users.models import Usuario
+from users.permissoes import get_usuario_permissoes
 
 
 def cargos_mesa(request):
@@ -6,14 +7,17 @@ def cargos_mesa(request):
         'is_membro_mesa': False,
         'is_secretario_mesa': False,
         'cargo_mesa_funcao': None,
+        'user_permissoes': set(),
     }
     usuario_id = request.session.get('usuario_id')
+    papel = request.session.get('usuario', {}).get('papel', '')
     if usuario_id:
-        cargo = CargoMesa.objects.filter(usuario_id=usuario_id).first()
-        if cargo:
+        if papel == 'Administrador':
             data['is_membro_mesa'] = True
-            data['cargo_mesa_funcao'] = cargo.funcao
-            data['is_secretario_mesa'] = cargo.funcao in (
-                '1º Secretário', '2º Secretário', 'Secretário', 'Vice-Presidente',
-            )
+        else:
+            usuario = Usuario.objects.filter(pk=usuario_id).first()
+            if usuario and (usuario.has_cargo('secretario') or usuario.has_cargo('vice-secretario')):
+                data['is_membro_mesa'] = True
+                data['is_secretario_mesa'] = True
+        data['user_permissoes'] = get_usuario_permissoes(request)
     return data

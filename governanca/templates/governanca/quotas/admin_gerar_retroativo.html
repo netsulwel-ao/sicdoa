@@ -1,0 +1,280 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+{% include 'includes/header.html' %}
+{% csrf_token %}
+<main class="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Gerar Quotas Retroactivas</h1>
+      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Criar quotas para períodos passados com base numa configuração existente</p>
+    </div>
+    <a href="{% url 'governanca_quotas_admin' %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+      <i class="fas fa-arrow-left text-base"></i>Voltar
+    </a>
+  </div>
+
+  <!-- Step 1: Período -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-sm font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+        <span class="w-5 h-5 rounded-full bg-primary text-white text-xs flex items-center justify-center font-bold">1</span>
+        Período
+      </h2>
+      <p class="text-xs text-gray-500 mt-1">Mês e ano para o qual pretende gerar quotas</p>
+    </div>
+    <div class="p-5">
+      <div class="flex items-end gap-4">
+        <div class="w-48">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mês</label>
+          <select id="input-mes"
+                  class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <option value="">—</option>
+            <option value="1">Janeiro</option>
+            <option value="2">Fevereiro</option>
+            <option value="3">Março</option>
+            <option value="4">Abril</option>
+            <option value="5">Maio</option>
+            <option value="6">Junho</option>
+            <option value="7">Julho</option>
+            <option value="8">Agosto</option>
+            <option value="9">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div class="w-32">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ano</label>
+          <input type="number" id="input-ano" value="{{ ano_actual }}"
+                 class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Tipo de Quota + Config Preview -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-sm font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+        <span class="w-5 h-5 rounded-full bg-primary text-white text-xs flex items-center justify-center font-bold">2</span>
+        Tipo de Quota
+      </h2>
+      <p class="text-xs text-gray-500 mt-1">Seleccione o tipo e veja a configuração disponível</p>
+    </div>
+    <div class="p-5">
+      <div class="w-full max-w-xs mb-4">
+        <select id="input-tipo" onchange="buscarConfig()"
+                class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="">— Seleccionar —</option>
+          {% for t in tipos_quota %}
+          <option value="{{ t.id }}">{{ t.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="config-preview" class="hidden">
+        <div class="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+          <div class="flex items-center gap-2 text-sm font-medium text-emerald-800 dark:text-emerald-200 mb-3">
+            <i class="fas fa-check-circle"></i> Configuração encontrada
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm" id="config-details"></div>
+        </div>
+      </div>
+      <div id="config-empty" class="hidden">
+        <div class="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+          <div class="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
+            <i class="fas fa-exclamation-triangle"></i> Nenhuma configuração activa
+          </div>
+          <p class="text-xs text-amber-700 dark:text-amber-300">Crie uma configuração activa para o período seleccionado em <a href="{% url 'governanca_quotas_admin_config' %}" class="underline font-medium">Configurar Valores</a>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Membros -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-sm font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+        <span class="w-5 h-5 rounded-full bg-primary text-white text-xs flex items-center justify-center font-bold">3</span>
+        Membros
+      </h2>
+      <p class="text-xs text-gray-500 mt-1">Seleccione os despachantes que receberão a quota</p>
+    </div>
+    <div class="p-5 space-y-4">
+      <div class="flex gap-3">
+        <input type="text" id="busca-membro" placeholder="Buscar por nome..."
+               class="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+        <button onclick="buscarMembros()" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">Buscar</button>
+      </div>
+      <div class="flex items-center gap-4 text-sm">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="selecionar-todos" onchange="toggleTodos()"
+                 class="rounded border-gray-300 text-primary focus:ring-primary">
+          <span class="text-gray-700 dark:text-gray-300">Seleccionar todos os activos</span>
+        </label>
+        <span id="contador-selecionados" class="text-gray-500">0 seleccionados</span>
+      </div>
+      <div id="lista-membros" class="max-h-72 overflow-y-auto border border-gray-100 dark:border-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-800">
+        <p class="text-sm text-gray-400 p-4 text-center">Digite um nome e clique em Buscar, ou marque "Seleccionar todos".</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <button type="button" id="btn-gerar" onclick="gerarRetroativo()" disabled
+          class="w-full px-6 py-3 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
+    <i class="fas fa-play"></i> Gerar Quotas Retroactivas
+  </button>
+
+  <!-- Result -->
+  <div id="resultado" class="hidden p-5 rounded-xl border text-sm"></div>
+
+</main>
+</div>
+<script>
+// ─── Config Preview (local data) ─────────────────────────────────────
+var configsData = {{ configs_json|safe }};
+
+function buscarConfig() {
+  var tipoId = document.getElementById('input-tipo').value;
+  var mes = document.getElementById('input-mes').value;
+  var ano = document.getElementById('input-ano').value;
+  var previewEl = document.getElementById('config-preview');
+  var emptyEl = document.getElementById('config-empty');
+  var detailsEl = document.getElementById('config-details');
+
+  previewEl.classList.add('hidden');
+  emptyEl.classList.add('hidden');
+
+  if (!tipoId || !mes || !ano) return;
+
+  // find matching config
+  var config = null;
+  for (var i = 0; i < configsData.length; i++) {
+    var c = configsData[i];
+    if (String(c.tipo_id) === String(tipoId) && String(c.mes) === String(mes) && String(c.ano) === String(ano)) {
+      config = c;
+      break;
+    }
+  }
+
+  if (!config) {
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+
+  detailsEl.innerHTML = '';
+  var fields = [
+    { label: 'Valor', value: 'Kz ' + parseFloat(config.valor).toFixed(2) },
+    { label: 'Vencimento', value: config.data_vencimento || '—' },
+    { label: 'Multa', value: config.multa_percentual ? config.multa_percentual + '%/dia' : '—' },
+    { label: 'Carência', value: config.dias_carencia ? config.dias_carencia + ' dias' : '—' },
+  ];
+  fields.forEach(function(f) {
+    detailsEl.innerHTML += '<div><span class="block text-xs text-gray-500">' + f.label + '</span><span class="block font-semibold text-gray-800 dark:text-gray-200">' + f.value + '</span></div>';
+  });
+
+  var estadoLabel = config.ativa ? '✅ Activa' : '❌ Inactiva';
+  detailsEl.innerHTML += '<div><span class="block text-xs text-gray-500">Estado</span><span class="block font-semibold ' + (config.ativa ? 'text-emerald-600' : 'text-red-500') + '">' + estadoLabel + '</span></div>';
+
+  previewEl.classList.remove('hidden');
+}
+
+document.getElementById('input-mes')?.addEventListener('change', buscarConfig);
+document.getElementById('input-ano')?.addEventListener('input', buscarConfig);
+
+// ─── Member Search ───────────────────────────────────────────────────
+var selectedMembros = {};
+
+function buscarMembros() {
+  var q = document.getElementById('busca-membro').value.trim();
+  var el = document.getElementById('lista-membros');
+  if (!q) { el.innerHTML = '<p class="text-sm text-gray-400 p-4 text-center">Digite um nome e clique em Buscar.</p>'; return; }
+  el.innerHTML = '<p class="text-sm text-gray-400 p-4 text-center"><i class="fas fa-spinner fa-spin"></i> A buscar...</p>';
+  fetch('{% url "governanca_api_quotas_buscar_membros" %}?q=' + encodeURIComponent(q))
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.membros || d.membros.length === 0) { el.innerHTML = '<p class="text-sm text-gray-400 p-4 text-center">Nenhum membro encontrado.</p>'; return; }
+      var html = '';
+      d.membros.forEach(function(m) {
+        var checked = selectedMembros[m.id] ? 'checked' : '';
+        html += '<label class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/30 cursor-pointer transition-colors">';
+        html += '<input type="checkbox" class="membro-checkbox rounded border-gray-300 text-primary focus:ring-primary" value="' + m.id + '" ' + checked + ' onchange="atualizarSelecionados()">';
+        html += '<div class="flex-1 min-w-0"><p class="text-sm font-semibold text-[#111418] dark:text-gray-200 truncate">' + m.nome + '</p>';
+        html += '<p class="text-xs text-gray-400">' + (m.cedula || '—') + ' | ' + (m.estado_financeiro || 'Regular') + '</p></div>';
+        html += '</label>';
+      });
+      el.innerHTML = html;
+      atualizarSelecionados();
+    })
+    .catch(function() { el.innerHTML = '<p class="text-sm text-red-500 p-4 text-center">Erro ao buscar membros.</p>'; });
+}
+
+function toggleTodos() {
+  var checked = document.getElementById('selecionar-todos').checked;
+  document.querySelectorAll('.membro-checkbox').forEach(function(cb) { cb.checked = checked; });
+  atualizarSelecionados();
+}
+
+function atualizarSelecionados() {
+  selectedMembros = {};
+  document.querySelectorAll('.membro-checkbox:checked').forEach(function(cb) {
+    selectedMembros[cb.value] = true;
+  });
+  var count = Object.keys(selectedMembros).length;
+  document.getElementById('contador-selecionados').textContent = count + ' seleccionado' + (count !== 1 ? 's' : '');
+  document.getElementById('btn-gerar').disabled = count === 0;
+}
+
+// ─── Submit ────────────────────────────────────────────────────────────
+async function gerarRetroativo() {
+  var btn = document.getElementById('btn-gerar');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A gerar...';
+
+  var fd = new FormData();
+  fd.append('mes', document.getElementById('input-mes').value);
+  fd.append('ano', document.getElementById('input-ano').value);
+  fd.append('tipo_id', document.getElementById('input-tipo').value);
+  fd.append('todos', document.getElementById('selecionar-todos').checked ? '1' : '0');
+
+  if (!document.getElementById('selecionar-todos').checked) {
+    var ids = Object.keys(selectedMembros);
+    if (ids.length > 0) fd.append('despachante_ids', ids.join(','));
+  }
+
+  try {
+    const res = await fetch('{% url "governanca_api_quotas_gerar_retroativo" %}', {
+      method: 'POST', body: fd,
+      headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+    });
+    const d = await res.json();
+    var el = document.getElementById('resultado');
+    el.classList.remove('hidden');
+    if (d.erro) {
+      el.className = 'p-5 rounded-xl border text-sm bg-red-50 border-red-200 text-red-700';
+      el.innerHTML = '<div class="flex items-center gap-2 font-medium mb-1"><i class="fas fa-exclamation-circle"></i> ' + d.erro + '</div>';
+    } else {
+      var html = '<div class="flex items-center gap-2 font-medium mb-2 text-green-700"><i class="fas fa-check-circle"></i> ' + (d.geradas || 0) + ' quotas geradas com sucesso</div>';
+      if (d.erros && d.erros.length > 0) {
+        html += '<div class="mt-2 text-amber-700"><span class="font-medium">Avisos:</span><ul class="list-disc pl-4 mt-1 text-xs space-y-0.5">';
+        d.erros.forEach(function(e) { html += '<li>' + e + '</li>'; });
+        html += '</ul></div>';
+      }
+      el.className = 'p-5 rounded-xl border text-sm bg-green-50 border-green-200 text-green-800';
+      el.innerHTML = html;
+    }
+  } catch(e) {
+    var el = document.getElementById('resultado');
+    el.classList.remove('hidden');
+    el.className = 'p-5 rounded-xl border text-sm bg-red-50 border-red-200 text-red-700';
+    el.innerHTML = '<div class="flex items-center gap-2"><i class="fas fa-exclamation-circle"></i> Erro de conexão. Tente novamente.</div>';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-play"></i> Gerar Quotas Retroactivas';
+}
+</script>
+{% include 'includes/footer.html' %}

@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/assembleia/<int:pk>/solicitar-procuracao/', views.api_solicitar_procuracao, name='governanca_api_solicitar_procuracao'),
     path('api/assembleia/<int:pk>/confirmar-procuracao/', views.api_confirmar_procuracao, name='governanca_api_confirmar_procuracao'),
     path('api/assembleia/<int:pk>/minhas-procuracao/', views.api_minhas_procuracao, name='governanca_api_minhas_procuracao'),
+    path('api/assembleia/<int:pk>/cancelar-procuracao/', views.api_cancelar_procuracao, name='governanca_api_cancelar_procuracao'),
 
     # API: Pauta - Reabertura
     path('api/pauta/<int:pk>/reabrir-votacao/', views.api_reabrir_votacao, name='governanca_api_reabrir_votacao'),
@@ -122,6 +123,7 @@ urlpatterns = [
     path('quotas/admin/pagamentos/', views.quotas_admin_pagamentos, name='governanca_quotas_admin_pagamentos'),
     path('quotas/admin/config/', views.quotas_admin_config, name='governanca_quotas_admin_config'),
     path('quotas/admin/relatorios/', views.quotas_admin_relatorios, name='governanca_quotas_admin_relatorios'),
+    path('quotas/admin/gerar-retroativo/', views.quotas_admin_gerar_retroativo, name='governanca_quotas_admin_gerar_retroativo'),
 
     # API: Pagamentos
     path('quotas/api/pagar/<uuid:fatura_uuid>/', views.api_quotas_pagar, name='governanca_api_quotas_pagar'),
@@ -152,6 +154,19 @@ urlpatterns = [
     # API: Geração retroativa (admin)
     path('quotas/api/gerar-retroativo/', views.api_quotas_gerar_retroativo, name='governanca_api_quotas_gerar_retroativo'),
 
+    # API: Cancelar quota (admin)
+    path('quotas/api/cancelar/<uuid:fatura_uuid>/', views.api_quotas_cancelar, name='governanca_api_quotas_cancelar'),
+
+    # API: Isenções (admin)
+    path('quotas/api/isencoes/', views.api_quotas_listar_isencoes, name='governanca_api_quotas_listar_isencoes'),
+    path('quotas/api/isencoes/criar/', views.api_quotas_criar_isencao, name='governanca_api_quotas_criar_isencao'),
+
+    # API: Histórico
+    path('quotas/api/historico/<uuid:fatura_uuid>/', views.api_quotas_historico, name='governanca_api_quotas_historico'),
+
+    # API: Verificar vencimentos (manual trigger)
+    path('quotas/api/verificar-vencimentos/', views.api_quotas_verificar_vencimentos, name='governanca_api_quotas_verificar_vencimentos'),
+
     # ═══════════════════════════════════════════════════════════════════════════
     # Submódulo 1 — Componentes Adicionais
     # ═══════════════════════════════════════════════════════════════════════════
@@ -176,6 +191,13 @@ urlpatterns = [
     # Secretário - Gestão de Documentos
     path('secretario/', views.secretario_documentos, name='governanca_secretario_documentos'),
     path('api/secretario/assembleias/', views.api_secretario_assembleias, name='governanca_api_secretario_assembleias'),
+
+    # Cargos (Admin)
+    path('cargos/', views.gerir_cargos, name='governanca_gerir_cargos'),
+    path('api/cargos/toggle/', views.api_cargo_toggle, name='governanca_api_cargo_toggle'),
+    path('api/cargos/criar/', views.api_cargo_criar, name='governanca_api_cargo_criar'),
+    path('api/cargos/remover/<int:pk>/', views.api_cargo_remover, name='governanca_api_cargo_remover'),
+    path('api/cargos/permissoes/', views.api_cargo_permissoes, name='governanca_api_cargo_permissoes'),
 
     # API: Gerar documentos (atas, relatórios, decretos)
     path('api/gerar-documento/', views.api_gerar_documento, name='governanca_api_gerar_documento'),

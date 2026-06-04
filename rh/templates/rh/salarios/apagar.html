@@ -1,4 +1,4 @@
-﻿{% include 'includes/head.html' %}
+﻿{% load rh_extras %}{% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 <div class="flex-1 ml-0 lg:ml-64 min-w-0">
   {% include 'includes/header.html' %}
@@ -54,7 +54,7 @@
         </div>
         <div class="flex justify-between text-sm pt-3 border-t border-gray-100 dark:border-gray-800">
           <span class="text-gray-500 dark:text-gray-400">Total Líquido</span>
-          <span class="font-bold text-gray-800 dark:text-gray-200">{{ proc.total_liquido|floatformat:2 }} KZ</span>
+          <span class="font-bold text-gray-800 dark:text-gray-200">{{ proc.total_liquido|fmtkz }} KZ</span>
         </div>
       </div>
 

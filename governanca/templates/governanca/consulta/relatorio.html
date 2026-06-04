@@ -58,7 +58,7 @@
         {% endfor %}
       </div>
 
-      {% if papel == 'Administrador' and consulta.status == 'Encerrada' %}
+      {% if papel == 'Administrador' or 'gerir_consultas' in user_permissoes and consulta.status == 'Encerrada' %}
       <div class="flex items-center gap-3">
         <button id="btn-aprovar" data-id="{{ consulta.id }}" class="px-6 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
           <i class="fas fa-check-circle"></i> Aprovar e Publicar Versão Final

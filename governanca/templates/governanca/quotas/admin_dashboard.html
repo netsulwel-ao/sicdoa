@@ -68,110 +68,45 @@
     </a>
   </div>
 
-  <!-- Geração Manual -->
-  <div class="mt-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+    <!-- Geração Manual -->
+  <a href="{% url 'governanca_quotas_admin_gerar_retroativo' %}"
+     class="block mt-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 hover:shadow-md transition">
     <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-2 flex items-center gap-2">
-      <i class="fas fa-plus-circle text-primary"></i> Geração Manual de Quotas
+      <i class="fas fa-plus-circle text-primary"></i> Gerar Quotas Retroactivas
     </h2>
-    <p class="text-sm text-gray-500 mb-4">Gerar quotas retroativamente para períodos específicos, um despachante ou todos.</p>
-    <button type="button" onclick="abrirModalRetroativo()"
-            class="px-5 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
-      <i class="fas fa-play"></i> Gerar Quotas Retroativas
+    <p class="text-sm text-gray-500 mb-4">Criar quotas para períodos passados — página dedicada com selecção de membros e validação.</p>
+    <span class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm">
+      <i class="fas fa-external-link-alt"></i> Abrir Gerador
+    </span>
+  </a>
+
+  <!-- Verificar Vencimentos (manual) -->
+  <div class="mt-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-2 flex items-center gap-2">
+      <i class="fas fa-clock text-amber-500"></i> Verificar Vencimentos
+    </h2>
+    <p class="text-sm text-gray-500 mb-4">Executar manualmente a verificação de quotas vencidas (cron diário automático às 03:00).</p>
+    <button type="button" onclick="verificarVencimentos()"
+            class="px-5 py-2.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2 shadow-sm">
+      <i class="fas fa-play"></i> Verificar Vencimentos Agora
     </button>
+    <div id="msg-vencimentos" class="mt-3 hidden"></div>
   </div>
 
-  <!-- Modal Geração Retroativa -->
-  <div id="modal-retroativo" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/50 p-4">
-    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 transform transition-all">
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
-          <i class="fas fa-plus-circle text-primary"></i> Gerar Quotas Retroativas
-        </h3>
-        <button type="button" onclick="fecharModalRetroativo()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none">&times;</button>
-      </div>
-      <form id="form-retroativo" class="space-y-4">
-        <!-- Tipo de seleção -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Período</label>
-          <div class="flex gap-3">
-            <div class="flex-1">
-              <select name="tipo_periodo" id="tipo-periodo" onchange="togglePeriodoRetroativo()"
-                      class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-                <option value="mes">Mês específico</option>
-                <option value="intervalo">Intervalo de datas</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div id="campos-mes" class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Mês</label>
-            <select name="mes" id="input-mes-retro"
-                    class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-              <option value="">—</option>
-              <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
-              <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
-              <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
-              <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Ano</label>
-            <input type="number" name="ano" id="input-ano-retro" value="2026"
-                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-          </div>
-        </div>
-        <div id="campos-intervalo" class="hidden grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data início</label>
-            <input type="date" name="data_inicio" id="input-data-inicio"
-                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data fim</label>
-            <input type="date" name="data_fim" id="input-data-fim"
-                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-          </div>
-        </div>
-        <!-- Despachante -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Despachante</label>
-          <select name="todos" id="input-todos-retro"
-                  class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-            <option value="1">Todos os ativos</option>
-            <option value="0">Selecionar específico</option>
-          </select>
-        </div>
-        <div id="campo-despachante-id" class="hidden">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">ID do Despachante</label>
-          <input type="number" name="despachante_id" id="input-despachante-id"
-                 placeholder="Número de cédula ou ID"
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-          <p class="text-xs text-gray-400 mt-1">Use a Gestão de Estado acima para encontrar o ID</p>
-        </div>
-        <!-- Forçar -->
-        <div>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" name="force" id="input-force-retro" value="1"
-                   class="rounded border-gray-300 text-primary focus:ring-primary">
-            <span class="text-sm text-gray-700 dark:text-gray-300">Forçar regeração (substituir quotas existentes)</span>
-          </label>
-        </div>
-        <!-- Botões -->
-        <div class="flex items-center gap-3 pt-2">
-          <button type="submit"
-                  class="px-5 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
-            <i class="fas fa-play"></i> Gerar Quotas
-          </button>
-          <button type="button" onclick="fecharModalRetroativo()"
-                  class="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            Cancelar
-          </button>
-        </div>
-      </form>
-      <div id="msg-retroativo" class="mt-4 hidden"></div>
-    </div>
+  <!-- Gestão de Isenções -->
+  <div class="mt-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-2 flex items-center gap-2">
+      <i class="fas fa-star text-purple-500"></i> Gestão de Isenções
+    </h2>
+    <p class="text-sm text-gray-500 mb-4">Criar isenções de quotas para membros específicos.</p>
+    <button type="button" onclick="abrirModalIsencao()"
+            class="px-5 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm">
+      <i class="fas fa-plus"></i> Nova Isenção
+    </button>
+    <div id="lista-isencoes" class="mt-4 text-sm text-gray-500">Carregando isenções...</div>
   </div>
+
+
 
   <div class="mt-8 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
     <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2">
@@ -184,10 +119,144 @@
     </div>
     <div id="resultado-membros" class="text-sm text-gray-500">Digite o nome ou cédula e clique em Buscar.</div>
   </div>
+  <!-- Modal Isenção -->
+  <div id="modal-isencao" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 transform transition-all">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+          <i class="fas fa-star text-purple-500"></i> Nova Isenção
+        </h3>
+        <button type="button" onclick="fecharModalIsencao()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none">&times;</button>
+      </div>
+      <form id="form-isencao" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Membro</label>
+          <select name="despachante_id" required
+                  class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+            <option value="">Selecionar membro...</option>
+            {% for m in membros_isencao %}
+            <option value="{{ m.id }}">{{ m.nome }} ({{ m.nif|default:"—" }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Tipo de Quota</label>
+          <select name="tipo_quota_id"
+                  class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+            <option value="">Todas as quotas</option>
+            {% for t in tipos_quota %}
+            <option value="{{ t.id }}">{{ t.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data Início</label>
+            <input type="date" name="data_inicio" required
+                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data Fim (opcional)</label>
+            <input type="date" name="data_fim"
+                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Motivo</label>
+          <textarea name="motivo" rows="2" required
+                    class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary"
+                    placeholder="Motivo da isenção..."></textarea>
+        </div>
+        <div class="flex items-center gap-3 pt-2">
+          <button type="submit"
+                  class="px-5 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fas fa-check"></i> Criar Isenção
+          </button>
+          <button type="button" onclick="fecharModalIsencao()"
+                  class="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </form>
+      <div id="msg-isencao" class="mt-4 hidden"></div>
+    </div>
+  </div>
+
   {% include 'includes/confirm-modal.html' %}
   </main>
 </div>
 <script>
+// ─── Isenções ────────────────────────────────────────────────────────
+function abrirModalIsencao() {
+  document.getElementById('modal-isencao').classList.remove('hidden');
+  carregarIsencoes();
+}
+function fecharModalIsencao() {
+  document.getElementById('modal-isencao').classList.add('hidden');
+  document.getElementById('msg-isencao').classList.add('hidden');
+}
+async function carregarIsencoes() {
+  var el = document.getElementById('lista-isencoes');
+  try {
+    const res = await fetch('{% url "governanca_api_quotas_listar_isencoes" %}');
+    const d = await res.json();
+    if (!d.isencoes || d.isencoes.length === 0) { el.innerHTML = '<span class="text-gray-500">Nenhuma isenção encontrada.</span>'; return; }
+    var html = '<div class="space-y-2 max-h-40 overflow-y-auto">';
+    d.isencoes.forEach(function(i) {
+      html += '<div class="flex items-center justify-between p-2 border border-gray-200 dark:border-gray-800 rounded-lg text-xs">';
+      html += '<div><span class="font-semibold text-[#111418] dark:text-gray-200">' + i.despachante_nome + '</span>';
+      html += '<span class="text-gray-500 ml-2">' + i.tipo_quota + ' | ' + i.data_inicio + ' a ' + i.data_fim + '</span></div>';
+      html += '<span class="text-gray-400">' + i.motivo + '</span></div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = '<span class="text-red-500">Erro ao carregar isenções.</span>'; }
+}
+document.getElementById('form-isencao')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  var btn = this.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A criar...';
+  var fd = new FormData(this);
+  fetch('{% url "governanca_api_quotas_criar_isencao" %}', {
+    method: 'POST', body: fd,
+    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var el = document.getElementById('msg-isencao');
+    el.classList.remove('hidden');
+    el.className = 'mt-4 p-4 rounded-xl text-sm flex items-center gap-2 ' + (d.erro ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700');
+    el.innerHTML = (d.erro ? '<i class="fas fa-exclamation-circle"></i> ' + d.erro : '<i class="fas fa-check-circle"></i> ' + d.mensagem);
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Criar Isenção';
+    if (!d.erro) { setTimeout(function() { fecharModalIsencao(); carregarIsencoes(); }, 2000); }
+  })
+  .catch(function() {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Criar Isenção';
+  });
+});
+// ─── Verificar Vencimentos ───────────────────────────────────────────
+async function verificarVencimentos() {
+  var btn = event.target;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A verificar...';
+  try {
+    const res = await fetch('{% url "governanca_api_quotas_verificar_vencimentos" %}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+    });
+    const d = await res.json();
+    var el = document.getElementById('msg-vencimentos');
+    el.classList.remove('hidden');
+    el.className = 'mt-3 p-4 rounded-xl text-sm ' + (d.erro ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700');
+    el.innerHTML = d.output || d.mensagem || 'Verificação concluída.';
+  } catch(e) {
+    var el = document.getElementById('msg-vencimentos');
+    el.classList.remove('hidden');
+    el.className = 'mt-3 p-4 rounded-xl text-sm bg-red-50 border border-red-200 text-red-700';
+    el.innerHTML = 'Erro ao verificar vencimentos.';
+  }
+  btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Verificar Vencimentos Agora';
+}
+// ─── Gestão de Estado ────────────────────────────────────────────────
 function buscarMembros() {
   var q = document.getElementById('busca-membro').value.trim();
   if (!q) return;
@@ -222,52 +291,6 @@ async function definirEstado(pk) {
   } catch(e) { alert('Erro ao atualizar estado'); }
 }
 
-// ─── Retroativo ────────────────────────────────────────────────────
-function abrirModalRetroativo() {
-  document.getElementById('modal-retroativo').classList.remove('hidden');
-  var hoje = new Date();
-  document.getElementById('input-ano-retro').value = hoje.getFullYear();
-  document.getElementById('input-mes-retro').value = hoje.getMonth();
-}
-function fecharModalRetroativo() {
-  document.getElementById('modal-retroativo').classList.add('hidden');
-  document.getElementById('msg-retroativo').classList.add('hidden');
-}
-function togglePeriodoRetroativo() {
-  var tipo = document.getElementById('tipo-periodo').value;
-  document.getElementById('campos-mes').classList.toggle('hidden', tipo !== 'mes');
-  document.getElementById('campos-intervalo').classList.toggle('hidden', tipo !== 'intervalo');
-}
-document.getElementById('input-todos-retro')?.addEventListener('change', function() {
-  document.getElementById('campo-despachante-id').classList.toggle('hidden', this.value === '1');
-});
-document.getElementById('form-retroativo')?.addEventListener('submit', function(e) {
-  e.preventDefault();
-  var btn = this.querySelector('button[type="submit"]');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A gerar...';
-  var fd = new FormData(this);
-  fetch('{% url "governanca_api_quotas_gerar_retroativo" %}', {
-    method: 'POST', body: fd,
-    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    var el = document.getElementById('msg-retroativo');
-    el.classList.remove('hidden');
-    el.className = 'mt-4 p-4 rounded-xl text-sm flex items-center gap-2 ' + (d.erro ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700');
-    el.innerHTML = (d.erro ? '<i class="fas fa-exclamation-circle"></i> ' + d.erro : '<i class="fas fa-check-circle"></i> ' + d.mensagem);
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-play"></i> Gerar Quotas';
-  })
-  .catch(function() {
-    var el = document.getElementById('msg-retroativo');
-    el.classList.remove('hidden');
-    el.className = 'mt-4 p-4 rounded-xl text-sm flex items-center gap-2 bg-red-50 border border-red-200 text-red-700';
-    el.innerHTML = '<i class="fas fa-exclamation-circle"></i> Erro de conexão. Tente novamente.';
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-play"></i> Gerar Quotas';
-  });
-});
+
 </script>
 {% include 'includes/footer.html' %}

@@ -68,11 +68,16 @@ urlpatterns = [
     path('recrutamento/integracao/<int:pk>/',                              views.integracao_detalhe_view, name='rh_integracao_detalhe'),
 
     # Presenças
-    path('presencas/',                      views.presencas_view,       name='rh_presencas'),
-    path('presencas/registar/',             views.presenca_registar_view, name='rh_presenca_registar'),
-    path('presencas/<int:pk>/aprovar/',     views.presenca_aprovar_view,  name='rh_presenca_aprovar'),
-    path('ferias/pedir/',                   views.ferias_pedir_view,      name='rh_ferias_pedir'),
-    path('ferias/<int:pk>/aprovar/',        views.ferias_aprovar_view,    name='rh_ferias_aprovar'),
+    path('presencas/',                      views.presencas_view,           name='rh_presencas'),
+    path('presencas/registar/',             views.presenca_registar_view,   name='rh_presenca_registar'),
+    path('presencas/<int:pk>/aprovar/',     views.presenca_aprovar_view,    name='rh_presenca_aprovar'),
+    path('presencas/<int:pk>/apagar/',      views.presenca_apagar_view,     name='rh_presenca_apagar'),
+
+    # Férias
+    path('ferias/',                         views.ferias_lista_view,        name='rh_ferias'),
+    path('ferias/pedir/',                   views.ferias_pedir_view,        name='rh_ferias_pedir'),
+    path('ferias/<int:pk>/aprovar/',        views.ferias_aprovar_view,      name='rh_ferias_aprovar'),
+    path('ferias/<int:pk>/apagar/',         views.ferias_apagar_view,       name='rh_ferias_apagar'),
 
     # Avaliações
     path('avaliacoes/',                                         views.avaliacoes_view,      name='rh_avaliacoes'),
@@ -80,5 +85,7 @@ urlpatterns = [
     path('avaliacoes/ciclo/<int:pk>/',                          views.ciclo_detalhe_view,   name='rh_ciclo_detalhe'),
     path('avaliacoes/ciclo/<int:ciclo_pk>/avaliar/',            views.avaliacao_form_view,  name='rh_avaliacao_nova'),
     path('avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/', views.avaliacao_form_view, name='rh_avaliacao_editar'),
+    path('avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/ver/', views.avaliacao_detalhe_view, name='rh_avaliacao_detalhe'),
+    path('avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/apagar/', views.avaliacao_apagar_view, name='rh_avaliacao_apagar'),
 
     ]

@@ -8,6 +8,12 @@ from django.utils import timezone
 from users.models import Usuario
 from .models import Assembleia, PresencaAssembleia, PautaVotacao, Voto, Procuracao, MensagemChat, LogAssembleia, EstadoFinanceiro
 
+
+@database_sync_to_async
+def _usuario_tem_permissao_async(usuario, codigo):
+    from users.permissoes import usuario_obj_tem_permissao
+    return usuario_obj_tem_permissao(usuario, codigo)
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,6 +99,8 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
             'chat_reaction': self._handle_chat_reaction,
             'raise_hand': self._handle_raise_hand,
             'lower_hand': self._handle_lower_hand,
+            'force_mute': self._handle_force_mute,
+            'force_cam_off': self._handle_force_cam_off,
         }
         handler = handlers.get(action)
         if handler:
@@ -220,8 +228,7 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
         nome = data.get('nome', '')
         if not nome or not self.usuario:
             return
-        papel = getattr(self.usuario, 'papel', '')
-        if papel != 'Administrador':
+        if not await _usuario_tem_permissao_async(self.usuario, 'gerir_assembleia'):
             return
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -290,6 +297,42 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
                     'reacao': reacao,
                     'emoji': emojis.get(reacao, '❤️'),
                     'created_at': msg.created_at.isoformat(),
+                },
+            }
+        )
+
+    # ─── Controlo de Microfone/Câmara pelo Anfitrião ──────────────────────────
+
+    async def _handle_force_mute(self, data):
+        """Anfitrião desliga o mic de um participante específico (ou todos)."""
+        if not self.usuario or not await _usuario_tem_permissao_async(self.usuario, 'gerir_assembleia'):
+            return
+        target = data.get('target')  # identity do alvo ou None para todos
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'broadcast_chat',
+                'data': {
+                    'action': 'force_mute',
+                    'target': target,
+                    'by': self.usuario.nome,
+                },
+            }
+        )
+
+    async def _handle_force_cam_off(self, data):
+        """Anfitrião desliga a câmara de um participante específico (ou todos)."""
+        if not self.usuario or not await _usuario_tem_permissao_async(self.usuario, 'gerir_assembleia'):
+            return
+        target = data.get('target')
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'broadcast_chat',
+                'data': {
+                    'action': 'force_cam_off',
+                    'target': target,
+                    'by': self.usuario.nome,
                 },
             }
         )

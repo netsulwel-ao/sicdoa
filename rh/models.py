@@ -1,6 +1,15 @@
 import uuid
 from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 from decimal import Decimal
+
+from governanca.utils import (
+    validate_date_not_past,
+    validate_date_not_future,
+    validate_date_range,
+    validate_no_overlap,
+)
 
 
 # ─── Banca ────────────────────────────────────────────────────────────────────
@@ -172,6 +181,17 @@ class Subsidio(models.Model):
     percentual = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Percentual (%)')
     ativo = models.BooleanField(default=True)
     obrigatorio = models.BooleanField(default=False, verbose_name='Obrigatório para Todos')
+    apenas_especificos = models.BooleanField(
+        default=False,
+        verbose_name='Apenas para colaboradores específicos',
+        help_text='Se marcado, este subsídio só é aplicado aos colaboradores selecionados abaixo.'
+    )
+    colaboradores_especificos = models.ManyToManyField(
+        'Colaborador',
+        blank=True,
+        related_name='subsidios_especificos',
+        verbose_name='Colaboradores com este subsídio',
+    )
     descricao = models.TextField(blank=True, verbose_name='Descrição')
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -496,6 +516,24 @@ class Vaga(models.Model):
         base = getattr(settings, 'SITE_URL', 'https://sicdoa-ycg9.onrender.com').rstrip('/')
         return f"{base}/candidatar/{self.link_externo}/"
 
+    def clean(self):
+        super().clean()
+        # Valida que data_encerramento, se informada, não é anterior à data_abertura
+        if self.data_encerramento and self.data_abertura:
+            validate_date_range(
+                self.data_abertura,
+                self.data_encerramento,
+                'Data de Abertura',
+                'Data de Encerramento'
+            )
+        # Valida que data_encerramento não é no passado
+        if self.data_encerramento:
+            validate_date_not_past(self.data_encerramento, 'Data de Encerramento', allow_today=True)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     @property
     def link_vaga_publica(self):
         """Gera link público absoluto para visualização da vaga (usa SITE_URL de produção)."""
@@ -567,6 +605,13 @@ class Entrevista(models.Model):
     def __str__(self):
         return f"Entrevista — {self.candidatura.nome} ({self.data_hora:%d/%m/%Y})"
 
+    def clean(self):
+        validate_date_not_past(self.data_hora, field_name="Data e Hora", allow_today=True)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 # ─── Integração de Novos Colaboradores ───────────────────────────────────────
 
@@ -594,7 +639,7 @@ class PlanoIntegracao(models.Model):
         ordering = ['-criado_em']
 
     def __str__(self):
-        return f"Integração — {self.candidatura.nome}"
+        return f'Integração - {self.candidatura.nome}'
 
     @property
     def tarefas_concluidas(self):
@@ -609,6 +654,14 @@ class PlanoIntegracao(models.Model):
         if not self.total_tarefas:
             return 0
         return round(self.tarefas_concluidas / self.total_tarefas * 100)
+
+    def clean(self):
+        if self.data_fim_prevista:
+            validate_date_range(self.data_inicio, self.data_fim_prevista, "Data de Início", "Data Fim Prevista")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class TarefaIntegracao(models.Model):
@@ -672,29 +725,38 @@ class Fatura(models.Model):
         verbose_name = 'Fatura'
         verbose_name_plural = 'Faturas'
         ordering = ['-data_emissao']
-    
+
     def __str__(self):
         return f"{self.codigo} - {self.get_tipo_display()}"
-    
+
     @property
     def valor_total(self):
         return self.valor_liquido
-    
+
     @property
     def esta_vencida(self):
         from django.utils import timezone
-        return self.data_vencimento < timezone.now().date() and self.estado != 'PAGA'
-    
+        return self.data_vencimento < timezone.now().date() and self.estado != 'Paga'
+
     @property
     def dias_vencida(self):
         from django.utils import timezone
         if self.esta_vencida:
             return (timezone.now().date() - self.data_vencimento).days
         return 0
-    
+
+    def clean(self):
+        validate_date_range(self.data_emissao.date(), self.data_vencimento, "Data de Emissão", "Data de Vencimento")
+        if self.data_pagamento:
+            validate_date_not_future(self.data_pagamento, field_name="Data de Pagamento")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def marcar_como_paga(self):
         from django.utils import timezone
-        self.estado = 'PAGA'
+        self.estado = 'Paga'
         self.data_pagamento = timezone.now()
         self.save()
 
@@ -732,6 +794,15 @@ class RegistoPresenca(models.Model):
         unique_together = ('colaborador', 'data')
         ordering = ['-data']
 
+    def clean(self):
+        validate_date_not_future(self.data, field_name="Data")
+        if self.data_aprovacao:
+            validate_date_not_future(self.data_aprovacao, field_name="Data de Aprovação")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 class PedidoFerias(models.Model):
     ESTADOS = [
@@ -754,6 +825,18 @@ class PedidoFerias(models.Model):
     def dias(self):
         return (self.data_fim - self.data_inicio).days + 1
 
+    def clean(self):
+        # Pedido de férias não pode começar no passado (a menos que seja edição)
+        if not self.pk:
+            validate_date_not_past(self.data_inicio, field_name="Data de Início", allow_today=True)
+        validate_date_range(self.data_inicio, self.data_fim, "Data de Início", "Data de Fim")
+        if self.dias <= 0:
+            raise ValidationError({"data_fim": "O período de férias deve ter pelo menos 1 dia."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 # ─── Avaliação de Desempenho ──────────────────────────────────────────────────
 
@@ -773,6 +856,41 @@ class CicloAvaliacao(models.Model):
     class Meta:
         db_table = 'rh_ciclos_avaliacao'
         ordering = ['-periodo_inicio']
+
+    def clean(self):
+        validate_date_range(self.periodo_inicio, self.periodo_fim, "Período de Início", "Período de Fim")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class MetricaAvaliacao(models.Model):
+    ciclo = models.ForeignKey(CicloAvaliacao, on_delete=models.CASCADE, related_name='metricas')
+    nome = models.CharField(max_length=100)
+    descricao = models.CharField(max_length=255, blank=True, default='')
+    ordem = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'rh_metricas_avaliacao'
+        ordering = ['ordem']
+        unique_together = ('ciclo', 'nome')
+
+    def __str__(self):
+        return f'{self.ciclo.nome} — {self.nome}'
+
+
+class NotaMetrica(models.Model):
+    avaliacao = models.ForeignKey('Avaliacao', on_delete=models.CASCADE, related_name='notas_metricas')
+    metrica = models.ForeignKey(MetricaAvaliacao, on_delete=models.CASCADE, related_name='notas')
+    nota = models.PositiveSmallIntegerField(default=3)
+
+    class Meta:
+        db_table = 'rh_notas_metricas'
+        unique_together = ('avaliacao', 'metrica')
+
+    def __str__(self):
+        return f'{self.avaliacao.colaborador.nome} — {self.metrica.nome}: {self.nota}'
 
 
 class Avaliacao(models.Model):

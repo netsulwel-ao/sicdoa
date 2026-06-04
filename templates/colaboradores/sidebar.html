@@ -107,13 +107,13 @@
       <a href="{% url 'rh_presencas' %}"
         class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if active == 'Presencas Filial' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-        <i class="fas fa-calendar-check text-base"></i>Presenças e Férias
+        <i class="fas fa-calendar-check text-base"></i>Controlo de Presenças
       </a>
 
       <a href="{% url 'rh_vagas' %}"
         class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if active == 'Recrutamento Filial' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-        <i class="fas fa-user-search text-base"></i>Recrutamento
+        <i class="fas fa-briefcase text-base"></i>Recrutamento
       </a>
 
       <a href="{% url 'rh_avaliacoes' %}"

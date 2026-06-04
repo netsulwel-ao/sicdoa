@@ -58,7 +58,7 @@
     {% endif %}
 
     {# ── Gestão de Despachantes (apenas Administrador) ──────────────────── #}
-    {% if papel == 'Administrador' %}
+    {% if papel == 'Administrador' or 'gerir_membros_direcao' in user_permissoes %}
     <button type="button" data-collapse="admin-rh"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'RH' and is_admin_sistema %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
@@ -66,7 +66,8 @@
       <span class="text-sm font-medium flex-1 truncate">Gestão de Despachantes</span>
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'RH' and is_admin_sistema %}rotate-180{% endif %}"></i>
     </button>
-    <ul data-submenu="admin-rh" class="ml-4 space-y-0.5 {% if not active == 'RH' or not is_admin_sistema %}hidden{% endif %}">
+    <ul data-submenu="admin-rh" class="ml-4 space-y-0.5 {% if active != 'RH' %}hidden{% endif %}">
+      {% if papel == 'Administrador' %}
       <li>
         <a href="{% url 'admin_despachantes' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -79,6 +80,14 @@
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'admin_bancas' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
           <i class="fas fa-store text-base"></i>Bancas
+        </a>
+      </li>
+      {% endif %}
+      <li>
+        <a href="{% url 'governanca_gerir_cargos' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'gerir_cargos' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-users-cog text-base"></i>Membros da Direção
         </a>
       </li>
     </ul>
@@ -119,7 +128,7 @@
         <a href="{% url 'rh_vagas' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'recrutamento' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-user-search text-base"></i>Recrutamento
+          <i class="fas fa-briefcase text-base"></i>Recrutamento
         </a>
       </li>
       <li>
@@ -157,14 +166,14 @@
         <a href="{% url 'rh_presencas' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'presencas' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-calendar-check text-base"></i>Presenças e Férias
+          <i class="fas fa-calendar-check text-base"></i>Controlo de Presenças
         </a>
       </li>
       <li>
         <a href="{% url 'rh_vagas' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'recrutamento' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-user-search text-base"></i>Recrutamento
+          <i class="fas fa-briefcase text-base"></i>Recrutamento
         </a>
       </li>
       <li>
@@ -181,7 +190,7 @@
 
 
     {# ── CDOA Governança Digital ─────────────────────────────────────── #}
-    {% if papel == 'Administrador' or papel == 'Despachante Oficial' or papel == 'Operador' %}
+    {% if papel == 'Administrador' or papel == 'Despachante Oficial' or papel == 'Operador' or 'gerir_assembleia' in user_permissoes or 'gerir_consultas' in user_permissoes or 'gerir_quotas' in user_permissoes or 'ver_secretaria' in user_permissoes %}
     <button type="button" data-collapse="governanca"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'Governanca' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
@@ -190,6 +199,7 @@
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'Governanca' %}rotate-180{% endif %}"></i>
     </button>
     <ul data-submenu="governanca" class="ml-4 space-y-0.5 {% if active != 'Governanca' %}hidden{% endif %}">
+      {% if papel == 'Administrador' or papel == 'Despachante Oficial' or papel == 'Operador' or 'gerir_assembleia' in user_permissoes or 'gerir_convocatorias' in user_permissoes or 'gerir_votacoes' in user_permissoes %}
       <li>
         <a href="{% url 'governanca_assembleias' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -197,6 +207,8 @@
           <i class="fas fa-poll text-base"></i>Democracia Digital
         </a>
       </li>
+      {% endif %}
+      {% if papel == 'Administrador' or papel == 'Despachante Oficial' or papel == 'Operador' or 'gerir_atas' in user_permissoes %}
       <li>
         <a href="{% url 'governanca_atas' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -204,7 +216,8 @@
           <i class="fas fa-file-alt text-base"></i>Atas & Decretos
         </a>
       </li>
-      {% if is_membro_mesa %}
+      {% endif %}
+      {% if is_membro_mesa or 'ver_secretaria' in user_permissoes or papel == 'Administrador' %}
       <li>
         <a href="{% url 'governanca_secretario_documentos' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -213,6 +226,7 @@
         </a>
       </li>
       {% endif %}
+      {% if papel == 'Administrador' or papel == 'Despachante Oficial' or papel == 'Operador' or 'gerir_quotas' in user_permissoes or 'ver_quotas' in user_permissoes %}
       <li>
         <a href="{% url 'governanca_quotas_dashboard' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -220,6 +234,8 @@
           <i class="fas fa-wallet text-base"></i>Gestão Financeira
         </a>
       </li>
+      {% endif %}
+      {% if papel == 'Administrador' or papel == 'Despachante Oficial' or papel == 'Operador' or 'gerir_consultas' in user_permissoes %}
       <li>
         <a href="{% url 'governanca_consultas' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -227,6 +243,7 @@
           <i class="fas fa-comments text-base"></i>Escuta Activa
         </a>
       </li>
+      {% endif %}
     </ul>
     {% endif %}
 

@@ -9,7 +9,7 @@
       <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Gestão Financeira de Quotas</h1>
       <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Gerir quotas, pagamentos e certidões</p>
     </div>
-    {% if papel == 'Administrador' %}
+    {% if papel == 'Administrador' or 'gerir_quotas' in user_permissoes %}
     <a href="{% url 'governanca_quotas_admin' %}" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shrink-0">
       <i class="fas fa-cog"></i> Administrar
     </a>

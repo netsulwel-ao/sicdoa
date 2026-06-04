@@ -134,11 +134,20 @@
 <script>
 var CONFIRMAR_URL = '{% url "governanca_api_quotas_confirmar" pk=0 %}';
 async function confirmarPagamento(pk, acao) {
-  const msg = acao === 'confirmar' ? 'Confirmar este pagamento?' : 'Rejeitar este pagamento?';
-  const ok = await showConfirm(acao === 'confirmar' ? 'Confirmar Pagamento' : 'Rejeitar Pagamento', msg); if (!ok) return;
-  var fd = new FormData(); fd.append('acao', acao);
-  fetch(CONFIRMAR_URL.replace('/0/', '/' + pk + '/'), { method: 'POST', body: fd, headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value } })
-  .then(r => r.json()).then(function() { location.reload(); }).catch(function() { location.reload(); });
+  if (acao === 'rejeitar') {
+    const motivo = prompt('Motivo da rejeição (obrigatório):');
+    if (!motivo || motivo.trim() === '') { alert('O motivo da rejeição é obrigatório.'); return; }
+    const ok = await showConfirm('Rejeitar Pagamento', 'Rejeitar este pagamento?\nMotivo: ' + motivo);
+    if (!ok) return;
+    var fd = new FormData(); fd.append('acao', acao); fd.append('motivo_rejeicao', motivo);
+    fetch(CONFIRMAR_URL.replace('/0/', '/' + pk + '/'), { method: 'POST', body: fd, headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value } })
+    .then(r => r.json()).then(function(d) { if (d.erro) { alert(d.erro); } else { location.reload(); } }).catch(function() { location.reload(); });
+  } else {
+    const ok = await showConfirm('Confirmar Pagamento', 'Confirmar este pagamento?'); if (!ok) return;
+    var fd = new FormData(); fd.append('acao', acao);
+    fetch(CONFIRMAR_URL.replace('/0/', '/' + pk + '/'), { method: 'POST', body: fd, headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value } })
+    .then(r => r.json()).then(function() { location.reload(); }).catch(function() { location.reload(); });
+  }
 }
 </script>
 {% include 'includes/footer.html' %}

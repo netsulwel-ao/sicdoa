@@ -13,7 +13,7 @@
       </div>
       <div class="flex items-center gap-2">
         {% include 'includes/view-toggle.html' %}
-        {% if papel == 'Administrador' or is_secretario_mesa %}
+        {% if papel == 'Administrador' or is_secretario_mesa or 'gerir_consultas' in user_permissoes %}
         <a href="{% url 'governanca_consulta_criar' %}"
            class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shrink-0">
           <i class="fas fa-plus text-base"></i>
@@ -98,7 +98,7 @@
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
         <i class="fas fa-bullhorn text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
         <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma consulta pública encontrada</p>
-        {% if papel == 'Administrador' or is_secretario_mesa %}
+        {% if papel == 'Administrador' or is_secretario_mesa or 'gerir_consultas' in user_permissoes %}
         <a href="{% url 'governanca_consulta_criar' %}" class="mt-4 inline-flex px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
           Criar primeira consulta
         </a>
@@ -149,7 +149,7 @@
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm py-12 text-center">
         <i class="fas fa-bullhorn text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>
         <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma consulta pública encontrada</p>
-        {% if papel == 'Administrador' or is_secretario_mesa %}
+        {% if papel == 'Administrador' or is_secretario_mesa or 'gerir_consultas' in user_permissoes %}
         <a href="{% url 'governanca_consulta_criar' %}" class="mt-4 inline-flex px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
           Criar primeira consulta
         </a>

@@ -20,11 +20,11 @@
           Sala
         </a>
         {% endif %}
-        {% if assembleia.status == 'Agendada' and papel == 'Administrador' %}
+        {% if assembleia.status == 'Agendada' and papel == 'Administrador' or assembleia.status == 'Agendada' and 'gerir_assembleia' in user_permissoes %}
         <button id="btn-iniciar" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 cursor-pointer">
           <i class="fas fa-play text-base"></i> Iniciar Assembleia
         </button>
-        {% elif assembleia.status == 'Em Curso' and papel == 'Administrador' %}
+        {% elif assembleia.status == 'Em Curso' and papel == 'Administrador' or assembleia.status == 'Em Curso' and 'gerir_assembleia' in user_permissoes %}
         <button id="btn-concluir" class="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-1 cursor-pointer">
           <i class="fas fa-stop text-base"></i> Concluir Assembleia
         </button>
@@ -69,7 +69,7 @@
                 </span>
               </div>
               <div class="pauta-actions">
-                {% if pauta.status == 'Pendente' and assembleia.status == 'Em Curso' and papel == 'Administrador' %}
+                {% if pauta.status == 'Pendente' and assembleia.status == 'Em Curso' and papel == 'Administrador' or pauta.status == 'Pendente' and assembleia.status == 'Em Curso' and 'gerir_votacoes' in user_permissoes %}
                 <button class="btn-iniciar-votacao px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                         data-pauta-id="{{ pauta.id }}">
                   <i class="fas fa-vote-yea text-base align-text-bottom"></i>
@@ -82,7 +82,7 @@
                     <span class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
                     Votação em curso
                   </span>
-                  {% if papel == 'Administrador' %}
+                  {% if papel == 'Administrador' or 'gerir_votacoes' in user_permissoes %}
                   <button class="btn-encerrar-votacao px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600 transition-colors cursor-pointer"
                           data-pauta-id="{{ pauta.id }}">
                     Encerrar Votação
@@ -92,7 +92,7 @@
                 {% endif %}
                 {% if pauta.status == 'Concluida' %}
                 <div class="mt-2 flex items-center gap-4 text-sm pauta-resultados">
-                  {% if assembleia.status == 'Em Curso' and papel == 'Administrador' %}
+                  {% if assembleia.status == 'Em Curso' and papel == 'Administrador' or assembleia.status == 'Em Curso' and 'gerir_votacoes' in user_permissoes %}
                   <button class="btn-reabrir-votacao px-2 py-1 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors cursor-pointer"
                           data-pauta-id="{{ pauta.id }}">
                     <i class="fas fa-redo text-xs mr-1"></i> Reabrir
@@ -221,45 +221,25 @@
           <div id="mesa-lista" class="space-y-2 mb-4">
             {% for m in mesa %}
             <div class="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/30" data-mesa-id="{{ m.id }}">
-              <span class="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <i class="fas fa-user-tie text-primary text-xs"></i>
+              <span class="w-6 h-6 rounded-full {% if m.usuario.id in direcao_ids %}bg-amber-50 dark:bg-amber-900/20{% else %}bg-primary/10{% endif %} flex items-center justify-center shrink-0">
+                <i class="fas {% if m.usuario.id in direcao_ids %}fa-lock text-amber-500{% else %}fa-user-tie text-primary{% endif %} text-xs"></i>
               </span>
               <div class="flex-1 min-w-0">
                 <span class="text-sm text-gray-700 dark:text-gray-300 truncate block leading-tight">{{ m.usuario.nome }}</span>
-                <span class="text-xs text-gray-400 block leading-tight">{{ m.funcao }}</span>
+                <span class="text-xs text-gray-400 block leading-tight">
+                  {{ m.funcao }}
+                  {% if m.usuario.id in direcao_ids %}<span class="text-amber-500 ml-1">(Direção)</span>{% endif %}
+                </span>
               </div>
+              {% if m.usuario.id not in direcao_ids %}
               <button class="btn-remover-mesa p-1 text-gray-400 hover:text-red-500 transition-colors cursor-pointer" data-mesa-id="{{ m.id }}" title="Remover">
                 <i class="fas fa-times text-sm"></i>
               </button>
+              {% endif %}
             </div>
             {% empty %}
             <p class="text-sm text-gray-400 text-center py-2" id="mesa-vazia">Nenhum membro designado</p>
             {% endfor %}
-          </div>
-          <div class="pt-3 border-t border-gray-200 dark:border-gray-800">
-            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3">Adicionar membro</h3>
-              <form id="add-mesa-form" class="flex flex-col gap-2">
-                <select name="usuario_id" required
-                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                  <option value="">Selecionar despachante...</option>
-                  {% for d in despachantes %}
-                  <option value="{{ d.id }}">{{ d.nome }}</option>
-                  {% endfor %}
-                </select>
-                <select name="funcao" required
-                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                  <option value="">Função...</option>
-                <option value="Presidente">Presidente</option>
-                <option value="Vice-Presidente">Vice-Presidente</option>
-                <option value="1º Secretário">1º Secretário</option>
-                <option value="2º Secretário">2º Secretário</option>
-                <option value="Secretário">Secretário</option>
-                <option value="Vogal">Vogal</option>
-              </select>
-              <button type="submit" class="px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors">
-                <i class="fas fa-plus text-xs mr-1"></i> Adicionar
-              </button>
-            </form>
           </div>
         </div>
 

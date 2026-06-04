@@ -1,4 +1,4 @@
-﻿{% include 'includes/head.html' %}
+﻿{% load rh_extras %}{% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 <div class="flex-1 ml-0 lg:ml-64 min-w-0">
   {% include 'includes/header.html' %}
@@ -103,27 +103,22 @@
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Valor Padrão (Kz) <span class="text-red-500">*</span>
             </label>
-            <input type="number" 
+            <input type="text" inputmode="decimal"
                    name="valor_padrao" 
-                   value="{{ form.valor_padrao|default:'0' }}"
-                   step="0.01"
-                   min="0"
+                   value="{{ form.valor_padrao|fmtkz:'0' }}"
                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                   placeholder="0.00">
+                   placeholder="0,00">
           </div>
           
           <div id="campo_percentual" style="display: none;">
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Percentual (%) <span class="text-red-500">*</span>
             </label>
-            <input type="number" 
+            <input type="text" inputmode="decimal"
                    name="percentual" 
-                   value="{{ form.percentual|default:'' }}"
-                   step="0.01"
-                   min="0"
-                   max="100"
+                   value="{{ form.percentual|fmtkz }}"
                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                   placeholder="0.00">
+                   placeholder="0,00">
           </div>
         </div>
 
@@ -192,22 +187,25 @@ document.addEventListener('DOMContentLoaded', function() {
   
   function toggleCampos() {
     const valor = tipoCalculo.value;
-    
+    campoValorFixo.style.display = valor === 'PERCENTUAL' ? 'none' : 'block';
+    campoPercentual.style.display = valor === 'PERCENTUAL' ? 'block' : 'none';
+  }
+  
+  function toggleCamposELimpar() {
+    const valor = tipoCalculo.value;
     if (valor === 'PERCENTUAL') {
       campoValorFixo.style.display = 'none';
       campoPercentual.style.display = 'block';
-      // Limpar valor padrão quando for percentual
       document.querySelector('input[name="valor_padrao"]').value = '0';
     } else {
       campoValorFixo.style.display = 'block';
       campoPercentual.style.display = 'none';
-      // Limpar percentual quando não for percentual
       document.querySelector('input[name="percentual"]').value = '';
     }
   }
   
-  tipoCalculo.addEventListener('change', toggleCampos);
-  toggleCampos(); // Executar ao carregar
+  toggleCampos(); // Apenas mostrar/esconder, sem limpar valores
+  tipoCalculo.addEventListener('change', toggleCamposELimpar);
 });
 </script>
 
