@@ -94,7 +94,7 @@
     {% endif %}
 
     {# ── Recursos Humanos ───────────────────────────────────────────────── #}
-    {% if usuario.email == 'adilsona87@gmail.com' and papel == 'Despachante Oficial' or usuario.email == 'adilsona87@gmail.com' and papel == 'Administrador' %}
+    {% if papel == 'Despachante Oficial' or  papel == 'Administrador' %}
     <button type="button" data-collapse="rh"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'RH' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
