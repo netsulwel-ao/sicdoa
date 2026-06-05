@@ -4,3 +4,39 @@ __pycache__/
 db.sqlite3
 staticfiles/
 .vscode/
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Django specific
+*.log
+local_settings.py
+db.sqlite3
+
+# Media and static files (if generated locally)
+media/
+staticfiles/
+
+# Environment variables
+env
+
+# IDE/editor settings
+idea/
+vscode/
+*.sublime-*
+*.swp
+*.swo
+
+# OS-specific files
+DS_Store
+Thumbs.db
