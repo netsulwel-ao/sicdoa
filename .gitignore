@@ -37,6 +37,9 @@ vscode/
 *.swp
 *.swo
 
+# APScheduler
+apscheduler.db
+
 # OS-specific files
 DS_Store
 Thumbs.db

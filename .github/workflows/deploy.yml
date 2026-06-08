@@ -18,7 +18,8 @@ jobs:
           timeout: 30s
           script: |
             cd /var/www/sicdoa
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             source venv/bin/activate
             pip install -r requirements-prod.txt
             python manage.py migrate --noinput
