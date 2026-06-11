@@ -1,0 +1,49 @@
+{% include 'includes/head.html' %}
+</head>
+<body class="bg-gray-50 dark:bg-gray-900">
+
+{% include 'includes/sidebar.html' %}
+{% include 'includes/header.html' %}
+
+<div class="p-4 sm:ml-64 mt-14">
+
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Relatórios de Notas</h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-1">Escolha o tipo de relatório que pretende visualizar</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <a href="{% url 'financeiro:relatorio_notas_credito' %}"
+       class="group block p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-primary/40 transition-all">
+      <div class="flex items-center gap-5">
+        <div class="w-14 h-14 flex items-center justify-center rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 group-hover:scale-110 transition-transform">
+          <i class="fas fa-minus-circle text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Notas de Crédito</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Resumo de todas as notas de crédito emitidas</p>
+        </div>
+      </div>
+    </a>
+
+    <a href="{% url 'financeiro:relatorio_notas_debito' %}"
+       class="group block p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-primary/40 transition-all">
+      <div class="flex items-center gap-5">
+        <div class="w-14 h-14 flex items-center justify-center rounded-xl bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform">
+          <i class="fas fa-plus-circle text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Notas de Débito</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Resumo de todas as notas de débito emitidas</p>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+</div>
+
+{% include 'includes/footer.html' %}
+</body>
+</html>

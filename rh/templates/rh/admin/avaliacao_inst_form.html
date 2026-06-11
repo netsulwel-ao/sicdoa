@@ -1,0 +1,90 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5 flex-wrap">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_admin_avaliacoes_inst' %}" class="hover:text-primary">Avaliações</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">{{ ciclo.nome }}</span>
+    </div>
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-6">
+      <i class="fas fa-trophy text-primary mr-2"></i>{{ ciclo.nome }}
+    </h1>
+
+    {% if not col_pk %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      {% for c in colaboradores %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-semibold text-sm">{{ c.nome }}</p>
+            <p class="text-xs text-gray-500">{{ c.area_actuacao }}</p>
+          </div>
+          {% if c.id in ja_avaliados %}
+          <a href="{% url 'rh_admin_avaliacao_inst_editar' ciclo.id c.id %}" class="text-amber-600 text-sm"><i class="fas fa-edit"></i> Editar</a>
+          {% else %}
+          <a href="{% url 'rh_admin_avaliacao_inst_editar' ciclo.id c.id %}" class="text-primary text-sm"><i class="fas fa-plus-circle"></i> Avaliar</a>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <p class="text-gray-400 col-span-full text-center py-8">Nenhum colaborador ativo disponível.</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if col_pk %}
+    <form method="POST" class="max-w-2xl space-y-6">
+      {% csrf_token %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 space-y-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Pontualidade (1-5)</label>
+            <input type="number" name="pontualidade" min="1" max="5" value="{{ avaliacao.pontualidade|default:3 }}" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Produtividade (1-5)</label>
+            <input type="number" name="produtividade" min="1" max="5" value="{{ avaliacao.produtividade|default:3 }}" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Qualidade (1-5)</label>
+            <input type="number" name="qualidade_trabalho" min="1" max="5" value="{{ avaliacao.qualidade_trabalho|default:3 }}" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Trab. Equipa (1-5)</label>
+            <input type="number" name="trabalho_equipa" min="1" max="5" value="{{ avaliacao.trabalho_equipa|default:3 }}" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Iniciativa (1-5)</label>
+            <input type="number" name="iniciativa" min="1" max="5" value="{{ avaliacao.iniciativa|default:3 }}" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Nota Global (1-5)</label>
+          <input type="number" name="nota_global" min="1" max="5" step="0.1" value="{{ avaliacao.nota_global|default:3 }}" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Pontos Fortes</label>
+          <textarea name="pontos_fortes" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm resize-none">{{ avaliacao.pontos_fortes }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Pontos a Melhorar</label>
+          <textarea name="pontos_melhoria" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm resize-none">{{ avaliacao.pontos_melhoria }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Plano de Desenvolvimento</label>
+          <textarea name="plano_desenvolvimento" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm resize-none">{{ avaliacao.plano_desenvolvimento }}</textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3">
+        <a href="{% url 'rh_admin_avaliacoes_inst' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50">Cancelar</a>
+        <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90">Salvar Avaliação</button>
+      </div>
+    </form>
+    {% endif %}
+  </main>
+</div>
+{% include 'includes/footer.html' %}

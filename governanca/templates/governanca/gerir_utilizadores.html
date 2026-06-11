@@ -1,0 +1,321 @@
+{% load cargo_filters %}
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0 flex flex-col">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">
+        <i class="fas fa-user-shield text-primary mr-2"></i>
+        Gestão de Utilizadores
+      </h1>
+      <a href="{% url 'governanca_utilizador_novo' %}"
+         class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2">
+        <i class="fas fa-user-plus"></i> Novo Utilizador
+      </a>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <i class="fas fa-users text-primary"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_total }}</p>
+            <p class="text-xs text-gray-500">Total de Utilizadores</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center shrink-0">
+            <i class="fas fa-check-circle text-green-600"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_ativos }}</p>
+            <p class="text-xs text-gray-500">Ativos</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0">
+            <i class="fas fa-user-slash text-red-500"></i>
+          </div>
+          <div>
+            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_inativos }}</p>
+            <p class="text-xs text-gray-500">Inativos/Suspensos</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="relative flex-1 max-w-md">
+        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar utilizador..."
+               class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30">
+      </div>
+      <select name="tipo" class="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30">
+        <option value="">Todos os tipos</option>
+        <option value="Administrador" {% if tipo == 'Administrador' %}selected{% endif %}>Administrador</option>
+        <option value="Despachante Oficial" {% if tipo == 'Despachante Oficial' %}selected{% endif %}>Despachante Oficial</option>
+        <option value="Colaborador Institucional" {% if tipo == 'Colaborador Institucional' %}selected{% endif %}>Colaborador Institucional</option>
+        <option value="Gestor Financeiro" {% if tipo == 'Gestor Financeiro' %}selected{% endif %}>Gestor Financeiro</option>
+        <option value="Operador" {% if tipo == 'Operador' %}selected{% endif %}>Operador</option>
+        <option value="Visualizador" {% if tipo == 'Visualizador' %}selected{% endif %}>Visualizador</option>
+        <option value="ComCargo" {% if tipo == 'ComCargo' %}selected{% endif %}>Com Cargo Direção</option>
+        <option value="SemCargo" {% if tipo == 'SemCargo' %}selected{% endif %}>Sem Cargo Direção</option>
+      </select>
+      <button type="submit" class="px-4 py-2 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/20 transition-colors">
+        <i class="fas fa-search mr-1"></i> Buscar
+      </button>
+      {% if q or tipo %}
+      <a href="?" class="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        Limpar
+      </a>
+      {% endif %}
+    </form>
+
+    <div id="utilizadores-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {% for u in utilizadores %}
+      {% with slugs=membro_cargos|get_item:u.id %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+        <div class="flex items-start justify-between gap-3 mb-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              {% if u.status == 'Ativo' %}
+              <i class="fas fa-user text-primary"></i>
+              {% else %}
+              <i class="fas fa-user-slash text-gray-400"></i>
+              {% endif %}
+            </div>
+            <div class="min-w-0">
+              <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate">{{ u.nome }}</h3>
+              <span class="text-xs
+                {% if u.papel == 'Administrador' %}text-purple-500
+                {% elif u.papel == 'Despachante Oficial' %}text-blue-500
+                {% elif u.papel == 'Colaborador Institucional' %}text-green-600
+                {% elif u.papel == 'Gestor Financeiro' %}text-amber-600
+                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}text-indigo-500
+                {% else %}text-gray-400{% endif %}">
+                {% if u.papel == 'Visualizador' and u.cargo_personalizado %}
+                  {{ u.cargo_personalizado }}
+                {% else %}
+                  {{ u.papel }}
+                {% endif %}
+              </span>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="text-xs font-semibold {% if slugs|length > 0 %}text-green-500{% else %}text-gray-400{% endif %}">
+              {{ slugs|length }}/1
+            </span>
+            <p class="text-[10px] text-gray-400">cargos</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5 min-h-[28px] mb-2">
+          {% for cargo in cargos %}
+          {% if cargo.slug in slugs %}
+            <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg
+              {% if cargo.sistema %}bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300{% else %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300{% endif %}">
+            {{ cargo.nome }}
+            <button class="btn-remover-cargo ml-0.5 hover:text-red-500 transition-colors cursor-pointer bg-transparent border-none p-0"
+                    data-usuario-id="{{ u.id }}" data-cargo-id="{{ cargo.id }}" title="Remover {{ cargo.nome }}">
+              <i class="fas fa-times text-[10px]"></i>
+            </button>
+          </span>
+          {% endif %}
+          {% endfor %}
+        </div>
+
+        <div class="flex items-center gap-1.5 flex-wrap border-t border-gray-100 dark:border-gray-800 pt-2 mt-1">
+          {% if slugs|length < 1 %}
+          <button class="btn-atribuir px-2 py-1 text-xs font-medium text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors cursor-pointer border border-dashed border-primary/30 hover:border-primary/50"
+                  data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}">
+            <i class="fas fa-plus text-[10px] mr-0.5"></i> Atribuir Cargo
+          </button>
+          {% endif %}
+          <a href="{% url 'governanca_utilizador_permissoes' u.id %}"
+             class="px-2 py-1 text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg transition-colors border border-transparent inline-flex items-center gap-1">
+            <i class="fas fa-lock text-[10px]"></i> Permissões
+          </a>
+          <button class="btn-enviar-credenciais ml-auto px-2 py-1 text-xs font-medium text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+                  data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
+            <i class="fas fa-envelope text-[10px]"></i>
+          </button>
+          <button class="btn-toggle-status px-2 py-1 text-xs font-medium {% if u.status == 'Ativo' %}text-red-500 hover:bg-red-50{% else %}text-green-500 hover:bg-green-50{% endif %} rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+                  data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Ativar{% endif %}">
+            <i class="fas {% if u.status == 'Ativo' %}fa-ban{% else %}fa-check{% endif %} text-[10px]"></i>
+          </button>
+        </div>
+      </div>
+      {% endwith %}
+      {% empty %}
+      <div class="col-span-full text-center py-16 text-gray-400">
+        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-users text-3xl text-gray-300 dark:text-gray-600"></i>
+        </div>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum utilizador encontrado</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+      {% include 'includes/pagination.html' with extra_params=extra_params %}
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+{% include 'includes/confirm-modal.html' %}
+
+{# ── Modal Atribuir Cargo ───────────────────────────────────────────────── #}
+<div id="modal-atribuir-cargo" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 p-6 w-full max-w-sm mx-4">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold text-[#111418] dark:text-white">Atribuir Cargo da Direção</h3>
+      <button onclick="fecharModalAtribuirCargo()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer bg-transparent border-none">
+        <i class="fas fa-times text-xl"></i>
+      </button>
+    </div>
+    <p class="text-sm text-gray-500 mb-4" id="modal-atribuir-nome"></p>
+    <p class="text-xs text-gray-400 mb-3">Os membros da direção são automaticamente membros da Mesa da Assembleia.</p>
+    <div class="space-y-3">
+      <select id="select-cargo" required
+              class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+        <option value="">Selecionar cargo...</option>
+        {% for cargo in cargos %}
+        <option value="{{ cargo.id }}" {% if cargo.id in cargo_ocupado_ids %}disabled{% endif %}>
+          {{ cargo.nome }}{% if cargo.id in cargo_ocupado_ids %} — {{ cargo_ocupado_por|get_item:cargo.id }}{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      <p id="modal-atribuir-erro" class="text-xs text-red-500 hidden"></p>
+      <button id="btn-confirmar-atribuir" class="w-full px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors">
+        Atribuir Cargo
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+  const apiToggle = '{% url "governanca_api_utilizador_toggle" %}';
+  const apiCredenciais = '{% url "governanca_api_utilizador_credenciais" %}';
+  const apiAtribuir = '{% url "governanca_api_utilizador_cargo_atribuir" %}';
+  const apiRemover = '{% url "governanca_api_utilizador_cargo_remover" %}';
+
+  let atribuirUsuarioId = null;
+
+  // ── Atribuir Cargo ────────────────────────────────────────────────────
+  document.querySelectorAll('.btn-atribuir').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      atribuirUsuarioId = this.dataset.usuarioId;
+      document.getElementById('modal-atribuir-nome').textContent = 'Utilizador: ' + this.dataset.usuarioNome;
+      document.getElementById('select-cargo').value = '';
+      document.getElementById('modal-atribuir-erro').classList.add('hidden');
+      document.getElementById('modal-atribuir-cargo').classList.remove('hidden');
+    });
+  });
+
+  document.getElementById('btn-confirmar-atribuir')?.addEventListener('click', async function() {
+    const cargoId = document.getElementById('select-cargo').value;
+    const erroEl = document.getElementById('modal-atribuir-erro');
+    erroEl.classList.add('hidden');
+    if (!cargoId || !atribuirUsuarioId) { erroEl.textContent = 'Selecione um cargo.'; erroEl.classList.remove('hidden'); return; }
+    this.disabled = true;
+    this.textContent = 'A atribuir...';
+    try {
+      const res = await fetch(apiAtribuir, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({ usuario_id: parseInt(atribuirUsuarioId), cargo_id: parseInt(cargoId) })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') { location.reload(); }
+      else { erroEl.textContent = data.erro || 'Erro.'; erroEl.classList.remove('hidden'); }
+    } catch(e) { erroEl.textContent = 'Erro de conexão.'; erroEl.classList.remove('hidden'); }
+    this.disabled = false;
+    this.textContent = 'Atribuir Cargo';
+  });
+
+  window.fecharModalAtribuirCargo = function() {
+    document.getElementById('modal-atribuir-cargo').classList.add('hidden');
+    atribuirUsuarioId = null;
+  };
+  document.getElementById('modal-atribuir-cargo')?.addEventListener('click', function(e) {
+    if (e.target === this) fecharModalAtribuirCargo();
+  });
+
+  // ── Remover Cargo ─────────────────────────────────────────────────────
+  document.querySelectorAll('.btn-remover-cargo').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const usuarioId = this.dataset.usuarioId;
+      const cargoId = this.dataset.cargoId;
+      const ok = await showConfirm('Remover Cargo', 'Remover este cargo do utilizador?', 'Remover');
+      if (!ok) return;
+      try {
+        const res = await fetch(apiRemover, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({ usuario_id: parseInt(usuarioId), cargo_id: parseInt(cargoId) })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') { location.reload(); }
+        else { await showConfirm('Erro', data.erro || 'Erro.', 'OK'); }
+      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+    });
+  });
+
+  // ── Toggle Status ─────────────────────────────────────────────────────
+  document.querySelectorAll('.btn-toggle-status').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const nome = this.dataset.usuarioNome;
+      const ativo = this.dataset.status === 'Ativo';
+      const acao = ativo ? 'suspender' : 'ativar';
+      const ok = await showConfirm('Confirmar', acao.charAt(0).toUpperCase() + acao.slice(1) + ' utilizador "' + nome + '"?', acao.charAt(0).toUpperCase() + acao.slice(1));
+      if (!ok) return;
+      try {
+        const res = await fetch(apiToggle, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') { location.reload(); }
+        else { await showConfirm('Erro', data.erro || 'Erro.', 'OK'); }
+      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+    });
+  });
+
+  // ── Reenviar Credenciais ──────────────────────────────────────────────
+  document.querySelectorAll('.btn-enviar-credenciais').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const ok = await showConfirm('Reenviar Credenciais', 'Reenviar credenciais de acesso por email?', 'Enviar');
+      if (!ok) return;
+      try {
+        const res = await fetch(apiCredenciais, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') { await showConfirm('Sucesso', 'Credenciais enviadas com sucesso.', 'OK'); }
+        else { await showConfirm('Erro', data.erro || 'Erro.', 'OK'); }
+      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+    });
+  });
+
+})();
+</script>
+
+{% include 'includes/footer.html' %}

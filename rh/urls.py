@@ -4,6 +4,21 @@ from . import views_public
 from . import views_admin
 
 urlpatterns = [
+    # ── Colaboradores Institucionais (Equipa do Administrador) ────────────
+    path('admin/colaboradores-institucionais/',                                         views_admin.admin_colaboradores_inst_view,          name='rh_admin_colaboradores_inst'),
+    path('admin/colaboradores-institucionais/<int:pk>/editar/',                         views_admin.admin_colaborador_inst_editar_view,     name='rh_admin_colaborador_inst_editar'),
+    path('admin/colaboradores-institucionais/presencas/',                               views_admin.admin_presencas_inst_view,              name='rh_admin_presencas_inst'),
+    path('admin/colaboradores-institucionais/presencas/registar/',                      views_admin.admin_presenca_inst_registar_view,      name='rh_admin_presenca_inst_registar'),
+    path('admin/colaboradores-institucionais/presencas/<int:pk>/acao/',                 views_admin.admin_presenca_inst_aprovar_view,       name='rh_admin_presenca_inst_acao'),
+    path('admin/colaboradores-institucionais/ferias/',                                  views_admin.admin_ferias_inst_view,                 name='rh_admin_ferias_inst'),
+    path('admin/colaboradores-institucionais/ferias/<int:pk>/acao/',                    views_admin.admin_ferias_inst_acao_view,            name='rh_admin_ferias_inst_acao'),
+    path('admin/colaboradores-institucionais/avaliacoes/',                              views_admin.admin_avaliacoes_inst_view,             name='rh_admin_avaliacoes_inst'),
+    path('admin/colaboradores-institucionais/avaliacoes/ciclo/novo/',                   views_admin.admin_ciclo_inst_novo_view,             name='rh_admin_ciclo_inst_novo'),
+    path('admin/colaboradores-institucionais/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/', views_admin.admin_avaliacao_inst_nova_view,         name='rh_admin_avaliacao_inst_nova'),
+    path('admin/colaboradores-institucionais/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/', views_admin.admin_avaliacao_inst_nova_view, name='rh_admin_avaliacao_inst_editar'),
+    path('admin/colaboradores-institucionais/salarios/',                                views_admin.admin_salarios_inst_view,               name='rh_admin_salarios_inst'),
+    path('admin/colaboradores-institucionais/salarios/novo/',                           views_admin.admin_salario_inst_novo_view,           name='rh_admin_salario_inst_novo'),
+
     # ── Administração do Sistema (apenas Administradores) ──────────────────
     path('admin/despachantes/',                                     views_admin.admin_despachantes_view,                    name='admin_despachantes'),
     path('admin/despachantes/novo/',                                views_admin.admin_despachante_novo_view,                name='admin_despachante_novo'),
@@ -56,6 +71,7 @@ urlpatterns = [
     path('recrutamento/',                                   views.vagas_view,               name='rh_vagas'),
     path('recrutamento/nova/',                              views.vaga_nova_view,            name='rh_vaga_nova'),
     path('recrutamento/<int:pk>/editar/',                   views.vaga_editar_view,          name='rh_vaga_editar'),
+    path('recrutamento/<int:pk>/eliminar/',                 views.vaga_eliminar_view,        name='rh_vaga_eliminar'),
     # Candidaturas
     path('recrutamento/<int:vaga_pk>/candidaturas/',        views.candidaturas_view,         name='rh_candidaturas'),
     path('recrutamento/candidatura/<int:pk>/',              views.candidatura_detalhe_view,  name='rh_candidatura_detalhe'),

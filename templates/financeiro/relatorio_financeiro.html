@@ -1,0 +1,165 @@
+{% load static %}
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ report_name }}</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ report_subtitle }}</p>
+      </div>
+      <a href="javascript:window.print()" class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors text-sm font-medium shadow-sm">
+        <i class="fas fa-print"></i> Imprimir
+      </a>
+    </div>
+
+    <!-- Filtros -->
+    <form method="GET" class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 sm:p-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {% if filtro_data_ini is not None %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Data Início</label>
+          <input type="date" name="data_ini" value="{{ filtro_data_ini }}"
+                 class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Data Fim</label>
+          <input type="date" name="data_fim" value="{{ filtro_data_fim }}"
+                 class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm">
+        </div>
+        {% endif %}
+        {% if filtro_estado is not None and estados %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Estado</label>
+          <select name="estado" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm">
+            <option value="">Todos</option>
+            {% for e in estados %}
+            <option value="{{ e }}" {% if filtro_estado == e %}selected{% endif %}>{{ e }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        {% if filtro_forma_pagamento is not None %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Forma Pagamento</label>
+          <select name="forma_pagamento" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm">
+            <option value="">Todas</option>
+            {% for fp in formas_pagamento %}
+            <option value="{{ fp.0 }}" {% if filtro_forma_pagamento == fp.0 %}selected{% endif %}>{{ fp.1 }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        {% if filtro_ano is not None %}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Ano</label>
+          <select name="ano" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm">
+            {% for a in anos_disponiveis %}
+            <option value="{{ a }}" {% if filtro_ano == a|stringformat:'s' %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="flex items-end">
+          <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors text-sm font-medium shadow-sm">
+            <i class="fas fa-search"></i> Filtrar
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Summary Cards -->
+    {% if summary_cards %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for card in summary_cards %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ card.label }}</p>
+        <p class="text-2xl font-bold mt-2 
+          {% if card.color == 'primary' %}text-primary
+          {% elif card.color == 'success' %}text-emerald-600 dark:text-emerald-400
+          {% elif card.color == 'danger' %}text-red-600 dark:text-red-400
+          {% elif card.color == 'warning' %}text-amber-600 dark:text-amber-400
+          {% else %}text-gray-900 dark:text-gray-100{% endif %}">
+          {{ card.value }}
+        </p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Data Table -->
+    {% if columns and rows %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
+              {% for col in columns %}
+              <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for row in rows %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+              {% for cell in row.cells %}
+              <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ cell }}</td>
+              {% endfor %}
+              {% if row.url and row.pk %}
+              <td class="px-4 py-3 text-center">
+                <a href="{% url row.url row.pk %}" class="inline-flex items-center justify-center size-8 rounded-lg text-primary hover:bg-primary/10 transition-colors">
+                  <i class="fas fa-eye"></i>
+                </a>
+              </td>
+              {% endif %}
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="{{ columns|length }}" class="px-4 py-8 text-center text-gray-400">
+                <i class="fas fa-inbox text-2xl mb-2 block"></i>
+                Nenhum registo encontrado
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Extra Tables -->
+    {% for tbl in extra_tables %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ tbl.title }}</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
+              {% for col in tbl.columns %}
+              <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for row in tbl.rows %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+              {% for cell in row.cells %}
+              <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ cell }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+{% include 'includes/footer.html' %}
+</div>

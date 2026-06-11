@@ -68,6 +68,7 @@ def criar_cliente(request):
             telefone = request.POST.get('telefone', '').strip()
             email = request.POST.get('email', '').strip()
             observacoes = request.POST.get('observacoes', '').strip()
+            limite_financeiro = request.POST.get('limite_financeiro', '0').strip()
             
             if not nome or not nif or not localizacao:
                 messages.error(request, 'Os campos Nome, NIF e Localização são obrigatórios.')
@@ -76,6 +77,11 @@ def criar_cliente(request):
                 })
                 return render(request, 'clientes/form.html', context)
             
+            try:
+                limite_financeiro = float(limite_financeiro) if limite_financeiro else 0
+            except ValueError:
+                limite_financeiro = 0
+
             # Verificar se NIF já existe
             if Cliente.objects.filter(nif=nif).exists():
                 messages.error(request, 'Já existe um cliente cadastrado com este NIF.')
@@ -99,6 +105,7 @@ def criar_cliente(request):
                 telefone=telefone,
                 email=email,
                 observacoes=observacoes,
+                limite_financeiro=limite_financeiro,
                 usuario_id=request.session.get('usuario_id')
             )
             
@@ -129,6 +136,7 @@ def editar_cliente(request, pk):
             telefone = request.POST.get('telefone', '').strip()
             email = request.POST.get('email', '').strip()
             observacoes = request.POST.get('observacoes', '').strip()
+            limite_financeiro = request.POST.get('limite_financeiro', '0').strip()
             
             if not nome or not nif or not localizacao:
                 messages.error(request, 'Os campos Nome, NIF e Localização são obrigatórios.')
@@ -138,6 +146,11 @@ def editar_cliente(request, pk):
                 })
                 return render(request, 'clientes/form.html', context)
             
+            try:
+                limite_financeiro = float(limite_financeiro) if limite_financeiro else 0
+            except ValueError:
+                limite_financeiro = 0
+
             # Verificar se NIF já existe (exceto para este cliente)
             if Cliente.objects.filter(nif=nif).exclude(pk=pk).exists():
                 messages.error(request, 'Já existe um cliente cadastrado com este NIF.')
@@ -162,6 +175,7 @@ def editar_cliente(request, pk):
             cliente.telefone = telefone
             cliente.email = email
             cliente.observacoes = observacoes
+            cliente.limite_financeiro = limite_financeiro
             cliente.usuario_id = request.session.get('usuario_id')
             cliente.save()
             

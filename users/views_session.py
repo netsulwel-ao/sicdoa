@@ -12,7 +12,7 @@ from .auth_decorators import criar_sessao_usuario, tempo_restante_sessao
 @require_http_methods(["POST"])
 def extend_session_view(request):
     """
-    View para estender a sessão do usuário por mais 2 horas.
+    View para estender a sessão do usuário por mais 1 hora.
     Retorna JSON com o novo tempo restante.
     """
     if not request.session.get('usuario_id'):
@@ -23,8 +23,7 @@ def extend_session_view(request):
         request.session['login_time'] = timezone.now().isoformat()
         request.session.modified = True
         
-        # Renovar expiração do cookie
-        request.session.set_expiry(7200)  # 2 horas
+        request.session.set_expiry(3600)
         
         # Retornar novo tempo restante
         tempo_restante = tempo_restante_sessao(request)

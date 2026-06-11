@@ -1,0 +1,335 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+
+  <main class="p-3 sm:p-5 lg:p-8 min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+    <div class="max-w-6xl mx-auto w-full">
+
+      <div class="mb-5">
+        <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2 flex-wrap">
+          <span>Financeiro</span>
+          <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+          <span class="text-primary font-semibold">Conta Corrente Periódica</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Conta Corrente Periódica</h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Análise financeira por períodos personalizados</p>
+          </div>
+          <div class="flex gap-2">
+            <a href="{% url 'financeiro:conta_corrente_home' %}"
+              class="flex items-center gap-1.5 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
+              <i class="fas fa-arrow-left"></i>
+              <span>Voltar</span>
+            </a>
+            <a href="{% url 'financeiro:conta_corrente_periodica_excel' %}?periodo={{ tipo_periodo }}&ano={{ ano }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}"
+              class="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 active:scale-95 transition-all shadow-sm">
+              <i class="fas fa-file-excel"></i>
+              <span>Exportar Excel</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+            {% if message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800
+            {% elif message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800
+            {% else %}bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <!-- ── Filtros ── -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
+        <form method="get" class="flex flex-wrap items-end gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Período</label>
+            <select name="periodo" id="id_periodo"
+              class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+              onchange="togglePersonalizado()">
+              {% for key, label in periodos_disponiveis.items %}
+              <option value="{{ key }}" {% if tipo_periodo == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Ano</label>
+            <select name="ano"
+              class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+              {% for a in anos_disponiveis %}
+              <option value="{{ a }}" {% if a == ano %}selected{% endif %}>{{ a }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mês (opcional)</label>
+            <select name="mes"
+              class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+              <option value="">—</option>
+              <option value="1" {% if mes == '1' %}selected{% endif %}>Janeiro</option>
+              <option value="2" {% if mes == '2' %}selected{% endif %}>Fevereiro</option>
+              <option value="3" {% if mes == '3' %}selected{% endif %}>Março</option>
+              <option value="4" {% if mes == '4' %}selected{% endif %}>Abril</option>
+              <option value="5" {% if mes == '5' %}selected{% endif %}>Maio</option>
+              <option value="6" {% if mes == '6' %}selected{% endif %}>Junho</option>
+              <option value="7" {% if mes == '7' %}selected{% endif %}>Julho</option>
+              <option value="8" {% if mes == '8' %}selected{% endif %}>Agosto</option>
+              <option value="9" {% if mes == '9' %}selected{% endif %}>Setembro</option>
+              <option value="10" {% if mes == '10' %}selected{% endif %}>Outubro</option>
+              <option value="11" {% if mes == '11' %}selected{% endif %}>Novembro</option>
+              <option value="12" {% if mes == '12' %}selected{% endif %}>Dezembro</option>
+            </select>
+          </div>
+          <div id="personalizado_fields" class="flex gap-2 items-end {% if tipo_periodo != 'personalizado' %}hidden{% endif %}">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Data Início</label>
+              <input type="date" name="data_ini" value="{{ data_ini }}"
+                class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Data Fim</label>
+              <input type="date" name="data_fim" value="{{ data_fim }}"
+                class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+          </div>
+          <button type="submit"
+            class="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 active:scale-95 transition-all">
+            <i class="fas fa-filter mr-1"></i>Gerar
+          </button>
+        </form>
+      </div>
+
+      <script>
+        function togglePersonalizado() {
+          const sel = document.getElementById('id_periodo');
+          const fields = document.getElementById('personalizado_fields');
+          fields.classList.toggle('hidden', sel.value !== 'personalizado');
+        }
+      </script>
+
+      <!-- ── Totalizadores ── -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Faturação</p>
+          <p class="text-2xl font-bold mt-2 text-indigo-600 dark:text-indigo-400">{{ total_faturacao|floatformat:2 }} Kz</p>
+        </div>
+        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Recebimentos</p>
+          <p class="text-2xl font-bold mt-2 text-green-600 dark:text-green-400">{{ total_recebimentos|floatformat:2 }} Kz</p>
+        </div>
+        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saldo Total</p>
+          <p class="text-2xl font-bold mt-2 {% if total_saldo >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+            {{ total_saldo|floatformat:2 }} Kz
+          </p>
+        </div>
+        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Períodos</p>
+          <p class="text-2xl font-bold mt-2 text-gray-900 dark:text-gray-100">{{ periodos|length }}</p>
+        </div>
+      </div>
+
+      <!-- ── Gráfico de Evolução ── -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
+        <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+          <i class="fas fa-chart-line text-primary"></i> Evolução Financeira
+        </h3>
+        <div class="relative w-full" style="height: 300px;">
+          <canvas id="evolucaoChart"></canvas>
+        </div>
+        <div id="evolucaoEmpty" class="hidden flex flex-col items-center justify-center py-16 px-4 text-center" style="height: 300px;">
+          <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+            <i class="fas fa-chart-bar text-gray-400 dark:text-gray-500 text-2xl"></i>
+          </div>
+          <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhum dado disponível</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Selecione um período e ano para gerar o relatório.</p>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script>
+        (async function() {
+          const canvas = document.getElementById('evolucaoChart');
+          const empty = document.getElementById('evolucaoEmpty');
+
+          try {
+            const res = await fetch('{% url "financeiro:conta_corrente_periodica_json" %}?periodo={{ tipo_periodo }}&ano={{ ano }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}');
+            const resp = await res.json();
+
+            if (!resp.data || resp.data.length === 0) {
+              canvas.classList.add('hidden');
+              empty.classList.remove('hidden');
+              return;
+            }
+
+            const labels = resp.data.map(d => d.label);
+            new Chart(canvas, {
+              type: 'bar',
+              data: {
+                labels: labels,
+                datasets: [
+                  {
+                    label: 'Faturação',
+                    data: resp.data.map(d => d.faturacao),
+                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                    borderColor: '#6366f1',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    barPercentage: 0.35
+                  },
+                  {
+                    label: 'Recebimentos',
+                    data: resp.data.map(d => d.recebimentos),
+                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                    borderColor: '#22c55e',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    barPercentage: 0.35
+                  },
+                  {
+                    label: 'Saldo',
+                    data: resp.data.map(d => d.saldo),
+                    type: 'line',
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#f59e0b',
+                    yAxisID: 'y1'
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                  legend: {
+                    display: true,
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                      boxWidth: 14,
+                      boxHeight: 8,
+                      padding: 16,
+                      font: { size: 12, weight: '500' },
+                      usePointStyle: true,
+                      pointStyle: 'circle'
+                    }
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    titleColor: '#1f2937',
+                    bodyColor: '#4b5563',
+                    borderColor: '#e5e7eb',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { size: 13, weight: '600' },
+                    bodyFont: { size: 12 },
+                    callbacks: {
+                      label: function(ctx) {
+                        return ctx.dataset.label + ': ' + Number(ctx.raw).toLocaleString() + ' Kz';
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    grid: { display: false },
+                    ticks: {
+                      maxRotation: 45,
+                      minRotation: 0,
+                      autoSkip: true,
+                      maxTicksLimit: 20,
+                      font: { size: 11 },
+                      color: '#6b7280'
+                    }
+                  },
+                  y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0,0,0,0.06)' },
+                    ticks: {
+                      font: { size: 11 },
+                      color: '#6b7280',
+                      callback: function(v) {
+                        if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M Kz';
+                        if (v >= 1000) return (v / 1000).toFixed(0) + 'k Kz';
+                        return v.toLocaleString() + ' Kz';
+                      }
+                    }
+                  },
+                  y1: {
+                    position: 'right',
+                    beginAtZero: true,
+                    grid: { display: false },
+                    ticks: {
+                      font: { size: 11 },
+                      color: '#6b7280',
+                      callback: function(v) {
+                        if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M Kz';
+                        if (v >= 1000) return (v / 1000).toFixed(0) + 'k Kz';
+                        return v.toLocaleString() + ' Kz';
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          } catch (e) {
+            console.error('Erro ao carregar gráfico:', e);
+            canvas.classList.add('hidden');
+            empty.classList.remove('hidden');
+            empty.querySelector('p:first-of-type').textContent = 'Erro ao carregar dados';
+            empty.querySelector('span').textContent = 'Tente novamente mais tarde.';
+          }
+        })();
+      </script>
+
+      <!-- ── Tabela de Períodos ── -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {% if periodos %}
+        <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+          <span>Período</span>
+          <span class="text-right">Faturação</span>
+          <span class="text-right">Recebimentos</span>
+          <span class="text-right">Créditos</span>
+          <span class="text-right">Débitos</span>
+          <span class="text-right">Saldo</span>
+        </div>
+        {% for p in periodos %}
+        <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 items-center px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors border-b border-gray-100 dark:border-gray-700/60 text-sm">
+          <div class="font-medium text-gray-900 dark:text-white">{{ p.label }}</div>
+          <div class="text-right font-medium text-indigo-600 dark:text-indigo-400">{{ p.faturacao|floatformat:2 }}</div>
+          <div class="text-right font-medium text-green-600 dark:text-green-400">{{ p.recebimentos|floatformat:2 }}</div>
+          <div class="text-right font-medium text-yellow-600 dark:text-yellow-400">{{ p.creditos|floatformat:2 }}</div>
+          <div class="text-right font-medium text-orange-600 dark:text-orange-400">{{ p.debitos|floatformat:2 }}</div>
+          <div class="text-right font-bold {% if p.saldo >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+            {{ p.saldo|floatformat:2 }}
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+            <i class="fas fa-chart-bar text-gray-400 dark:text-gray-500 text-2xl"></i>
+          </div>
+          <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhum dado disponível</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Selecione um período e ano para gerar o relatório.</p>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}

@@ -653,7 +653,7 @@ class PlanoIntegracao(models.Model):
     def progresso(self):
         if not self.total_tarefas:
             return 0
-        return round(self.tarefas_concluidas / self.total_tarefas * 100)
+        return min(round(self.tarefas_concluidas / self.total_tarefas * 100), 100)
 
     def clean(self):
         if self.data_fim_prevista:

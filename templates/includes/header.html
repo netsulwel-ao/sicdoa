@@ -312,9 +312,8 @@
 
 /* ── Monitoramento e Renovação Automática de Sessão ────────────────── */
 (function() {
-  // Verificar estado da sessão a cada 5 minutos
-  const INTERVALO_VERIFICACAO = 5 * 60 * 1000; // 5 minutos
-  const TEMPO_AVISO = 10; // Avisar quando faltarem 10 minutos
+  const INTERVALO_VERIFICACAO = 60 * 1000;
+  const TEMPO_AVISO = 1;
   
   let avisoMostrado = false;
   
@@ -322,14 +321,10 @@
     try {
       const res = await fetch('/users/api/sessao-status/', {
         method: 'GET',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
       
       if (!res.ok) {
-        // Sessão inválida - redirecionar para login
-        console.warn('Sessão expirada, redirecionando para login...');
         window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
         return;
       }
@@ -337,17 +332,15 @@
       const data = await res.json();
       
       if (!data.active) {
-        // Sessão inativa - redirecionar
         window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
         return;
       }
       
-      // Verificar tempo restante
       const tempoRestante = data.tempo_restante || 0;
       
       if (tempoRestante <= TEMPO_AVISO && !avisoMostrado) {
         avisoMostrado = true;
-        mostrarAvisoExpiracao(tempoRestante);
+        mostrarModalExpiracao(tempoRestante);
       } else if (tempoRestante > TEMPO_AVISO) {
         avisoMostrado = false;
       }
@@ -357,56 +350,79 @@
     }
   }
   
-  function mostrarAvisoExpiracao(minutos) {
-    // Criar notificação de aviso
-    const aviso = document.createElement('div');
-    aviso.id = 'aviso-sessao-expirando';
-    aviso.style.cssText = `
-      position: fixed;
-      top: 80px;
-      right: 24px;
-      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-      color: #78350f;
-      padding: 16px 20px;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(251, 191, 36, 0.4);
-      z-index: 10000;
-      max-width: 320px;
-      font-size: 14px;
-      line-height: 1.5;
-      border: 2px solid rgba(255, 255, 255, 0.3);
+  var sessaoExpirada = false;
+  
+  function mostrarModalExpiracao(minutos) {
+    sessaoExpirada = false;
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-sessao-overlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 99999;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(2px);
     `;
     
-    aviso.innerHTML = `
-      <div style="display: flex; align-items: start; gap: 12px;">
-        <i class="fas fa-clock" style="font-size: 24px; color: #78350f;"></i>
-        <div style="flex: 1;">
-          <div style="font-weight: 700; margin-bottom: 4px;">Sessão a expirar</div>
-          <div style="font-size: 13px; opacity: 0.9;">
-            A sua sessão expira em ${minutos} minuto${minutos !== 1 ? 's' : ''}. 
-            Qualquer ação irá renovar automaticamente.
-          </div>
-          <button onclick="renovarSessaoManual()" 
-            style="margin-top: 8px; padding: 6px 12px; background: rgba(255,255,255,0.9); 
-                   border: none; border-radius: 6px; font-size: 12px; font-weight: 600; 
-                   cursor: pointer; color: #78350f;">
-            Renovar Agora
-          </button>
+    const modal = document.createElement('div');
+    modal.id = 'aviso-sessao-expirando';
+    modal.style.cssText = `
+      background: #fff; border-radius: 16px; padding: 32px 36px;
+      max-width: 400px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+      text-align: center; animation: fadeInUp 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+      <div style="margin-bottom: 16px;">
+        <div style="width:64px;height:64px;margin:0 auto;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+          <i class="fas fa-hourglass-half" style="font-size:28px;color:#d97706;"></i>
         </div>
-        <button onclick="this.parentElement.parentElement.remove()" 
-          style="background: none; border: none; cursor: pointer; padding: 0; 
-                 color: #78350f; opacity: 0.6; font-size: 20px; line-height: 1;">
-          <i class="fas fa-times"></i>
+      </div>
+      <h3 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1f2937;">Sessão a expirar</h3>
+      <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.5;">
+        A sua sessão expira em <strong id="sessao-tempo-modal">${minutos}</strong> minuto${minutos !== 1 ? 's' : ''}.
+        <br><span id="sessao-mensagem-modal">Clique em "Renovar" para continuar.</span>
+      </p>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button id="btn-renovar-sessao" onclick="renovarSessaoManual()"
+          style="padding:10px 28px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
+          <i class="fas fa-sync-alt" style="margin-right:6px;"></i>Renovar Sessão
         </button>
       </div>
     `;
     
-    document.body.appendChild(aviso);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
     
-    // Remover automaticamente após 15 segundos
-    setTimeout(() => {
-      if (aviso.parentElement) aviso.remove();
-    }, 15000);
+    // Actualizar contagem a cada 10s
+    const intervalId = setInterval(async () => {
+      try {
+        const r = await fetch('/users/api/sessao-status/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!r.ok) { window.location.href = '/login/'; return; }
+        const d = await r.json();
+        const el = document.getElementById('sessao-tempo-modal');
+        if (el) el.textContent = d.tempo_restante || 0;
+        
+        if (d.tempo_restante <= 0 && !sessaoExpirada) {
+          sessaoExpirada = true;
+          var btn = document.getElementById('btn-renovar-sessao');
+          if (btn) {
+            btn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right:6px;"></i>Iniciar Sessão';
+            btn.onclick = function() { window.location.href = '/login/'; };
+            btn.style.background = '#059669';
+          }
+          var msgEl = document.getElementById('sessao-mensagem-modal');
+          if (msgEl) msgEl.textContent = 'A sua sessão expirou.';
+        }
+      } catch(e) {}
+    }, 10000);
+    
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) {
+        window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+      }
+    });
+    
+    modal.dataset.intervalId = intervalId;
   }
   
   // Função global para renovar sessão manualmente
@@ -420,32 +436,27 @@
         }
       });
       
+      const overlay = document.getElementById('modal-sessao-overlay');
+      const modal = document.getElementById('aviso-sessao-expirando');
+      
       if (res.ok) {
-        const aviso = document.getElementById('aviso-sessao-expirando');
-        if (aviso) {
-          aviso.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-          aviso.style.color = '#064e3b';
-          aviso.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <i class="fas fa-check-circle" style="font-size: 24px; color: #064e3b;"></i>
-              <div style="font-weight: 600;">Sessão renovada com sucesso!</div>
-            </div>
-          `;
-          setTimeout(() => aviso.remove(), 3000);
+        if (modal && modal.dataset.intervalId) {
+          clearInterval(Number(modal.dataset.intervalId));
         }
+        if (overlay) overlay.remove();
         avisoMostrado = false;
+        sessaoExpirada = false;
       } else {
         const data = await res.json().catch(() => ({}));
-        const aviso = document.getElementById('aviso-sessao-expirando');
-        if (aviso && data.error) {
-          aviso.innerHTML = aviso.innerHTML + `<div style="margin-top:8px;font-size:12px;color:#991b1b;">${data.error}</div>`;
+        if (modal && data.error) {
+          modal.innerHTML = modal.innerHTML + '<div style="margin-top:12px;padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;">' + data.error + '</div>';
         }
       }
     } catch (err) {
       console.error('Erro ao renovar sessão:', err);
-      const aviso = document.getElementById('aviso-sessao-expirando');
-      if (aviso) {
-        aviso.innerHTML = aviso.innerHTML + `<div style="margin-top:8px;font-size:12px;color:#991b1b;">Erro de rede ao renovar sessão</div>`;
+      const modal = document.getElementById('aviso-sessao-expirando');
+      if (modal) {
+        modal.innerHTML = modal.innerHTML + '<div style="margin-top:12px;padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;">Erro de rede ao renovar sessão</div>';
       }
     }
   };
@@ -504,11 +515,14 @@
       `).join('');
       lista.querySelectorAll('.notif-marcar').forEach(b => {
         b.addEventListener('click', async function() {
-          await fetch('/governanca/api/notificacoes/marcar-lida/'+this.dataset.id+'/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
-          carregarNotificacoes();
+          try {
+            const r = await fetch('/governanca/api/notificacoes/marcar-lida/'+this.dataset.id+'/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
+            if (!r.ok) console.error('Erro ao marcar lida:', r.status);
+            carregarNotificacoes();
+          } catch(e) { console.error(e); }
         });
       });
-    } catch(e) {}
+    } catch(e) { console.error(e); }
   }
 
   btn.addEventListener('click', function(e) {
@@ -520,8 +534,11 @@
 
   if (marcarTodas) {
     marcarTodas.addEventListener('click', async function() {
-      await fetch('/governanca/api/notificacoes/marcar-todas/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
-      carregarNotificacoes();
+      try {
+        const r = await fetch('/governanca/api/notificacoes/marcar-todas/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
+        if (!r.ok) console.error('Erro ao marcar todas:', r.status);
+        carregarNotificacoes();
+      } catch(e) { console.error(e); }
     });
   }
 

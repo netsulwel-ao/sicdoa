@@ -43,6 +43,7 @@ class Assembleia(models.Model):
     created_by = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    ultima_actividade = models.DateTimeField(null=True, blank=True, help_text='Última actividade (chat, voto, presença) para detecting inactividade')
 
     hash_integridade = models.CharField(max_length=64, blank=True, default='')
 

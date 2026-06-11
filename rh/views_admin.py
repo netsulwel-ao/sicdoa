@@ -36,13 +36,33 @@ def _requer_admin(fn):
     return wrapper
 
 
+def _requer_admin_ou_permissoes(*perm_codigos):
+    """Decorator: permite Administradores OU utilizadores com pelo menos uma das permissões indicadas."""
+    def decorator(fn):
+        def wrapper(request, *args, **kwargs):
+            if not request.session.get('usuario_id'):
+                return redirect('login')
+            papel = request.session.get('usuario', {}).get('papel', '')
+            if papel == 'Administrador':
+                return fn(request, *args, **kwargs)
+            from users.permissoes import usuario_tem_permissao
+            for codigo in perm_codigos:
+                if usuario_tem_permissao(request, codigo):
+                    return fn(request, *args, **kwargs)
+            messages.error(request, 'Não tem permissão para aceder a esta página.')
+            return redirect('dashboard')
+        wrapper.__name__ = fn.__name__
+        return wrapper
+    return decorator
+
+
 def _ctx_admin(request, sub='', extra=None):
     u = request.session.get('usuario', {})
     ctx = {
         'usuario': u,
         'nome': u.get('nome', ''),
         'papel': u.get('papel', ''),
-        'active_menu': 'RH',
+        'active_menu': 'ADMIN_RH',
         'active_sub': sub,
         'is_admin_sistema': True,
     }
@@ -545,11 +565,33 @@ def admin_banca_toggle_view(request, banca_id):
         return redirect('admin_bancas')
 
     banca = get_object_or_404(Banca, pk=banca_id)
-    banca.ativa = not banca.ativa
+    foi_ativada = not banca.ativa
+    banca.ativa = foi_ativada
     banca.save(update_fields=['ativa'])
 
     estado = 'ativada' if banca.ativa else 'desativada'
     messages.success(request, f'Banca "{banca.nome}" {estado} com sucesso.')
+
+    # Notificar o dono da banca quando for desativada
+    if not banca.ativa:
+        dono = Usuario.objects.filter(pk=banca.usuario_id).first()
+        if dono:
+            _criar_notificacao(
+                usuario_id=dono.id,
+                tipo='estado_suspenso',
+                titulo='Banca Bloqueada',
+                mensagem=f'A sua banca "{banca.nome}" foi bloqueada pelo administrador. Entre em contacto para regularizar a situação.',
+                link='/rh/banca/',
+            )
+            # Enviar email
+            if dono.email:
+                _enviar(
+                    assunto='Banca Bloqueada — CDOA',
+                    texto=f'Olá {dono.nome},\n\nA sua banca "{banca.nome}" foi bloqueada pelo administrador do sistema. Para regularizar a situação, entre em contacto com a administração do CDOA.\n\nAtenciosamente,\nEquipa CDOA',
+                    html=f'<p>Olá <strong>{dono.nome}</strong>,</p><p>A sua banca <strong>"{banca.nome}"</strong> foi bloqueada pelo administrador do sistema.</p><p>Para regularizar a situação, entre em contacto com a administração do CDOA.</p><p>Atenciosamente,<br>Equipa CDOA</p>',
+                    destinatarios=[dono.email],
+                )
+
     return redirect('admin_banca_detalhe', banca_id=banca_id)
 
 
@@ -616,3 +658,305 @@ def _criar_notificacao(usuario_id, tipo, titulo, mensagem, link):
         usuario_id=usuario_id, tipo=tipo,
         titulo=titulo, mensagem=mensagem, link=link,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COLABORADORES INSTITUCIONAIS (Equipa do Administrador)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from users.models import (
+    ColaboradorInstitucional, Usuario,
+    PresencaInstitucional, FeriasInstitucional,
+    CicloAvaliacaoInstitucional, AvaliacaoInstitucional,
+    ProcessamentoSalarialInstitucional, ReciboSalarialInstitucional,
+)
+
+
+@_requer_admin_ou_permissoes('gerir_colaboradores_inst')
+def admin_colaboradores_inst_view(request):
+    q = request.GET.get('q', '').strip()
+    area = request.GET.get('area', '').strip()
+
+    colaboradores = ColaboradorInstitucional.objects.all().order_by('nome')
+    if q:
+        colaboradores = colaboradores.filter(nome__icontains=q)
+    if area:
+        colaboradores = colaboradores.filter(area_actuacao=area)
+
+    paginator = Paginator(colaboradores, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    ctx = _ctx_admin(request, sub='colaboradores_inst', extra={
+        'colaboradores': page_obj,
+        'total': colaboradores.count(),
+        'page_obj': page_obj,
+        'q': q,
+        'area': area,
+        'areas': ColaboradorInstitucional.AREAS,
+    })
+    return render(request, 'rh/admin/colaboradores_inst_lista.html', ctx)
+
+
+@_requer_admin_ou_permissoes('gerir_colaboradores_inst')
+def admin_colaborador_inst_editar_view(request, pk):
+    colaborador = get_object_or_404(ColaboradorInstitucional, pk=pk)
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        email = request.POST.get('email', '').strip()
+        telefone = request.POST.get('telefone', '').strip()
+        area_actuacao = request.POST.get('area_actuacao', '').strip()
+        salario_base = request.POST.get('salario_base', '').strip()
+        observacoes = request.POST.get('observacoes', '').strip()
+
+        if nome:
+            colaborador.nome = nome
+            colaborador.email = email
+            colaborador.telefone = telefone
+            colaborador.area_actuacao = area_actuacao
+            if salario_base:
+                from decimal import Decimal
+                colaborador.salario_base = Decimal(salario_base.replace(',', '.'))
+            colaborador.observacoes = observacoes
+            colaborador.save()
+            # Sync usuario
+            if colaborador.usuario:
+                colaborador.usuario.nome = nome
+                colaborador.usuario.email = email if email else colaborador.usuario.email
+                colaborador.usuario.telefone = telefone
+                colaborador.usuario.save(update_fields=['nome', 'email', 'telefone', 'updated_at'])
+            messages.success(request, f'Colaborador "{nome}" atualizado.')
+            return redirect('rh_admin_colaboradores_inst')
+
+    ctx = _ctx_admin(request, sub='colaboradores_inst', extra={
+        'colaborador': colaborador,
+    })
+    return render(request, 'rh/admin/colaborador_inst_editar.html', ctx)
+
+
+@_requer_admin_ou_permissoes('gerir_presencas_inst')
+def admin_presencas_inst_view(request):
+    colaboradores = ColaboradorInstitucional.objects.all().order_by('nome')
+    presencas = PresencaInstitucional.objects.all().select_related('colaborador').order_by('-data', '-id')
+
+    q = request.GET.get('q', '').strip()
+    data_inicio = request.GET.get('data_inicio', '').strip()
+    data_fim = request.GET.get('data_fim', '').strip()
+    estado = request.GET.get('estado', '').strip()
+
+    if q:
+        presencas = presencas.filter(colaborador__nome__icontains=q)
+    if data_inicio:
+        presencas = presencas.filter(data__gte=data_inicio)
+    if data_fim:
+        presencas = presencas.filter(data__lte=data_fim)
+    if estado:
+        presencas = presencas.filter(estado=estado)
+
+    paginator = Paginator(presencas, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    ctx = _ctx_admin(request, sub='presencas_inst', extra={
+        'presencas': page_obj,
+        'page_obj': page_obj,
+        'colaboradores': colaboradores,
+        'q': q,
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
+        'estado': estado,
+    })
+    return render(request, 'rh/admin/presencas_inst_lista.html', ctx)
+
+
+@_requer_admin_ou_permissoes('gerir_presencas_inst')
+def admin_presenca_inst_registar_view(request):
+    if request.method == 'POST':
+        colaborador_id = request.POST.get('colaborador')
+        data = request.POST.get('data')
+        tipo = request.POST.get('tipo', 'Entrada')
+        hora_entrada = request.POST.get('hora_entrada', '') or None
+        hora_saida = request.POST.get('hora_saida', '') or None
+        justificacao = request.POST.get('justificacao', '').strip()
+
+        if not colaborador_id or not data:
+            messages.error(request, 'Colaborador e data são obrigatórios.')
+            return redirect('rh_admin_presencas_inst')
+
+        PresencaInstitucional.objects.create(
+            colaborador_id=colaborador_id, data=data, tipo=tipo,
+            hora_entrada=hora_entrada, hora_saida=hora_saida,
+            justificacao=justificacao, estado='Aprovado',
+        )
+        messages.success(request, 'Presença registada com sucesso.')
+        return redirect('rh_admin_presencas_inst')
+
+    ctx = _ctx_admin(request, sub='presencas_inst', extra={
+        'colaboradores': ColaboradorInstitucional.objects.filter(estado='Ativo'),
+    })
+    return render(request, 'rh/admin/presenca_inst_registar.html', ctx)
+
+
+@_requer_admin_ou_permissoes('gerir_presencas_inst')
+def admin_presenca_inst_aprovar_view(request, pk):
+    presenca = get_object_or_404(PresencaInstitucional, pk=pk)
+    acao = request.GET.get('acao', 'aprovar')
+    if acao == 'aprovar':
+        presenca.estado = 'Aprovado'
+        presenca.save(update_fields=['estado'])
+        messages.success(request, 'Presença aprovada.')
+    elif acao == 'rejeitar':
+        presenca.estado = 'Rejeitado'
+        presenca.save(update_fields=['estado'])
+        messages.success(request, 'Presença rejeitada.')
+    return redirect('rh_admin_presencas_inst')
+
+
+@_requer_admin_ou_permissoes('gerir_ferias_inst')
+def admin_ferias_inst_view(request):
+    pedidos = FeriasInstitucional.objects.all().select_related('colaborador').order_by('-criado_em')
+
+    estado = request.GET.get('estado', '').strip()
+    if estado:
+        pedidos = pedidos.filter(estado=estado)
+
+    ctx = _ctx_admin(request, sub='ferias_inst', extra={
+        'pedidos': pedidos,
+        'estado': estado,
+    })
+    return render(request, 'rh/admin/ferias_inst_lista.html', ctx)
+
+
+@_requer_admin_ou_permissoes('gerir_ferias_inst')
+def admin_ferias_inst_acao_view(request, pk):
+    pedido = get_object_or_404(FeriasInstitucional, pk=pk)
+    acao = request.GET.get('acao', '')
+    if request.method == 'POST' or acao:
+        if acao == 'aprovar':
+            pedido.estado = 'Aprovado'
+            pedido.save(update_fields=['estado'])
+            messages.success(request, 'Pedido de férias aprovado.')
+        elif acao == 'rejeitar':
+            pedido.estado = 'Rejeitado'
+            pedido.save(update_fields=['estado'])
+            messages.success(request, 'Pedido de férias rejeitado.')
+    return redirect('rh_admin_ferias_inst')
+
+
+@_requer_admin_ou_permissoes('gerir_avaliacoes_inst')
+def admin_avaliacoes_inst_view(request):
+    ciclos = CicloAvaliacaoInstitucional.objects.all().order_by('-periodo_inicio')
+
+    ctx = _ctx_admin(request, sub='avaliacoes_inst', extra={
+        'ciclos': ciclos,
+    })
+    return render(request, 'rh/admin/avaliacoes_inst_lista.html', ctx)
+
+
+@_requer_admin_ou_permissoes('gerir_avaliacoes_inst')
+def admin_ciclo_inst_novo_view(request):
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        periodo_inicio = request.POST.get('periodo_inicio', '').strip()
+        periodo_fim = request.POST.get('periodo_fim', '').strip()
+
+        if not nome or not periodo_inicio or not periodo_fim:
+            messages.error(request, 'Todos os campos são obrigatórios.')
+            return redirect('rh_admin_avaliacoes_inst')
+
+        CicloAvaliacaoInstitucional.objects.create(
+            nome=nome, periodo_inicio=periodo_inicio, periodo_fim=periodo_fim,
+        )
+        messages.success(request, 'Ciclo de avaliação criado.')
+        return redirect('rh_admin_avaliacoes_inst')
+
+    ctx = _ctx_admin(request, sub='avaliacoes_inst')
+    return render(request, 'rh/admin/ciclo_inst_novo.html', ctx)
+
+
+@_requer_admin_ou_permissoes('gerir_avaliacoes_inst')
+def admin_avaliacao_inst_nova_view(request, ciclo_pk, col_pk=None):
+    ciclo = get_object_or_404(CicloAvaliacaoInstitucional, pk=ciclo_pk)
+    avaliacao = None
+    if col_pk:
+        avaliacao = get_object_or_404(AvaliacaoInstitucional, ciclo=ciclo, colaborador_id=col_pk)
+
+    if request.method == 'POST':
+        colaborador_id = request.POST.get('colaborador', col_pk)
+        if not colaborador_id:
+            messages.error(request, 'Selecione um colaborador.')
+            return redirect('admin_ciclo_inst_avaliar', ciclo_pk=ciclo_pk)
+
+        defaults = {
+            'pontualidade': int(request.POST.get('pontualidade', 3)),
+            'produtividade': int(request.POST.get('produtividade', 3)),
+            'qualidade_trabalho': int(request.POST.get('qualidade_trabalho', 3)),
+            'trabalho_equipa': int(request.POST.get('trabalho_equipa', 3)),
+            'iniciativa': int(request.POST.get('iniciativa', 3)),
+            'nota_global': request.POST.get('nota_global', 3),
+            'pontos_fortes': request.POST.get('pontos_fortes', '').strip(),
+            'pontos_melhoria': request.POST.get('pontos_melhoria', '').strip(),
+            'plano_desenvolvimento': request.POST.get('plano_desenvolvimento', '').strip(),
+        }
+
+        if avaliacao:
+            for k, v in defaults.items():
+                setattr(avaliacao, k, v)
+            avaliacao.save()
+            messages.success(request, 'Avaliação atualizada.')
+        else:
+            AvaliacaoInstitucional.objects.create(ciclo=ciclo, colaborador_id=colaborador_id, **defaults)
+            messages.success(request, 'Avaliação registada.')
+        return redirect('rh_admin_avaliacoes_inst')
+
+    colaboradores = ColaboradorInstitucional.objects.filter(estado='Ativo')
+    ja_avaliados = AvaliacaoInstitucional.objects.filter(ciclo=ciclo).values_list('colaborador_id', flat=True)
+
+    ctx = _ctx_admin(request, sub='avaliacoes_inst', extra={
+        'ciclo': ciclo,
+        'avaliacao': avaliacao,
+        'colaboradores': colaboradores,
+        'ja_avaliados': list(ja_avaliados),
+        'col_pk': col_pk,
+    })
+    return render(request, 'rh/admin/avaliacao_inst_form.html', ctx)
+
+
+@_requer_admin_ou_permissoes('processar_salarios_inst')
+def admin_salarios_inst_view(request):
+    processamentos = ProcessamentoSalarialInstitucional.objects.all().order_by('-ano', '-mes')
+
+    ctx = _ctx_admin(request, sub='salarios_inst', extra={
+        'processamentos': processamentos,
+    })
+    return render(request, 'rh/admin/salarios_inst_lista.html', ctx)
+
+
+@_requer_admin
+def admin_salario_inst_novo_view(request):
+    if request.method == 'POST':
+        mes = int(request.POST.get('mes'))
+        ano = int(request.POST.get('ano'))
+
+        if ProcessamentoSalarialInstitucional.objects.filter(mes=mes, ano=ano).exists():
+            messages.error(request, 'Já existe um processamento para este período.')
+            return redirect('rh_admin_salarios_inst')
+
+        processamento = ProcessamentoSalarialInstitucional.objects.create(mes=mes, ano=ano)
+        colaboradores = ColaboradorInstitucional.objects.filter(estado='Ativo', salario_base__isnull=False)
+
+        for col in colaboradores:
+            ReciboSalarialInstitucional.objects.create(
+                processamento=processamento,
+                colaborador=col,
+                salario_base=col.salario_base or 0,
+            )
+
+        processamento.estado = 'Processado'
+        processamento.save(update_fields=['estado'])
+        messages.success(request, f'Salários processados para {mes:02d}/{ano}.')
+        return redirect('rh_admin_salarios_inst')
+
+    ctx = _ctx_admin(request, sub='salarios_inst')
+    return render(request, 'rh/admin/salario_inst_novo.html', ctx)

@@ -116,9 +116,6 @@
             <a href="{% url 'admin_despachante_editar' info.usuario.id %}" class="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-all" title="Editar">
               <i class="fas fa-edit text-base"></i>
             </a>
-            <a href="{% url 'admin_atribuir_cargo' info.usuario.id %}" class="p-2 rounded-lg text-purple-600 hover:bg-purple-50 transition-all" title="Atribuir Cargo na Mesa">
-              <i class="fas fa-user-tie text-base"></i>
-            </a>
           </div>
         </div>
       </div>
@@ -175,10 +172,6 @@
               {% else %}
               <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inativo</span>
               {% endif %}
-              <a href="{% url 'admin_atribuir_cargo' info.usuario.id %}"
-                 class="px-2.5 py-1 rounded-full text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all whitespace-nowrap">
-                <i class="fas fa-user-tie text-xs mr-0.5"></i>Atribuir Cargo
-              </a>
             </div>
 
             <!-- Ação -->

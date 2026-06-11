@@ -1,0 +1,24 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+{% include 'includes/header.html' %}
+<main class="p-4 md:p-6 lg:p-8">
+  <div class="max-w-lg mx-auto mt-12 text-center">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
+      <div class="w-16 h-16 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+        <i class="fas fa-ban text-red-600 text-2xl"></i>
+      </div>
+      <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Banca Bloqueada</h1>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">
+        A sua banca <strong>"{{ banca.nome }}"</strong> encontra-se bloqueada.
+        Para mais informações ou para regularizar a situação, entre em contacto com o administrador do CDOA.
+      </p>
+      <a href="mailto:{{ admin_email|default:'admin@cdoa.ao' }}?subject=Banca%20Bloqueada%20-%20{{ banca.nome|urlencode }}"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm">
+        <i class="fas fa-envelope"></i> Contactar Administrador
+      </a>
+    </div>
+  </div>
+</main>
+</div>
+{% include 'includes/footer.html' %}

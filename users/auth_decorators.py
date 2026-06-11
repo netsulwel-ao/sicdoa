@@ -8,7 +8,7 @@ from datetime import timedelta
 
 def sessao_expirada(request):
     """
-    Verifica se a sessão do usuário expirou (2 horas).
+    Verifica se a sessão do usuário expirou (1 hora).
     Retorna True se expirou, False caso contrário.
     """
     if not request.session.get('usuario_id'):
@@ -27,9 +27,8 @@ def sessao_expirada(request):
         except (ValueError, TypeError):
             return True
     
-    # Verificar se passou 2 horas
     agora = timezone.now()
-    if agora - login_time > timedelta(hours=2):
+    if agora - login_time > timedelta(hours=1):
         return True
     
     return False
@@ -45,13 +44,10 @@ def requer_sessao_ativa(view_func):
         if not request.session.get('usuario_id'):
             return redirect('login')
         
-        # Verificar se a sessão expirou
         if sessao_expirada(request):
-            # Limpar sessão expirada
             request.session.flush()
             return redirect('login')
         
-        # Atualizar timestamp da sessão (renovar por mais 2 horas)
         request.session['login_time'] = timezone.now().isoformat()
         request.session.modified = True
         
@@ -80,7 +76,7 @@ def tempo_restante_sessao(request):
         
         agora = timezone.now()
         tempo_decorrido = agora - login_time
-        tempo_total = timedelta(hours=2)  # 2 horas
+        tempo_total = timedelta(hours=1)
         tempo_restante = tempo_total - tempo_decorrido
         
         # Retornar minutos restantes (mínimo 0)
@@ -122,8 +118,7 @@ def criar_sessao_usuario(request, usuario):
     # Guardar timestamp de login
     request.session['login_time'] = timezone.now().isoformat()
     
-    # Configurar sessão para expirar em 2h
-    request.session.set_expiry(7200)  # 2 horas em segundos
+    request.session.set_expiry(3600)
     
     return request.session
 

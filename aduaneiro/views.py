@@ -329,6 +329,9 @@ def du_lista(request):
         # Despachante e Operador vêem as suas próprias DUs
         dus = DeclaracaoUnica.objects.filter(usuario_id=uid)
 
+    # Excluir DUs sem du_uuid (não editáveis via interface) — registo legado
+    dus = dus.exclude(du_uuid='').exclude(du_uuid__isnull=True)
+
     # Filtros opcionais
     q      = request.GET.get('q', '').strip()
     status = request.GET.get('status', '').strip()
@@ -357,6 +360,7 @@ def du_lista(request):
         'q': q,
         'status_filtro': status,
         'is_admin': papel == 'Administrador',
+        'total_dus': dus.count(),
     })
     return render(request, 'du_lista.html', ctx)
 

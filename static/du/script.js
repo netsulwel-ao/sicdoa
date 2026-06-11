@@ -1130,11 +1130,18 @@ function actualizarHiddenAdicoes(containerId) {
 function removerContainer(containerId) {
   const containerDiv = document.querySelector(`[data-container-id="${containerId}"]`);
   if (containerDiv) {
-    if (confirm(`Tem certeza que deseja remover o Container #${containerId}?`)) {
-      containerDiv.remove();
-      atualizarContadorContainers();
-      showSuccess(`Container #${containerId} removido`);
-    }
+    abrirConfirm({
+      tipo: 'danger',
+      titulo: 'Remover Container',
+      mensagem: 'Tem certeza que deseja remover o Container #' + containerId + '?',
+      textoBotao: 'Remover',
+      textoCancelar: 'Cancelar',
+      onConfirm: function() {
+        containerDiv.remove();
+        atualizarContadorContainers();
+        showSuccess('Container #' + containerId + ' removido');
+      }
+    });
   }
 }
 

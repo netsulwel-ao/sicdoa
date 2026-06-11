@@ -8,6 +8,7 @@ def cargos_mesa(request):
         'is_secretario_mesa': False,
         'cargo_mesa_funcao': None,
         'user_permissoes': set(),
+        'tem_banca': False,
     }
     usuario_id = request.session.get('usuario_id')
     papel = request.session.get('usuario', {}).get('papel', '')
@@ -20,4 +21,11 @@ def cargos_mesa(request):
                 data['is_membro_mesa'] = True
                 data['is_secretario_mesa'] = True
         data['user_permissoes'] = get_usuario_permissoes(request)
+        if papel in ('Administrador', 'Despachante Oficial', 'Operador'):
+            from .models import Banca
+            data['tem_banca'] = Banca.objects.filter(
+                usuario_id=usuario_id, ativa=True
+            ).exists()
+        else:
+            data['tem_banca'] = False
     return data

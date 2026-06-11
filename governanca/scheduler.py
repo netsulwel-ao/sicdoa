@@ -6,17 +6,18 @@ from django.core.management import call_command
 
 
 def iniciar_assembleias_task():
-    """Task que inicia assembleias cuja data/hora já passou."""
     call_command('iniciar_assembleias')
 
 
 def gerar_quotas_task():
-    """Task que gera quotas automaticamente no dia 1 de cada mês."""
     call_command('gerar_quotas')
 
 
+def encerrar_assembleias_inativas_task():
+    call_command('encerrar_assembleias_inativas')
+
+
 def start_scheduler():
-    """Inicia o scheduler em background (chamado pelo ASGI/WSGI)."""
     if os.environ.get('RUN_MAIN') != 'true' and 'RUN_MAIN' in os.environ and settings.DEBUG:
         return
     if hasattr(start_scheduler, '_scheduler_started'):
@@ -29,6 +30,13 @@ def start_scheduler():
         'interval',
         minutes=1,
         id='iniciar_assembleias',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        encerrar_assembleias_inativas_task,
+        'interval',
+        minutes=1,
+        id='encerrar_assembleias_inativas',
         replace_existing=True,
     )
     scheduler.add_job(

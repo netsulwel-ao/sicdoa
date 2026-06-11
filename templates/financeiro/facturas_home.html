@@ -1,0 +1,49 @@
+{% include 'includes/head.html' %}
+</head>
+<body class="bg-gray-50 dark:bg-gray-900">
+
+{% include 'includes/sidebar.html' %}
+{% include 'includes/header.html' %}
+
+<div class="p-4 sm:ml-64 mt-14">
+
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Facturas</h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-1">Escolha o tipo de factura que pretende emitir ou consultar</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <a href="{% url 'financeiro:factura_lista' %}"
+       class="group block p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-primary/40 transition-all">
+      <div class="flex items-center gap-5">
+        <div class="w-14 h-14 flex items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+          <i class="fas fa-file-invoice text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Facturas Finais</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Emitir e consultar facturas finais</p>
+        </div>
+      </div>
+    </a>
+
+    <a href="{% url 'financeiro:factura_recibo_lista' %}"
+       class="group block p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-primary/40 transition-all">
+      <div class="flex items-center gap-5">
+        <div class="w-14 h-14 flex items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform">
+          <i class="fas fa-money-check-alt text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Facturas-Recibo</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Emitir e consultar facturas-recibo com pagamento imediato</p>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+</div>
+
+{% include 'includes/footer.html' %}
+</body>
+</html>

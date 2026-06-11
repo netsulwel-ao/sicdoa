@@ -28,8 +28,8 @@
           <i class="fas fa-coins text-emerald-600 dark:text-emerald-400 text-xl"></i>
         </div>
         <div>
-          <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">Kz {{ total_arrecadado|floatformat:2 }}</p>
-          <p class="text-xs text-gray-500">Total Arrecadado</p>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Arrecadado</p>
+          <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">Kz {{ total_arrecadado|floatformat:2 }}</p>
         </div>
       </div>
     </div>
@@ -39,8 +39,8 @@
           <i class="fas fa-clock text-amber-600 dark:text-amber-400 text-xl"></i>
         </div>
         <div>
-          <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ quotas_pendentes }}</p>
-          <p class="text-xs text-gray-500">Quotas Pendentes</p>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Quotas Pendentes</p>
+          <p class="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">{{ quotas_pendentes }}</p>
         </div>
       </div>
     </div>
@@ -50,8 +50,8 @@
           <i class="fas fa-exclamation-triangle text-red-600 dark:text-red-400 text-xl"></i>
         </div>
         <div>
-          <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ quotas_em_atraso }}</p>
-          <p class="text-xs text-gray-500">Quotas em Atraso</p>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Quotas em Atraso</p>
+          <p class="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">{{ quotas_em_atraso }}</p>
         </div>
       </div>
     </div>
@@ -61,8 +61,8 @@
           <i class="fas fa-users text-blue-600 dark:text-blue-400 text-xl"></i>
         </div>
         <div>
-          <p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ inadimplentes|length }}</p>
-          <p class="text-xs text-gray-500">Inadimplentes</p>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inadimplentes</p>
+          <p class="text-2xl font-bold mt-1 text-blue-600 dark:text-blue-400">{{ inadimplentes|length }}</p>
         </div>
       </div>
     </div>

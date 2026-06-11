@@ -8,9 +8,6 @@ from django.shortcuts import redirect
 from .models import Banca, Colaborador
 
 
-EMAIL_AUTORIZADO_RH = 'adilsona87@gmail.com'
-
-
 def obter_acesso_admin(request):
     """
     Retorna True se o utilizador em sessão é Administrador do sistema.
@@ -27,7 +24,7 @@ def obter_acesso_rh(request):
     """
     Retorna (banca, colaborador_logado, gestor_filial, is_despachante) ou None.
     Gestores de filial acedem via sessão de colaborador.
-    Apenas o email autorizado pode aceder ao módulo RH como despachante/admin.
+    Despachantes e Administradores acedem via sessão de utilizador.
     """
     if request.session.get('tipo_usuario') == 'colaborador':
         cid = request.session.get('colaborador_id')
@@ -45,10 +42,6 @@ def obter_acesso_rh(request):
 
     uid = request.session.get('usuario_id')
     if uid:
-        # Apenas o email autorizado pode aceder ao RH como despachante/admin
-        email_sessao = request.session.get('usuario', {}).get('email', '')
-        if email_sessao.lower() != EMAIL_AUTORIZADO_RH:
-            return None
         banca = Banca.objects.filter(usuario_id=uid, ativa=True).first()
         if banca:
             return banca, None, None, True
@@ -111,6 +104,9 @@ def filial_id_obrigatoria_gestor(gestor, is_despachante, filial_id_post):
 def redirect_sem_acesso_rh(request):
     if request.session.get('tipo_usuario') == 'colaborador':
         return redirect('dashboard_colaborador')
+    papel = request.session.get('usuario', {}).get('papel', '')
+    if papel == 'Administrador':
+        return redirect('dashboard')
     if Banca.objects.filter(
         usuario_id=request.session.get('usuario_id'), ativa=True,
     ).exists():

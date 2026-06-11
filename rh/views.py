@@ -621,17 +621,23 @@ def _calcular_irt(salario: Decimal) -> Decimal:
 @_requer_sessao
 def banca_view(request):
     """Dashboard da banca com visão geral das filiais, colaboradores e recrutamento."""
+    uid = request.session['usuario_id']
+
+    # Verificar se existe banca (activa ou inactiva)
+    banca = Banca.objects.filter(usuario_id=uid).first()
+    if not banca:
+        return redirect('rh_banca_criar')
+    if not banca.ativa:
+        return render(request, 'rh/banca/bloqueada.html', _ctx(request, 'banca', {
+            'banca': banca,
+        }))
+
     acc = obter_acesso_rh(request)
     if not acc:
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
     if not is_desp:
         return redirect('rh_presencas')
-
-    uid = request.session['usuario_id']
-    banca = Banca.objects.filter(usuario_id=uid, ativa=True).first()
-    if not banca:
-        return redirect('rh_banca_criar')
 
     filiais = list(banca.filiais.filter(ativa=True).order_by('provincia'))
     colaboradores_recentes = list(
@@ -695,8 +701,8 @@ def banca_criar_view(request):
     """Criação da banca (apenas se não existir)."""
     uid = request.session['usuario_id']
 
-    # Verificar se já existe banca
-    if Banca.objects.filter(usuario_id=uid, ativa=True).exists():
+    # Verificar se já existe banca (activa ou inactiva)
+    if Banca.objects.filter(usuario_id=uid).exists():
         return redirect('rh_banca')
 
     def _render(extra=None):
@@ -734,7 +740,9 @@ def banca_criar_view(request):
 def banca_editar_view(request):
     """Edição dos dados da banca."""
     uid = request.session['usuario_id']
-    banca = get_object_or_404(Banca, usuario_id=uid, ativa=True)
+    banca = Banca.objects.filter(usuario_id=uid).first()
+    if not banca or not banca.ativa:
+        return redirect('rh_banca')
 
     def _render(extra=None):
         form_data = {
@@ -1062,13 +1070,19 @@ def colaboradores_view(request):
     if not acc:
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
-    cols = escopo_colaboradores(
-        banca, col_log, gestor, is_desp,
-    ).select_related('filial').prefetch_related('documentos')
-    filiais = (
-        list(banca.filiais.all()) if is_desp
-        else [gestor.filial]
-    )
+    papel = request.session.get('usuario', {}).get('papel', '')
+    # Administrador vê todos os colaboradores de todas as bancas
+    if papel == 'Administrador':
+        cols = Colaborador.objects.all().select_related('filial').prefetch_related('documentos')
+        filiais = []
+    else:
+        cols = escopo_colaboradores(
+            banca, col_log, gestor, is_desp,
+        ).select_related('filial').prefetch_related('documentos')
+        filiais = (
+            list(banca.filiais.all()) if is_desp
+            else [gestor.filial]
+        )
     paginator = Paginator(cols, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -1633,11 +1647,9 @@ def salarios_view(request):
         return redirect('colaborador_salario')
     banca = acc[0]
 
-    from django.db.models import Sum
     todos = banca.processamentos.annotate(
         total_recibos=Count('recibos'),
-        total_liquido_annotated=Sum('recibos__liquido'),
-    ).order_by('-ano', '-mes')
+    ).prefetch_related('recibos').order_by('-ano', '-mes')
 
     paginator = Paginator(todos, 8)
     pagina_num = request.GET.get('pagina', 1)
@@ -2199,6 +2211,23 @@ def vaga_editar_view(request, pk):
                   _ctx(request, 'recrutamento', {
                       'banca': banca, 'vaga': vaga, 'filiais': filiais,
                   }))
+
+
+@_requer_sessao
+def vaga_eliminar_view(request, pk):
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    vaga = get_object_or_404(Vaga, pk=pk, banca=banca)
+    if not pode_aceder_vaga(gestor, is_desp, vaga):
+        messages.error(request, 'Sem permissão para eliminar esta vaga.')
+        return redirect('rh_vagas')
+    if request.method == 'POST':
+        vaga.delete()
+        messages.success(request, f'Vaga "{vaga.titulo}" eliminada com sucesso.')
+        return redirect('rh_vagas')
+    return redirect('rh_vagas')
 
 
 @_requer_sessao

@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'rh',
     'clientes',
     'governanca',
+    'financeiro',
     'channels',
     'django_apscheduler',
 ]
@@ -180,6 +181,17 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# Backends de autenticação (ordem: primeiro custom, depois Django admin padrão)
+AUTHENTICATION_BACKENDS = [
+    'users.auth_backends.UsuarioBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# URLs de Autenticação
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
 # Internacionalização
 LANGUAGE_CODE = 'pt-br'
 TIME_ZONE = 'UTC'
@@ -211,7 +223,7 @@ if REDIS_ENABLED:
     SESSION_CACHE_ALIAS = 'default'
 else:
     SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
-SESSION_COOKIE_AGE = 7200  # 2 horas
+SESSION_COOKIE_AGE = 3600  # 1 hora
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = False

@@ -372,47 +372,114 @@ def dashboard_view(request):
     papel   = usuario.get("papel", "")
 
     from aduaneiro.models import DeclaracaoUnica
+    from clientes.models import Cliente
+    from financeiro.models import RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo
+    from governanca.models import Notificacao
+    from rh.models import Banca
     from django.utils import timezone as tz
-    from django.db.models import Sum
+    from django.db.models import Sum, Q
 
-    # DUs do utilizador (ou todas se Admin)
+    # ── Filtro base por papel ──────────────────────────────────────────────
+    e_gestor = papel in ("Administrador", "Gestor Financeiro")
+
+    # ── 1. Processos Aduaneiros ─────────────────────────────────────────────
     if papel == "Administrador":
         dus_qs = DeclaracaoUnica.objects.all()
     else:
         dus_qs = DeclaracaoUnica.objects.filter(usuario_id=uid)
-
-    # Processos ativos = Rascunho + Submetida + Em Análise
-    dus_ativas = dus_qs.filter(
-        status__in=["Rascunho", "Submetida", "Em Análise"]
-    ).order_by("-created_at")
-
-    paginator = Paginator(dus_ativas, 8)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    # Contadores para os cards
-    total_ativos    = dus_qs.filter(status__in=["Rascunho", "Submetida", "Em Análise"]).count()
-    total_concluidos = dus_qs.filter(
-        status="Aprovada",
-        created_at__month=tz.now().month,
-        created_at__year=tz.now().year,
-    ).count()
-    total_geral_mes = dus_qs.filter(
-        created_at__month=tz.now().month,
-        created_at__year=tz.now().year,
+    dus_ativas = dus_qs.order_by("-created_at")[:8]
+    stats_dus_total = dus_qs.count()
+    stats_dus_ativos = dus_qs.filter(status__in=["Rascunho", "Submetida", "Em Análise"]).count()
+    stats_dus_mes = dus_qs.filter(
+        created_at__month=tz.now().month, created_at__year=tz.now().year,
     ).aggregate(total=Sum('total_geral'))['total'] or 0
+
+    # ── 2. Clientes ────────────────────────────────────────────────────────
+    if e_gestor:
+        clientes_qs = Cliente.objects.all()
+    else:
+        clientes_qs = Cliente.objects.filter(usuario_id=uid)
+    stats_clientes = clientes_qs.filter(ativo=True).count()
+
+    # ── 3. Facturação do mês ───────────────────────────────────────────────
+    if e_gestor:
+        fact_mes_qs = FacturaCliente.objects.all()
+    else:
+        fact_mes_qs = FacturaCliente.objects.filter(cliente__usuario_id=uid)
+    fact_mes = fact_mes_qs.filter(
+        data_emissao__month=tz.now().month, data_emissao__year=tz.now().year,
+    ).aggregate(total=Sum('valor_total'), qtd=Sum(1))  # Sum(1) won't work for count, use count
+    stats_fact_valor = fact_mes['total'] or 0
+    stats_fact_qtd = fact_mes_qs.filter(
+        data_emissao__month=tz.now().month, data_emissao__year=tz.now().year,
+    ).count()
+
+    # ── 4. Requisições Pendentes ───────────────────────────────────────────
+    if e_gestor:
+        req_pend_qs = RequisicaoFundo.objects.filter(estado__in=['Pendente', 'Em Aprovação'])
+    else:
+        req_pend_qs = RequisicaoFundo.objects.filter(
+            Q(estado__in=['Pendente', 'Em Aprovação']) &
+            (Q(solicitante_id=uid) | Q(cliente__usuario_id=uid))
+        )
+    stats_requisicoes_pendentes = req_pend_qs.count()
+
+    # ── 5. Colaboradores ────────────────────────────────────────────────────
+    if e_gestor:
+        cols_qs = Colaborador.objects.all()
+    else:
+        banca = Banca.objects.filter(usuario_id=uid, ativa=True).first()
+        cols_qs = Colaborador.objects.filter(banca=banca) if banca else Colaborador.objects.none()
+    stats_colab_total = cols_qs.count()
+    stats_colab_ativos = cols_qs.filter(estado='Ativo').count()
+
+    # ── 6. Notificações ─────────────────────────────────────────────────────
+    stats_notificacoes = Notificacao.objects.filter(
+        usuario_id=uid, lida=False
+    ).count()
+
+    # ── Pendentes de Aprovação (NC + ND) ───────────────────────────────────
+    if e_gestor:
+        nc_pend = NotaCredito.objects.filter(estado='Pendente').count()
+        nd_pend = NotaDebito.objects.filter(estado='Pendente').count()
+    else:
+        nc_pend = NotaCredito.objects.filter(estado='Pendente', cliente__usuario_id=uid).count()
+        nd_pend = NotaDebito.objects.filter(estado='Pendente', cliente__usuario_id=uid).count()
+    stats_nc_pendentes = nc_pend
+    stats_nd_pendentes = nd_pend
+
+    # ── Top devedores (clientes com maior saldo_conta_corrente) ────────────
+    top_devedores = clientes_qs.filter(ativo=True, saldo_conta_corrente__gt=0
+    ).order_by('-saldo_conta_corrente')[:5]
+
+    # ── Actividade recente (últimos históricos financeiros) ─────────────────
+    from financeiro.models import HistoricoFinanceiro
+    if e_gestor:
+        recente = HistoricoFinanceiro.objects.order_by('-data')[:10]
+    else:
+        recente = HistoricoFinanceiro.objects.filter(utilizador_id=uid).order_by('-data')[:10]
 
     return render(request, "dashbord.html", {
         "usuario": usuario,
         "nome": usuario["nome"],
-        "papel": usuario["papel"],
+        "papel": papel,
         "active_menu": "Dashboard",
         "tempo_restante_sessao": tempo_restante_sessao(request),
-        "dus_ativas": page_obj,
-        "page_obj": page_obj,
-        "total_ativos": total_ativos,
-        "total_concluidos": total_concluidos,
-        "total_geral_mes": total_geral_mes,
+        "dus_ativas": dus_ativas,
+        "stats_dus_total": stats_dus_total,
+        "stats_dus_ativos": stats_dus_ativos,
+        "stats_dus_mes": stats_dus_mes,
+        "stats_clientes": stats_clientes,
+        "stats_fact_valor": stats_fact_valor,
+        "stats_fact_qtd": stats_fact_qtd,
+        "stats_requisicoes_pendentes": stats_requisicoes_pendentes,
+        "stats_colab_total": stats_colab_total,
+        "stats_colab_ativos": stats_colab_ativos,
+        "stats_notificacoes": stats_notificacoes,
+        "stats_nc_pendentes": stats_nc_pendentes,
+        "stats_nd_pendentes": stats_nd_pendentes,
+        "top_devedores": top_devedores,
+        "recente": recente,
     })
 
 

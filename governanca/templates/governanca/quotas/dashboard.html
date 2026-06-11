@@ -31,26 +31,32 @@
   {% endif %}
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-      <div class="flex items-center gap-3 mb-3">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3">
         <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg"><i class="fas fa-check-circle text-green-600 text-xl"></i></div>
-        <div><p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ total_quotas|default:"0" }}</p><p class="text-sm text-gray-500">Total de Quotas</p></div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total de Quotas</p>
+          <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ total_quotas|default:"0" }}</p>
+        </div>
       </div>
     </div>
-    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-      <div class="flex items-center gap-3 mb-3">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3">
         <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg"><i class="fas fa-clock text-yellow-600 text-xl"></i></div>
-        <div><p class="text-2xl font-bold text-[#111418] dark:text-gray-200">{{ quotas_pendentes }}</p><p class="text-sm text-gray-500">Pendentes</p></div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pendentes</p>
+          <p class="text-2xl font-bold mt-1 text-yellow-600 dark:text-yellow-400">{{ quotas_pendentes }}</p>
+        </div>
       </div>
     </div>
-    <div class="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-      <div class="flex items-center gap-3 mb-3">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3">
         <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><i class="fas fa-id-card text-blue-600 text-xl"></i></div>
         <div>
-          <p class="text-sm font-bold text-[#111418] dark:text-gray-200">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</p>
+          <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">
             {% if carteira %}{{ carteira.numero_carteira }}{% else %}—{% endif %}
           </p>
-          <p class="text-xs text-gray-500">{% if carteira %}Válida até {{ carteira.data_validade|date:"d/m/Y" }}{% else %}Sem carteira{% endif %}</p>
         </div>
       </div>
     </div>

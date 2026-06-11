@@ -11,6 +11,8 @@ class Cliente(models.Model):
     telefone = models.CharField(max_length=30, blank=True, default='', verbose_name='Telefone')
     email = models.EmailField(blank=True, default='', verbose_name='Email')
     observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
+    limite_financeiro = models.DecimalField(max_digits=15, decimal_places=2, default=0.00, verbose_name='Limite Financeiro por Cliente')
+    saldo_conta_corrente = models.DecimalField(max_digits=15, decimal_places=2, default=0.00, verbose_name='Saldo da Conta Corrente')
     usuario_id = models.IntegerField(null=True, blank=True, db_index=True, verbose_name='ID do Despachante')
     ativo = models.BooleanField(default=True, verbose_name='Ativo')
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Data de Criação')

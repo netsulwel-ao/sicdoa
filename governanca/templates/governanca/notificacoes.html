@@ -12,6 +12,10 @@
         <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ nao_lidas }} não lida{{ nao_lidas|pluralize:"s" }}</p>
       </div>
       <div class="flex items-center gap-2">
+        <button id="notif-marcar-todas-page"
+          class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 {% if not nao_lidas %}hidden{% endif %}">
+          <i class="fas fa-check-double mr-1"></i>Marcar todas como lidas
+        </button>
         {% include 'includes/view-toggle.html' %}
         <button id="filtrar-nao-lidas"
           class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-primary text-white shadow-sm">
@@ -27,7 +31,7 @@
     <div class="max-w-3xl space-y-2" id="notificacoes-lista" data-view-container>
       <div data-grid-view>
       {% for n in notificacoes %}
-      <div class="notif-item bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex items-start gap-4 transition-all duration-200 {% if not n.lida %}border-l-4 border-l-primary notif-nao-lida{% endif %}">
+      <div data-notif-id="{{ n.id }}" class="notif-item bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex items-start gap-4 transition-all duration-200 {% if not n.lida %}border-l-4 border-l-primary notif-nao-lida{% endif %}">
         <div class="w-10 h-10 rounded-lg {% if n.lida %}bg-gray-100 dark:bg-gray-800{% else %}bg-primary/10{% endif %} flex items-center justify-center shrink-0">
           <i class="fas {% if n.tipo == 'assembleia_agendada' %}fa-calendar-alt{% elif n.tipo == 'ata_publicada' %}fa-file-alt{% elif n.tipo == 'procuracao' %}fa-vote-yea{% elif n.tipo == 'quota_gerada' %}fa-wallet{% elif n.tipo == 'pagamento_confirmado' %}fa-check-circle{% elif n.tipo == 'certidao_emitida' %}fa-certificate{% elif n.tipo == 'carteira_expirada' %}fa-id-card{% elif n.tipo == 'estado_suspenso' %}fa-pause-circle{% elif n.tipo == 'estado_regularizado' %}fa-check-double{% else %}fa-bell{% endif %} {% if n.lida %}text-gray-400{% else %}text-primary{% endif %}"></i>
         </div>
@@ -73,7 +77,7 @@
           </thead>
           <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
             {% for n in notificacoes %}
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors {% if not n.lida %}bg-primary/5{% endif %}">
+            <tr data-notif-id="{{ n.id }}" class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors {% if not n.lida %}bg-primary/5{% endif %}">
               <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ n.titulo }}</td>
               <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ n.created_at|date:"d/m/Y H:i" }}</td>
               <td class="px-4 py-3">
@@ -120,9 +124,22 @@
 
 <script>
 (function() {
+  const csrf = () => document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
   const btnNaoLidas = document.getElementById('filtrar-nao-lidas');
   const btnTodas = document.getElementById('filtrar-todas');
+  const btnMarcarTodasPage = document.getElementById('notif-marcar-todas-page');
+  const counterEl = document.getElementById('notif-counter');
   const items = document.querySelectorAll('.notif-item');
+
+  function updateCounter() {
+    const naoLidas = document.querySelectorAll('.notif-item.notif-nao-lida').length;
+    if (counterEl) {
+      counterEl.textContent = naoLidas === 0 ? 'Nenhuma' : naoLidas + (naoLidas === 1 ? ' não lida' : ' não lidas');
+    }
+    if (btnMarcarTodasPage) {
+      btnMarcarTodasPage.classList.toggle('hidden', naoLidas === 0);
+    }
+  }
 
   function updateButtons(ativo) {
     [btnNaoLidas, btnTodas].forEach(b => {
@@ -150,23 +167,61 @@
     updateButtons('todas');
   });
 
-  // Marcar como lida inline
-  document.querySelectorAll('.notif-marcar-lida').forEach(btn => {
-    btn.addEventListener('click', async function() {
-      const id = this.dataset.id;
-      try {
-        const res = await fetch('/governanca/api/notificacoes/marcar-lida/' + id + '/', {
-          method: 'POST',
-          headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '' }
-        });
-        if (res.ok) {
-          const item = this.closest('.notif-item');
-          item.classList.remove('notif-nao-lida', 'border-l-4', 'border-l-primary');
-          this.remove();
+  function marcarLida(id, btn) {
+    return fetch('/governanca/api/notificacoes/marcar-lida/' + id + '/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf() }
+    }).then(function(res) {
+      if (!res.ok) throw new Error('Erro ao marcar como lida');
+      document.querySelectorAll('[data-notif-id="' + id + '"]').forEach(function(el) {
+        if (el.classList.contains('notif-item')) {
+          el.classList.remove('notif-nao-lida', 'border-l-4', 'border-l-primary');
+        } else if (el.tagName === 'TR') {
+          el.classList.remove('bg-primary/5');
+          var statusCell = el.querySelector('td:nth-child(3)');
+          if (statusCell) statusCell.innerHTML = '<span class="text-xs text-gray-400"><i class="fas fa-check-circle mr-1"></i>Lida</span>';
+          var actionsCell = el.querySelector('td:nth-child(4)');
+          if (actionsCell) {
+            var b = actionsCell.querySelector('.notif-marcar-lida');
+            if (b) b.remove();
+          }
         }
-      } catch(e) {}
+      });
+      btn.remove();
+      updateCounter();
+    });
+  }
+
+  document.querySelectorAll('.notif-marcar-lida').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      marcarLida(this.dataset.id, this).catch(function(e) { console.error(e); });
     });
   });
+
+  // Marcar todas como lidas
+  if (btnMarcarTodasPage) {
+    btnMarcarTodasPage.addEventListener('click', function() {
+      var btns = document.querySelectorAll('.notif-marcar-lida');
+      if (btns.length === 0) return;
+      var origText = this.innerHTML;
+      this.disabled = true;
+      this.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>';
+
+      var promises = [];
+      btns.forEach(function(btn) {
+        var id = btn.dataset.id;
+        promises.push(marcarLida(id, btn).catch(function(e) {
+          console.error('Falha ao marcar notificação ' + id, e);
+        }));
+      });
+
+      Promise.all(promises).then(function() {
+        btnMarcarTodasPage.disabled = false;
+        btnMarcarTodasPage.innerHTML = origText;
+        btnMarcarTodasPage.classList.add('hidden');
+      });
+    });
+  }
 })();
 </script>
 

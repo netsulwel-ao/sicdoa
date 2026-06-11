@@ -1,0 +1,167 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5 flex-wrap">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'governanca_gerir_utilizadores' %}" class="hover:text-primary transition-colors">Utilizadores</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">Novo Utilizador</span>
+    </div>
+
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Novo Utilizador</h1>
+        <p class="text-gray-500 mt-1 text-sm">Preencha os dados para registar um novo utilizador no sistema</p>
+      </div>
+      <a href="{% url 'governanca_gerir_utilizadores' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+    </div>
+
+    <form method="POST" class="space-y-6">
+      {% csrf_token %}
+
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-user-plus text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Dados do Utilizador</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Tipo de Utilizador <span class="text-red-500">*</span>
+            </label>
+            <select id="input-tipo" name="tipo" required
+                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    onchange="mudarTipo()">
+              <option value="">Selecionar tipo...</option>
+              <option value="despachante" {% if request.POST.tipo == 'despachante' %}selected{% endif %}>Despachante Oficial</option>
+              <option value="colaborador" {% if request.POST.tipo == 'colaborador' %}selected{% endif %}>Colaborador Institucional</option>
+              <option value="outro" {% if request.POST.tipo == 'outro' %}selected{% endif %}>Outro</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Nome <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="nome" required value="{{ request.POST.nome|default:'' }}"
+                   placeholder="Nome completo"
+                   class="w-full px-4 py-3 rounded-xl border-2 {% if erros.nome %}border-red-400 bg-red-50{% else %}border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800{% endif %} text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            {% if erros.nome %}<p class="text-xs text-red-600 mt-1">{{ erros.nome }}</p>{% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Email <span class="text-red-500">*</span>
+            </label>
+            <input type="email" name="email" required value="{{ request.POST.email|default:'' }}"
+                   placeholder="email@exemplo.ao"
+                   class="w-full px-4 py-3 rounded-xl border-2 {% if erros.email %}border-red-400 bg-red-50{% else %}border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800{% endif %} text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            {% if erros.email %}<p class="text-xs text-red-600 mt-1">{{ erros.email }}</p>{% endif %}
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+            <input type="text" name="telefone" value="{{ request.POST.telefone|default:'' }}"
+                   placeholder="+244 923 456 789"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">NIF</label>
+            <input type="text" name="nif" value="{{ request.POST.nif|default:'' }}"
+                   placeholder="Número de Identificação Fiscal"
+                   class="w-full px-4 py-3 rounded-xl border-2 {% if erros.nif %}border-red-400 bg-red-50{% else %}border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800{% endif %} text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            {% if erros.nif %}<p class="text-xs text-red-600 mt-1">{{ erros.nif }}</p>{% endif %}
+          </div>
+
+          <div id="field-cedula" class="hidden">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Cédula CDOA <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="cedula" value="{{ request.POST.cedula|default:'' }}"
+                   placeholder="Número de cédula profissional"
+                   class="w-full px-4 py-3 rounded-xl border-2 {% if erros.cedula %}border-red-400 bg-red-50{% else %}border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800{% endif %} text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            {% if erros.cedula %}<p class="text-xs text-red-600 mt-1">{{ erros.cedula }}</p>{% endif %}
+          </div>
+
+          <div id="field-area" class="hidden">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Área de Actuação</label>
+            <input type="text" name="area_actuacao" value="{{ request.POST.area_actuacao|default:'' }}"
+                   placeholder="Ex: Informática, Administrativo, Limpeza..."
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+          </div>
+
+          <div id="field-salario" class="hidden">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Salário Base (Kz)</label>
+            <input type="text" name="salario_base" value="{{ request.POST.salario_base|default:'' }}"
+                   placeholder="Ex: 150000"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+          </div>
+
+          <div id="field-nome-tipo" class="hidden">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Nome do Tipo <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="nome_tipo" value="{{ request.POST.nome_tipo|default:'' }}"
+                   placeholder="Ex: Administrador Financeiro, Secretário..."
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            <p class="text-xs text-gray-400 mt-1">O utilizador será criado como Visualizador. Depois atribua as permissões na página de detalhe.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-lock text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Acesso ao Sistema</h2>
+        </div>
+        <div class="p-6">
+          <div class="flex items-start gap-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+            <i class="fas fa-info-circle text-blue-600 text-2xl flex-shrink-0 mt-0.5"></i>
+            <div>
+              <p class="text-sm font-semibold text-blue-900 dark:text-blue-200">Credenciais enviadas por email</p>
+              <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                Uma senha temporária será gerada e enviada automaticamente para o email do utilizador.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3">
+        <a href="{% url 'governanca_gerir_utilizadores' %}"
+           class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+          Cancelar
+        </a>
+        <button type="submit"
+                class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+          <i class="fas fa-user-plus text-lg"></i>
+          Criar Utilizador
+        </button>
+      </div>
+
+    </form>
+  </main>
+</div>
+
+<script>
+function mudarTipo() {
+  var v = document.getElementById('input-tipo').value;
+  document.getElementById('field-cedula').classList.toggle('hidden', v !== 'despachante');
+  document.getElementById('field-area').classList.toggle('hidden', v !== 'colaborador');
+  document.getElementById('field-salario').classList.toggle('hidden', v !== 'colaborador');
+  document.getElementById('field-nome-tipo').classList.toggle('hidden', v !== 'outro');
+}
+mudarTipo();
+</script>
+
+{% include 'includes/footer.html' %}

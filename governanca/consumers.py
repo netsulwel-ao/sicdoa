@@ -14,6 +14,11 @@ def _usuario_tem_permissao_async(usuario, codigo):
     from users.permissoes import usuario_obj_tem_permissao
     return usuario_obj_tem_permissao(usuario, codigo)
 
+
+@database_sync_to_async
+def _actualizar_actividade_assembleia(assembleia_pk):
+    Assembleia.objects.filter(pk=assembleia_pk).update(ultima_actividade=timezone.now())
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,6 +49,7 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
         if self.usuario:
             await self._registar_presenca()
             await self._log_assembleia_async('entrada', {'channel': self.channel_name})
+            await _actualizar_actividade_assembleia(self.assembleia_pk)
             await self._broadcast_quorum()
             await self._enviar_historico_chat()
             await self._enviar_estado_votacao()
@@ -105,6 +111,8 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
         handler = handlers.get(action)
         if handler:
             await handler(data)
+            if self.usuario:
+                await _actualizar_actividade_assembleia(self.assembleia_pk)
 
     async def _handle_ping(self, data):
         await self.send(text_data=json.dumps({'action': 'pong'}))

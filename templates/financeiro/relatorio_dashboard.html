@@ -1,0 +1,108 @@
+{% load static %}
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ report_name }}</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ report_subtitle }}</p>
+      </div>
+    </div>
+
+    <!-- KPIs principais -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <div class="flex items-center gap-3">
+          <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><i class="fas fa-file-invoice"></i></div>
+          <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Facturado</p>
+            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ total_facturado }} Kz</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <div class="flex items-center gap-3">
+          <div class="size-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400"><i class="fas fa-money-bill-wave"></i></div>
+          <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Recebido</p>
+            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ total_recebido }} Kz</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <div class="flex items-center gap-3">
+          <div class="size-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400"><i class="fas fa-balance-scale"></i></div>
+          <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saldo CC Geral</p>
+            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ saldo_cc }} Kz</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <div class="flex items-center gap-3">
+          <div class="size-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400"><i class="fas fa-percentage"></i></div>
+          <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Margem Recebimento</p>
+            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ margem_recebimento }}%</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Indicadores secundários -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Facturas</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Pagas</span><span class="font-medium text-emerald-600 dark:text-emerald-400">{{ total_facturas_pagas }}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Pendentes / Parciais</span><span class="font-medium text-amber-600 dark:text-amber-400">{{ total_facturas_pendentes }}</span></div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Clientes</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Total</span><span class="font-medium">{{ total_clientes }}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Com Dívida</span><span class="font-medium text-red-600 dark:text-red-400">{{ clientes_com_divida }}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Taxa Inadimplência</span><span class="font-medium text-amber-600 dark:text-amber-400">{{ taxa_inadimplencia }}%</span></div>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Resumo Financeiro</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Receita Bruta</span><span class="font-medium">{{ total_facturado }} Kz</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">Receita Recebida</span><span class="font-medium text-emerald-600 dark:text-emerald-400">{{ total_recebido }} Kz</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">A Receber</span><span class="font-medium text-amber-600 dark:text-amber-400">{{ saldo_cc }} Kz</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Links rápidos para relatórios executivos -->
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+      <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Relatórios Executivos</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <a href="{% url 'financeiro:relatorio_indicadores_cobranca' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-primary/5 border border-gray-200 dark:border-gray-700 transition-colors">
+          <i class="fas fa-chart-line text-primary"></i>
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Indicadores de Cobrança</span>
+        </a>
+        <a href="{% url 'financeiro:relatorio_receita_cliente' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-primary/5 border border-gray-200 dark:border-gray-700 transition-colors">
+          <i class="fas fa-user text-primary"></i>
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Receita por Cliente</span>
+        </a>
+        <a href="{% url 'financeiro:relatorio_receita_localizacao' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-primary/5 border border-gray-200 dark:border-gray-700 transition-colors">
+          <i class="fas fa-map-marker-alt text-primary"></i>
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Receita por Localização</span>
+        </a>
+        <a href="{% url 'financeiro:relatorio_receita_despachante' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-primary/5 border border-gray-200 dark:border-gray-700 transition-colors">
+          <i class="fas fa-user-tie text-primary"></i>
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Receita por Despachante</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+{% include 'includes/footer.html' %}
+</div>

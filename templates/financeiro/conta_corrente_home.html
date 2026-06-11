@@ -1,0 +1,75 @@
+{% include 'includes/head.html' %}
+</head>
+<body class="bg-gray-50 dark:bg-gray-900">
+
+{% include 'includes/sidebar.html' %}
+{% include 'includes/header.html' %}
+
+<div class="p-4 sm:ml-64 mt-14">
+
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Conta Corrente</h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-1">Escolha o tipo de consulta que pretende visualizar</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <a href="{% url 'financeiro:conta_corrente_cliente_lista' %}"
+       class="group block p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-primary/40 transition-all">
+      <div class="flex items-center gap-5">
+        <div class="w-14 h-14 flex items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+          <i class="fas fa-exchange-alt text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Conta Corrente por Cliente</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Consultar movimentos e saldo de um cliente específico</p>
+        </div>
+      </div>
+    </a>
+
+    <a href="{% url 'financeiro:conta_corrente_geral' %}"
+       class="group block p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-primary/40 transition-all">
+      <div class="flex items-center gap-5">
+        <div class="w-14 h-14 flex items-center justify-center rounded-xl bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform">
+          <i class="fas fa-users text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">Conta Corrente Geral</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Visão consolidada de todos os clientes com saldos totais</p>
+        </div>
+      </div>
+    </a>
+
+    <a href="{% url 'financeiro:conta_corrente_mensal' %}"
+       class="group block p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-primary/40 transition-all">
+      <div class="flex items-center gap-5">
+        <div class="w-14 h-14 flex items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+          <i class="fas fa-calendar-alt text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">C. Corrente Mensal</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Movimentos agrupados por mês com totais mensais</p>
+        </div>
+      </div>
+    </a>
+
+    <a href="{% url 'financeiro:conta_corrente_periodica' %}"
+       class="group block p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-primary/40 transition-all">
+      <div class="flex items-center gap-5">
+        <div class="w-14 h-14 flex items-center justify-center rounded-xl bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 group-hover:scale-110 transition-transform">
+          <i class="fas fa-chart-bar text-2xl"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">C. Corrente Periódica</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Análise por período com gráficos e exportação</p>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+</div>
+
+{% include 'includes/footer.html' %}
+</body>
+</html>

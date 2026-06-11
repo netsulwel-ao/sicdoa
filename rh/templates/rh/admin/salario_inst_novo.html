@@ -1,0 +1,51 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white mb-6"><i class="fas fa-plus-circle text-primary mr-2"></i>Novo Processamento Salarial</h1>
+    <form method="POST" class="max-w-md space-y-4">
+      {% csrf_token %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Mês</label>
+          <select name="mes" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <option value="1">01</option>
+            <option value="2">02</option>
+            <option value="3">03</option>
+            <option value="4">04</option>
+            <option value="5">05</option>
+            <option value="6">06</option>
+            <option value="7">07</option>
+            <option value="8">08</option>
+            <option value="9">09</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12" selected>12</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Ano</label>
+          <select name="ano" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+            <option value="2026" selected>2026</option>
+            <option value="2027">2027</option>
+            <option value="2028">2028</option>
+          </select>
+        </div>
+        <div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+          <p class="text-sm text-blue-800 dark:text-blue-200">
+            <i class="fas fa-info-circle mr-1"></i>
+            Serão processados salários para todos os colaboradores ativos que tenham salário base definido.
+          </p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3">
+        <a href="{% url 'rh_admin_salarios_inst' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50">Cancelar</a>
+        <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90">Processar</button>
+      </div>
+    </form>
+  </main>
+</div>
+{% include 'includes/footer.html' %}

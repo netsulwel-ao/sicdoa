@@ -31,21 +31,41 @@
 
 <!-- Estatísticas -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-5 text-white shadow-sm">
-    <p class="text-blue-100 text-sm font-medium">Colaboradores</p>
-    <p class="text-3xl font-black mt-1">{{ total_colaboradores }}</p>
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-primary/10"><i class="fas fa-users text-primary text-xl"></i></div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Colaboradores</p>
+        <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ total_colaboradores }}</p>
+      </div>
+    </div>
   </div>
-  <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-5 text-white shadow-sm">
-    <p class="text-green-100 text-sm font-medium">Filiais Activas</p>
-    <p class="text-3xl font-black mt-1">{{ total_filiais }}</p>
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-green-50 dark:bg-green-900/20"><i class="fas fa-building text-green-600 dark:text-green-400 text-xl"></i></div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filiais Activas</p>
+        <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ total_filiais }}</p>
+      </div>
+    </div>
   </div>
-  <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl p-5 text-white shadow-sm">
-    <p class="text-purple-100 text-sm font-medium">Na Sede</p>
-    <p class="text-3xl font-black mt-1">{{ colaboradores_stats.0.total|default:0 }}</p>
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-900/20"><i class="fas fa-home text-purple-600 dark:text-purple-400 text-xl"></i></div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Na Sede</p>
+        <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ colaboradores_stats.0.total|default:0 }}</p>
+      </div>
+    </div>
   </div>
-  <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-5 text-white shadow-sm">
-    <p class="text-amber-100 text-sm font-medium">Nas Filiais</p>
-    <p class="text-3xl font-black mt-1">{{ colaboradores_filiais|default:0 }}</p>
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20"><i class="fas fa-store text-amber-600 dark:text-amber-400 text-xl"></i></div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nas Filiais</p>
+        <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ colaboradores_filiais|default:0 }}</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -62,40 +82,48 @@
   </div>
   
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-      <div class="flex items-center gap-2 mb-2">
-        <i class="fas fa-briefcase text-blue-600 text-base"></i>
-        <p class="text-blue-700 dark:text-blue-300 text-sm font-medium">Vagas Abertas</p>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20"><i class="fas fa-briefcase text-blue-600 dark:text-blue-400 text-xl"></i></div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Vagas Abertas</p>
+          <p class="text-2xl font-bold mt-1 text-blue-600 dark:text-blue-400">{{ vagas_abertas }}</p>
+          <p class="text-xs text-gray-500 mt-1">de {{ total_vagas }} total</p>
+        </div>
       </div>
-      <p class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ vagas_abertas }}</p>
-      <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">de {{ total_vagas }} total</p>
     </div>
     
-    <div class="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
-      <div class="flex items-center gap-2 mb-2">
-        <i class="fas fa-user-search text-green-600 text-base"></i>
-        <p class="text-green-700 dark:text-green-300 text-sm font-medium">Candidaturas</p>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-green-50 dark:bg-green-900/20"><i class="fas fa-user-search text-green-600 dark:text-green-400 text-xl"></i></div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Candidaturas</p>
+          <p class="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{{ total_candidaturas }}</p>
+          <p class="text-xs text-gray-500 mt-1">{{ candidaturas_pendentes }} pendentes</p>
+        </div>
       </div>
-      <p class="text-2xl font-bold text-green-900 dark:text-green-100">{{ total_candidaturas }}</p>
-      <p class="text-xs text-green-600 dark:text-green-400 mt-1">{{ candidaturas_pendentes }} pendentes</p>
     </div>
     
-    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
-      <div class="flex items-center gap-2 mb-2">
-        <i class="fas fa-video text-purple-600 text-base"></i>
-        <p class="text-purple-700 dark:text-purple-300 text-sm font-medium">Entrevistas</p>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-900/20"><i class="fas fa-video text-purple-600 dark:text-purple-400 text-xl"></i></div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Entrevistas</p>
+          <p class="text-2xl font-bold mt-1 text-purple-600 dark:text-purple-400">{{ entrevistas_agendadas }}</p>
+          <p class="text-xs text-gray-500 mt-1">agendadas</p>
+        </div>
       </div>
-      <p class="text-2xl font-bold text-purple-900 dark:text-purple-100">{{ entrevistas_agendadas }}</p>
-      <p class="text-xs text-purple-600 dark:text-purple-400 mt-1">agendadas</p>
     </div>
     
-    <div class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
-      <div class="flex items-center gap-2 mb-2">
-        <i class="fas fa-user-check text-amber-600 text-base"></i>
-        <p class="text-amber-700 dark:text-amber-300 text-sm font-medium">Aprovados</p>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20"><i class="fas fa-user-check text-amber-600 dark:text-amber-400 text-xl"></i></div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aprovados</p>
+          <p class="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">{{ candidatos_aprovados }}</p>
+          <p class="text-xs text-gray-500 mt-1">{{ integracoes_em_curso }} em integração</p>
+        </div>
       </div>
-      <p class="text-2xl font-bold text-amber-900 dark:text-amber-100">{{ candidatos_aprovados }}</p>
-      <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">{{ integracoes_em_curso }} em integração</p>
     </div>
   </div>
 </div>

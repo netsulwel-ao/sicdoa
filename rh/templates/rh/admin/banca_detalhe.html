@@ -85,21 +85,41 @@
 
 <!-- Estatísticas -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-5 text-white shadow-sm">
-    <p class="text-blue-100 text-sm font-medium">Colaboradores</p>
-    <p class="text-3xl font-black mt-1">{{ total_colaboradores }}</p>
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-primary/10"><i class="fas fa-users text-primary text-xl"></i></div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Colaboradores</p>
+        <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ total_colaboradores }}</p>
+      </div>
+    </div>
   </div>
-  <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-5 text-white shadow-sm">
-    <p class="text-green-100 text-sm font-medium">Ativos</p>
-    <p class="text-3xl font-black mt-1">{{ total_ativos }}</p>
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-green-50 dark:bg-green-900/20"><i class="fas fa-check-circle text-green-600 dark:text-green-400 text-xl"></i></div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ativos</p>
+        <p class="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{{ total_ativos }}</p>
+      </div>
+    </div>
   </div>
-  <div class="bg-gradient-to-br from-gray-500 to-gray-700 rounded-2xl p-5 text-white shadow-sm">
-    <p class="text-gray-200 text-sm font-medium">Inativos/Outros</p>
-    <p class="text-3xl font-black mt-1">{{ total_inativos }}</p>
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800"><i class="fas fa-user-slash text-gray-600 dark:text-gray-400 text-xl"></i></div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inativos/Outros</p>
+        <p class="text-2xl font-bold mt-1 text-gray-600 dark:text-gray-400">{{ total_inativos }}</p>
+      </div>
+    </div>
   </div>
-  <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl p-5 text-white shadow-sm">
-    <p class="text-purple-100 text-sm font-medium">Filiais</p>
-    <p class="text-3xl font-black mt-1">{{ total_filiais }}</p>
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-900/20"><i class="fas fa-building text-purple-600 dark:text-purple-400 text-xl"></i></div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filiais</p>
+        <p class="text-2xl font-bold mt-1 text-purple-600 dark:text-purple-400">{{ total_filiais }}</p>
+      </div>
+    </div>
   </div>
 </div>
 
