@@ -4,7 +4,7 @@
 # automaticamente quando a data/hora agendada chegar.
 # ═══════════════════════════════════════════════════════════════
 
-$ProjectPath = "C:\Users\Ramos Francisco\Downloads\sicdoa_version_python-master"
+$ProjectPath = "C:\Users\Ramos Francisco\Documents\projects\sicdoa"
 $PythonExe = "python"
 $Command = "manage.py iniciar_assembleias"
 $TaskName = "CDOA-IniciarAssembleias"

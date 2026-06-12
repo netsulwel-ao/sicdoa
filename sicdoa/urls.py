@@ -2,9 +2,22 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.shortcuts import render
 from users import views as user_views
 from users import views_session as session_views
 from rh import views_public
+
+
+def _error500(request):
+    return render(request, '500.html', status=500)
+
+
+def _error404(request, exception=None):
+    return render(request, '404.html', status=404)
+
+
+handler500 = _error500
+handler404 = _error404
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -35,6 +48,18 @@ urlpatterns = [
     
     # Teste de Email
     path('testar-email/', user_views.testar_email_view, name='testar_email'),
+
+    # Gestão de Funções
+    path('users/funcoes/', user_views.funcoes_lista_view, name='funcoes_lista'),
+    path('users/funcoes/novo/', user_views.funcao_novo_view, name='funcao_novo'),
+    path('users/funcoes/<int:pk>/editar/', user_views.funcao_editar_view, name='funcao_editar'),
+    path('users/funcoes/<int:pk>/permissoes/', user_views.funcao_permissoes_view, name='funcao_permissoes'),
+    path('users/funcoes/<int:pk>/eliminar/', user_views.funcao_eliminar_view, name='funcao_eliminar'),
+    path('users/api/funcoes/permissoes/', user_views.api_funcao_permissoes, name='funcao_api_permissoes'),
+    path('users/api/funcoes/<int:pk>/permissoes/', user_views.api_funcao_listar_permissoes, name='funcao_api_listar_permissoes'),
+
+    # Logs de Atividade
+    path('logs/', user_views.logs_atividade_view, name='logs_atividade'),
 
     # Gestão de Sessão
     path('extend-session/', session_views.extend_session_view, name='extend_session'),

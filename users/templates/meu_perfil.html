@@ -41,10 +41,12 @@
                 <i class="fas fa-user text-primary"></i>
                 Dados Pessoais
               </h2>
+              {% if pode_editar_perfil %}
               <button onclick="abrirModal('modalEditarDados')"
                 class="flex items-center gap-1 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors">
                 <i class="fas fa-edit text-sm"></i> Editar
               </button>
+              {% endif %}
             </div>
             <div class="grid grid-cols-2 gap-5">
               <div>
@@ -106,26 +108,6 @@
                   {{ usuario.status }}
                 </span>
               </div>
-              {% if cargo_info %}
-              <div class="col-span-2">
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cargo na Direção</p>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
-                    <i class="fas fa-user-tie text-xs"></i>
-                    {{ cargo_info.nome }}
-                  </span>
-                  {% if cargo_info.descricao %}
-                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ cargo_info.descricao }}</span>
-                  {% endif %}
-                </div>
-                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
-                  <p><span class="font-medium">Atribuído em:</span> {{ cargo_info.atribuido_em|date:"d/m/Y H:i" }}</p>
-                  {% if cargo_info.atribuido_por %}
-                  <p><span class="font-medium">Atribuído por:</span> {{ cargo_info.atribuido_por }}</p>
-                  {% endif %}
-                </div>
-              </div>
-              {% endif %}
               {% if usuario.ultimo_acesso %}
               <div class="col-span-2">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Último Acesso</p>
@@ -135,6 +117,7 @@
             </div>
           </div>
 
+          {% if pode_editar_perfil %}
           <!-- Segurança -->
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
@@ -174,6 +157,7 @@
             </div>
             {% endif %}
           </div>
+          {% endif %}
         </div>
 
         <!-- ── Coluna Lateral ── -->
@@ -218,11 +202,13 @@
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Ações Rápidas</h3>
             <div class="space-y-1">
+              {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
               <a href="{% url 'du' %}"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <i class="fas fa-plus-circle text-primary text-base"></i>
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Nova DU</span>
               </a>
+              {% endif %}
               <a href="{% url 'du_lista' %}"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <i class="fas fa-list text-primary text-base"></i>
@@ -241,6 +227,7 @@
   </main>
 </div>
 
+{% if pode_editar_perfil %}
 <!-- ── Modal Editar Dados Pessoais ── -->
 <div id="modalEditarDados" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
   <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-2xl">
@@ -348,6 +335,7 @@
     </form>
   </div>
 </div>
+{% endif %}
 
 <script>
 function abrirModal(id) { document.getElementById(id).classList.remove('hidden'); }

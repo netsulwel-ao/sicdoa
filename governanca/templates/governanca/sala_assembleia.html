@@ -256,7 +256,7 @@
     if (data.status === 'ok') {
       location.reload();
     } else {
-      alert(data.message || 'Erro ao gerar ata');
+      if (window.toast) window.toast.error(data.message || 'Erro ao gerar ata'); else alert(data.message || 'Erro ao gerar ata');
     }
   });
 
@@ -268,7 +268,7 @@
     const res = await fetch('/governanca/api/assembleia/' + PK + '/dados/');
     const dados = await res.json();
     const ataId = dados.ata?.id;
-    if (!ataId) { alert('Nenhuma ata encontrada'); return; }
+    if (!ataId) { if (window.toast) window.toast.error('Nenhuma ata encontrada'); else alert('Nenhuma ata encontrada'); return; }
     const res2 = await fetch('/governanca/api/ata/' + ataId + '/assinar/', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
@@ -277,7 +277,7 @@
     if (data2.status === 'ok') {
       location.reload();
     } else {
-      alert(data2.message || 'Erro ao assinar');
+      if (window.toast) window.toast.error(data2.message || 'Erro ao assinar'); else alert(data2.message || 'Erro ao assinar');
     }
   });
 

@@ -1,0 +1,209 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+
+  <main class="p-3 sm:p-5 lg:p-8 min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+    <div class="max-w-7xl mx-auto w-full">
+
+      <div class="mb-5">
+        <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2 flex-wrap">
+          <span>Sistema</span>
+          <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+          <span class="text-primary font-semibold">Logs de Actividade</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Logs de Actividade</h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Registo cronológico de todas as acções dos utilizadores no sistema</p>
+          </div>
+          <div>
+            {% include 'includes/view-toggle.html' %}
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
+        <form method="get" class="space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Acção</label>
+              <select name="accao" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">Todas</option>
+                {% for codigo, nome in acoes %}
+                <option value="{{ codigo }}" {% if accao_filter == codigo %}selected{% endif %}>{{ nome }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Módulo</label>
+              <select name="modulo" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">Todos</option>
+                {% for codigo, nome in modulos %}
+                <option value="{{ codigo }}" {% if modulo_filter == codigo %}selected{% endif %}>{{ nome }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Data Início</label>
+              <input type="date" name="data_inicio" value="{{ data_inicio }}"
+                class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Data Fim</label>
+              <input type="date" name="data_fim" value="{{ data_fim }}"
+                class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Busca</label>
+              <input type="text" name="busca" value="{{ busca }}" placeholder="Nome, email, IP..."
+                class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+              <i class="fas fa-search"></i> Filtrar
+            </button>
+            <a href="{% url 'logs_atividade' %}" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+              <i class="fas fa-times"></i> Limpar
+            </a>
+            <span class="text-xs text-gray-400 ml-auto">{{ page_obj.paginator.count }} registos encontrados</span>
+          </div>
+        </form>
+      </div>
+
+      <div data-view-container>
+        <div data-grid-view>
+          {% if page_obj %}
+          <div class="grid grid-cols-1 gap-3">
+            {% for log in page_obj %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+              <div class="flex items-start gap-3">
+                <div class="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-history text-gray-400"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="font-medium text-gray-900 dark:text-white text-sm truncate">{{ log.usuario_nome }}</span>
+                    <span class="text-xs text-gray-400 whitespace-nowrap">{{ log.created_at|date:"d/m/Y H:i:s" }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                      {% if log.accao == 'LOGIN' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                      {% elif log.accao == 'LOGIN_FALHA' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                      {% elif log.accao == 'LOGOUT' or log.accao == 'SESSAO_EXPIRADA' %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400
+                      {% elif log.accao == 'VIEW' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400
+                      {% elif log.accao == 'CREATE' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400
+                      {% elif log.accao == 'CANCEL' or log.accao == 'DELETE' %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400
+                      {% elif log.accao == 'APPROVE' %}bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400
+                      {% elif log.accao == 'REJECT' %}bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400
+                      {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                      {{ log.get_accao_display }}
+                    </span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ log.get_modulo_display }}</span>
+                    {% if log.email %}<span class="text-xs text-gray-400">{{ log.email }}</span>{% endif %}
+                  </div>
+                  <p class="text-xs text-gray-700 dark:text-gray-300 mt-1">{{ log.descricao }}</p>
+                  {% if log.ip %}
+                  <p class="text-xs text-gray-400 font-mono mt-1">{{ log.ip }}</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% if page_obj.has_other_pages %}
+          <div class="mt-4">
+            {% include 'includes/pagination.html' %}
+          </div>
+          {% endif %}
+          {% else %}
+          <div class="flex flex-col items-center justify-center py-16 px-4 text-center bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+              <i class="fas fa-history text-gray-400 dark:text-gray-500 text-2xl"></i>
+            </div>
+            <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhum registo encontrado</p>
+            <p class="text-xs text-gray-400 mt-1">Tente ajustar os filtros de pesquisa</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <div data-list-view class="hidden">
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {% if page_obj %}
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                    <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Data/Hora</th>
+                    <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Utilizador</th>
+                    <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Acção</th>
+                    <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Módulo</th>
+                    <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Descrição</th>
+                    <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">IP</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700/60">
+                  {% for log in page_obj %}
+                  <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                      {{ log.created_at|date:"d/m/Y H:i:s" }}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <span class="font-medium text-gray-900 dark:text-white">{{ log.usuario_nome }}</span>
+                      {% if log.email %}
+                      <span class="text-xs text-gray-400 block">{{ log.email }}</span>
+                      {% endif %}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                        {% if log.accao == 'LOGIN' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                        {% elif log.accao == 'LOGIN_FALHA' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                        {% elif log.accao == 'LOGOUT' or log.accao == 'SESSAO_EXPIRADA' %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400
+                        {% elif log.accao == 'VIEW' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400
+                        {% elif log.accao == 'CREATE' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400
+                        {% elif log.accao == 'CANCEL' or log.accao == 'DELETE' %}bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400
+                        {% elif log.accao == 'APPROVE' %}bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400
+                        {% elif log.accao == 'REJECT' %}bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400
+                        {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                        {{ log.get_accao_display }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                      {{ log.get_modulo_display }}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-700 dark:text-gray-300 max-w-xs truncate" title="{{ log.descricao }}">
+                      {{ log.descricao }}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-400 font-mono">
+                      {{ log.ip|default:"-" }}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% if page_obj.has_other_pages %}
+            <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+              {% include 'includes/pagination.html' %}
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                <i class="fas fa-history text-gray-400 dark:text-gray-500 text-2xl"></i>
+              </div>
+              <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhum registo encontrado</p>
+              <p class="text-xs text-gray-400 mt-1">Tente ajustar os filtros de pesquisa</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}

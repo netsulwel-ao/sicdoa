@@ -64,6 +64,9 @@
               <p><strong>Data:</strong> {{ factura_recibo.data|date:"d/m/Y" }}</p>
               <p><strong>Responsável:</strong> {{ factura_recibo.utilizador_responsavel_nome }}</p>
               <p><strong>Estado:</strong> <span class="font-semibold {% if factura_recibo.estado == 'Cancelada' %}text-red-500{% else %}text-green-600 dark:text-green-400{% endif %}">{{ factura_recibo.estado }}</span></p>
+              {% if factura_recibo.factura %}
+              <p><strong>Factura Associada:</strong> <a href="{% url 'financeiro:factura_detalhe' factura_recibo.factura.pk %}" class="text-primary hover:underline">{{ factura_recibo.factura.numero_factura }}</a></p>
+              {% endif %}
             </div>
           </div>
         </div>

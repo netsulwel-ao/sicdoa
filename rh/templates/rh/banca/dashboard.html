@@ -150,7 +150,7 @@
           <p class="font-semibold text-gray-900 dark:text-white">{{ f.provincia }}</p>
           <p class="text-xs text-gray-500 mt-0.5">
             {% if f.municipio %}{{ f.municipio }} · {% endif %}
-            {{ f.colaboradores.count }} colaborador{{ f.colaboradores.count|pluralize:"es" }}
+            {{ f.num_colaboradores }} colaborador{{ f.num_colaboradores|pluralize:"es" }}
             {% if f.responsavel %} · Resp: {{ f.responsavel }}{% endif %}
           </p>
         </div>

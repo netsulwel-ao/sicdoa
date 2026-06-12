@@ -155,18 +155,12 @@
     <span class="font-semibold text-gray-700 dark:text-gray-300">{{ vagas|length }}</span>
     vaga{{ vagas|length|pluralize:"s" }} encontrada{{ vagas|length|pluralize:"s" }}
   </div>
-  <div class="flex items-center gap-2">
-    <button onclick="setView('grid')" id="gridViewBtn" class="p-2 rounded-lg bg-primary text-white transition-all">
-      <i class="fas fa-th text-base"></i>
-    </button>
-    <button onclick="setView('list')" id="listViewBtn" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
-      <i class="fas fa-list text-base"></i>
-    </button>
-  </div>
+  {% include 'includes/view-toggle.html' %}
 </div>
 
+<div data-view-container>
 <!-- Grid View -->
-<div id="gridView" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+<div id="gridView" data-grid-view class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 {% for v in vagas %}
 <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg transition-all overflow-hidden group">
   <!-- Header -->
@@ -231,7 +225,7 @@
 </div>
 
 <!-- List View -->
-<div id="listView" class="hidden">
+<div id="listView" data-list-view class="hidden">
   <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full">
@@ -286,6 +280,7 @@
       </table>
     </div>
   </div>
+</div>
 </div>
 {% if page_obj.has_other_pages %}
 <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
@@ -467,35 +462,5 @@ document.addEventListener('click', function(e) {
   if (modal && e.target === modal) fecharModalPartilha();
 });
 
-// Toggle view (grid/list)
-function setView(view) {
-  const gridView = document.getElementById('gridView');
-  const listView = document.getElementById('listView');
-  const gridBtn  = document.getElementById('gridViewBtn');
-  const listBtn  = document.getElementById('listViewBtn');
 
-  if (view === 'grid') {
-    gridView.classList.remove('hidden');
-    listView.classList.add('hidden');
-    gridBtn.classList.add('bg-primary', 'text-white');
-    gridBtn.classList.remove('text-gray-500');
-    listBtn.classList.remove('bg-primary', 'text-white');
-    listBtn.classList.add('text-gray-500');
-  } else {
-    gridView.classList.add('hidden');
-    listView.classList.remove('hidden');
-    listBtn.classList.add('bg-primary', 'text-white');
-    listBtn.classList.remove('text-gray-500');
-    gridBtn.classList.remove('bg-primary', 'text-white');
-    gridBtn.classList.add('text-gray-500');
-  }
-  localStorage.setItem('recruitmentView', view);
-}
-
-
-
-// Inicializar vista preferida
-document.addEventListener('DOMContentLoaded', function() {
-  setView(localStorage.getItem('recruitmentView') || 'grid');
-});
 </script>

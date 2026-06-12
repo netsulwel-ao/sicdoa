@@ -1,0 +1,154 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0 flex flex-col">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">
+        <i class="fas fa-user-tag text-primary mr-2"></i>
+        Gestão de Funções
+      </h1>
+      <div class="flex items-center gap-2">
+        {% include 'includes/view-toggle.html' %}
+        <a href="{% url 'funcao_novo' %}"
+           class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2">
+          <i class="fas fa-plus"></i> Nova Função
+        </a>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <i class="fas fa-tags text-primary"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-black text-[#111418] dark:text-white">{{ total }}</p>
+          <p class="text-xs text-gray-500">Total de Funções</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="GET" class="flex items-center gap-3">
+      <div class="relative flex-1 max-w-md">
+        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar função..."
+               class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30">
+      </div>
+      <button type="submit" class="px-4 py-2 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/20 transition-colors">
+        <i class="fas fa-search mr-1"></i> Buscar
+      </button>
+      {% if q %}
+      <a href="?" class="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Limpar</a>
+      {% endif %}
+    </form>
+
+    <div data-view-container>
+      <div data-grid-view>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {% for f in funcoes %}
+          <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <i class="fas fa-user-tag text-primary"></i>
+                </div>
+                <div class="min-w-0">
+                  <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate">{{ f.nome }}</h3>
+                  {% if f.descricao %}
+                  <p class="text-xs text-gray-500 truncate">{{ f.descricao }}</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-gray-500 mb-3">
+              <i class="fas fa-users"></i>
+              <span>{{ f.total_usuarios }} utilizador{{ f.total_usuarios|pluralize:"es" }}</span>
+              <i class="fas fa-lock ml-2"></i>
+              <span>{{ f.permissoes.count }} permissão{{ f.permissoes.count|pluralize:"ões" }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap border-t border-gray-100 dark:border-gray-800 pt-2">
+              <a href="{% url 'funcao_editar' f.id %}"
+                 class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title="Editar">
+                <i class="fas fa-edit text-xs"></i>
+              </a>
+              <a href="{% url 'funcao_permissoes' f.id %}"
+                 class="w-8 h-8 flex items-center justify-center text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg transition-colors" title="Permissões">
+                <i class="fas fa-lock text-xs"></i>
+              </a>
+              <a href="{% url 'funcao_eliminar' f.id %}"
+                 class="w-8 h-8 flex items-center justify-center text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors" title="Eliminar">
+                <i class="fas fa-trash text-xs"></i>
+              </a>
+            </div>
+          </div>
+          {% empty %}
+          <div class="col-span-full text-center py-16 text-gray-400">
+            <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-tags text-3xl text-gray-300 dark:text-gray-600"></i>
+            </div>
+            <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma função encontrada</p>
+            {% if not q %}
+            <p class="text-xs text-gray-400 mt-1">Crie a primeira função para começar.</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if page_obj.has_other_pages %}
+        <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+          {% include 'includes/pagination.html' with extra_params=q %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div data-list-view class="hidden">
+        <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+              <tr>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Nome</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Descrição</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Utilizadores</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Permissões</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              {% for f in funcoes %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ f.nome }}</td>
+                <td class="px-4 py-3 text-gray-500 text-sm">{{ f.descricao|default:"—" }}</td>
+                <td class="px-4 py-3 text-gray-500 text-sm">{{ f.total_usuarios }}</td>
+                <td class="px-4 py-3 text-gray-500 text-sm">{{ f.permissoes.count }}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-1">
+                    <a href="{% url 'funcao_editar' f.id %}" class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Editar">
+                      <i class="fas fa-edit text-xs"></i>
+                    </a>
+                    <a href="{% url 'funcao_permissoes' f.id %}" class="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors" title="Permissões">
+                      <i class="fas fa-lock text-xs"></i>
+                    </a>
+                    <a href="{% url 'funcao_eliminar' f.id %}" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
+                      <i class="fas fa-trash text-xs"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">Nenhuma função encontrada</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+          {% include 'includes/pagination.html' with extra_params=q %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </main>
+</div>
+{% include 'includes/footer.html' %}

@@ -3,37 +3,90 @@
 <div class="flex-1 ml-0 lg:ml-64 min-w-0">
   {% include 'includes/header.html' %}
   <main class="p-4 md:p-6 lg:p-8 space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between flex-wrap gap-3">
       <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
         <i class="fas fa-credit-card text-primary mr-2"></i>Processamento Salarial
       </h1>
-      <a href="{% url 'rh_admin_salario_inst_novo' %}" class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 flex items-center gap-2">
-        <i class="fas fa-plus"></i> Novo Processamento
-      </a>
+      <div class="flex items-center gap-2">
+        {% include 'includes/view-toggle.html' %}
+        <a href="{% url 'rh_admin_salario_inst_novo' %}" class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 flex items-center gap-2">
+          <i class="fas fa-plus"></i> Novo Processamento
+        </a>
+      </div>
     </div>
-    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-gray-50 dark:bg-gray-800 border-b">
-          <tr>
-            <th class="text-left px-4 py-3 font-semibold">Período</th>
-            <th class="text-left px-4 py-3 font-semibold">Estado</th>
-            <th class="text-left px-4 py-3 font-semibold">Data</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+    <div data-view-container>
+      <div data-grid-view>
+        {% if processamentos %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {% for p in processamentos %}
-          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-            <td class="px-4 py-3 font-medium">{{ p.mes|stringformat:'02d' }}/{{ p.ano }}</td>
-            <td class="px-4 py-3">
-              <span class="text-xs font-semibold {% if p.estado == 'Pago' %}text-green-600{% elif p.estado == 'Processado' %}text-blue-600{% else %}text-amber-500{% endif %}">{{ p.estado }}</span>
-            </td>
-            <td class="px-4 py-3 text-gray-500">{{ p.criado_em|date:'d/m/Y H:i' }}</td>
-          </tr>
+          <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-100 to-primary/20 dark:from-green-900/30 dark:to-primary/30 flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-credit-card text-primary"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold text-gray-900 dark:text-white">{{ p.mes|stringformat:'02d' }}/{{ p.ano }}</p>
+                <p class="text-xs text-gray-500">{{ p.criado_em|date:'d/m/Y H:i' }}</p>
+              </div>
+            </div>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+              {% if p.estado == 'Pago' %}bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400
+              {% elif p.estado == 'Processado' %}bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400
+              {% else %}bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">
+              {{ p.estado }}
+            </span>
+          </div>
           {% empty %}
-          <tr><td colspan="3" class="px-4 py-8 text-center text-gray-400">Nenhum processamento encontrado.</td></tr>
+          <div class="col-span-full text-center py-16 text-gray-400">
+            <i class="fas fa-credit-card text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
+            <p>Nenhum processamento encontrado.</p>
+          </div>
           {% endfor %}
-        </tbody>
-      </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <div class="mt-4">
+          {% include 'includes/pagination.html' %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-16 text-gray-400 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+          <i class="fas fa-credit-card text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
+          <p>Nenhum processamento encontrado.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <div data-list-view class="hidden">
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-800 border-b">
+              <tr>
+                <th class="text-left px-4 py-3 font-semibold">Período</th>
+                <th class="text-left px-4 py-3 font-semibold">Estado</th>
+                <th class="text-left px-4 py-3 font-semibold">Data</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              {% for p in processamentos %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <td class="px-4 py-3 font-medium">{{ p.mes|stringformat:'02d' }}/{{ p.ano }}</td>
+                <td class="px-4 py-3">
+                  <span class="text-xs font-semibold {% if p.estado == 'Pago' %}text-green-600{% elif p.estado == 'Processado' %}text-blue-600{% else %}text-amber-500{% endif %}">{{ p.estado }}</span>
+                </td>
+                <td class="px-4 py-3 text-gray-500">{{ p.criado_em|date:'d/m/Y H:i' }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="px-4 py-8 text-center text-gray-400">Nenhum processamento encontrado.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <div class="mt-4">
+          {% include 'includes/pagination.html' %}
+        </div>
+        {% endif %}
+      </div>
     </div>
   </main>
 </div>

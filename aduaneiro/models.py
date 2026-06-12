@@ -47,14 +47,14 @@ class DeclaracaoUnica(models.Model):
     porto_desembarque    = models.CharField(max_length=100, blank=True, null=True)
     meio_transporte      = models.CharField(max_length=50, blank=True, null=True)
     status               = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Rascunho', db_index=True)
-    data_submissao       = models.DateTimeField(null=True, blank=True)
+    data_submissao       = models.DateTimeField(null=True, blank=True, db_index=True)
     data_aprovacao       = models.DateTimeField(null=True, blank=True)
     usuario_id           = models.IntegerField(db_index=True)
-    created_at           = models.DateTimeField(auto_now_add=True)
+    created_at           = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at           = models.DateTimeField(auto_now=True)
 
     # ── Campos adicionados via migração ───────────────────────────────────────
-    du_uuid           = models.CharField(max_length=36, blank=True, default='', db_column='du_uuid')
+    du_uuid           = models.CharField(max_length=36, blank=True, default='', db_index=True, db_column='du_uuid')
     codigo_processo   = models.CharField(max_length=8, blank=True, null=True, unique=True)  # 8 dígitos, único, gerado automaticamente
     ref_despachante   = models.CharField(max_length=100, blank=True, default='')
     exportador_nome  = models.CharField(max_length=200, blank=True, default='')
@@ -73,6 +73,10 @@ class DeclaracaoUnica(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Declaração Única'
         verbose_name_plural = 'Declarações Únicas'
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='ix_du_status_data'),
+            models.Index(fields=['usuario_id', '-created_at'], name='ix_du_usuario_data'),
+        ]
 
     def __str__(self):
         return self.numero_du or f'DU-{self.id}'

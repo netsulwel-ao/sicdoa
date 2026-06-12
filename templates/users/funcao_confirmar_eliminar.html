@@ -1,0 +1,59 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5 flex-wrap">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'funcoes_lista' %}" class="hover:text-primary transition-colors">Funções</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">Eliminar Função</span>
+    </div>
+
+    <div class="max-w-lg mx-auto">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="p-8 text-center">
+          <div class="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-exclamation-triangle text-red-500 text-3xl"></i>
+          </div>
+          <h2 class="text-xl font-black text-gray-900 dark:text-white mb-2">Eliminar Função</h2>
+          <p class="text-gray-500 mb-2">
+            Tem a certeza que deseja eliminar a função <strong>{{ funcao.nome }}</strong>?
+          </p>
+          {% if total_usuarios > 0 %}
+          <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 mb-4">
+            <div class="flex items-start gap-3">
+              <i class="fas fa-exclamation-circle text-amber-600 text-xl flex-shrink-0 mt-0.5"></i>
+              <div class="text-left">
+                <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">Atenção</p>
+                <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                  Esta função está atribuída a <strong>{{ total_usuarios }} utilizador{{ total_usuarios|pluralize:"es" }}</strong>.
+                  Ao eliminar esta função, esses utilizadores ficarão sem função atribuída e poderão perder acesso ao sistema.
+                </p>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+          <p class="text-xs text-gray-400 mb-6">Esta acção não pode ser desfeita.</p>
+
+          <form method="POST" class="flex items-center justify-center gap-3">
+            {% csrf_token %}
+            <a href="{% url 'funcoes_lista' %}"
+               class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+              Cancelar
+            </a>
+            <button type="submit"
+                    class="px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-all shadow-sm flex items-center gap-2">
+              <i class="fas fa-trash"></i>
+              Eliminar
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+{% include 'includes/footer.html' %}

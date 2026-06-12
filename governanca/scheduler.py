@@ -17,6 +17,10 @@ def encerrar_assembleias_inativas_task():
     call_command('encerrar_assembleias_inativas')
 
 
+def backup_db_task():
+    call_command('backup_db')
+
+
 def start_scheduler():
     if os.environ.get('RUN_MAIN') != 'true' and 'RUN_MAIN' in os.environ and settings.DEBUG:
         return
@@ -46,6 +50,14 @@ def start_scheduler():
         hour=0,
         minute=0,
         id='gerar_quotas_mensal',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        backup_db_task,
+        'cron',
+        hour=3,
+        minute=0,
+        id='backup_db_diario',
         replace_existing=True,
     )
     scheduler.start()

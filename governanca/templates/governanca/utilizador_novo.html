@@ -43,7 +43,6 @@
               <option value="">Selecionar tipo...</option>
               <option value="despachante" {% if request.POST.tipo == 'despachante' %}selected{% endif %}>Despachante Oficial</option>
               <option value="colaborador" {% if request.POST.tipo == 'colaborador' %}selected{% endif %}>Colaborador Institucional</option>
-              <option value="outro" {% if request.POST.tipo == 'outro' %}selected{% endif %}>Outro</option>
             </select>
           </div>
 
@@ -92,11 +91,16 @@
             {% if erros.cedula %}<p class="text-xs text-red-600 mt-1">{{ erros.cedula }}</p>{% endif %}
           </div>
 
-          <div id="field-area" class="hidden">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Área de Actuação</label>
-            <input type="text" name="area_actuacao" value="{{ request.POST.area_actuacao|default:'' }}"
-                   placeholder="Ex: Informática, Administrativo, Limpeza..."
-                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+          <div id="field-funcao" class="hidden">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Função</label>
+            <select name="funcao"
+                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+              <option value="">Sem função (não poderá aceder ao sistema)</option>
+              {% for f in funcoes %}
+              <option value="{{ f.id }}" {% if request.POST.funcao == f.id|stringformat:"s" %}selected{% endif %}>{{ f.nome }}</option>
+              {% endfor %}
+            </select>
+            <p class="text-xs text-gray-400 mt-1">O colaborador só poderá aceder ao sistema após lhe ser atribuída uma função.</p>
           </div>
 
           <div id="field-salario" class="hidden">
@@ -157,8 +161,9 @@
 function mudarTipo() {
   var v = document.getElementById('input-tipo').value;
   document.getElementById('field-cedula').classList.toggle('hidden', v !== 'despachante');
-  document.getElementById('field-area').classList.toggle('hidden', v !== 'colaborador');
+
   document.getElementById('field-salario').classList.toggle('hidden', v !== 'colaborador');
+  document.getElementById('field-funcao').classList.toggle('hidden', v !== 'colaborador');
   document.getElementById('field-nome-tipo').classList.toggle('hidden', v !== 'outro');
 }
 mudarTipo();

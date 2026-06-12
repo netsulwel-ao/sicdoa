@@ -19,7 +19,8 @@
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Notas de Crédito</h1>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Gestão de retificações e descontos de faturamento</p>
           </div>
-          <div class="flex gap-2">
+          <div class="flex items-center gap-2">
+            {% include 'includes/view-toggle.html' %}
             <a href="{% url 'financeiro:notas_home' %}"
               class="flex items-center gap-1.5 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
               <i class="fas fa-arrow-left"></i>
@@ -63,75 +64,149 @@
       </div>
 
       <!-- ── Lista ── -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {% if notas %}
-        <div class="grid grid-cols-[1.5fr_1.2fr_1.2fr_1fr_100px_80px] gap-4 px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-          <span>Nota Crédito</span>
-          <span class="text-center">Factura Relacionada</span>
-          <span class="text-right">Valor Creditado</span>
-          <span class="text-center">Data</span>
-          <span class="text-center">Estado</span>
-          <span class="text-right">Ações</span>
-        </div>
-        {% for nota in notas %}
-        <div class="grid grid-cols-[1.5fr_1.2fr_1.2fr_1fr_100px_80px] gap-4 items-center px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors border-b border-gray-100 dark:border-gray-700/60 text-sm">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-100 to-primary/20 dark:from-red-900/30 dark:to-primary/30 flex items-center justify-center flex-shrink-0">
-              <i class="fas fa-minus-circle text-primary"></i>
+      <div data-view-container>
+        <!-- Vista Grelha -->
+        <div data-grid-view>
+          {% if notas %}
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {% for nota in notas %}
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-100 to-primary/20 dark:from-red-900/30 dark:to-primary/30 flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-minus-circle text-primary"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-gray-900 dark:text-white truncate">{{ nota.numero_nota }}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ nota.cliente.nome }}</p>
+                </div>
+                <a href="{% url 'financeiro:nota_credito_detalhe' nota.pk %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Visualizar">
+                  <i class="fas fa-eye"></i>
+                </a>
+              </div>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p class="text-xs text-gray-400">Valor Creditado</p>
+                  <p class="font-bold text-gray-900 dark:text-white">{{ nota.valor_creditado|floatformat:2 }} Kz</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-400">Factura</p>
+                  <p class="text-gray-600 dark:text-gray-300 text-xs font-medium">{{ nota.factura_relacionada.numero_factura|default:"—" }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-400">Data</p>
+                  <p class="text-gray-500 dark:text-gray-400">{{ nota.data|date:"d/m/Y" }}</p>
+                </div>
+                <div class="text-right">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                    {% if nota.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
+                    {% elif nota.estado == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                    {% elif nota.estado == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                    {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                    {{ nota.estado }}
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                <a href="{% url 'financeiro:nota_credito_pdf' nota.pk %}" target="_blank" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="PDF">
+                  <i class="fas fa-file-pdf"></i>
+                </a>
+              </div>
             </div>
-            <div class="min-w-0">
-              <p class="font-semibold text-gray-900 dark:text-white truncate">{{ nota.numero_nota }}</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ nota.cliente.nome }}</p>
+            {% endfor %}
+          </div>
+          {% if page_obj.has_other_pages %}
+          <div class="mt-4">
+            {% include 'includes/pagination.html' %}
+          </div>
+          {% endif %}
+          {% else %}
+          <div class="flex flex-col items-center justify-center py-16 px-4 text-center bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+              <i class="fas fa-minus-circle text-gray-400 dark:text-gray-500 text-2xl"></i>
             </div>
-          </div>
-          <div class="text-center text-xs font-medium text-gray-600 dark:text-gray-300">
-            {{ nota.factura_relacionada.numero_factura }}
-          </div>
-          <div class="text-right font-bold text-gray-900 dark:text-white">
-            {{ nota.valor_creditado|floatformat:2 }} Kz
-          </div>
-          <div class="text-center text-xs text-gray-500 dark:text-gray-400">
-            {{ nota.data|date:"d/m/Y" }}
-          </div>
-          <div class="flex justify-center">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
-              {% if nota.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
-              {% elif nota.estado == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
-              {% elif nota.estado == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
-              {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
-              {{ nota.estado }}
-            </span>
-          </div>
-          <div class="flex items-center justify-end gap-1">
-            <a href="{% url 'financeiro:nota_credito_detalhe' nota.pk %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Visualizar">
-              <i class="fas fa-eye"></i>
-            </a>
-            <a href="{% url 'financeiro:nota_credito_pdf' nota.pk %}" target="_blank" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="PDF">
-              <i class="fas fa-file-pdf"></i>
+            <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhuma Nota de Crédito emitida</p>
+            <a href="{% url 'financeiro:nota_credito_criar' %}"
+              class="mt-4 flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
+              <i class="fas fa-plus"></i>
+              <span>Emitir Nova Nota de Crédito</span>
             </a>
           </div>
+          {% endif %}
         </div>
-        {% endfor %}
 
-        {% if page_obj.has_other_pages %}
-        <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-          {% include 'includes/pagination.html' %}
-        </div>
-        {% endif %}
+        <!-- Vista Tabela -->
+        <div data-list-view class="hidden">
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {% if notas %}
+            <div class="grid grid-cols-[1.5fr_1.2fr_1.2fr_1fr_100px_80px] gap-4 px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+              <span>Nota Crédito</span>
+              <span class="text-center">Factura Relacionada</span>
+              <span class="text-right">Valor Creditado</span>
+              <span class="text-center">Data</span>
+              <span class="text-center">Estado</span>
+              <span class="text-right">Ações</span>
+            </div>
+            {% for nota in notas %}
+            <div class="grid grid-cols-[1.5fr_1.2fr_1.2fr_1fr_100px_80px] gap-4 items-center px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors border-b border-gray-100 dark:border-gray-700/60 text-sm">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-100 to-primary/20 dark:from-red-900/30 dark:to-primary/30 flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-minus-circle text-primary"></i>
+                </div>
+                <div class="min-w-0">
+                  <p class="font-semibold text-gray-900 dark:text-white truncate">{{ nota.numero_nota }}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ nota.cliente.nome }}</p>
+                </div>
+              </div>
+              <div class="text-center text-xs font-medium text-gray-600 dark:text-gray-300">
+                {{ nota.factura_relacionada.numero_factura }}
+              </div>
+              <div class="text-right font-bold text-gray-900 dark:text-white">
+                {{ nota.valor_creditado|floatformat:2 }} Kz
+              </div>
+              <div class="text-center text-xs text-gray-500 dark:text-gray-400">
+                {{ nota.data|date:"d/m/Y" }}
+              </div>
+              <div class="flex justify-center">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                  {% if nota.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
+                  {% elif nota.estado == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                  {% elif nota.estado == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                  {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                  {{ nota.estado }}
+                </span>
+              </div>
+              <div class="flex items-center justify-end gap-1">
+                <a href="{% url 'financeiro:nota_credito_detalhe' nota.pk %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Visualizar">
+                  <i class="fas fa-eye"></i>
+                </a>
+                <a href="{% url 'financeiro:nota_credito_pdf' nota.pk %}" target="_blank" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="PDF">
+                  <i class="fas fa-file-pdf"></i>
+                </a>
+              </div>
+            </div>
+            {% endfor %}
 
-        {% else %}
-        <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
-          <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
-            <i class="fas fa-minus-circle text-gray-400 dark:text-gray-500 text-2xl"></i>
+            {% if page_obj.has_other_pages %}
+            <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+              {% include 'includes/pagination.html' %}
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                <i class="fas fa-minus-circle text-gray-400 dark:text-gray-500 text-2xl"></i>
+              </div>
+              <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhuma Nota de Crédito emitida</p>
+              <a href="{% url 'financeiro:nota_credito_criar' %}"
+                class="mt-4 flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
+                <i class="fas fa-plus"></i>
+                <span>Emitir Nova Nota de Crédito</span>
+              </a>
+            </div>
+            {% endif %}
           </div>
-          <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhuma Nota de Crédito emitida</p>
-          <a href="{% url 'financeiro:nota_credito_criar' %}"
-            class="mt-4 flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
-            <i class="fas fa-plus"></i>
-            <span>Emitir Nova Nota de Crédito</span>
-          </a>
         </div>
-        {% endif %}
       </div>
 
     </div>

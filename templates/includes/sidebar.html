@@ -58,7 +58,7 @@
     {% endif %}
 
     {# ── Gestão de Utilizadores (apenas Administrador) ──────────────────── #}
-    {% if papel == 'Administrador' or 'gerir_membros_direcao' in user_permissoes or 'gerir_utilizadores' in user_permissoes %}
+    {% if papel == 'Administrador' or 'gerir_utilizadores' in user_permissoes %}
     <button type="button" data-collapse="admin-rh"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'ADMIN_RH' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
@@ -94,13 +94,15 @@
         </a>
       </li>
       {% endif %}
+      {% if papel == 'Administrador' or 'gerir_utilizadores' in user_permissoes %}
       <li>
-        <a href="{% url 'governanca_gerir_cargos' %}"
+        <a href="{% url 'funcoes_lista' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
-                  {% if sub == 'gerir_cargos' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-users-cog text-base"></i>Cargos da Direção
+                  {% if sub == 'funcoes' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-user-tag text-base"></i>Funções
         </a>
       </li>
+      {% endif %}
     </ul>
     {% endif %}
 
@@ -316,7 +318,7 @@
     {% endif %}
 
     {# ── Gestão Financeira ──────────────────────────────────────────────── #}
-    {% if papel == 'Administrador' or papel == 'Gestor Financeiro' or papel == 'Despachante Oficial' or papel == 'Operador' %}
+    {% if papel == 'Administrador' or papel == 'Gestor Financeiro' or papel == 'Despachante Oficial' or papel == 'Operador' or 'admin' in user_permissoes or 'acesso_auditoria' in user_permissoes %}
     <button type="button" data-collapse="financeiro"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'Financeiro' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
@@ -363,7 +365,7 @@
       </li>
       <li class="border-t border-gray-100 dark:border-gray-700/60 my-1 pt-1"></li>
 
-      {% if papel == 'Despachante Oficial' or papel == 'Gestor Financeiro' or papel == 'Administrador' %}
+      {% if papel == 'Administrador' or 'admin' in user_permissoes or 'ver_relatorios_operacionais' in user_permissoes %}
       <li class="px-3 py-1">
         <span class="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Relatórios Operacionais</span>
       </li>
@@ -397,7 +399,7 @@
       </li>
       {% endif %}
 
-      {% if papel == 'Gestor Financeiro' or papel == 'Administrador' %}
+      {% if papel == 'Gestor Financeiro' or papel == 'Administrador' or 'admin' in user_permissoes %}
       <li class="px-3 py-1">
         <span class="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Relatórios Financeiros</span>
       </li>
@@ -438,7 +440,7 @@
       </li>
       {% endif %}
 
-      {% if papel == 'Gestor Financeiro' or papel == 'Administrador' %}
+      {% if papel == 'Gestor Financeiro' or papel == 'Administrador' or 'admin' in user_permissoes %}
       <li class="px-3 py-1">
         <span class="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Relatórios Executivos</span>
       </li>
@@ -452,6 +454,16 @@
       {% endif %}
 
     </ul>
+    {% endif %}
+
+    {# ── Sistema ─────────────────────────────────────────────────────────── #}
+    {% if papel == 'Administrador' or 'admin' in user_permissoes or 'acesso_auditoria' in user_permissoes %}
+    <a href="{% url 'logs_atividade' %}"
+       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+              {% if active == 'Sistema' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-history"></i>
+      <span class="text-sm font-medium">Logs de Actividade</span>
+    </a>
     {% endif %}
 
 <!--

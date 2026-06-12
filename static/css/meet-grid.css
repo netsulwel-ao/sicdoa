@@ -1457,6 +1457,148 @@
   font-size: 56px;
 }
 
+/* ── Tile — botão fixar ──────────────────────────────────── */
+.tile-pin-btn {
+  position: absolute;
+  top: 8px;
+  right: 40px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(6px);
+  color: rgba(255,255,255,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s, transform 0.15s;
+  z-index: 5;
+}
+
+.meet-tile:hover .tile-pin-btn {
+  opacity: 1;
+}
+
+.tile-pin-btn:hover {
+  background: rgba(59,130,246,0.75);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+/* Tile pinned — botão fica visível e azul */
+.meet-tile.tile-main .tile-pin-btn,
+.meet-tile.tile-pip .tile-pin-btn {
+  opacity: 1;
+}
+
+.tile-pin-btn.pin-active {
+  background: rgba(59,130,246,0.85);
+  color: #fff;
+}
+
+/* ── Indicador de fixado ────────────────────────────────── */
+.tile-pinned-indicator {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(59,130,246,0.85);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* ── PiP Mode — grelha em modo picture-in-picture ─────── */
+.meet-grid.pip-mode {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+
+.pip-mode .meet-tile {
+  display: none;
+}
+
+.pip-mode .tile-main {
+  display: flex !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 16px;
+  z-index: 1;
+  animation: pip-main 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pip-main {
+  from { transform: scale(0.96); opacity: 0.8; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.pip-mode .tile-pip {
+  display: flex !important;
+  position: absolute !important;
+  bottom: 16px;
+  right: 16px;
+  width: 240px;
+  height: 160px;
+  z-index: 10;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  border: 2px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pip-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pip-enter {
+  from { transform: scale(0.7) translateY(20px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.pip-mode .tile-pip:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 32px rgba(0,0,0,0.6);
+  border-color: rgba(59,130,246,0.5);
+}
+
+/* Os cliques no vídeo passam para o tile (que faz toggle do pin) */
+.pip-mode .tile-pip video {
+  pointer-events: none !important;
+}
+
+.pip-mode .tile-pip .tile-info {
+  padding: 6px 10px;
+}
+
+.pip-mode .tile-pip .tile-name {
+  font-size: 11px;
+}
+
+/* Responsivo: pip mais pequeno em ecrãs pequenos */
+@media (max-width: 640px) {
+  .pip-mode .tile-pip {
+    width: 140px;
+    height: 100px;
+    bottom: 12px;
+    right: 12px;
+  }
+}
+
 /* Backdrop ao maximizar */
 .tile-maximize-backdrop {
   position: fixed;

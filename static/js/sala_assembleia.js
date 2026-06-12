@@ -39,6 +39,7 @@
     speakerId: null,
     screenShareAtiva: false,
     screenShareParticipant: null,
+    pinnedParticipant: null,
     elapsedTimer: null,
     totalParticipantes: 0,
     quorum: { presentes: 0, minimo: 0, atingido: false },
@@ -582,6 +583,9 @@
         (papel ? '<span class="tile-badge">' + papel + '</span>' : '') +
         '<span class="tile-icon tile-mic-icon"><i class="fas fa-microphone"></i></span>' +
       '</div>' +
+      '<button class="tile-pin-btn" title="Fixar" onclick="window.MEET_TOGGLE_PIN(\'' + CSS.escape(identity) + '\')">' +
+        '<i class="fas fa-thumbtack"></i>' +
+      '</button>' +
       '<button class="tile-maximize-btn" title="Maximizar" onclick="window.MEET_TOGGLE_MAXIMIZE(\'' + CSS.escape(identity) + '\')">' +
         '<i class="fas fa-expand-alt"></i>' +
       '</button>';
@@ -592,6 +596,21 @@
     if (idx >= start && idx < end) {
       tile.style.display = '';
     }
+  }
+
+  // ── PIN / SWAP ────────────────────────────────────────────
+  function togglePinParticipant(identity) {
+    console.log('[PiP] togglePinParticipant called with', identity, 'current pinned:', state.pinnedParticipant);
+    if (state.pinnedParticipant === identity) {
+      state.pinnedParticipant = null;
+      console.log('[PiP] unpinned');
+    } else {
+      state.pinnedParticipant = identity;
+      if (_maximizedIdentity) toggleMaximizeTile(_maximizedIdentity);
+      console.log('[PiP] pinned:', identity);
+    }
+    console.log('[PiP] state.pinnedParticipant after:', state.pinnedParticipant);
+    atualizarGrid();
   }
 
   function atualizarTile(identity) {
@@ -650,6 +669,16 @@
       micIcon.className = 'fas ' + (p.audioMuted ? 'fa-microphone-slash text-red-400' : 'fa-microphone');
     }
 
+    // Inject pin button se não existir (ex: tiles criados antes do update)
+    if (!tile.querySelector('.tile-pin-btn')) {
+      var pinBtn = document.createElement('button');
+      pinBtn.className = 'tile-pin-btn';
+      pinBtn.title = 'Fixar';
+      pinBtn.innerHTML = '<i class="fas fa-thumbtack"></i>';
+      pinBtn.onclick = function() { window.MEET_TOGGLE_PIN(identity); };
+      tile.insertBefore(pinBtn, tile.querySelector('.tile-maximize-btn'));
+    }
+
     // Hand raise
     var existingHand = tile.querySelector('.tile-raise-hand');
     if (p.handRaised && !existingHand) {
@@ -659,6 +688,28 @@
       tile.appendChild(hand);
     } else if (!p.handRaised && existingHand) {
       existingHand.remove();
+    }
+
+    // Pin indicator
+    var existingPinBadge = tile.querySelector('.tile-pinned-indicator');
+    if (identity === state.pinnedParticipant && !existingPinBadge) {
+      var pinBadge = document.createElement('div');
+      pinBadge.className = 'tile-pinned-indicator';
+      pinBadge.innerHTML = '<i class="fas fa-thumbtack"></i>';
+      tile.appendChild(pinBadge);
+    } else if (identity !== state.pinnedParticipant && existingPinBadge) {
+      existingPinBadge.remove();
+    }
+    // Atualizar estado do botão fixar
+    var pinBtn = tile.querySelector('.tile-pin-btn i');
+    if (pinBtn) {
+      if (identity === state.pinnedParticipant) {
+        pinBtn.className = 'fas fa-thumbtack';
+        tile.querySelector('.tile-pin-btn')?.classList.add('pin-active');
+      } else {
+        pinBtn.className = 'fas fa-thumbtack';
+        tile.querySelector('.tile-pin-btn')?.classList.remove('pin-active');
+      }
     }
   }
 
@@ -671,9 +722,119 @@
       'layout-7','layout-8','layout-9','layout-10','layout-11','layout-12',
       'layout-13','layout-14','layout-15','layout-16','layout-17','layout-18',
       'layout-19','layout-20','layout-21','layout-22','layout-23','layout-24',
-      'layout-25','layout-26','layout-37','layout-100','layout-max'];
+      'layout-25','layout-26','layout-37','layout-100','layout-max','pip-mode'];
     DOM.grid.classList.remove.apply(DOM.grid.classList, layouts);
+    // Remover classes de tile especiais
+    document.querySelectorAll('.tile-main, .tile-pip').forEach(function(el) {
+      el.classList.remove('tile-main', 'tile-pip');
+    });
+    // Mostrar grid e esconder screen share
+    DOM.grid.classList.remove('hidden');
+    DOM.screenShareArea.classList.add('hidden');
 
+    // ── Pinned (PiP) layout ────────────────────────────────────
+    console.log('[PiP] atualizarGrid check:', 'pinned=', state.pinnedParticipant, 'count=', count);
+    if (state.pinnedParticipant && count >= 2) {
+      console.log('[PiP] ENTER pip-mode, pinnedParticipant=', state.pinnedParticipant);
+
+      // Garantir que o grid tem position relative para os absolutos funcionarem
+      DOM.grid.style.position = 'relative';
+      DOM.grid.style.overflow = 'hidden';
+
+      // Determinar quem é main e quem é pip
+      var localId = null;
+      var firstRemoteId = null;
+      var pinnedId = state.pinnedParticipant;
+      for (var id in state.participantes) {
+        if (state.participantes[id].isLocal) localId = id;
+        else if (!firstRemoteId) firstRemoteId = id;
+      }
+      var mainId = pinnedId;
+      var pipId = (pinnedId === localId) ? firstRemoteId : localId;
+
+      // Esconder todos os tiles primeiro
+      ids.forEach(function(id) {
+        var tile = document.getElementById('tile-' + CSS.escape(id));
+        if (tile) {
+          tile._savedDisplay = tile.style.display;
+          tile.style.display = 'none';
+        }
+      });
+
+      // Main tile — ocupa 100% da grid
+      var mainTile = document.getElementById('tile-' + CSS.escape(mainId));
+      if (mainTile) {
+        mainTile.style.display = 'flex';
+        mainTile.style.position = 'absolute';
+        mainTile.style.top = '0';
+        mainTile.style.left = '0';
+        mainTile.style.right = '0';
+        mainTile.style.bottom = '0';
+        mainTile.style.width = '100%';
+        mainTile.style.height = '100%';
+        mainTile.style.zIndex = '1';
+        mainTile.style.borderRadius = '16px';
+        // Mover para o início da grid (garante ordem DOM)
+        DOM.grid.insertBefore(mainTile, DOM.grid.firstChild);
+      }
+
+      // Pip tile — overlay canto inferior direito
+      if (pipId) {
+        var pipTile = document.getElementById('tile-' + CSS.escape(pipId));
+        if (pipTile) {
+          pipTile.style.display = 'flex';
+          pipTile.style.position = 'absolute';
+          pipTile.style.bottom = '16px';
+          pipTile.style.right = '16px';
+          pipTile.style.width = '240px';
+          pipTile.style.height = '160px';
+          pipTile.style.zIndex = '10';
+          pipTile.style.borderRadius = '12px';
+          pipTile.style.boxShadow = '0 4px 24px rgba(0,0,0,0.5)';
+          pipTile.style.border = '2px solid rgba(255,255,255,0.15)';
+          pipTile.style.cursor = 'pointer';
+          pipTile.onclick = function(e) {
+            if (e.target.closest('.tile-pin-btn, .tile-maximize-btn')) return;
+            togglePinParticipant(pipId);
+          };
+        }
+      }
+
+      // Remover paginação
+      var oldPagination = DOM.grid.querySelector('.grid-pagination');
+      if (oldPagination) oldPagination.remove();
+
+      // Atualizar pin indicator nos tiles
+      Object.keys(state.participantes).forEach(function(id) {
+        atualizarTile(id);
+      });
+
+      return;
+    } else {
+      // Restaurar styles padrão quando sai de PiP
+      DOM.grid.style.position = '';
+      DOM.grid.style.overflow = '';
+      ids.forEach(function(id) {
+        var tile = document.getElementById('tile-' + CSS.escape(id));
+        if (tile) {
+          tile.style.position = '';
+          tile.style.top = '';
+          tile.style.left = '';
+          tile.style.right = '';
+          tile.style.bottom = '';
+          tile.style.width = '';
+          tile.style.height = '';
+          tile.style.zIndex = '';
+          tile.style.borderRadius = '';
+          tile.style.boxShadow = '';
+          tile.style.border = '';
+          tile.style.cursor = '';
+          tile.onclick = null;
+        }
+      });
+    }
+
+    // ── Layout normal ──────────────────────────────────────────
     if (count <= 1) DOM.grid.classList.add('layout-1');
     else if (count === 2) DOM.grid.classList.add('layout-2');
     else if (count <= 4) DOM.grid.classList.add('layout-4');
@@ -1921,6 +2082,7 @@
   }
 
   window.MEET_TOGGLE_MAXIMIZE = toggleMaximizeTile;
+  window.MEET_TOGGLE_PIN = togglePinParticipant;
 
   // ── Expor ─────────────────────────────────────────────────
   window.MEET = {
@@ -1936,6 +2098,7 @@
     },
     atualizarPautas: function(lista) { state.pautas = lista || []; },
     enviarMensagem: enviarMensagem,
+    togglePin: togglePinParticipant,
   };
 
   // ── Auto-init ─────────────────────────────────────────────

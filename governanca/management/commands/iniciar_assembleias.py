@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from governanca.models import Assembleia
-from governanca.views import _livekit_token
+from governanca.views import _livekit_token, _enviar_convocatorias_email
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -20,6 +20,9 @@ class Command(BaseCommand):
             old_status = a.status
             a.status = 'Em Curso'
             a.save()
+
+            # Enviar convocatórias por email
+            _enviar_convocatorias_email(a)
 
             # Gerar LiveKit room se vazio
             if not a.livekit_room:

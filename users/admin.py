@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Permissao, Cargo, Usuario, UsuarioCargo
+from .models import Permissao, Usuario
 
 
 @admin.register(Usuario)
@@ -15,20 +15,8 @@ class UsuarioAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(Cargo)
-class CargoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'slug', 'sistema')
-    search_fields = ('nome',)
-
-
 @admin.register(Permissao)
 class PermissaoAdmin(admin.ModelAdmin):
     list_display = ('codigo', 'nome', 'grupo')
     list_filter = ('grupo',)
     search_fields = ('codigo', 'nome')
-
-
-@admin.register(UsuarioCargo)
-class UsuarioCargoAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'cargo', 'atribuido_em')
-    list_select_related = ('usuario', 'cargo')

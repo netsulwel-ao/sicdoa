@@ -195,21 +195,15 @@ urlpatterns = [
     # Utilizadores (Admin)
     path('utilizadores/', views.gerir_utilizadores, name='governanca_gerir_utilizadores'),
     path('utilizadores/novo/', views.utilizador_novo_view, name='governanca_utilizador_novo'),
+    path('utilizadores/<int:usuario_id>/editar/', views.utilizador_editar_view, name='governanca_utilizador_editar'),
     path('utilizadores/<int:usuario_id>/permissoes/', views.utilizador_permissoes_view, name='governanca_utilizador_permissoes'),
     path('api/utilizadores/criar/', views.api_utilizador_criar, name='governanca_api_utilizador_criar'),
     path('api/utilizadores/toggle-status/', views.api_utilizador_toggle_status, name='governanca_api_utilizador_toggle'),
     path('api/utilizadores/enviar-credenciais/', views.api_utilizador_enviar_credenciais, name='governanca_api_utilizador_credenciais'),
     path('api/utilizadores/permissoes/', views.api_utilizador_permissoes, name='governanca_api_utilizador_permissoes'),
-    path('api/utilizadores/cargo-atribuir/', views.api_utilizador_cargo_atribuir, name='governanca_api_utilizador_cargo_atribuir'),
-    path('api/utilizadores/cargo-remover/', views.api_utilizador_cargo_remover, name='governanca_api_utilizador_cargo_remover'),
     path('api/permissoes-usuario/', views.api_permissoes_usuario, name='governanca_api_permissoes_usuario'),
-
-    # Cargos (Admin)
-    path('cargos/', views.gerir_cargos, name='governanca_gerir_cargos'),
-    path('api/cargos/toggle/', views.api_cargo_toggle, name='governanca_api_cargo_toggle'),
-    path('api/cargos/criar/', views.api_cargo_criar, name='governanca_api_cargo_criar'),
-    path('api/cargos/remover/<int:pk>/', views.api_cargo_remover, name='governanca_api_cargo_remover'),
-    path('api/cargos/permissoes/', views.api_cargo_permissoes, name='governanca_api_cargo_permissoes'),
+    path('api/utilizadores/atribuir-funcao/', views.api_utilizador_atribuir_funcao, name='governanca_api_utilizador_atribuir_funcao'),
+    path('api/utilizadores/eliminar/', views.api_utilizador_eliminar, name='governanca_api_utilizador_eliminar'),
 
     # API: Gerar documentos (atas, relatórios, decretos)
     path('api/gerar-documento/', views.api_gerar_documento, name='governanca_api_gerar_documento'),

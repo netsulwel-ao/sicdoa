@@ -27,10 +27,10 @@ class Banca(models.Model):
     ]
 
     usuario_id  = models.IntegerField()                          # FK → usuarios
-    nome        = models.CharField(max_length=255)
+    nome        = models.CharField(max_length=255, db_index=True)
     nif         = models.CharField(max_length=50, unique=True)
     tipo        = models.CharField(max_length=20, choices=TIPOS, default='Sociedade')
-    email       = models.EmailField(blank=True, default='')
+    email       = models.EmailField(blank=True, default='', db_index=True)
     telefone    = models.CharField(max_length=30, blank=True, default='')
     endereco    = models.TextField(blank=True, default='')
     provincia   = models.CharField(max_length=100, blank=True, default='')
@@ -279,7 +279,7 @@ class Colaborador(models.Model):
     banca       = models.ForeignKey(Banca, on_delete=models.CASCADE, related_name='colaboradores')
     filial      = models.ForeignKey(FilialBanca, on_delete=models.SET_NULL,
                                     null=True, blank=True, related_name='colaboradores')
-    nome        = models.CharField(max_length=255)
+    nome        = models.CharField(max_length=255, db_index=True)
     bi          = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº BI')
     nif         = models.CharField(max_length=50, blank=True, default='')
     genero      = models.CharField(max_length=1, choices=GENEROS, blank=True, default='')
@@ -287,7 +287,7 @@ class Colaborador(models.Model):
     cargo       = models.CharField(max_length=30, choices=CARGOS, default='Assistente')
     cargo_personalizado = models.CharField(max_length=100, blank=True, default='')
     departamento = models.CharField(max_length=100, blank=True, default='')
-    email       = models.EmailField(blank=True, default='')
+    email       = models.EmailField(blank=True, default='', db_index=True)
     telefone    = models.CharField(max_length=30, blank=True, default='')
     data_admissao = models.DateField(null=True, blank=True)
     salario_base = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -551,8 +551,8 @@ class Candidatura(models.Model):
         ('Rejeitado', 'Rejeitado'),
     ]
     vaga        = models.ForeignKey(Vaga, on_delete=models.CASCADE, related_name='candidaturas')
-    nome        = models.CharField(max_length=255)
-    email       = models.EmailField()
+    nome        = models.CharField(max_length=255, db_index=True)
+    email       = models.EmailField(db_index=True)
     telefone    = models.CharField(max_length=30, blank=True, default='')
     cv          = models.FileField(upload_to='recrutamento/cvs/', null=True, blank=True)
     carta_motivacao = models.TextField(blank=True, default='')
@@ -592,7 +592,7 @@ class Entrevista(models.Model):
     local_link      = models.CharField(max_length=300, blank=True, default='',
                                        verbose_name='Local / Link')
     entrevistador   = models.CharField(max_length=255, blank=True, default='')
-    resultado       = models.CharField(max_length=15, choices=RESULTADOS, default='Pendente')
+    resultado       = models.CharField(max_length=15, choices=RESULTADOS, default='Pendente', db_index=True)
     nota            = models.PositiveSmallIntegerField(null=True, blank=True,
                                                        help_text='Nota de 1 a 10')
     observacoes     = models.TextField(blank=True, default='')
@@ -630,7 +630,7 @@ class PlanoIntegracao(models.Model):
     data_inicio     = models.DateField()
     data_fim_prevista = models.DateField(null=True, blank=True)
     responsavel     = models.CharField(max_length=255, blank=True, default='')
-    estado          = models.CharField(max_length=10, choices=ESTADOS, default='Pendente')
+    estado          = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
     notas           = models.TextField(blank=True, default='')
     criado_em       = models.DateTimeField(auto_now_add=True)
 
@@ -694,8 +694,8 @@ class Fatura(models.Model):
     ]
     
     codigo = models.CharField(max_length=50, unique=True)  # Fatura-2024-0001
-    tipo = models.CharField(max_length=25, choices=TIPOS_FATURA)
-    estado = models.CharField(max_length=15, choices=ESTADOS, default='EMITIDA')
+    tipo = models.CharField(max_length=25, choices=TIPOS_FATURA, db_index=True)
+    estado = models.CharField(max_length=15, choices=ESTADOS, default='EMITIDA', db_index=True)
     
     # Relacionamentos
     banca = models.ForeignKey(Banca, on_delete=models.CASCADE, related_name='faturas')
@@ -708,7 +708,7 @@ class Fatura(models.Model):
     valor_imposto = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     
     # Dados da fatura
-    data_emissao = models.DateTimeField(auto_now_add=True)
+    data_emissao = models.DateTimeField(auto_now_add=True, db_index=True)
     data_vencimento = models.DateField()
     data_pagamento = models.DateTimeField(null=True, blank=True)
     
@@ -783,7 +783,7 @@ class RegistoPresenca(models.Model):
     hora_saida  = models.TimeField(null=True, blank=True)
     horas_extras = models.DecimalField(max_digits=4, decimal_places=1, default=0)
     justificacao = models.TextField(blank=True, default='')
-    estado      = models.CharField(max_length=10, choices=ESTADOS, default='Pendente')
+    estado      = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
     aprovado_por = models.ForeignKey(Colaborador, on_delete=models.SET_NULL, null=True, blank=True, 
                                     related_name='presencas_aprovadas', help_text='Quem aprovou/rejeitou este registo')
     data_aprovacao = models.DateTimeField(null=True, blank=True)
@@ -814,7 +814,7 @@ class PedidoFerias(models.Model):
     data_inicio = models.DateField()
     data_fim    = models.DateField()
     motivo      = models.TextField(blank=True, default='')
-    estado      = models.CharField(max_length=10, choices=ESTADOS, default='Pendente')
+    estado      = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
     criado_em   = models.DateTimeField(auto_now_add=True)
 
     class Meta:

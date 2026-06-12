@@ -283,7 +283,7 @@
 <script>
 (function() {
   const ASSEMBLEIA_ID = {{ assembleia.id }};
-  const csrfToken = document.getElementById('csrf-token')?.value || '';
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
   document.getElementById('btn-iniciar')?.addEventListener('click', async function() {
     const ok = await showConfirm('Iniciar Assembleia', 'Iniciar a assembleia?'); if (!ok) return;
@@ -292,7 +292,7 @@
     });
     const data = await res.json();
     if (data.status === 'ok') { location.reload(); }
-    else { alert(data.message || 'Erro'); }
+    else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
   });
 
   document.getElementById('btn-concluir')?.addEventListener('click', async function() {
@@ -302,7 +302,7 @@
     });
     const data = await res.json();
     if (data.status === 'ok') { location.reload(); }
-    else { alert(data.message || 'Erro'); }
+    else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
   });
 
   document.getElementById('btn-cancelar')?.addEventListener('click', async function() {
@@ -312,7 +312,7 @@
     });
     const data = await res.json();
     if (data.status === 'ok') { location.reload(); }
-    else { alert(data.message || 'Erro'); }
+    else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
   });
 
   document.querySelectorAll('.btn-iniciar-votacao').forEach(btn => {
@@ -324,7 +324,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') { location.reload(); }
-      else { alert(data.message || 'Erro'); }
+      else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
     });
   });
 
@@ -336,7 +336,7 @@
     });
     const data = await res.json();
     if (data.status === 'ok') { location.reload(); }
-    else { alert(data.message || 'Erro'); }
+    else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
   }
 
   document.querySelectorAll('.btn-encerrar-votacao').forEach(btn => {
@@ -384,7 +384,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') { location.reload(); }
-      else { alert(data.message || 'Erro'); }
+      else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
     });
   }
 
@@ -397,7 +397,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') { location.reload(); }
-      else { alert(data.message || 'Erro'); }
+      else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
     });
   });
 
@@ -416,7 +416,7 @@
       if (data.status === 'ok') {
         location.reload();
       } else {
-        alert(data.message || 'Erro ao carregar documento.');
+        if (window.toast) window.toast.error(data.message || 'Erro ao carregar documento.'); else alert(data.message || 'Erro ao carregar documento.');
       }
     });
   }
@@ -432,7 +432,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') { location.reload(); }
-      else { alert(data.message || 'Erro'); }
+      else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
     });
   });
 
@@ -446,9 +446,9 @@
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        alert(data.message);
+        if (window.toast) window.toast.success(data.message);
         location.reload();
-      } else { alert(data.message || 'Erro'); }
+      } else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
     });
   });
 
@@ -463,7 +463,7 @@
       });
       const data = await res.json();
       if (data.status === 'ok') { location.reload(); }
-      else { alert(data.message || 'Erro'); }
+      else { if (window.toast) window.toast.error(data.message || 'Erro'); else alert(data.message || 'Erro'); }
     });
   });
 })();

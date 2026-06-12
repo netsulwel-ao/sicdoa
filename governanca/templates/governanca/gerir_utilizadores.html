@@ -1,4 +1,3 @@
-{% load cargo_filters %}
 {% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 
@@ -54,6 +53,8 @@
       </div>
     </div>
 
+    {% include 'includes/view-toggle.html' %}
+
     <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
       <div class="relative flex-1 max-w-md">
         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
@@ -62,14 +63,8 @@
       </div>
       <select name="tipo" class="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30">
         <option value="">Todos os tipos</option>
-        <option value="Administrador" {% if tipo == 'Administrador' %}selected{% endif %}>Administrador</option>
         <option value="Despachante Oficial" {% if tipo == 'Despachante Oficial' %}selected{% endif %}>Despachante Oficial</option>
         <option value="Colaborador Institucional" {% if tipo == 'Colaborador Institucional' %}selected{% endif %}>Colaborador Institucional</option>
-        <option value="Gestor Financeiro" {% if tipo == 'Gestor Financeiro' %}selected{% endif %}>Gestor Financeiro</option>
-        <option value="Operador" {% if tipo == 'Operador' %}selected{% endif %}>Operador</option>
-        <option value="Visualizador" {% if tipo == 'Visualizador' %}selected{% endif %}>Visualizador</option>
-        <option value="ComCargo" {% if tipo == 'ComCargo' %}selected{% endif %}>Com Cargo Direção</option>
-        <option value="SemCargo" {% if tipo == 'SemCargo' %}selected{% endif %}>Sem Cargo Direção</option>
       </select>
       <button type="submit" class="px-4 py-2 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/20 transition-colors">
         <i class="fas fa-search mr-1"></i> Buscar
@@ -81,9 +76,9 @@
       {% endif %}
     </form>
 
-    <div id="utilizadores-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div data-view-container>
+    <div id="utilizadores-grid" data-grid-view class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {% for u in utilizadores %}
-      {% with slugs=membro_cargos|get_item:u.id %}
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="flex items-center gap-3 min-w-0">
@@ -96,66 +91,63 @@
             </div>
             <div class="min-w-0">
               <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate">{{ u.nome }}</h3>
-              <span class="text-xs
-                {% if u.papel == 'Administrador' %}text-purple-500
-                {% elif u.papel == 'Despachante Oficial' %}text-blue-500
-                {% elif u.papel == 'Colaborador Institucional' %}text-green-600
-                {% elif u.papel == 'Gestor Financeiro' %}text-amber-600
-                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}text-indigo-500
-                {% else %}text-gray-400{% endif %}">
-                {% if u.papel == 'Visualizador' and u.cargo_personalizado %}
-                  {{ u.cargo_personalizado }}
-                {% else %}
-                  {{ u.papel }}
-                {% endif %}
-              </span>
+          <span class="text-xs
+            {% if u.papel == 'Administrador' %}text-purple-500
+            {% elif u.papel == 'Despachante Oficial' %}text-blue-500
+            {% elif u.papel == 'Colaborador Institucional' %}text-green-600
+            {% elif u.papel == 'Gestor Financeiro' %}text-amber-600
+            {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}text-indigo-500
+            {% else %}text-gray-400{% endif %}">
+            {% if u.papel == 'Visualizador' and u.cargo_personalizado %}
+              {{ u.cargo_personalizado }}
+            {% else %}
+              {{ u.papel }}
+            {% endif %}
+          </span>
+          {% if u.papel == 'Colaborador Institucional' %}
+            <div class="mt-1.5">
+              <button type="button"
+                      class="btn-atribuir-funcao inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer border-0
+                        {% if u.funcao %}
+                          bg-primary/10 text-primary hover:bg-primary/15 shadow-sm
+                        {% else %}
+                          bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30
+                        {% endif %}"
+                      data-usuario-id="{{ u.id }}"
+                      data-usuario-nome="{{ u.nome }}"
+                      data-funcao-id="{{ u.funcao_id|default:'' }}"
+                      data-funcao-nome="{% if u.funcao %}{{ u.funcao.nome }}{% endif %}"
+                      title="Clique para atribuir função">
+                <i class="fas {% if u.funcao %}fa-badge-check{% else %}fa-exclamation-circle{% endif %} text-[10px]"></i>
+                <span class="funcao-label">{% if u.funcao %}{{ u.funcao.nome }}{% else %}Sem função{% endif %}</span>
+                <i class="fas fa-chevron-down text-[8px] opacity-50"></i>
+              </button>
+            </div>
+          {% endif %}
             </div>
           </div>
-          <div class="text-right shrink-0">
-            <span class="text-xs font-semibold {% if slugs|length > 0 %}text-green-500{% else %}text-gray-400{% endif %}">
-              {{ slugs|length }}/1
-            </span>
-            <p class="text-[10px] text-gray-400">cargos</p>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-1.5 min-h-[28px] mb-2">
-          {% for cargo in cargos %}
-          {% if cargo.slug in slugs %}
-            <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg
-              {% if cargo.sistema %}bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300{% else %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300{% endif %}">
-            {{ cargo.nome }}
-            <button class="btn-remover-cargo ml-0.5 hover:text-red-500 transition-colors cursor-pointer bg-transparent border-none p-0"
-                    data-usuario-id="{{ u.id }}" data-cargo-id="{{ cargo.id }}" title="Remover {{ cargo.nome }}">
-              <i class="fas fa-times text-[10px]"></i>
-            </button>
-          </span>
-          {% endif %}
-          {% endfor %}
         </div>
 
         <div class="flex items-center gap-1.5 flex-wrap border-t border-gray-100 dark:border-gray-800 pt-2 mt-1">
-          {% if slugs|length < 1 %}
-          <button class="btn-atribuir px-2 py-1 text-xs font-medium text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors cursor-pointer border border-dashed border-primary/30 hover:border-primary/50"
-                  data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}">
-            <i class="fas fa-plus text-[10px] mr-0.5"></i> Atribuir Cargo
-          </button>
-          {% endif %}
-          <a href="{% url 'governanca_utilizador_permissoes' u.id %}"
-             class="px-2 py-1 text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg transition-colors border border-transparent inline-flex items-center gap-1">
-            <i class="fas fa-lock text-[10px]"></i> Permissões
+          <a href="{% url 'governanca_utilizador_editar' u.id %}"
+             class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+             title="Editar">
+            <i class="fas fa-edit text-xs"></i>
           </a>
-          <button class="btn-enviar-credenciais ml-auto px-2 py-1 text-xs font-medium text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+          <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
                   data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
-            <i class="fas fa-envelope text-[10px]"></i>
+            <i class="fas fa-envelope text-xs"></i>
           </button>
-          <button class="btn-toggle-status px-2 py-1 text-xs font-medium {% if u.status == 'Ativo' %}text-red-500 hover:bg-red-50{% else %}text-green-500 hover:bg-green-50{% endif %} rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+          <button class="btn-toggle-status w-8 h-8 flex items-center justify-center {% if u.status == 'Ativo' %}text-red-500 hover:bg-red-50{% else %}text-green-500 hover:bg-green-50{% endif %} rounded-lg transition-colors cursor-pointer bg-transparent border-none"
                   data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Ativar{% endif %}">
-            <i class="fas {% if u.status == 'Ativo' %}fa-ban{% else %}fa-check{% endif %} text-[10px]"></i>
+            <i class="fas {% if u.status == 'Ativo' %}fa-ban{% else %}fa-check{% endif %} text-xs"></i>
+          </button>
+          <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+                  data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" title="Eliminar">
+            <i class="fas fa-trash-alt text-xs"></i>
           </button>
         </div>
       </div>
-      {% endwith %}
       {% empty %}
       <div class="col-span-full text-center py-16 text-gray-400">
         <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
@@ -164,6 +156,110 @@
         <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum utilizador encontrado</p>
       </div>
       {% endfor %}
+    </div>
+
+    <div id="view-table" data-list-view class="hidden overflow-x-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+          <tr>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Nome</th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Email</th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Papel</th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Função</th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Contacto</th>
+            <th class="text-center px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Status</th>
+            <th class="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Acções</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+          {% for u in utilizadores %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <i class="fas fa-user text-xs text-primary"></i>
+                </div>
+                <span class="font-medium text-[#111418] dark:text-white truncate max-w-[180px]">{{ u.nome }}</span>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-gray-600 dark:text-gray-400 truncate max-w-[200px]">{{ u.email }}</td>
+            <td class="px-4 py-3">
+              <span class="text-xs font-medium
+                {% if u.papel == 'Administrador' %}text-purple-500
+                {% elif u.papel == 'Despachante Oficial' %}text-blue-500
+                {% elif u.papel == 'Colaborador Institucional' %}text-green-600
+                {% elif u.papel == 'Gestor Financeiro' %}text-amber-600
+                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}text-indigo-500
+                {% else %}text-gray-400{% endif %}">
+                {% if u.papel == 'Visualizador' and u.cargo_personalizado %}{{ u.cargo_personalizado }}{% else %}{{ u.papel }}{% endif %}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-xs">
+              {% if u.papel == 'Colaborador Institucional' %}
+              <button type="button"
+                      class="btn-atribuir-funcao inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all duration-150 cursor-pointer border-0
+                        {% if u.funcao %}
+                          bg-primary/10 text-primary hover:bg-primary/15
+                        {% else %}
+                          bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30
+                        {% endif %}"
+                      data-usuario-id="{{ u.id }}"
+                      data-usuario-nome="{{ u.nome }}"
+                      data-funcao-id="{{ u.funcao_id|default:'' }}"
+                      data-funcao-nome="{% if u.funcao %}{{ u.funcao.nome }}{% endif %}"
+                      title="Clique para atribuir função">
+                <i class="fas {% if u.funcao %}fa-badge-check{% else %}fa-exclamation-circle{% endif %} text-[10px]"></i>
+                <span class="funcao-label">{% if u.funcao %}{{ u.funcao.nome }}{% else %}Sem função{% endif %}</span>
+                <i class="fas fa-chevron-down text-[8px] opacity-50 ml-0.5"></i>
+              </button>
+              {% else %}
+              <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{{ u.telefone|default:'—' }}</td>
+            <td class="px-4 py-3 text-center">
+              {% if u.status == 'Ativo' %}
+              <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
+                <i class="fas fa-circle text-[6px]"></i> Ativo
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
+                <i class="fas fa-circle text-[6px]"></i> {{ u.status }}
+              </span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <div class="flex items-center justify-end gap-1">
+                <a href="{% url 'governanca_utilizador_editar' u.id %}"
+                   class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                   title="Editar">
+                  <i class="fas fa-edit text-xs"></i>
+                </a>
+                <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+                        data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
+                  <i class="fas fa-envelope text-xs"></i>
+                </button>
+                <button class="btn-toggle-status w-8 h-8 flex items-center justify-center {% if u.status == 'Ativo' %}text-red-500 hover:bg-red-50{% else %}text-green-500 hover:bg-green-50{% endif %} rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Ativar{% endif %}">
+                  <i class="fas {% if u.status == 'Ativo' %}fa-ban{% else %}fa-check{% endif %} text-xs"></i>
+                </button>
+                <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" title="Eliminar">
+                  <i class="fas fa-trash-alt text-xs"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-12 text-gray-400">
+              <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum utilizador encontrado</p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     </div>
 
     {% if page_obj.has_other_pages %}
@@ -177,31 +273,62 @@
 
 {% include 'includes/confirm-modal.html' %}
 
-{# ── Modal Atribuir Cargo ───────────────────────────────────────────────── #}
-<div id="modal-atribuir-cargo" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 p-6 w-full max-w-sm mx-4">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-bold text-[#111418] dark:text-white">Atribuir Cargo da Direção</h3>
-      <button onclick="fecharModalAtribuirCargo()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer bg-transparent border-none">
-        <i class="fas fa-times text-xl"></i>
-      </button>
+{# ── Modal de Atribuição de Função ──────────────────────────────────────── #}
+<div id="funcao-modal" class="fixed inset-0 z-[200] hidden flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-all duration-200">
+  <div id="funcao-modal-content" class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col transform transition-all duration-200">
+    <div class="px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold text-[#111418] dark:text-gray-200">
+            <i class="fas fa-badge-check text-primary mr-1.5"></i>Atribuir Função
+          </h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Colaborador: <strong id="funcao-modal-usuario-nome" class="text-gray-800 dark:text-gray-200"></strong>
+          </p>
+        </div>
+        <button type="button" id="funcao-modal-close" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer bg-transparent border-0">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
     </div>
-    <p class="text-sm text-gray-500 mb-4" id="modal-atribuir-nome"></p>
-    <p class="text-xs text-gray-400 mb-3">Os membros da direção são automaticamente membros da Mesa da Assembleia.</p>
-    <div class="space-y-3">
-      <select id="select-cargo" required
-              class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-        <option value="">Selecionar cargo...</option>
-        {% for cargo in cargos %}
-        <option value="{{ cargo.id }}" {% if cargo.id in cargo_ocupado_ids %}disabled{% endif %}>
-          {{ cargo.nome }}{% if cargo.id in cargo_ocupado_ids %} — {{ cargo_ocupado_por|get_item:cargo.id }}{% endif %}
-        </option>
-        {% endfor %}
-      </select>
-      <p id="modal-atribuir-erro" class="text-xs text-red-500 hidden"></p>
-      <button id="btn-confirmar-atribuir" class="w-full px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors">
-        Atribuir Cargo
+    <div id="funcao-modal-lista" class="flex-1 overflow-y-auto px-6 py-3 space-y-2 min-h-0">
+      {% for f in funcoes %}
+      <button type="button"
+              class="funcao-opcao w-full text-left px-4 py-3 rounded-xl border-2 transition-all duration-150 cursor-pointer flex items-center gap-3 hover:border-primary/40 hover:bg-primary/[0.03]"
+              data-funcao-id="{{ f.id }}"
+              data-funcao-nome="{{ f.nome }}"
+              data-permissoes-count="{{ f.permissoes.count }}">
+        <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <i class="fas fa-shield-alt text-primary text-sm"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-[#111418] dark:text-gray-200">{{ f.nome }}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ f.descricao|default:'Sem descrição' }}</div>
+        </div>
+        <div class="shrink-0 flex items-center gap-2">
+          <span class="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full font-medium">
+            {{ f.permissoes.count }} permissão{{ f.permissoes.count|pluralize:'ões' }}
+          </span>
+          <div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center funcao-check hidden">
+            <i class="fas fa-check text-[10px] text-white"></i>
+          </div>
+        </div>
       </button>
+      {% empty %}
+      <div class="text-center py-8 text-gray-400">
+        <i class="fas fa-shield-slash text-3xl block mb-2 text-gray-300"></i>
+        <p class="text-sm">Nenhuma função disponível.</p>
+        <p class="text-xs mt-1">Crie funções primeiro em <a href="{% url 'funcoes_lista' %}" class="text-primary underline">Gestão de Funções</a>.</p>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-800 shrink-0 flex items-center justify-between">
+      <button type="button" id="funcao-modal-remover"
+              class="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors border-0 cursor-pointer hidden"
+              title="Remover função do colaborador">
+        <i class="fas fa-trash-alt mr-1"></i> Remover função
+      </button>
+      <span class="text-xs text-gray-400"><i class="fas fa-info-circle mr-1"></i>Cada colaborador pode ter apenas uma função</span>
     </div>
   </div>
 </div>
@@ -211,68 +338,221 @@
   const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
   const apiToggle = '{% url "governanca_api_utilizador_toggle" %}';
   const apiCredenciais = '{% url "governanca_api_utilizador_credenciais" %}';
-  const apiAtribuir = '{% url "governanca_api_utilizador_cargo_atribuir" %}';
-  const apiRemover = '{% url "governanca_api_utilizador_cargo_remover" %}';
+  const apiAtribuirFuncao = '{% url "governanca_api_utilizador_atribuir_funcao" %}';
+  const apiEliminar = '{% url "governanca_api_utilizador_eliminar" %}';
 
-  let atribuirUsuarioId = null;
+  // ── Dados das funções (do template) ────────────────────────────────────
+  var funcoesData = {};
+  {% for f in funcoes %}
+  funcoesData[{{ f.id }}] = { id: {{ f.id }}, nome: '{{ f.nome|escapejs }}', permissoes_count: {{ f.permissoes.count }} };
+  {% endfor %}
 
-  // ── Atribuir Cargo ────────────────────────────────────────────────────
-  document.querySelectorAll('.btn-atribuir').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      atribuirUsuarioId = this.dataset.usuarioId;
-      document.getElementById('modal-atribuir-nome').textContent = 'Utilizador: ' + this.dataset.usuarioNome;
-      document.getElementById('select-cargo').value = '';
-      document.getElementById('modal-atribuir-erro').classList.add('hidden');
-      document.getElementById('modal-atribuir-cargo').classList.remove('hidden');
+  // ── Modal elements ─────────────────────────────────────────────────────
+  const modal = document.getElementById('funcao-modal');
+  const modalNome = document.getElementById('funcao-modal-usuario-nome');
+  const modalLista = document.getElementById('funcao-modal-lista');
+  const modalClose = document.getElementById('funcao-modal-close');
+  const modalRemover = document.getElementById('funcao-modal-remover');
+  let modalUsuarioId = null;
+  let modalFuncaoAtual = null;
+  let modalFuncaoBtn = null; // the button that opened the modal
+  let modalCloseTimer = null; // tracks the close animation timeout
+
+  // ── Open modal ─────────────────────────────────────────────────────────
+  function openFuncaoModal(btn) {
+    // Cancel any pending close animation
+    if (modalCloseTimer) {
+      clearTimeout(modalCloseTimer);
+      modalCloseTimer = null;
+    }
+
+    modalUsuarioId = parseInt(btn.dataset.usuarioId);
+    modalFuncaoAtual = btn.dataset.funcaoId || null;
+    modalFuncaoBtn = btn;
+    modalNome.textContent = btn.dataset.usuarioNome;
+
+    // Reset all options
+    modalLista.querySelectorAll('.funcao-opcao').forEach(function(opt) {
+      opt.classList.remove('border-primary', 'bg-primary/[0.06]');
+      opt.classList.add('border-gray-200', 'dark:border-gray-700');
+      var check = opt.querySelector('.funcao-check');
+      check.classList.add('hidden');
+      check.classList.remove('bg-primary');
+    });
+
+    // Highlight current
+    if (modalFuncaoAtual) {
+      var selected = modalLista.querySelector('.funcao-opcao[data-funcao-id="' + modalFuncaoAtual + '"]');
+      if (selected) {
+        selected.classList.remove('border-gray-200', 'dark:border-gray-700');
+        selected.classList.add('border-primary', 'bg-primary/[0.06]');
+        var check = selected.querySelector('.funcao-check');
+        check.classList.remove('hidden');
+        check.classList.add('bg-primary');
+      }
+    }
+
+    // Show/hide remove button
+    if (modalFuncaoAtual) {
+      modalRemover.classList.remove('hidden');
+    } else {
+      modalRemover.classList.add('hidden');
+    }
+
+    // Animate in — set initial invisible state BEFORE showing, force reflow, then transition
+    var content = document.getElementById('funcao-modal-content');
+    content.style.transform = 'scale(0.95)';
+    content.style.opacity = '0';
+    modal.classList.remove('hidden');
+    void content.offsetHeight;  // force reflow so the browser registers the initial computed values
+    content.style.transform = 'scale(1)';
+    content.style.opacity = '1';
+
+    // Focus first option for keyboard nav; scroll to selected if exists
+    var focusTarget = null;
+    if (modalFuncaoAtual) {
+      focusTarget = modalLista.querySelector('.funcao-opcao[data-funcao-id="' + modalFuncaoAtual + '"]');
+      if (focusTarget) {
+        setTimeout(function() { focusTarget.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 100);
+      }
+    }
+    setTimeout(function() {
+      (focusTarget || modalLista.querySelector('.funcao-opcao'))?.focus();
+    }, 200);
+  }
+
+  // ── Close modal ────────────────────────────────────────────────────────
+  function closeFuncaoModal() {
+    if (modalCloseTimer) return;  // already animating out
+    var content = document.getElementById('funcao-modal-content');
+    if (!content) return;
+    content.style.transform = 'scale(0.95)';
+    content.style.opacity = '0';
+    modal.style.opacity = '0';
+    modalCloseTimer = setTimeout(function() {
+      modal.classList.add('hidden');
+      // Reset inline styles for next open
+      content.style.transform = '';
+      content.style.opacity = '';
+      modal.style.opacity = '';
+      modalCloseTimer = null;
+    }, 200);
+  }
+
+  // ── Escape key to close ────────────────────────────────────────────────
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      closeFuncaoModal();
+    }
+  });
+
+  modalClose.addEventListener('click', closeFuncaoModal);
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeFuncaoModal();
+  });
+
+  // ── Select function option ─────────────────────────────────────────────
+  modalLista.querySelectorAll('.funcao-opcao').forEach(function(opt) {
+    opt.addEventListener('click', function() {
+      if (!modalUsuarioId) return;
+      var funcaoId = this.dataset.funcaoId;
+      var funcaoNome = this.dataset.funcaoNome;
+
+      // If clicking the already selected one, do nothing
+      if (funcaoId === modalFuncaoAtual) {
+        closeFuncaoModal();
+        return;
+      }
+
+      // Confirm
+      var msg = modalFuncaoAtual
+        ? 'Tem certeza que deseja alterar a função para "' + funcaoNome + '"?'
+        : 'Atribuir a função "' + funcaoNome + '" a este colaborador?';
+      showConfirm('Atribuir Função', msg, 'Confirmar').then(function(ok) {
+        if (!ok) return;
+        atribuirFuncao(modalUsuarioId, funcaoId, funcaoNome);
+      });
     });
   });
 
-  document.getElementById('btn-confirmar-atribuir')?.addEventListener('click', async function() {
-    const cargoId = document.getElementById('select-cargo').value;
-    const erroEl = document.getElementById('modal-atribuir-erro');
-    erroEl.classList.add('hidden');
-    if (!cargoId || !atribuirUsuarioId) { erroEl.textContent = 'Selecione um cargo.'; erroEl.classList.remove('hidden'); return; }
-    this.disabled = true;
-    this.textContent = 'A atribuir...';
-    try {
-      const res = await fetch(apiAtribuir, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-        body: JSON.stringify({ usuario_id: parseInt(atribuirUsuarioId), cargo_id: parseInt(cargoId) })
-      });
-      const data = await res.json();
-      if (data.status === 'ok') { location.reload(); }
-      else { erroEl.textContent = data.erro || 'Erro.'; erroEl.classList.remove('hidden'); }
-    } catch(e) { erroEl.textContent = 'Erro de conexão.'; erroEl.classList.remove('hidden'); }
-    this.disabled = false;
-    this.textContent = 'Atribuir Cargo';
-  });
-
-  window.fecharModalAtribuirCargo = function() {
-    document.getElementById('modal-atribuir-cargo').classList.add('hidden');
-    atribuirUsuarioId = null;
-  };
-  document.getElementById('modal-atribuir-cargo')?.addEventListener('click', function(e) {
-    if (e.target === this) fecharModalAtribuirCargo();
-  });
-
-  // ── Remover Cargo ─────────────────────────────────────────────────────
-  document.querySelectorAll('.btn-remover-cargo').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      const usuarioId = this.dataset.usuarioId;
-      const cargoId = this.dataset.cargoId;
-      const ok = await showConfirm('Remover Cargo', 'Remover este cargo do utilizador?', 'Remover');
+  // ── Remove function ────────────────────────────────────────────────────
+  modalRemover.addEventListener('click', function() {
+    if (!modalUsuarioId) return;
+    showConfirm('Remover Função', 'Remover a função deste colaborador? Ele ficará sem acesso ao sistema.', 'Remover').then(function(ok) {
       if (!ok) return;
-      try {
-        const res = await fetch(apiRemover, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-          body: JSON.stringify({ usuario_id: parseInt(usuarioId), cargo_id: parseInt(cargoId) })
+      atribuirFuncao(modalUsuarioId, null, null);
+    });
+  });
+
+  // ── API call ───────────────────────────────────────────────────────────
+  function atribuirFuncao(usuarioId, funcaoId, funcaoNome) {
+    // Show loading state on the trigger button
+    if (modalFuncaoBtn) {
+      modalFuncaoBtn.disabled = true;
+      modalFuncaoBtn.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i><span class="funcao-label">A guardar...</span><i class="fas fa-chevron-down text-[8px] opacity-50"></i>';
+    }
+
+    fetch(apiAtribuirFuncao, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({ usuario_id: usuarioId, funcao_id: funcaoId })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.status === 'ok') {
+        closeFuncaoModal();
+        // Update all buttons for this user
+        document.querySelectorAll('.btn-atribuir-funcao[data-usuario-id="' + usuarioId + '"]').forEach(function(btn) {
+          btn.dataset.funcaoId = funcaoId || '';
+          btn.dataset.funcaoNome = funcaoNome || '';
+          var label = btn.querySelector('.funcao-label');
+          if (funcaoId) {
+            label.textContent = funcaoNome;
+            btn.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'text-red-600', 'dark:text-red-400', 'hover:bg-red-100', 'dark:hover:bg-red-900/30');
+            btn.classList.add('bg-primary/10', 'text-primary', 'hover:bg-primary/15', 'shadow-sm');
+            btn.querySelector('i:first-child').className = 'fas fa-badge-check text-[10px]';
+          } else {
+            label.textContent = 'Sem função';
+            btn.classList.remove('bg-primary/10', 'text-primary', 'hover:bg-primary/15', 'shadow-sm');
+            btn.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-600', 'dark:text-red-400', 'hover:bg-red-100', 'dark:hover:bg-red-900/30');
+            btn.querySelector('i:first-child').className = 'fas fa-exclamation-circle text-[10px]';
+          }
+          btn.disabled = false;
         });
-        const data = await res.json();
-        if (data.status === 'ok') { location.reload(); }
-        else { await showConfirm('Erro', data.erro || 'Erro.', 'OK'); }
-      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+        if (window.toast) {
+          window.toast.success(data.message || 'Função atribuída com sucesso!');
+        }
+      } else {
+        if (window.toast) {
+          window.toast.error(data.erro || 'Erro ao atribuir função.');
+        }
+        if (modalFuncaoBtn) {
+          modalFuncaoBtn.disabled = false;
+          var label = modalFuncaoBtn.querySelector('.funcao-label');
+          if (label) label.textContent = modalFuncaoBtn.dataset.funcaoNome || 'Sem função';
+          // Restore spinner to original icon
+          var spinner = modalFuncaoBtn.querySelector('.fa-spinner');
+          if (spinner) {
+            var hasFuncao = !!modalFuncaoBtn.dataset.funcaoId;
+            spinner.className = hasFuncao ? 'fas fa-badge-check text-[10px]' : 'fas fa-exclamation-circle text-[10px]';
+          }
+        }
+      }
+    })
+    .catch(function() {
+      if (window.toast) {
+        window.toast.error('Erro de conexão ao atribuir função.');
+      }
+      if (modalFuncaoBtn) {
+        modalFuncaoBtn.disabled = false;
+      }
+    });
+  }
+
+  // ── Click handlers on badges ───────────────────────────────────────────
+  document.querySelectorAll('.btn-atribuir-funcao').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      openFuncaoModal(this);
     });
   });
 
@@ -292,8 +572,36 @@
         });
         const data = await res.json();
         if (data.status === 'ok') { location.reload(); }
-        else { await showConfirm('Erro', data.erro || 'Erro.', 'OK'); }
-      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+        else { if (window.toast) window.toast.error(data.erro || 'Erro.'); }
+      } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
+    });
+  });
+
+
+
+  // ── Eliminar Utilizador ──────────────────────────────────────────────
+  document.querySelectorAll('.btn-eliminar-usuario').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const nome = this.dataset.usuarioNome;
+      const ok = await showConfirm('Eliminar Utilizador', 'Tem certeza que deseja eliminar permanentemente o utilizador "' + nome + '"? Esta acção não pode ser desfeita.', 'Eliminar');
+      if (!ok) return;
+      try {
+        const res = await fetch(apiEliminar, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          if (window.toast) window.toast.success(data.message);
+          else location.reload();
+          setTimeout(function() { location.reload(); }, 1200);
+        } else {
+          if (window.toast) window.toast.error(data.erro || 'Erro ao eliminar.');
+        }
+      } catch(e) {
+        if (window.toast) window.toast.error('Erro de conexão.');
+      }
     });
   });
 
@@ -309,9 +617,12 @@
           body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
         });
         const data = await res.json();
-        if (data.status === 'ok') { await showConfirm('Sucesso', 'Credenciais enviadas com sucesso.', 'OK'); }
-        else { await showConfirm('Erro', data.erro || 'Erro.', 'OK'); }
-      } catch(e) { await showConfirm('Erro', 'Erro de conexão.', 'OK'); }
+        if (data.status === 'ok') {
+          if (window.toast) window.toast.success('Credenciais enviadas com sucesso.');
+        } else {
+          if (window.toast) window.toast.error(data.erro || 'Erro.');
+        }
+      } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
     });
   });
 

@@ -14,12 +14,15 @@ urlpatterns = [
     path('requisicoes/<int:pk>/rejeitar/', views.rejeitar_requisicao, name='requisicao_rejeitar'),
     path('requisicoes/<int:pk>/cancelar/', views.cancelar_requisicao, name='requisicao_cancelar'),
     path('requisicoes/<int:pk>/eliminar/', views.eliminar_requisicao, name='requisicao_eliminar'),
+    path('requisicoes/<int:pk>/editar/', views.editar_requisicao, name='requisicao_editar'),
 
     # Facturas Finais
     path('facturas/', views.FacturaClienteListView.as_view(), name='factura_lista'),
     path('facturas/criar/', views.FacturaClienteCreateView.as_view(), name='factura_criar'),
     path('facturas/<int:pk>/', views.FacturaClienteDetailView.as_view(), name='factura_detalhe'),
     path('facturas/<int:pk>/pdf/', views.factura_pdf, name='factura_pdf'),
+    path('facturas/<int:pk>/cancelar/', views.cancelar_factura, name='factura_cancelar'),
+    path('facturas/<int:pk>/enviar-email/', views.factura_enviar_email, name='factura_enviar_email'),
     path('facturas/du-custos/<int:pk>/', views.du_custos_json, name='factura_du_custos'),
 
     # Gestão de Recibos
@@ -28,6 +31,8 @@ urlpatterns = [
     path('recibos/<int:pk>/', views.ReciboClienteDetailView.as_view(), name='recibo_detalhe'),
     path('recibos/<int:pk>/pdf/', views.recibo_pdf, name='recibo_pdf'),
     path('recibos/<int:pk>/enviar-email/', views.recibo_enviar_email, name='recibo_enviar_email'),
+    path('recibos/<int:pk>/editar/', views.editar_recibo, name='recibo_editar'),
+    path('recibos/<int:pk>/cancelar/', views.cancelar_recibo, name='recibo_cancelar'),
 
     # Notas
     path('notas/', views.NotasHomeView.as_view(), name='notas_home'),
@@ -73,6 +78,7 @@ urlpatterns = [
     path('conta-corrente/mensal/pdf/', cc.conta_corrente_mensal_pdf, name='conta_corrente_mensal_pdf'),
     path('conta-corrente/periodica/', cc.ContaCorrentePeriodicaView.as_view(), name='conta_corrente_periodica'),
     path('conta-corrente/periodica/json/', cc.conta_corrente_periodica_json, name='conta_corrente_periodica_json'),
+    path('conta-corrente/periodica/pdf/', cc.conta_corrente_periodica_pdf, name='conta_corrente_periodica_pdf'),
     path('conta-corrente/periodica/excel/', cc.conta_corrente_periodica_excel, name='conta_corrente_periodica_excel'),
 
     # ─── Relatórios Financeiros ────────────────────────────────────────────
@@ -91,6 +97,8 @@ urlpatterns = [
     path('relatorios/balancete/', rel.RelatorioBalanceteFinanceiroView.as_view(), name='relatorio_balancete'),
     # Executivos
     path('relatorios/dashboard/', rel.RelatorioDashboardFinanceiroView.as_view(), name='relatorio_dashboard'),
+    path('relatorios/dashboard/json/', rel.dashboard_financeiro_json, name='relatorio_dashboard_json'),
+    path('relatorios/fluxo-caixa/json/', rel.fluxo_caixa_json, name='relatorio_fluxo_caixa_json'),
     path('relatorios/indicadores-cobranca/', rel.RelatorioIndicadoresCobrancaView.as_view(), name='relatorio_indicadores_cobranca'),
     path('relatorios/receita-cliente/', rel.RelatorioReceitaPorClienteView.as_view(), name='relatorio_receita_cliente'),
     path('relatorios/receita-localizacao/', rel.RelatorioReceitaPorLocalizacaoView.as_view(), name='relatorio_receita_localizacao'),

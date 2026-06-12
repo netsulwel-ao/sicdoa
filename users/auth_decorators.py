@@ -94,17 +94,24 @@ def criar_sessao_usuario(request, usuario):
     
     # Guardar informações do utilizador na sessão
     request.session['usuario_id'] = usuario.id
+    funcao_nome = usuario.funcao.nome if hasattr(usuario, 'funcao') and usuario.funcao else ''
+    # Se não for Administrador nem Despachante Oficial, o papel passa a ser o nome da função
+    if usuario.papel not in ('Administrador', 'Despachante Oficial') and funcao_nome:
+        papel_sessao = funcao_nome
+    else:
+        papel_sessao = usuario.papel
     request.session['usuario'] = {
         'id': usuario.id,
         'nome': usuario.nome,
         'email': usuario.email,
-        'papel': usuario.papel,
+        'papel': papel_sessao,
         'nif': usuario.nif or '',
         'cedula': usuario.cedula or '',
         'telefone': usuario.telefone or '',
         'username': usuario.username,
         'is_secretario': usuario.is_secretario,
         'is_vice_secretario': usuario.is_vice_secretario,
+        'funcao_nome': funcao_nome,
     }
     
     # Guardar tipo de usuário (usuario ou colaborador)

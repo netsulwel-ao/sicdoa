@@ -7,7 +7,10 @@
 
     {# ── Cabeçalho ───────────────────────────────────────────────────────── #}
     <div>
-      <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Férias e Ausências</h1>
+      <div class="flex items-center gap-2">
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Férias e Ausências</h1>
+        {% include 'includes/view-toggle.html' %}
+      </div>
       <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5">Solicite e acompanhe os seus pedidos de férias</p>
     </div>
 
@@ -149,36 +152,67 @@
         <i class="fas fa-history text-primary text-xl"></i>
         <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Histórico Completo</h2>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="bg-gray-50 dark:bg-gray-800/50">
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Início</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fim</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Dias</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Motivo</th>
-              <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estado</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+      <div data-view-container>
+        <div data-grid-view>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
             {% for pedido in pedidos %}
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-              <td class="px-5 py-3 text-gray-800 dark:text-gray-200">{{ pedido.data_inicio|date:"d/m/Y" }}</td>
-              <td class="px-5 py-3 text-gray-800 dark:text-gray-200">{{ pedido.data_fim|date:"d/m/Y" }}</td>
-              <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ pedido.dias }}</td>
-              <td class="px-5 py-3 text-gray-600 dark:text-gray-400">{{ pedido.motivo|default:"—"|truncatechars:50 }}</td>
-              <td class="px-5 py-3">
-                <span class="px-2.5 py-1 rounded-full text-xs font-medium
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ pedido.data_inicio|date:"d/m/Y" }} — {{ pedido.data_fim|date:"d/m/Y" }}</span>
+                <span class="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap
                   {% if pedido.estado == 'Aprovado' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
                   {% elif pedido.estado == 'Rejeitado' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
                   {% else %}bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400{% endif %}">
                   {{ pedido.estado }}
                 </span>
-              </td>
-            </tr>
+              </div>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-500 dark:text-gray-400">Dias</span>
+                  <span class="font-medium text-gray-700 dark:text-gray-300">{{ pedido.dias }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500 dark:text-gray-400">Motivo</span>
+                  <span class="font-medium text-gray-700 dark:text-gray-300 text-right">{{ pedido.motivo|default:"—"|truncatechars:30 }}</span>
+                </div>
+              </div>
+            </div>
             {% endfor %}
-          </tbody>
-        </table>
+          </div>
+        </div>
+        <div data-list-view class="hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 dark:bg-gray-800/50">
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Início</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fim</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Dias</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Motivo</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estado</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+                {% for pedido in pedidos %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                  <td class="px-5 py-3 text-gray-800 dark:text-gray-200">{{ pedido.data_inicio|date:"d/m/Y" }}</td>
+                  <td class="px-5 py-3 text-gray-800 dark:text-gray-200">{{ pedido.data_fim|date:"d/m/Y" }}</td>
+                  <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ pedido.dias }}</td>
+                  <td class="px-5 py-3 text-gray-600 dark:text-gray-400">{{ pedido.motivo|default:"—"|truncatechars:50 }}</td>
+                  <td class="px-5 py-3">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-medium
+                      {% if pedido.estado == 'Aprovado' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                      {% elif pedido.estado == 'Rejeitado' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                      {% else %}bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400{% endif %}">
+                      {{ pedido.estado }}
+                    </span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
     {% endif %}

@@ -29,7 +29,7 @@
           {% elif c.estado == 'Em Curso' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 flex-shrink-0">Em Curso</span>
           {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex-shrink-0">Aberto</span>{% endif %}
         </div>
-        <div class="flex items-center gap-2 text-sm text-gray-600 mb-4"><i class="fas fa-chart-bar text-base"></i>{{ c.avaliacoes.count }} avaliação{{ c.avaliacoes.count|pluralize:"ões" }}</div>
+        <div class="flex items-center gap-2 text-sm text-gray-600 mb-4"><i class="fas fa-chart-bar text-base"></i>{{ c.num_avaliacoes }} avaliação{{ c.num_avaliacoes|pluralize:"ões" }}</div>
         <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="w-full text-center block px-4 py-2.5 bg-primary/10 text-primary rounded-xl text-sm font-semibold hover:bg-primary/20 transition-all">Ver Detalhes</a>
       </div>
     </div>
@@ -55,7 +55,7 @@
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
               <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white">{{ c.nome }}</td>
               <td class="px-5 py-4 text-sm text-gray-600">{{ c.periodo_inicio|date:"d/m/Y" }} → {{ c.periodo_fim|date:"d/m/Y" }}</td>
-              <td class="px-5 py-4 text-center text-sm text-gray-600">{{ c.avaliacoes.count }} avaliação{{ c.avaliacoes.count|pluralize:"ões" }}</td>
+              <td class="px-5 py-4 text-center text-sm text-gray-600">{{ c.num_avaliacoes }} avaliação{{ c.num_avaliacoes|pluralize:"ões" }}</td>
               <td class="px-5 py-4 text-center">
                 {% if c.estado == 'Encerrado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Encerrado</span>
                 {% elif c.estado == 'Em Curso' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Em Curso</span>

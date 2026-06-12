@@ -21,13 +21,14 @@ class RequisicaoFundo(models.Model):
     processo_aduaneiro = models.ForeignKey(DeclaracaoUnica, on_delete=models.CASCADE, related_name='requisicoes_fundos', verbose_name='Processo Aduaneiro')
     valor_solicitado = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Solicitado')
     justificacao = models.TextField(verbose_name='Justificação')
-    data = models.DateTimeField(auto_now_add=True, verbose_name='Data')
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', verbose_name='Estado')
+    data = models.DateTimeField(auto_now_add=True, verbose_name='Data', db_index=True)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', db_index=True, verbose_name='Estado')
     solicitante_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Solicitante')
     solicitante_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Solicitante')
     responsavel_aprovacao_id_usuario = models.IntegerField(null=True, blank=True, verbose_name='ID do Aprovador')
     responsavel_aprovacao_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Aprovador')
     documento_justificativo = models.FileField(upload_to='requisicoes_fundos/', null=True, blank=True, verbose_name='Documento Justificativo')
+    motivo_rejeicao = models.TextField(blank=True, default='', verbose_name='Motivo da Rejeição')
 
     class Meta:
         db_table = 'financeiro_requisicao_fundo'
@@ -58,6 +59,10 @@ class RequisicaoFundo(models.Model):
             self.numero_requisicao = self._gerar_numero_requisicao()
         super().save(*args, **kwargs)
 
+    @property
+    def editavel(self):
+        return self.estado == 'Pendente'
+
     def __str__(self):
         return f"Req {self.numero_requisicao} - {self.cliente.nome} - {self.valor_solicitado}"
 
@@ -86,9 +91,9 @@ class FacturaCliente(models.Model):
     
     valor_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Total')
     valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name='Valor Pago')
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', verbose_name='Estado')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', db_index=True, verbose_name='Estado')
     data_emissao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Emissão')
-    data_vencimento = models.DateField(verbose_name='Data de Vencimento')
+    data_vencimento = models.DateField(verbose_name='Data de Vencimento', db_index=True)
     descricao = models.TextField(verbose_name='Descrição')
     
     criado_por_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador')
@@ -99,6 +104,9 @@ class FacturaCliente(models.Model):
         verbose_name = 'Factura de Cliente'
         verbose_name_plural = 'Facturas de Clientes'
         ordering = ['-data_emissao']
+        indexes = [
+            models.Index(fields=['estado', '-data_emissao'], name='ix_factura_estado_data'),
+        ]
 
     def _gerar_numero_factura(self):
         """Gera número sequencial: FT-AAAA-NNNN."""
@@ -181,6 +189,7 @@ class ReciboCliente(models.Model):
     utilizador_responsavel_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Responsável')
     utilizador_responsavel_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Responsável')
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Criação')
+    estado = models.CharField(max_length=20, choices=[('Pendente', 'Pendente'), ('Cancelado', 'Cancelado')], default=None, null=True, blank=True, db_index=True, verbose_name='Estado')
 
     class Meta:
         db_table = 'financeiro_recibo_cliente'
@@ -209,19 +218,26 @@ class ReciboCliente(models.Model):
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         old_valor = 0.0
-        
+        old_estado = None
+
         if not is_new:
             old_self = ReciboCliente.objects.get(pk=self.pk)
             old_valor = float(old_self.valor_recebido)
+            old_estado = old_self.estado
 
         if not self.numero_recibo:
             self.numero_recibo = self._gerar_numero_recibo()
 
         super().save(*args, **kwargs)
 
-        # Atualiza o valor pago na fatura associada
+        # Atualiza o valor pago na fatura associada (exclui recibos cancelados)
         factura = self.factura
-        total_pago = float(factura.recibos.filter(factura=factura).aggregate(total=models.Sum('valor_recebido'))['total'] or 0.0)
+        old_estado_factura = factura.estado
+        old_valor_pago = factura.valor_pago
+        total_pago = float(factura.recibos.filter(factura=factura).exclude(estado='Cancelado').aggregate(
+            total=models.Sum('valor_recebido'))['total'] or 0.0)
+        total_pago += float(factura.facturas_recibo.filter(factura=factura, estado='Paga').aggregate(
+            total=models.Sum('valor'))['total'] or 0.0)
         factura.valor_pago = total_pago
         if factura.valor_pago >= factura.valor_total:
             factura.estado = 'Paga'
@@ -231,13 +247,30 @@ class ReciboCliente(models.Model):
             factura.estado = 'Pendente'
         factura.save(update_fields=['valor_pago', 'estado'])
 
+        # Regista historico da factura se houve alteração de estado
+        if old_estado_factura != factura.estado or old_valor_pago != factura.valor_pago:
+            registrar_historico(
+                'Factura', factura.pk, factura.numero_factura, 'Pagamento recebido',
+                estado_anterior=old_estado_factura, estado_novo=factura.estado,
+                valor=float(self.valor_recebido),
+                utilizador_id=self.utilizador_responsavel_id, utilizador_nome=self.utilizador_responsavel_nome,
+                cliente_nome=factura.cliente.nome,
+            )
+
         # Atualiza a conta corrente do cliente: recibos creditam a conta corrente (aumentam saldo)
-        diff = float(self.valor_recebido) - old_valor
+        # Apenas recibos não cancelados afetam o saldo
+        novo_valor = float(self.valor_recebido) if self.estado != 'Cancelado' else 0.0
+        antigo_valor = old_valor if old_estado != 'Cancelado' else 0.0
+        diff = novo_valor - antigo_valor
         if diff != 0:
             Cliente.objects.filter(pk=self.cliente.pk).update(
                 saldo_conta_corrente=models.F('saldo_conta_corrente') + diff
             )
             self.cliente.refresh_from_db()
+
+    @property
+    def editavel(self):
+        return self.estado != 'Cancelado'
 
     def __str__(self):
         return f"Recibo {self.numero_recibo} - {self.cliente.nome} - {self.valor_recebido}"
@@ -259,7 +292,7 @@ class NotaCredito(models.Model):
     valor_creditado = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Creditado')
     motivo = models.CharField(max_length=255, verbose_name='Motivo')
     data = models.DateField(verbose_name='Data')
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', verbose_name='Estado')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', db_index=True, verbose_name='Estado')
     
     utilizador_criador_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador')
     utilizador_criador_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Criador')
@@ -322,8 +355,17 @@ class NotaCredito(models.Model):
 
         # Ajusta valor_total da factura relacionada (reduz quando aprovada)
         if diff != 0 and self.factura_relacionada_id:
+            factura_old_valor = float(FacturaCliente.objects.filter(pk=self.factura_relacionada_id).values_list('valor_total', flat=True).first() or 0)
             FacturaCliente.objects.filter(pk=self.factura_relacionada_id).update(
                 valor_total=ModelF('valor_total') - diff
+            )
+            num_factura = FacturaCliente.objects.filter(pk=self.factura_relacionada_id).values_list('numero_factura', flat=True).first() or ''
+            registrar_historico(
+                'Factura', self.factura_relacionada_id, num_factura,
+                'Ajuste por Nota de Crédito', valor=float(self.valor_creditado),
+                utilizador_id=self.utilizador_aprovador_id or self.utilizador_criador_id,
+                utilizador_nome=self.utilizador_aprovador_nome or self.utilizador_criador_nome,
+                cliente_nome=self.cliente.nome,
             )
 
     def __str__(self):
@@ -346,7 +388,7 @@ class NotaDebito(models.Model):
     valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor')
     motivo = models.CharField(max_length=255, verbose_name='Motivo')
     data = models.DateField(verbose_name='Data')
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', verbose_name='Estado')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', db_index=True, verbose_name='Estado')
     
     utilizador_criador_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador')
     utilizador_criador_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Criador')
@@ -412,6 +454,14 @@ class NotaDebito(models.Model):
             FacturaCliente.objects.filter(pk=self.factura_relacionada_id).update(
                 valor_total=ModelF('valor_total') + diff
             )
+            num_factura = FacturaCliente.objects.filter(pk=self.factura_relacionada_id).values_list('numero_factura', flat=True).first() or ''
+            registrar_historico(
+                'Factura', self.factura_relacionada_id, num_factura,
+                'Ajuste por Nota de Débito', valor=float(self.valor),
+                utilizador_id=self.utilizador_aprovador_id or self.utilizador_criador_id,
+                utilizador_nome=self.utilizador_aprovador_nome or self.utilizador_criador_nome,
+                cliente_nome=self.cliente.nome,
+            )
 
     def __str__(self):
         return f"Nota Débito {self.numero_nota} - {self.cliente.nome} - {self.valor}"
@@ -435,10 +485,11 @@ class FacturaRecibo(models.Model):
 
     numero_factura_recibo = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Factura-Recibo')
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='facturas_recibo', verbose_name='Cliente')
+    factura = models.ForeignKey(FacturaCliente, null=True, blank=True, on_delete=models.SET_NULL, related_name='facturas_recibo', verbose_name='Factura Associada')
     valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor')
     forma_pagamento = models.CharField(max_length=50, choices=FORMAS_PAGAMENTO, verbose_name='Forma de Pagamento')
     data = models.DateField(verbose_name='Data')
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='Paga', verbose_name='Estado')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Paga', db_index=True, verbose_name='Estado')
     
     utilizador_responsavel_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Responsável')
     utilizador_responsavel_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Responsável')
@@ -472,15 +523,18 @@ class FacturaRecibo(models.Model):
         is_new = self.pk is None
         old_valor = 0.0
         old_estado = 'Paga'
+        old_factura_pk = None
         
         if not is_new:
             old_self = FacturaRecibo.objects.get(pk=self.pk)
             old_valor = float(old_self.valor)
             old_estado = old_self.estado
+            old_factura_pk = old_self.factura_id
 
         if not self.numero_factura_recibo:
             self.numero_factura_recibo = self._gerar_numero_factura_recibo()
 
+        factura_pk_changed = old_factura_pk != self.factura_id
         super().save(*args, **kwargs)
 
         # Factura-Recibo tem impacto líquido ZERO na conta corrente quando está Paga
@@ -491,6 +545,68 @@ class FacturaRecibo(models.Model):
         # - Antes: debito de valor, credito de valor (saldo inalterado)
         # - Agora: sem debito, sem credito (saldo inalterado)
         # Portanto, saldo da conta corrente não muda.
+
+        # Atualiza o valor pago na factura associada (se houver)
+        if self.factura and self.estado == 'Paga':
+            self._atualizar_factura_valor_pago()
+        elif old_factura_pk and old_estado == 'Paga' and (self.estado == 'Cancelada' or factura_pk_changed):
+            # Se a factura-recibo foi cancelada ou desvinculada, reverte o valor
+            factura = FacturaCliente.objects.filter(pk=old_factura_pk).first()
+            if factura:
+                self._atualizar_factura_valor_pago_por_factura(factura)
+
+    def _atualizar_factura_valor_pago(self):
+        """Atualiza valor_pago e estado da factura associada e regista historico."""
+        if not self.factura:
+            return
+        factura = self.factura
+        old_estado = factura.estado
+        old_valor_pago = factura.valor_pago
+        total_pago = float(factura.recibos.filter(factura=factura).exclude(estado='Cancelado').aggregate(
+            total=models.Sum('valor_recebido'))['total'] or 0.0)
+        total_pago += float(factura.facturas_recibo.filter(factura=factura, estado='Paga').aggregate(
+            total=models.Sum('valor'))['total'] or 0.0)
+        factura.valor_pago = total_pago
+        if factura.valor_pago >= factura.valor_total:
+            factura.estado = 'Paga'
+        elif factura.valor_pago > 0:
+            factura.estado = 'Parcialmente Paga'
+        else:
+            factura.estado = 'Pendente'
+        factura.save(update_fields=['valor_pago', 'estado'])
+        if old_estado != factura.estado or old_valor_pago != factura.valor_pago:
+            registrar_historico(
+                'Factura', factura.pk, factura.numero_factura, 'Pagamento via Factura-Recibo',
+                estado_anterior=old_estado, estado_novo=factura.estado,
+                valor=float(self.valor),
+                utilizador_id=self.utilizador_responsavel_id, utilizador_nome=self.utilizador_responsavel_nome,
+                cliente_nome=factura.cliente.nome,
+            )
+
+    def _atualizar_factura_valor_pago_por_factura(self, factura):
+        """Atualiza valor_pago e estado após cancelamento/desvinculação."""
+        old_estado = factura.estado
+        old_valor_pago = factura.valor_pago
+        total_pago = float(factura.recibos.filter(factura=factura).exclude(estado='Cancelado').aggregate(
+            total=models.Sum('valor_recebido'))['total'] or 0.0)
+        total_pago += float(factura.facturas_recibo.filter(factura=factura, estado='Paga').aggregate(
+            total=models.Sum('valor'))['total'] or 0.0)
+        factura.valor_pago = total_pago
+        if factura.valor_pago >= factura.valor_total:
+            factura.estado = 'Paga'
+        elif factura.valor_pago > 0:
+            factura.estado = 'Parcialmente Paga'
+        else:
+            factura.estado = 'Pendente'
+        factura.save(update_fields=['valor_pago', 'estado'])
+        if old_estado != factura.estado or old_valor_pago != factura.valor_pago:
+            registrar_historico(
+                'Factura', factura.pk, factura.numero_factura, 'Pagamento removido (cancelamento)',
+                estado_anterior=old_estado, estado_novo=factura.estado,
+                valor=float(factura.valor_pago) - float(old_valor_pago),
+                utilizador_id=self.utilizador_responsavel_id, utilizador_nome=self.utilizador_responsavel_nome,
+                cliente_nome=factura.cliente.nome,
+            )
 
     def __str__(self):
         return f"Factura-Recibo {self.numero_factura_recibo} - {self.cliente.nome} - {self.valor}"
@@ -508,8 +624,8 @@ class HistoricoFinanceiro(models.Model):
         ('FacturaRecibo', 'Factura-Recibo'),
     ]
 
-    tipo_documento = models.CharField(max_length=20, choices=TIPO_DOCUMENTO, verbose_name='Tipo de Documento')
-    documento_id = models.IntegerField(verbose_name='ID do Documento')
+    tipo_documento = models.CharField(max_length=20, choices=TIPO_DOCUMENTO, db_index=True, verbose_name='Tipo de Documento')
+    documento_id = models.IntegerField(db_index=True, verbose_name='ID do Documento')
     documento_numero = models.CharField(max_length=50, verbose_name='Número do Documento')
     cliente_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Cliente')
     accao = models.CharField(max_length=50, verbose_name='Ação')
@@ -518,7 +634,7 @@ class HistoricoFinanceiro(models.Model):
     valor = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Valor')
     utilizador_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Utilizador')
     utilizador_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Utilizador')
-    data = models.DateTimeField(auto_now_add=True, verbose_name='Data/Hora')
+    data = models.DateTimeField(auto_now_add=True, verbose_name='Data/Hora', db_index=True)
 
     class Meta:
         db_table = 'financeiro_historico'
@@ -526,6 +642,9 @@ class HistoricoFinanceiro(models.Model):
         verbose_name_plural = 'Históricos Financeiros'
         ordering = ['-data']
 
+        indexes = [
+            models.Index(fields=['tipo_documento', 'documento_id'], name='idx_historico_tipo_doc'),
+        ]
 
 def registrar_historico(tipo_documento, documento_id, documento_numero, accao,
                         estado_anterior='', estado_novo='', valor=None,

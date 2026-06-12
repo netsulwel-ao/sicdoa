@@ -28,6 +28,13 @@
             <i class="fas fa-file-pdf"></i>
             <span>Imprimir PDF</span>
           </a>
+          {% if factura.estado != 'Cancelada' %}
+          <a href="{% url 'financeiro:factura_enviar_email' factura.pk %}"
+            class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
+            <i class="fas fa-envelope"></i>
+            <span>Enviar Email</span>
+          </a>
+          {% endif %}
         </div>
       </div>
 
@@ -115,6 +122,18 @@
         <div>
           <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Descrição / Notas</h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/20 p-3 rounded-xl border border-gray-100 dark:border-gray-800">{{ factura.descricao }}</p>
+        </div>
+        {% endif %}
+
+        {% if factura.estado == 'Pendente' or factura.estado == 'Parcialmente Paga' %}
+        <div class="pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+          <form method="post" action="{% url 'financeiro:factura_cancelar' factura.pk %}">
+            {% csrf_token %}
+            <button type="button" onclick="confirmarFormPost(this.form, { tipo:'warning', titulo:'Cancelar Factura', mensagem:'Tem a certeza que pretende CANCELAR esta Factura?', textoBotao:'Cancelar', textoCancelar:'Voltar' })"
+              class="px-5 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-semibold transition-colors active:scale-95">
+              <i class="fas fa-ban"></i> Cancelar Factura
+            </button>
+          </form>
         </div>
         {% endif %}
 

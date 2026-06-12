@@ -18,11 +18,13 @@
         </div>
         <div class="flex items-center gap-3">
           {% include 'includes/view-toggle.html' %}
+          {% if papel == 'Despachante Oficial' %}
           <a href="{% url 'du' %}"
             class="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm w-full sm:w-auto">
             <i class="fas fa-plus text-base"></i>
             Nova DU
           </a>
+          {% endif %}
         </div>
       </div>
 
@@ -222,10 +224,12 @@
           {% else %}
           <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Crie a sua primeira Declaração Única</p>
           {% endif %}
+          {% if papel == 'Despachante Oficial' %}
           <a href="{% url 'du' %}"
             class="mt-4 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
             Nova DU
           </a>
+          {% endif %}
         </div>
         {% endif %}
       </div>

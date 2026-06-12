@@ -8,7 +8,7 @@ from django.db.models import Sum, F
 
 
 class Command(BaseCommand):
-    help = "Recalcula o saldo_conta_corrente de todos os clientes a partir do zero"
+    help = "Recalcula o saldo_conta_corrente e o valor_pago das facturas"
 
     def handle(self, *args, **options):
         clientes = Cliente.objects.all()
@@ -21,8 +21,8 @@ class Command(BaseCommand):
             total_facturas = facturas.aggregate(s=Sum('valor_total'))['s'] or 0
             saldo -= float(total_facturas)
 
-            # Recibos creditam
-            recibos = ReciboCliente.objects.filter(cliente=cliente)
+            # Recibos (não cancelados) creditam
+            recibos = ReciboCliente.objects.filter(cliente=cliente).exclude(estado='Cancelado')
             total_recibos = recibos.aggregate(s=Sum('valor_recebido'))['s'] or 0
             saldo += float(total_recibos)
 
@@ -50,4 +50,22 @@ class Command(BaseCommand):
                 f"=> saldo={saldo:>10.2f}"
             )
 
-        self.stdout.write(self.style.SUCCESS(f"Saldo recalculado para {total} clientes."))
+        self.stdout.write("\nA recalcular valor_pago das facturas...")
+        facturas = FacturaCliente.objects.exclude(estado='Cancelada')
+        total_f = facturas.count()
+        for j, factura in enumerate(facturas.iterator(), 1):
+            total_pago = float(factura.recibos.filter(factura=factura).exclude(estado='Cancelado').aggregate(
+                total=Sum('valor_recebido'))['total'] or 0.0)
+            total_pago += float(factura.facturas_recibo.filter(factura=factura, estado='Paga').aggregate(
+                total=Sum('valor'))['total'] or 0.0)
+            factura.valor_pago = total_pago
+            if total_pago >= float(factura.valor_total):
+                factura.estado = 'Paga'
+            elif total_pago > 0:
+                factura.estado = 'Parcialmente Paga'
+            else:
+                factura.estado = 'Pendente'
+            factura.save(update_fields=['valor_pago', 'estado'])
+            self.stdout.write(f"  [{j}/{total_f}] Factura {factura.numero_factura}: valor_pago={total_pago:.2f}, estado={factura.estado}")
+
+        self.stdout.write(self.style.SUCCESS(f"Saldo e valor_pago recalculados para {total} clientes e {total_f} facturas."))

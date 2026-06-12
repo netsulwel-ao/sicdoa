@@ -20,6 +20,7 @@
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Gestão de pedidos de fundos para processos</p>
           </div>
           <div class="flex items-center gap-2">
+            {% include 'includes/view-toggle.html' %}
             {% if papel != 'Administrador' and papel != 'Gestor Financeiro' %}
             <a href="{% url 'financeiro:requisicao_criar' %}"
               class="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 active:scale-95 transition-all shadow-sm flex-shrink-0">
@@ -78,75 +79,63 @@
         </form>
       </div>
 
-      <!-- ── Lista ── -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {% if total_requisicoes %}
-        <div class="grid grid-cols-[minmax(0,1fr)_120px_120px_100px_80px] gap-4 px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
-          <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Requisição</span>
-          <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">Valor</span>
-          <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">Data</span>
-          <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">Estado</span>
-          <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-right">Ações</span>
-        </div>
-        {% for req in requisicoes %}
-        <div class="grid grid-cols-[minmax(0,1fr)_120px_120px_100px_80px] gap-4 items-center px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors border-b border-gray-100 dark:border-gray-700/60">
-          <!-- Info principal -->
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-primary/20 dark:from-blue-900/30 dark:to-primary/30 flex items-center justify-center flex-shrink-0">
-              <i class="fas fa-file-invoice-dollar text-primary" style="font-size: 14px;"></i>
-            </div>
-            <div class="min-w-0">
-              <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ req.numero_requisicao }}</p>
-              <div class="flex items-center gap-2 mt-0.5 min-w-0">
-                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">{{ req.cliente.nome }}</span>
+      <div data-view-container>
+        <div data-grid-view>
+          {% if total_requisicoes %}
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {% for req in requisicoes %}
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-primary/20 dark:from-blue-900/30 dark:to-primary/30 flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-file-invoice-dollar text-primary"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-gray-900 dark:text-white truncate">{{ req.numero_requisicao }}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ req.cliente.nome }}</p>
+                </div>
+                <a href="{% url 'financeiro:requisicao_detalhe' req.pk %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Visualizar">
+                  <i class="fas fa-eye"></i>
+                </a>
+              </div>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p class="text-xs text-gray-400">Valor</p>
+                  <p class="font-medium text-gray-900 dark:text-white">{{ req.valor_solicitado|floatformat:2 }} Kz</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-400">Data</p>
+                  <p class="text-gray-500 dark:text-gray-400">{{ req.data|date:"d/m/Y" }}</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                  {% if req.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
+                  {% elif req.estado == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                  {% elif req.estado == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                  {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                  {{ req.estado }}
+                </span>
+                {% if papel == 'Administrador' %}
+                <form method="post" action="{% url 'financeiro:requisicao_eliminar' req.pk %}" class="inline">
+                  {% csrf_token %}
+                  <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Eliminar Requisição', mensagem:'Tem a certeza que pretende eliminar {{ req.numero_requisicao }}? Esta acção é irreversível.', textoBotao:'Eliminar', textoCancelar:'Cancelar' })" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </form>
+                {% endif %}
               </div>
             </div>
+            {% endfor %}
           </div>
-          <!-- Valor -->
-          <div class="text-center font-medium text-gray-900 dark:text-white text-sm">
-            {{ req.valor_solicitado|floatformat:2 }} Kz
+          {% if page_obj.has_other_pages %}
+          <div class="mt-4">
+            {% include 'includes/pagination.html' %}
           </div>
-          <!-- Data -->
-          <div class="text-center">
-            <span class="text-xs text-gray-500 dark:text-gray-400">{{ req.data|date:"d/m/Y H:i" }}</span>
-          </div>
-          <!-- Status -->
-          <div class="flex justify-center">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
-              {% if req.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
-              {% elif req.estado == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
-              {% elif req.estado == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
-              {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
-              {{ req.estado }}
-            </span>
-          </div>
-          <!-- Acções -->
-          <div class="flex items-center justify-end gap-0.5">
-            <a href="{% url 'financeiro:requisicao_detalhe' req.pk %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
-              <i class="fas fa-eye" style="font-size:17px;"></i>
-            </a>
-            {% if papel == 'Administrador' %}
-            <form method="post" action="{% url 'financeiro:requisicao_eliminar' req.pk %}" class="inline">
-              {% csrf_token %}
-              <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Eliminar Requisição', mensagem:'Tem a certeza que pretende eliminar {{ req.numero_requisicao }}? Esta acção é irreversível.', textoBotao:'Eliminar', textoCancelar:'Cancelar' })" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
-                <i class="fas fa-trash-alt" style="font-size:17px;"></i>
-              </button>
-            </form>
-            {% endif %}
-          </div>
-        </div>
-        {% endfor %}
-
-        {% if page_obj.has_other_pages %}
-        <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-          {% include 'includes/pagination.html' %}
-        </div>
-        {% endif %}
-
-        {% else %}
-          <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+          {% endif %}
+          {% else %}
+          <div class="flex flex-col items-center justify-center py-16 px-4 text-center bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
             <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
-              <i class="fas fa-file-invoice-dollar text-gray-400 dark:text-gray-500" style="font-size:32px;"></i>
+              <i class="fas fa-file-invoice-dollar text-gray-400 dark:text-gray-500 text-2xl"></i>
             </div>
             <p class="font-semibold text-gray-700 dark:text-gray-300">
               {% if busca %}Nenhum resultado para "{{ busca }}"{% else %}Nenhuma requisição encontrada{% endif %}
@@ -154,12 +143,93 @@
             {% if not busca and papel != 'Administrador' and papel != 'Gestor Financeiro' %}
             <a href="{% url 'financeiro:requisicao_criar' %}"
               class="mt-4 flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
-              <i class="fas fa-plus" style="font-size:17px;"></i>
+              <i class="fas fa-plus"></i>
               Nova Requisição
             </a>
             {% endif %}
           </div>
-        {% endif %}
+          {% endif %}
+        </div>
+
+        <div data-list-view class="hidden">
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {% if total_requisicoes %}
+            <div class="grid grid-cols-[minmax(0,1fr)_120px_120px_100px_80px] gap-4 px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+              <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Requisição</span>
+              <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">Valor</span>
+              <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">Data</span>
+              <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">Estado</span>
+              <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-right">Ações</span>
+            </div>
+            {% for req in requisicoes %}
+            <div class="grid grid-cols-[minmax(0,1fr)_120px_120px_100px_80px] gap-4 items-center px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors border-b border-gray-100 dark:border-gray-700/60">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-primary/20 dark:from-blue-900/30 dark:to-primary/30 flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-file-invoice-dollar text-primary"></i>
+                </div>
+                <div class="min-w-0">
+                  <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ req.numero_requisicao }}</p>
+                  <div class="flex items-center gap-2 mt-0.5 min-w-0">
+                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">{{ req.cliente.nome }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="text-center font-medium text-gray-900 dark:text-white text-sm">
+                {{ req.valor_solicitado|floatformat:2 }} Kz
+              </div>
+              <div class="text-center">
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ req.data|date:"d/m/Y H:i" }}</span>
+              </div>
+              <div class="flex justify-center">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                  {% if req.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
+                  {% elif req.estado == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+                  {% elif req.estado == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                  {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                  {{ req.estado }}
+                </span>
+              </div>
+              <div class="flex items-center justify-end gap-0.5">
+                <a href="{% url 'financeiro:requisicao_detalhe' req.pk %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                  <i class="fas fa-eye"></i>
+                </a>
+                {% if papel == 'Administrador' %}
+                <form method="post" action="{% url 'financeiro:requisicao_eliminar' req.pk %}" class="inline">
+                  {% csrf_token %}
+                  <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Eliminar Requisição', mensagem:'Tem a certeza que pretende eliminar {{ req.numero_requisicao }}? Esta acção é irreversível.', textoBotao:'Eliminar', textoCancelar:'Cancelar' })" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+
+            {% if page_obj.has_other_pages %}
+            <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+              {% include 'includes/pagination.html' %}
+            </div>
+            {% endif %}
+
+            {% else %}
+              <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                  <i class="fas fa-file-invoice-dollar text-gray-400 dark:text-gray-500" style="font-size:32px;"></i>
+                </div>
+                <p class="font-semibold text-gray-700 dark:text-gray-300">
+                  {% if busca %}Nenhum resultado para "{{ busca }}"{% else %}Nenhuma requisição encontrada{% endif %}
+                </p>
+                {% if not busca and papel != 'Administrador' and papel != 'Gestor Financeiro' %}
+                <a href="{% url 'financeiro:requisicao_criar' %}"
+                  class="mt-4 flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
+                  <i class="fas fa-plus"></i>
+                  Nova Requisição
+                </a>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
       </div>
 
     </div>

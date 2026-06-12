@@ -6,21 +6,39 @@
   <main class="p-4 md:p-6 lg:p-8">
     <div class="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text-[#111418] dark:text-gray-200 text-2xl font-bold">Meus Documentos</h2>
+        <div class="flex items-center gap-2">
+          <h2 class="text-[#111418] dark:text-gray-200 text-2xl font-bold">Meus Documentos</h2>
+          {% include 'includes/view-toggle.html' %}
+        </div>
         <a href="{% url 'dashboard_colaborador' %}"
            class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
           <i class="fas fa-arrow-left text-base"></i>Voltar
         </a>
       </div>
       
-      <div class="text-center py-8">
-        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-full w-16 h-16 mx-auto">
-          <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-3xl"></i>
+      <div data-view-container>
+        <div data-grid-view>
+          <div class="text-center py-8">
+            <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-full w-16 h-16 mx-auto">
+              <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-3xl"></i>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 text-lg font-medium mt-4 mb-2">Nenhum documento disponível</p>
+            <p class="text-gray-500 dark:text-gray-500 text-sm">
+              Os seus documentos serão exibidos aqui quando disponíveis.
+            </p>
+          </div>
         </div>
-        <p class="text-gray-600 dark:text-gray-400 text-lg font-medium mt-4 mb-2">Nenhum documento disponível</p>
-        <p class="text-gray-500 dark:text-gray-500 text-sm">
-          Os seus documentos serão exibidos aqui quando disponíveis.
-        </p>
+        <div data-list-view class="hidden">
+          <div class="text-center py-8">
+            <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-full w-16 h-16 mx-auto">
+              <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-3xl"></i>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 text-lg font-medium mt-4 mb-2">Nenhum documento disponível</p>
+            <p class="text-gray-500 dark:text-gray-500 text-sm">
+              Os seus documentos serão exibidos aqui quando disponíveis.
+            </p>
+          </div>
+        </div>
       </div>
       {% if page_obj.has_other_pages %}
       <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">

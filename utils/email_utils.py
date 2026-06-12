@@ -40,7 +40,7 @@ def _url_candidatura(vaga):
     return f"{base}/candidatar/{vaga.link_externo}/"
 
 
-def _enviar_sync(assunto, texto, html, destinatarios):
+def _enviar_sync(assunto, texto, html, destinatarios, anexos=None):
     """Envia email de forma síncrona (chamado internamente pela thread)."""
     if not destinatarios:
         return
@@ -56,13 +56,16 @@ def _enviar_sync(assunto, texto, html, destinatarios):
         )
         if html:
             msg.attach_alternative(html, "text/html")
+        if anexos:
+            for nome_ficheiro, conteudo, mime_type in anexos:
+                msg.attach(nome_ficheiro, conteudo, mime_type)
         msg.send(fail_silently=False)
         logger.info("Email enviado para %s — assunto: %s", destinatarios, assunto)
     except Exception as e:  # noqa: BLE001
         logger.error("Falha ao enviar email para %s: %s", destinatarios, str(e))
 
 
-def _enviar(assunto, texto, html, destinatarios):
+def _enviar(assunto, texto, html, destinatarios, anexos=None):
     """
     Envia email de forma assíncrona.
     Usa Celery quando REDIS_ENABLED=1, caso contrário usa thread daemon.
@@ -73,11 +76,11 @@ def _enviar(assunto, texto, html, destinatarios):
 
     if getattr(settings, 'REDIS_ENABLED', False):
         from utils.tasks import enviar_email_task
-        enviar_email_task.delay(assunto, texto, html, destinatarios)
+        enviar_email_task.delay(assunto, texto, html, destinatarios, anexos=anexos)
     else:
         t = threading.Thread(
             target=_enviar_sync,
-            args=(assunto, texto, html, destinatarios),
+            args=(assunto, texto, html, destinatarios, anexos),
             daemon=True,
         )
         t.start()

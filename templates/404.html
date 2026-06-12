@@ -1,0 +1,99 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>CDOA - Página Não Encontrada</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; }
+        body { font-family: 'Public Sans', sans-serif; background: #f6f7f8; overflow-x: hidden; }
+        .bg-pattern { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 0; overflow: hidden; }
+        .bg-circle-1 { position: absolute; top: -120px; right: -80px; width: 350px; height: 350px; background: rgba(0,51,102,0.04); border-radius: 50%; }
+        .bg-circle-2 { position: absolute; bottom: -160px; left: -100px; width: 450px; height: 450px; background: rgba(212,175,55,0.04); border-radius: 50%; }
+        .card-shine { background: rgba(255,255,255,0.98); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 20px 60px rgba(0,0,0,0.06); }
+        .btn-dark { background: #003366; transition: all 0.25s ease; }
+        .btn-dark:hover { background: #002244; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,51,102,0.2); }
+        .btn-outline { border: 1.5px solid #d1d5db; transition: all 0.25s ease; }
+        .btn-outline:hover { border-color: #9ca3af; background: #f3f4f6; transform: translateY(-2px); }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+        .float-anim { animation: float 3s ease-in-out infinite; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeInUp 0.6s ease-out both; }
+        .fade-in-up-d1 { animation-delay: 0.1s; }
+        .fade-in-up-d2 { animation-delay: 0.25s; }
+        .fade-in-up-d3 { animation-delay: 0.4s; }
+        @keyframes search { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+        .search-anim { animation: search 2s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern">
+        <div class="bg-circle-1"></div>
+        <div class="bg-circle-2"></div>
+    </div>
+
+    <div class="relative z-10 flex items-center justify-center min-h-screen p-6">
+        <div class="w-full max-w-lg mx-auto text-center">
+
+            <div class="fade-in-up mb-6">
+                <h1 class="text-2xl font-bold text-gray-900">CDOA Sistema</h1>
+                <p class="text-sm text-gray-500 font-medium mt-0.5">Câmara dos Despachantes Oficiais de Angola</p>
+            </div>
+
+            <div class="card-shine rounded-2xl p-10 md:p-12 fade-in-up fade-in-up-d1">
+
+                <div class="flex justify-center mb-6">
+                    <div class="w-20 h-20 rounded-full bg-amber-50 flex items-center justify-center search-anim">
+                        <i class="fas fa-search text-3xl text-amber-500"></i>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-center gap-1.5 mb-3">
+                    <span class="text-6xl font-black text-gray-800">4</span>
+                    <span class="text-6xl font-black text-amber-500">0</span>
+                    <span class="text-6xl font-black text-amber-500">4</span>
+                </div>
+
+                <h2 class="text-xl font-bold text-gray-800 mb-2">
+                    Página não encontrada
+                </h2>
+                <p class="text-gray-500 text-sm leading-relaxed mb-8 max-w-sm mx-auto">
+                    A página que procura pode ter sido removida, renomeada ou está temporariamente indisponível.
+                </p>
+
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <a href="/login/"
+                       class="btn-dark inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm">
+                        <i class="fas fa-home"></i>
+                        Ir para o Início
+                    </a>
+                    <button onclick="history.back()"
+                            class="btn-outline inline-flex items-center gap-2 px-6 py-3 rounded-xl text-gray-700 font-semibold text-sm">
+                        <i class="fas fa-arrow-left"></i>
+                        Voltar Atrás
+                    </button>
+                </div>
+
+            </div>
+
+            <div class="fade-in-up fade-in-up-d3 mt-8 text-center">
+                <p class="text-xs text-gray-400">
+                    Se acredita que isto é um erro, contacte o administrador do sistema
+                </p>
+                <div class="flex items-center justify-center gap-4 mt-3 text-xs text-gray-400">
+                    <span><i class="far fa-clock mr-1"></i> {% now "Y" %}</span>
+                    <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                    <span>CDOA &mdash; Todos os direitos reservados</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</body>
+</html>

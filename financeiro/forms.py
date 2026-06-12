@@ -93,6 +93,22 @@ class RequisicaoFundoForm(forms.ModelForm):
         return cleaned_data
 
 
+class RequisicaoFundoUpdateForm(forms.ModelForm):
+    class Meta:
+        model = RequisicaoFundo
+        fields = ['justificacao', 'documento_justificativo']
+        widgets = {
+            'justificacao': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
+                'rows': '4',
+                'placeholder': 'Justifique o pedido de fundos...'
+            }),
+            'documento_justificativo': forms.FileInput(attrs={
+                'class': 'w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer'
+            }),
+        }
+
+
 class FacturaClienteForm(forms.ModelForm):
     class Meta:
         model = FacturaCliente
@@ -188,6 +204,18 @@ class ReciboClienteForm(forms.ModelForm):
         return cleaned_data
 
 
+class ReciboClienteUpdateForm(forms.ModelForm):
+    class Meta:
+        model = ReciboCliente
+        fields = ['valor_recebido', 'forma_pagamento', 'data_pagamento', 'referencia_bancaria']
+        widgets = {
+            'valor_recebido': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
+            'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
+            'data_pagamento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
+            'referencia_bancaria': forms.TextInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
+        }
+
+
 class NotaCreditoForm(forms.ModelForm):
     class Meta:
         model = NotaCredito
@@ -278,17 +306,40 @@ class NotaDebitoForm(forms.ModelForm):
 class FacturaReciboForm(forms.ModelForm):
     class Meta:
         model = FacturaRecibo
-        fields = ['cliente', 'valor', 'forma_pagamento', 'data']
+        fields = ['cliente', 'factura', 'valor', 'forma_pagamento', 'data']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
+            'factura': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'valor': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
             'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import FacturaCliente
+        if self.is_bound and self.data.get('cliente'):
+            try:
+                cliente_id = int(self.data.get('cliente'))
+                self.fields['factura'].queryset = FacturaCliente.objects.filter(cliente_id=cliente_id, estado__in=['Pendente', 'Parcialmente Paga'])
+            except (ValueError, TypeError):
+                pass
+
     def clean(self):
         cleaned_data = super().clean()
         valor = cleaned_data.get('valor')
+        cliente = cleaned_data.get('cliente')
+        factura = cleaned_data.get('factura')
+
+        if factura and cliente and factura.cliente != cliente:
+            self.add_error('factura', 'A factura selecionada não pertence ao cliente escolhido.')
+
         if valor and valor <= 0:
             self.add_error('valor', 'O valor deve ser maior que zero.')
+
+        if factura and valor:
+            restante = factura.valor_total - factura.valor_pago
+            if valor > restante:
+                self.add_error('valor', f'O valor excede o valor pendente desta factura ({restante:,.2f} Kz).')
+
         return cleaned_data

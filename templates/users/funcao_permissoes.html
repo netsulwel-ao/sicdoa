@@ -1,0 +1,184 @@
+{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+{% load static %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  {% csrf_token %}
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5 flex-wrap">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'funcoes_lista' %}" class="hover:text-primary transition-colors">Funções</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">Permissões</span>
+    </div>
+
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+          <i class="fas fa-lock text-primary mr-2"></i>Permissões da Função
+        </h1>
+        <p class="text-gray-500 mt-1 text-sm">
+          <strong>{{ funcao.nome }}</strong>
+          {% if funcao.descricao %}
+          <span class="ml-2 text-xs text-gray-400">— {{ funcao.descricao }}</span>
+          {% endif %}
+        </p>
+      </div>
+      <a href="{% url 'funcoes_lista' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+    </div>
+
+    {% regroup permissoes by grupo as modulos %}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {% for modulo in modulos %}
+      {% with nome_modulo=modulo.grouper permissoes_modulo=modulo.list qtd_total=modulo.list|length %}
+      <div class="modulo-card bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+        <div class="modulo-header flex items-center justify-between px-5 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <i class="fas fa-cube text-primary text-sm"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-gray-900 dark:text-white">{{ nome_modulo }}</h3>
+              <span class="text-xs text-gray-500" id="modulo-count-{{ forloop.counter }}">
+                <span class="ativas-count">0</span>/{{ qtd_total }} permissões
+              </span>
+            </div>
+          </div>
+          <button type="button"
+                  class="btn-toggle-modulo w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer border-0 bg-transparent"
+                  title="Expandir/Recolher"
+                  data-modulo-idx="{{ forloop.counter }}">
+            <i class="fas fa-chevron-up text-xs transition-transform duration-200"></i>
+          </button>
+        </div>
+        <div class="modulo-body divide-y divide-gray-100 dark:divide-gray-800">
+          {% for p in permissoes_modulo %}
+          <label class="btn-toggle-permissao flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                 data-permissao-id="{{ p.id }}"
+                 data-ativo="{% if p.id in funcao_perm_ids %}true{% else %}false{% endif %}"
+                 data-modulo-idx="{{ forloop.parentloop.counter }}">
+            <div class="relative w-10 h-6 flex-shrink-0">
+              <div class="toggle-track w-full h-full rounded-full transition-colors duration-200 {% if p.id in funcao_perm_ids %}bg-primary{% else %}bg-gray-300 dark:bg-gray-600{% endif %}"></div>
+              <div class="toggle-thumb absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 {% if p.id in funcao_perm_ids %}translate-x-4{% endif %}"></div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300 select-none block">{{ p.nome }}</span>
+              {% if p.descricao %}
+              <span class="text-xs text-gray-400 dark:text-gray-500 block truncate">{{ p.descricao }}</span>
+              {% endif %}
+            </div>
+            <span class="text-[10px] text-gray-400 dark:text-gray-600 font-mono shrink-0">{{ p.codigo }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endwith %}
+      {% empty %}
+      <div class="col-span-full text-center py-16 text-gray-400">
+        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-shield-slash text-3xl text-gray-300 dark:text-gray-600"></i>
+        </div>
+        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhuma permissão disponível.</p>
+      </div>
+      {% endfor %}
+    </div>
+
+  </main>
+</div>
+
+<script>
+(function() {
+  const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+  const FUNCAO_ID = {{ funcao.id }};
+  const API = '{% url "funcao_api_permissoes" %}';
+
+  // ── Update module count ──────────────────────────────────────────────
+  function updateModuleCount(moduloIdx) {
+    const labels = document.querySelectorAll('.btn-toggle-permissao[data-modulo-idx="' + moduloIdx + '"]');
+    let activeCount = 0;
+    labels.forEach(function(l) {
+      if (l.dataset.ativo === 'true') activeCount++;
+    });
+    const countEl = document.getElementById('modulo-count-' + moduloIdx);
+    if (countEl) {
+      countEl.innerHTML = '<span class="ativas-count font-semibold text-primary">' + activeCount + '</span>/' + labels.length + ' permissões';
+    }
+  }
+
+  // ── Toggle individual permission ─────────────────────────────────────
+  document.querySelectorAll('.btn-toggle-permissao').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const permissaoId = parseInt(this.dataset.permissaoId);
+      const ativo = this.dataset.ativo === 'true';
+      const moduloIdx = this.dataset.moduloIdx;
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({
+            funcao_id: FUNCAO_ID,
+            permissao_id: permissaoId,
+            ativar: !ativo
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          this.dataset.ativo = ativo ? 'false' : 'true';
+          const track = this.querySelector('.toggle-track');
+          const thumb = this.querySelector('.toggle-thumb');
+          if (!ativo) {
+            track.className = 'toggle-track w-full h-full rounded-full transition-colors duration-200 bg-primary';
+            thumb.className = 'toggle-thumb absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 translate-x-4';
+          } else {
+            track.className = 'toggle-track w-full h-full rounded-full transition-colors duration-200 bg-gray-300 dark:bg-gray-600';
+            thumb.className = 'toggle-thumb absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200';
+          }
+          if (moduloIdx) updateModuleCount(moduloIdx);
+        } else {
+          if (window.toast) {
+            window.toast.error(data.erro || 'Erro ao alterar permissão.');
+          } else {
+            alert(data.erro || 'Erro ao alterar permissão.');
+          }
+        }
+      } catch(e) {
+        if (window.toast) {
+          window.toast.error('Erro de conexão.');
+        } else {
+          alert('Erro de conexão.');
+        }
+      }
+    });
+  });
+
+  // ── Toggle module collapse ───────────────────────────────────────────
+  document.querySelectorAll('.btn-toggle-modulo').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const card = this.closest('.modulo-card');
+      const body = card.querySelector('.modulo-body');
+      const icon = this.querySelector('i');
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        icon.className = 'fas fa-chevron-up text-xs transition-transform duration-200';
+      } else {
+        body.classList.add('hidden');
+        icon.className = 'fas fa-chevron-down text-xs transition-transform duration-200';
+      }
+    });
+  });
+
+  // ── Initialise counts ────────────────────────────────────────────────
+  document.querySelectorAll('[id^="modulo-count-"]').forEach(function(el) {
+    const idx = el.id.replace('modulo-count-', '');
+    updateModuleCount(idx);
+  });
+
+})();
+</script>
+
+{% include 'includes/footer.html' %}

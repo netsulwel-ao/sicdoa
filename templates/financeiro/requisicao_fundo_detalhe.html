@@ -111,22 +111,28 @@
               </div>
             </div>
             {% endif %}
+
+            {% if requisicao.estado == 'Rejeitada' and requisicao.motivo_rejeicao %}
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Motivo da Rejeição</h3>
+              <p class="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-800">
+                {{ requisicao.motivo_rejeicao|linebreaksbr }}
+              </p>
+            </div>
+            {% endif %}
           </div>
         </div>
 
-        <!-- Ações do Administrador/Gestor (Aprovação) -->
+        <!-- Ações de Aprovação (baseado em permissões) -->
         {% if requisicao.estado == 'Pendente' or requisicao.estado == 'Em Aprovação' %}
-          {% if papel == 'Administrador' or papel == 'Gestor Financeiro' %}
+          {% if pode_aprovar_requisicao %}
           <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center gap-4">
             <p class="text-sm text-gray-500 font-medium">Acções de Aprovação:</p>
             <div class="flex gap-3 w-full sm:w-auto ml-auto">
-              <form method="post" action="{% url 'financeiro:requisicao_rejeitar' requisicao.pk %}" class="flex-1 sm:flex-none">
-                {% csrf_token %}
-                <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Rejeitar Requisição', mensagem:'Tem a certeza que pretende REJEITAR esta requisição?', textoBotao:'Rejeitar', textoCancelar:'Cancelar' })"
-                  class="w-full sm:w-auto px-6 py-2.5 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/40 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
-                  <i class="fas fa-times-circle"></i> Rejeitar
-                </button>
-              </form>
+              <button type="button" onclick="mostrarModalRejeicao()"
+                class="w-full sm:w-auto px-6 py-2.5 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/40 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                <i class="fas fa-times-circle"></i> Rejeitar
+              </button>
               <form method="post" action="{% url 'financeiro:requisicao_aprovar' requisicao.pk %}" class="flex-1 sm:flex-none">
                 {% csrf_token %}
                 <button type="button" onclick="confirmarFormPost(this.form, { tipo:'warning', titulo:'Aprovar Requisição', mensagem:'Tem a certeza que pretende APROVAR esta requisição?', textoBotao:'Aprovar', textoCancelar:'Cancelar' })"
@@ -143,11 +149,66 @@
               </form>
             </div>
           </div>
+
+          <!-- Modal de Motivo de Rejeição -->
+          <div id="modalRejeicao" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full mx-4 overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <i class="fas fa-times-circle text-red-500"></i> Rejeitar Requisição
+                </h3>
+                <button type="button" onclick="fecharModalRejeicao()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <form method="post" action="{% url 'financeiro:requisicao_rejeitar' requisicao.pk %}" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Motivo da Rejeição <span class="text-red-500">*</span></label>
+                  <textarea name="motivo_rejeicao" id="motivoRejeicao" required rows="4"
+                    class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all resize-none"
+                    placeholder="Indique o motivo da rejeição..."></textarea>
+                </div>
+                <div class="flex justify-end gap-3">
+                  <button type="button" onclick="fecharModalRejeicao()"
+                    class="px-5 py-2.5 bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 rounded-xl font-semibold transition-all">
+                    Cancelar
+                  </button>
+                  <button type="submit"
+                    class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all flex items-center gap-2">
+                    <i class="fas fa-times-circle"></i> Confirmar Rejeição
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <script>
+          function mostrarModalRejeicao() {
+            document.getElementById('modalRejeicao').classList.remove('hidden');
+            document.getElementById('motivoRejeicao').focus();
+          }
+          function fecharModalRejeicao() {
+            document.getElementById('modalRejeicao').classList.add('hidden');
+          }
+          document.getElementById('modalRejeicao')?.addEventListener('click', function(e) {
+            if (e.target === this) fecharModalRejeicao();
+          });
+          </script>
           {% endif %}
         {% endif %}
 
+        {% if requisicao.editavel and pode_aprovar_requisicao %}
+        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-start">
+          <a href="{% url 'financeiro:requisicao_editar' requisicao.pk %}"
+            class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center gap-2">
+            <i class="fas fa-edit"></i> Editar Requisição
+          </a>
+        </div>
+        {% endif %}
+
         <!-- Acção Eliminar para Administrador (sempre visível) -->
-        {% if papel == 'Administrador' %}
+        {% if 'admin' in user_permissoes or papel == 'Administrador' %}
         <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div class="flex justify-end">
             <form method="post" action="{% url 'financeiro:requisicao_eliminar' requisicao.pk %}">
@@ -161,8 +222,18 @@
         </div>
         {% endif %}
 
+        <!-- Acção Editar para o solicitante (quando editavel) -->
+        {% if requisicao.editavel and usuario.id == requisicao.solicitante_id and not pode_aprovar_requisicao %}
+        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+          <a href="{% url 'financeiro:requisicao_editar' requisicao.pk %}"
+            class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all flex items-center gap-2">
+            <i class="fas fa-edit"></i> Editar Requisição
+          </a>
+        </div>
+        {% endif %}
+
         <!-- Ação Cancelar para o Solicitante (quando Pendente) -->
-        {% if requisicao.estado == 'Pendente' and usuario.id == requisicao.solicitante_id and papel != 'Administrador' and papel != 'Gestor Financeiro' %}
+        {% if requisicao.estado == 'Pendente' and usuario.id == requisicao.solicitante_id and not pode_aprovar_requisicao %}
         <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
           <form method="post" action="{% url 'financeiro:requisicao_cancelar' requisicao.pk %}">
             {% csrf_token %}

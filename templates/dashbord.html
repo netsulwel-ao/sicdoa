@@ -70,6 +70,7 @@
         <a href="{% url 'financeiro:requisicao_lista' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver todas <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
       </div>
 
+      {% if papel == 'Administrador' or papel == 'Gestor Financeiro' or 'ver_rh' in user_permissoes %}
       <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex items-center gap-3 mb-3">
           <div class="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -82,6 +83,7 @@
         <p class="text-xs text-gray-500 mt-1">{{ stats_colab_ativos }} activo{{ stats_colab_ativos|pluralize:"s" }}</p>
         <a href="{% url 'rh_colaboradores' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver todos <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
       </div>
+      {% endif %}
 
       <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex items-center gap-3 mb-3">
@@ -102,12 +104,14 @@
     <div class="mb-8">
       <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-3">Ações Rápidas</h2>
       <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
         <a href="{% url 'du' %}" class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-primary hover:shadow-md transition-all">
           <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
             <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-xl"></i>
           </div>
           <span class="text-xs font-semibold text-center text-gray-700 dark:text-gray-300">Nova DU</span>
         </a>
+        {% endif %}
         <a href="{% url 'financeiro:factura_criar' %}" class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-primary hover:shadow-md transition-all">
           <div class="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg">
             <i class="fas fa-file-invoice text-emerald-600 dark:text-emerald-400 text-xl"></i>
@@ -132,7 +136,7 @@
           </div>
           <span class="text-xs font-semibold text-center text-gray-700 dark:text-gray-300">Novo Cliente</span>
         </a>
-        {% if papel == 'Gestor Financeiro' or papel == 'Administrador' %}
+        {% if papel == 'Gestor Financeiro' or papel == 'Administrador' or 'ver_relatorios_operacionais' in user_permissoes %}
         <a href="{% url 'financeiro:relatorio_dashboard' %}" class="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-primary hover:shadow-md transition-all">
           <div class="p-2.5 bg-rose-50 dark:bg-rose-900/30 rounded-lg">
             <i class="fas fa-chart-pie text-rose-600 dark:text-rose-400 text-xl"></i>
@@ -152,9 +156,11 @@
           <div class="p-5 md:p-6 border-b border-gray-200 dark:border-gray-800">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <h2 class="text-[#111418] dark:text-gray-200 text-xl font-bold">Processos Aduaneiros Recentes</h2>
+              {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
               <a href="{% url 'du' %}" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors whitespace-nowrap">
                 + Nova Declaração
               </a>
+              {% endif %}
             </div>
           </div>
           <div class="overflow-x-auto hidden lg:block">
@@ -210,7 +216,9 @@
                       <i class="fas fa-file text-gray-400 dark:text-gray-500 text-4xl mb-4"></i>
                       <p class="text-gray-600 dark:text-gray-400 font-medium mb-2">Nenhum processo aduaneiro</p>
                       <p class="text-gray-500 dark:text-gray-500 text-sm mb-4">Ainda não existem declarações criadas.</p>
+                      {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
                       <a href="{% url 'du' %}" class="px-4 py-2 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary/20 transition-colors">Criar primeira declaração</a>
+                      {% endif %}
                     </div>
                   </td>
                 </tr>
@@ -254,7 +262,9 @@
                 <i class="fas fa-file text-gray-400 dark:text-gray-500 mb-4" style="font-size:40px;"></i>
                 <p class="text-gray-600 dark:text-gray-400 font-medium mb-1">Nenhum processo aduaneiro</p>
                 <p class="text-gray-500 dark:text-gray-500 text-sm mb-4">Ainda não existem declarações criadas.</p>
+                {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
                 <a href="{% url 'du' %}" class="px-4 py-2 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary/20 transition-colors">Criar primeira declaração</a>
+                {% endif %}
               </div>
             {% endif %}
           </div>

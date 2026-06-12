@@ -23,7 +23,7 @@ class Usuario(models.Model):
     email = models.EmailField(max_length=100, unique=True)
     foto = models.CharField(max_length=255, null=True, blank=True)
     telefone = models.CharField(max_length=20, null=True, blank=True)
-    cedula = models.CharField(max_length=50, null=True, blank=True)
+    cedula = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     papel = models.CharField(max_length=50, choices=PAPEIS, default='Despachante Oficial', db_index=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Ativo', db_index=True)
     is_staff = models.BooleanField(default=False, verbose_name='Acesso ao Admin')
@@ -34,8 +34,8 @@ class Usuario(models.Model):
     nif = models.TextField(blank=True, default='')
     is_secretario = models.BooleanField(default=False)
     is_vice_secretario = models.BooleanField(default=False)
-    cargos = models.ManyToManyField('Cargo', through='UsuarioCargo', through_fields=('usuario', 'cargo'), blank=True, related_name='membros')
     permissoes_diretas = models.ManyToManyField('Permissao', blank=True, related_name='usuarios_diretos')
+    funcao = models.ForeignKey('Funcao', null=True, blank=True, on_delete=models.SET_NULL, related_name='usuarios')
     area_actuacao = models.CharField(max_length=100, blank=True, default='')
     cargo_personalizado = models.CharField(max_length=100, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -53,13 +53,6 @@ class Usuario(models.Model):
     @property
     def is_active(self):
         return self.status == 'Ativo'
-
-    @property
-    def cargos_lista(self):
-        return self.cargos.all()
-
-    def has_cargo(self, slug):
-        return self.cargos.filter(slug=slug).exists()
 
     def has_perm(self, perm, obj=None):
         if not self.is_staff:
@@ -109,6 +102,23 @@ class Usuario(models.Model):
         return f"{self.nome} ({self.papel})"
 
 
+class Funcao(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    descricao = models.TextField(blank=True, default='')
+    permissoes = models.ManyToManyField('Permissao', blank=True, related_name='funcoes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'funcoes'
+        verbose_name = 'Função'
+        verbose_name_plural = 'Funções'
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
+
+
 class Permissao(models.Model):
     codigo = models.SlugField(max_length=100, unique=True,
         help_text='Identificador único (ex: ver_secretaria, gerir_quotas)')
@@ -129,37 +139,84 @@ class Permissao(models.Model):
         return self.nome
 
 
-class Cargo(models.Model):
-    nome = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
-    descricao = models.TextField(blank=True, default='')
-    sistema = models.BooleanField(default=False, help_text='Cargo automático do sistema (não pode ser removido manualmente)')
-    permissoes = models.ManyToManyField('Permissao', blank=True, related_name='cargos')
-    created_at = models.DateTimeField(auto_now_add=True)
+class LogAtividade(models.Model):
+    """Registo cronológico de todas as acções dos utilizadores no sistema."""
+
+    ACOES = [
+        ('LOGIN', 'Login'),
+        ('LOGIN_FALHA', 'Tentativa de login falhada'),
+        ('LOGOUT', 'Logout'),
+        ('SESSAO_EXPIRADA', 'Sessão expirada'),
+        ('VIEW', 'Visualização'),
+        ('CREATE', 'Criação'),
+        ('EDIT', 'Edição'),
+        ('DELETE', 'Eliminação'),
+        ('CANCEL', 'Cancelamento'),
+        ('APPROVE', 'Aprovação'),
+        ('REJECT', 'Rejeição'),
+        ('SEND_EMAIL', 'Envio de Email'),
+        ('EXPORT', 'Exportação'),
+        ('DOWNLOAD', 'Download'),
+        ('OUTRO', 'Outro'),
+    ]
+
+    MODULOS = [
+        ('users', 'Utilizadores'),
+        ('clientes', 'Clientes'),
+        ('financeiro', 'Financeiro'),
+        ('governanca', 'Governança'),
+        ('rh', 'Recursos Humanos'),
+        ('aduaneiro', 'Aduaneiro'),
+        ('sistema', 'Sistema'),
+    ]
+
+    usuario = models.ForeignKey('Usuario', null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name='logs_atividade', verbose_name='Utilizador')
+    usuario_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Utilizador')
+    email = models.EmailField(max_length=254, blank=True, default='', verbose_name='Email')
+    accao = models.CharField(max_length=20, choices=ACOES, verbose_name='Ação')
+    modulo = models.CharField(max_length=20, choices=MODULOS, verbose_name='Módulo')
+    descricao = models.TextField(blank=True, default='', verbose_name='Descrição')
+    modelo_alvo = models.CharField(max_length=100, blank=True, default='', verbose_name='Modelo Alvo')
+    id_alvo = models.IntegerField(null=True, blank=True, verbose_name='ID do Registo')
+    detalhes = models.JSONField(null=True, blank=True, verbose_name='Detalhes')
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name='Endereço IP')
+    user_agent = models.TextField(blank=True, default='', verbose_name='User-Agent')
+    url = models.TextField(blank=True, default='', verbose_name='URL Acedido')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Data/Hora')
 
     class Meta:
-        db_table = 'cargos'
-        verbose_name = 'Cargo'
-        verbose_name_plural = 'Cargos'
-        ordering = ['nome']
+        db_table = 'logs_atividade'
+        verbose_name = 'Log de Atividade'
+        verbose_name_plural = 'Logs de Atividade'
+        ordering = ['-created_at']
 
     def __str__(self):
-        return self.nome
+        return f"[{self.created_at:%d/%m/%Y %H:%M}] {self.usuario_nome} — {self.accao} ({self.modulo})"
 
 
-class UsuarioCargo(models.Model):
-    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='vinculos_cargo')
-    cargo = models.OneToOneField(Cargo, on_delete=models.CASCADE, related_name='vinculo')
-    atribuido_em = models.DateTimeField(auto_now_add=True)
-    atribuido_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='atribuicoes_cargo')
-
-    class Meta:
-        db_table = 'usuarios_cargos'
-        verbose_name = 'Vinculo de Cargo'
-        verbose_name_plural = 'Vinculos de Cargos'
-
-    def __str__(self):
-        return f"{self.usuario.nome} -> {self.cargo.nome}"
+def registrar_log(request, accao, modulo='sistema', descricao='',
+                  modelo_alvo='', id_alvo=None, detalhes=None, email_forcado=''):
+    """Regista uma atividade no log."""
+    from django.utils import timezone
+    uid = request.session.get('usuario_id') if request else None
+    if uid is not None and not Usuario.objects.filter(pk=uid).exists():
+        uid = None
+    LogAtividade.objects.create(
+        usuario_id=uid,
+        usuario_nome=request.session.get('usuario', {}).get('nome', '') if request else '',
+        email=email_forcado or (request.session.get('usuario', {}).get('email', '') if request else ''),
+        accao=accao,
+        modulo=modulo,
+        descricao=descricao,
+        modelo_alvo=modelo_alvo,
+        id_alvo=id_alvo,
+        detalhes=detalhes,
+        ip=request.META.get('REMOTE_ADDR', '') if request else '',
+        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500] if request else '',
+        url=request.build_absolute_uri() if request else '',
+        created_at=timezone.now(),
+    )
 
 
 # ─── Colaborador Institucional ─────────────────────────────────────────────
@@ -183,13 +240,13 @@ class ColaboradorInstitucional(models.Model):
     ]
 
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, related_name='colaborador_institucional')
-    nome = models.CharField(max_length=255)
+    nome = models.CharField(max_length=255, db_index=True)
     email = models.EmailField(blank=True, default='')
     telefone = models.CharField(max_length=30, blank=True, default='')
-    area_actuacao = models.CharField(max_length=100, blank=True, default='')
+    area_actuacao = models.CharField(max_length=100, blank=True, default='', db_index=True)
     data_admissao = models.DateField(null=True, blank=True)
     salario_base = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    estado = models.CharField(max_length=10, choices=ESTADOS, default='Ativo')
+    estado = models.CharField(max_length=10, choices=ESTADOS, default='Ativo', db_index=True)
     foto = models.ImageField(upload_to='colaboradores_institucionais/fotos/', null=True, blank=True)
     observacoes = models.TextField(blank=True, default='')
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -227,7 +284,7 @@ class PresencaInstitucional(models.Model):
     hora_saida = models.TimeField(null=True, blank=True)
     horas_extras = models.DecimalField(max_digits=4, decimal_places=1, default=0)
     justificacao = models.TextField(blank=True, default='')
-    estado = models.CharField(max_length=10, choices=ESTADOS, default='Pendente')
+    estado = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -248,7 +305,7 @@ class FeriasInstitucional(models.Model):
     data_inicio = models.DateField()
     data_fim = models.DateField()
     motivo = models.TextField(blank=True, default='')
-    estado = models.CharField(max_length=10, choices=ESTADOS, default='Pendente')
+    estado = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -271,7 +328,7 @@ class CicloAvaliacaoInstitucional(models.Model):
     nome = models.CharField(max_length=200)
     periodo_inicio = models.DateField()
     periodo_fim = models.DateField()
-    estado = models.CharField(max_length=10, choices=ESTADOS, default='Aberto')
+    estado = models.CharField(max_length=10, choices=ESTADOS, default='Aberto', db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -318,7 +375,7 @@ class ProcessamentoSalarialInstitucional(models.Model):
     ]
     mes = models.PositiveSmallIntegerField()
     ano = models.PositiveSmallIntegerField()
-    estado = models.CharField(max_length=15, choices=ESTADOS, default='Rascunho')
+    estado = models.CharField(max_length=15, choices=ESTADOS, default='Rascunho', db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     processado_em = models.DateTimeField(null=True, blank=True)
     pdf_gerado = models.BooleanField(default=False)

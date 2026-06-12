@@ -75,9 +75,26 @@
         <div class="space-y-2">
           <div class="flex justify-between text-sm"><span class="text-gray-500">Receita Bruta</span><span class="font-medium">{{ total_facturado }} Kz</span></div>
           <div class="flex justify-between text-sm"><span class="text-gray-500">Receita Recebida</span><span class="font-medium text-emerald-600 dark:text-emerald-400">{{ total_recebido }} Kz</span></div>
-          <div class="flex justify-between text-sm"><span class="text-gray-500">A Receber</span><span class="font-medium text-amber-600 dark:text-amber-400">{{ saldo_cc }} Kz</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500">A Receber</span><span class="font-medium text-amber-600 dark:text-amber-400">{{ a_receber }} Kz</span></div>
         </div>
       </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Faturação vs Recebimentos Mensais</h3>
+        <div class="relative" style="height:250px"><canvas id="chartFaturacao"></canvas></div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Distribuição de Facturas</h3>
+        <div class="relative" style="height:250px"><canvas id="chartDistribuicao"></canvas></div>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+      <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Top 10 Clientes por Facturação</h3>
+      <div class="relative" style="height:200px"><canvas id="chartTopClientes"></canvas></div>
     </div>
 
     <!-- Links rápidos para relatórios executivos -->
@@ -106,3 +123,83 @@
 
 {% include 'includes/footer.html' %}
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('{% url 'financeiro:relatorio_dashboard_json' %}')
+    .then(r => r.json())
+    .then(data => {
+      const isDark = document.documentElement.classList.contains('dark');
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+      const fatOpts = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: textColor, font: { size: 11 } } } },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { color: gridColor } },
+          y: { ticks: { color: textColor, callback: v => v.toLocaleString() }, grid: { color: gridColor } }
+        }
+      };
+      const c1 = document.getElementById('chartFaturacao');
+      if (Chart.getChart(c1)) Chart.getChart(c1).destroy();
+      new Chart(c1, {
+        type: 'bar',
+        data: {
+          labels: data.meses,
+          datasets: [
+            { label: 'Faturação', data: data.faturacao_mensal, backgroundColor: '#137fec', borderRadius: 4 },
+            { label: 'Recebimentos', data: data.recebimentos_mensal, backgroundColor: '#10b981', borderRadius: 4 }
+          ]
+        },
+        options: fatOpts
+      });
+
+      const c2 = document.getElementById('chartDistribuicao');
+      if (Chart.getChart(c2)) Chart.getChart(c2).destroy();
+      new Chart(c2, {
+        type: 'doughnut',
+        data: {
+          labels: data.distribuicao_facturas.labels,
+          datasets: [{
+            data: data.distribuicao_facturas.values,
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: textColor, font: { size: 11 }, padding: 16 } }
+          }
+        }
+      });
+
+      const c3 = document.getElementById('chartTopClientes');
+      if (Chart.getChart(c3)) Chart.getChart(c3).destroy();
+      new Chart(c3, {
+        type: 'bar',
+        data: {
+          labels: data.top_clientes.map(c => c.nome),
+          datasets: [{
+            label: 'KZ',
+            data: data.top_clientes.map(c => c.total),
+            backgroundColor: '#137fec',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: textColor, callback: v => v.toLocaleString() }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+          }
+        }
+      });
+    })
+    .catch(err => console.error('Erro ao carregar dados do dashboard:', err));
+});
+</script>

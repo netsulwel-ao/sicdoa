@@ -392,13 +392,16 @@ class Notificacao(models.Model):
     mensagem = models.TextField(blank=True, default='')
     link = models.CharField(max_length=500, blank=True, default='')
     lida = models.BooleanField(default=False, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'governanca_notificacoes'
         ordering = ['-created_at']
         verbose_name = 'Notificação'
         verbose_name_plural = 'NotificaçÃµes'
+        indexes = [
+            models.Index(fields=['usuario', '-created_at'], name='ix_notificacoes_usuario_data'),
+        ]
 
     def __str__(self):
         return f'{self.titulo} - {self.usuario.nome}'
@@ -781,8 +784,8 @@ class EstadoFinanceiro(models.Model):
 class IsencaoMembro(models.Model):
     despachante = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='isencoes')
     tipo_quota = models.ForeignKey(TipoQuota, on_delete=models.SET_NULL, null=True, blank=True)
-    data_inicio = models.DateField()
-    data_fim = models.DateField(null=True, blank=True)
+    data_inicio = models.DateField(db_index=True)
+    data_fim = models.DateField(null=True, blank=True, db_index=True)
     motivo = models.TextField(blank=True, default='')
     aprovado_por = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='isencoes_aprovadas')
     created_at = models.DateTimeField(auto_now_add=True)
