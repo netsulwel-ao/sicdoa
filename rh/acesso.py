@@ -17,7 +17,8 @@ def obter_acesso_admin(request):
     if not uid:
         return False
     papel = request.session.get('usuario', {}).get('papel', '')
-    return papel == 'Administrador'
+    from users.permissoes import _is_admin_ou_acesso_total
+    return _is_admin_ou_acesso_total(request)
 
 
 def obter_acesso_rh(request):
@@ -105,7 +106,8 @@ def redirect_sem_acesso_rh(request):
     if request.session.get('tipo_usuario') == 'colaborador':
         return redirect('dashboard_colaborador')
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
+    from users.permissoes import _is_admin_ou_acesso_total
+    if _is_admin_ou_acesso_total(request):
         return redirect('dashboard')
     if Banca.objects.filter(
         usuario_id=request.session.get('usuario_id'), ativa=True,

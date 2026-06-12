@@ -17,7 +17,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.core.paginator import Paginator
 from django.db import connection
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -33,10 +33,11 @@ from rh.models import (
 from .auth_decorators import (
     criar_sessao_usuario,
     limpar_sessao,
+    requer_sessao_ativa,
     sessao_expirada,
     tempo_restante_sessao,
 )
-from .models import Usuario
+from .models import Funcao, Usuario
 
 
 # ─── Helpers de password ──────────────────────────────────────────────────────
@@ -107,17 +108,25 @@ def login_view(request):
         # Verificar se está bloqueado
         if u.status == 'Suspenso':
             usuario_bloqueado = True
+            from .models import registrar_log
+            registrar_log(request, 'LOGIN_FALHA', 'users',
+                          f"Tentativa de login com conta suspensa: {email}",
+                          email_forcado=email)
             messages.error(
                 request,
-                "A sua conta está bloqueada. Entre em contacto com o Administrador do sistema para reactivar o seu acesso."
+                "A sua conta encontra-se suspensa. Entre em contacto com o seu responsável."
             )
             return render(request, "login.html")
         
         # Verificar se está inativo
         if u.status == 'Inativo':
+            from .models import registrar_log
+            registrar_log(request, 'LOGIN_FALHA', 'users',
+                          f"Tentativa de login com conta inativa: {email}",
+                          email_forcado=email)
             messages.error(
                 request,
-                "A sua conta está inativa. Entre em contacto com o Administrador do sistema."
+                "A sua conta encontra-se inativa. Entre em contacto com o seu responsável."
             )
             return render(request, "login.html")
         
@@ -153,8 +162,36 @@ def login_view(request):
             pass
 
     if not usuario:
+        from .models import registrar_log
+        registrar_log(request, 'LOGIN_FALHA', 'users',
+                      f"Tentativa de login falhada: {email}",
+                      email_forcado=email)
         messages.error(request, "❌ Credenciais inválidas. Verifique o seu email e senha.")
         return render(request, "login.html")
+
+    # ── Bloquear Colaborador Institucional sem função ou sem permissões ──
+    if tipo_usuario == 'usuario' and usuario.papel == 'Colaborador Institucional':
+        if not usuario.funcao_id:
+            from .models import registrar_log
+            registrar_log(request, 'LOGIN_FALHA', 'users',
+                          f"Tentativa de login de colaborador sem função: {email}",
+                          email_forcado=email)
+            messages.error(
+                request,
+                "A sua conta não tem uma Função atribuída. Contacte o administrador para lhe ser atribuída uma função antes de aceder ao sistema."
+            )
+            return render(request, "login.html")
+        if not usuario.funcao.permissoes.exists():
+            from .models import registrar_log
+            registrar_log(request, 'LOGIN_FALHA', 'users',
+                          f"Tentativa de login de colaborador com função sem permissões: {email} (função: {usuario.funcao.nome})",
+                          email_forcado=email)
+            messages.error(
+                request,
+                f"A sua função \"{usuario.funcao.nome}\" não tem nenhuma permissão associada. "
+                "Contacte o administrador para configurar as permissões da função antes de aceder ao sistema."
+            )
+            return render(request, "login.html")
 
     criar_sessao_usuario(request, usuario)
 
@@ -164,6 +201,10 @@ def login_view(request):
                 "UPDATE usuarios SET ultimo_acesso = %s WHERE id = %s",
                 [timezone.now(), usuario.id],
             )
+
+    from .models import registrar_log
+    registrar_log(request, 'LOGIN', 'users',
+                  f"Login bem-sucedido: {usuario.nome} ({usuario.email})")
 
     messages.success(request, f"Bem-vindo(a) {usuario.nome}!")
     if tipo_usuario == "colaborador":
@@ -352,6 +393,11 @@ def login_portal_view(request):
 
 def logout_view(request):
     """Termina a sessão e redireciona para o login."""
+    from .models import registrar_log
+    usuario_nome = request.session.get('usuario', {}).get('nome', '')
+    email = request.session.get('usuario', {}).get('email', '')
+    registrar_log(request, 'LOGOUT', 'users',
+                  f"Logout: {usuario_nome} ({email})")
     limpar_sessao(request)
     messages.info(request, "Sessão terminada com sucesso. Até logo!")
     return redirect("login")
@@ -378,12 +424,14 @@ def dashboard_view(request):
     from rh.models import Banca
     from django.utils import timezone as tz
     from django.db.models import Sum, Q
+    from .permissoes import get_usuario_permissoes, _is_admin_ou_acesso_total
 
     # ── Filtro base por papel ──────────────────────────────────────────────
-    e_gestor = papel in ("Administrador", "Gestor Financeiro")
+    e_admin = _is_admin_ou_acesso_total(request)
+    e_gestor = e_admin or papel in ("Gestor Financeiro",)
 
     # ── 1. Processos Aduaneiros ─────────────────────────────────────────────
-    if papel == "Administrador":
+    if e_admin:
         dus_qs = DeclaracaoUnica.objects.all()
     else:
         dus_qs = DeclaracaoUnica.objects.filter(usuario_id=uid)
@@ -459,11 +507,14 @@ def dashboard_view(request):
     else:
         recente = HistoricoFinanceiro.objects.filter(utilizador_id=uid).order_by('-data')[:10]
 
+    user_permissoes = get_usuario_permissoes(request)
+
     return render(request, "dashbord.html", {
         "usuario": usuario,
         "nome": usuario["nome"],
         "papel": papel,
         "active_menu": "Dashboard",
+        "user_permissoes": user_permissoes,
         "tempo_restante_sessao": tempo_restante_sessao(request),
         "dus_ativas": dus_ativas,
         "stats_dus_total": stats_dus_total,
@@ -882,17 +933,7 @@ def meu_perfil_view(request):
     if erro:
         return erro
 
-    from users.models import UsuarioCargo
-    vinculo = UsuarioCargo.objects.filter(usuario=usuario).select_related('cargo', 'atribuido_por').first()
     cargo_info = None
-    if vinculo:
-        cargo_info = {
-            'nome': vinculo.cargo.nome,
-            'slug': vinculo.cargo.slug,
-            'descricao': vinculo.cargo.descricao,
-            'atribuido_em': vinculo.atribuido_em,
-            'atribuido_por': vinculo.atribuido_por.nome if vinculo.atribuido_por else None,
-        }
 
     from aduaneiro.models import DeclaracaoUnica
     total_dus   = DeclaracaoUnica.objects.filter(usuario_id=usuario.id).count()
@@ -901,6 +942,9 @@ def meu_perfil_view(request):
         created_at__month=timezone.now().month,
         created_at__year=timezone.now().year,
     ).count()
+
+    from .permissoes import usuario_tem_permissao
+    pode_editar_perfil = usuario_tem_permissao(request, 'alterar_perfil')
 
     return render(request, "meu_perfil.html", {
         "usuario": {
@@ -924,6 +968,7 @@ def meu_perfil_view(request):
         "active_menu": "Perfil",
         "total_dus": total_dus,
         "dus_mes": dus_mes,
+        "pode_editar_perfil": pode_editar_perfil,
         "messages": messages.get_messages(request),
     })
 
@@ -934,6 +979,11 @@ def meu_perfil_guardar(request):
     if erro:
         return erro
     if request.method != "POST":
+        return redirect("meu_perfil")
+
+    from .permissoes import usuario_tem_permissao
+    if not usuario_tem_permissao(request, 'alterar_perfil'):
+        messages.error(request, 'Não tem permissão para alterar o perfil.')
         return redirect("meu_perfil")
 
     nome     = request.POST.get("nome", "").strip()
@@ -998,6 +1048,11 @@ def meu_perfil_senha(request):
     if request.method != "POST":
         return redirect("meu_perfil")
 
+    from .permissoes import usuario_tem_permissao
+    if not usuario_tem_permissao(request, 'alterar_perfil'):
+        messages.error(request, 'Não tem permissão para alterar a senha.')
+        return redirect("meu_perfil")
+
     senha_atual  = request.POST.get("senha_atual", "").strip()
     nova_senha   = request.POST.get("nova_senha", "").strip()
     confirmar    = request.POST.get("confirmar_senha", "").strip()
@@ -1058,3 +1113,252 @@ def meu_perfil_senha(request):
         messages.success(request, "Senha definida com sucesso! Agora pode usar o login tradicional.")
 
     return redirect("meu_perfil")
+
+
+# ─── Gestão de Funções (Papéis) ───────────────────────────────────────────────
+
+def _requer_admin_ou_perm_funcoes(fn):
+    """Decorator: só admin ou quem tem permissão 'gerir_utilizadores'."""
+    def wrapper(request, *args, **kwargs):
+        if not request.session.get('usuario_id'):
+            return redirect('login')
+        papel = request.session.get('usuario', {}).get('papel', '')
+        if papel != 'Administrador':
+            from .permissoes import usuario_tem_permissao
+            if not usuario_tem_permissao(request, 'gerir_utilizadores'):
+                messages.error(request, 'Acesso restrito a Administradores.')
+                return redirect('dashboard')
+        return fn(request, *args, **kwargs)
+    wrapper.__name__ = fn.__name__
+    return wrapper
+
+
+@_requer_admin_ou_perm_funcoes
+def funcoes_lista_view(request):
+    from .models import Funcao
+    from django.db.models import Count
+    q = request.GET.get('q', '').strip()
+    funcoes = Funcao.objects.annotate(total_usuarios=Count('usuarios')).order_by('nome')
+    if q:
+        funcoes = funcoes.filter(nome__icontains=q)
+    paginator = Paginator(funcoes, 12)
+    page = request.GET.get('page')
+    page_obj = paginator.get_page(page)
+    papel = request.session.get('usuario', {}).get('papel', '')
+    ctx = {
+        'usuario': request.session.get('usuario', {}),
+        'papel': papel,
+        'nome': request.session.get('usuario', {}).get('nome', ''),
+        'active_menu': 'ADMIN_RH',
+        'active_sub': 'funcoes',
+        'funcoes': page_obj,
+        'page_obj': page_obj,
+        'q': q,
+        'total': Funcao.objects.count(),
+    }
+    return render(request, 'users/funcoes_lista.html', ctx)
+
+
+@_requer_admin_ou_perm_funcoes
+def funcao_novo_view(request):
+    from .models import Funcao
+    papel = request.session.get('usuario', {}).get('papel', '')
+    erros = {}
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        descricao = request.POST.get('descricao', '').strip()
+        if not nome:
+            erros['nome'] = 'O nome é obrigatório.'
+        elif Funcao.objects.filter(nome__iexact=nome).exists():
+            erros['nome'] = 'Já existe uma função com este nome.'
+        if not erros:
+            Funcao.objects.create(nome=nome, descricao=descricao)
+            messages.success(request, f'Função "{nome}" criada com sucesso.')
+            return redirect('funcoes_lista')
+    ctx = {
+        'usuario': request.session.get('usuario', {}),
+        'papel': papel,
+        'nome': request.session.get('usuario', {}).get('nome', ''),
+        'active_menu': 'ADMIN_RH',
+        'active_sub': 'funcoes',
+        'erros': erros,
+        'is_edicao': False,
+    }
+    return render(request, 'users/funcao_form.html', ctx)
+
+
+@_requer_admin_ou_perm_funcoes
+def funcao_editar_view(request, pk):
+    from .models import Funcao
+    funcao = get_object_or_404(Funcao, pk=pk)
+    papel = request.session.get('usuario', {}).get('papel', '')
+    erros = {}
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        descricao = request.POST.get('descricao', '').strip()
+        if not nome:
+            erros['nome'] = 'O nome é obrigatório.'
+        elif Funcao.objects.filter(nome__iexact=nome).exclude(pk=pk).exists():
+            erros['nome'] = 'Já existe uma função com este nome.'
+        if not erros:
+            funcao.nome = nome
+            funcao.descricao = descricao
+            funcao.save()
+            messages.success(request, f'Função "{nome}" actualizada com sucesso.')
+            return redirect('funcoes_lista')
+    ctx = {
+        'usuario': request.session.get('usuario', {}),
+        'papel': papel,
+        'nome': request.session.get('usuario', {}).get('nome', ''),
+        'active_menu': 'ADMIN_RH',
+        'active_sub': 'funcoes',
+        'funcao': funcao,
+        'erros': erros,
+        'is_edicao': True,
+    }
+    return render(request, 'users/funcao_form.html', ctx)
+
+
+@_requer_admin_ou_perm_funcoes
+def funcao_permissoes_view(request, pk):
+    from .models import Funcao, Permissao
+    funcao = get_object_or_404(Funcao, pk=pk)
+    papel = request.session.get('usuario', {}).get('papel', '')
+    permissoes = Permissao.objects.exclude(codigo='ver_dashboard').order_by('grupo', 'nome')
+    funcao_perm_ids = list(funcao.permissoes.values_list('id', flat=True))
+    ctx = {
+        'usuario': request.session.get('usuario', {}),
+        'papel': papel,
+        'nome': request.session.get('usuario', {}).get('nome', ''),
+        'active_menu': 'ADMIN_RH',
+        'active_sub': 'funcoes',
+        'funcao': funcao,
+        'permissoes': permissoes,
+        'funcao_perm_ids': funcao_perm_ids,
+    }
+    return render(request, 'users/funcao_permissoes.html', ctx)
+
+
+@_requer_admin_ou_perm_funcoes
+def funcao_eliminar_view(request, pk):
+    from .models import Funcao
+    funcao = get_object_or_404(Funcao, pk=pk)
+    if request.method == 'POST':
+        nome = funcao.nome
+        funcao.delete()
+        messages.success(request, f'Função "{nome}" eliminada com sucesso.')
+        return redirect('funcoes_lista')
+    papel = request.session.get('usuario', {}).get('papel', '')
+    ctx = {
+        'usuario': request.session.get('usuario', {}),
+        'papel': papel,
+        'nome': request.session.get('usuario', {}).get('nome', ''),
+        'active_menu': 'ADMIN_RH',
+        'active_sub': 'funcoes',
+        'funcao': funcao,
+        'total_usuarios': funcao.usuarios.count(),
+    }
+    return render(request, 'users/funcao_confirmar_eliminar.html', ctx)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+@_requer_admin_ou_perm_funcoes
+def api_funcao_permissoes(request):
+    from .models import Funcao, Permissao
+    data = json.loads(request.body)
+    funcao_id = data.get('funcao_id')
+    permissao_id = data.get('permissao_id')
+    ativar = data.get('ativar', True)
+    if not funcao_id or not permissao_id:
+        return JsonResponse({'erro': 'Parâmetros incompletos.'}, status=400)
+    funcao = get_object_or_404(Funcao, pk=funcao_id)
+    permissao = get_object_or_404(Permissao, pk=permissao_id)
+    if ativar:
+        funcao.permissoes.add(permissao)
+    else:
+        funcao.permissoes.remove(permissao)
+    return JsonResponse({
+        'status': 'ok',
+        'message': f'{permissao.nome} {"ativada" if ativar else "desativada"} para a função {funcao.nome}.'
+    })
+
+
+@require_http_methods(['GET'])
+@_requer_admin_ou_perm_funcoes
+def api_funcao_listar_permissoes(request, pk):
+    from .models import Funcao
+    funcao = get_object_or_404(Funcao, pk=pk)
+    permissoes_ids = list(funcao.permissoes.values_list('id', flat=True))
+    return JsonResponse({'permissoes': permissoes_ids})
+
+
+@requer_sessao_ativa
+def logs_atividade_view(request):
+    """Página de consulta de logs de atividade."""
+    from .models import LogAtividade
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    from django.db.models import Q
+
+    from users.permissoes import _is_admin_ou_acesso_total
+
+    papel = request.session.get('usuario', {}).get('papel', '')
+    usuario_id = request.session.get('usuario_id')
+    if not _is_admin_ou_acesso_total(request) and papel != 'Administrador' and not Usuario.objects.filter(
+        pk=usuario_id,
+        permissoes_diretas__codigo='acesso_auditoria'
+    ).exists() and not Usuario.objects.filter(
+        pk=usuario_id, papel='Colaborador Institucional', funcao__permissoes__codigo='acesso_auditoria'
+    ).exists():
+        messages.error(request, 'Acesso restrito a Administradores e Auditores.')
+        return redirect('dashboard')
+
+    accao_filter = request.GET.get('accao', '')
+    modulo_filter = request.GET.get('modulo', '')
+    busca = request.GET.get('busca', '')
+    data_inicio = request.GET.get('data_inicio', '')
+    data_fim = request.GET.get('data_fim', '')
+
+    logs = LogAtividade.objects.all()
+
+    if accao_filter:
+        logs = logs.filter(accao=accao_filter)
+    if modulo_filter:
+        logs = logs.filter(modulo=modulo_filter)
+    if busca:
+        logs = logs.filter(
+            Q(usuario_nome__icontains=busca) |
+            Q(email__icontains=busca) |
+            Q(descricao__icontains=busca) |
+            Q(ip__icontains=busca)
+        )
+    if data_inicio:
+        logs = logs.filter(created_at__gte=data_inicio)
+    if data_fim:
+        logs = logs.filter(created_at__lte=data_fim + ' 23:59:59')
+
+    paginator = Paginator(logs, 50)
+    page = request.GET.get('page')
+    try:
+        page_obj = paginator.page(page)
+    except (PageNotAnInteger, EmptyPage):
+        page_obj = paginator.page(1)
+
+    context = {
+        'active_menu': 'Sistema',
+        'active_sub': 'logs',
+        'page_obj': page_obj,
+        'accao_filter': accao_filter,
+        'modulo_filter': modulo_filter,
+        'busca': busca,
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
+        'acoes': LogAtividade.ACOES,
+        'modulos': LogAtividade.MODULOS,
+    }
+    context.update({
+        'usuario': request.session.get('usuario', {}),
+        'papel': papel,
+        'nome': request.session.get('usuario', {}).get('nome', ''),
+    })
+    return render(request, 'users/logs_atividade.html', context)

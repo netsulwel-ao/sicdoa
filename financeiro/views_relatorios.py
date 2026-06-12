@@ -13,6 +13,7 @@ from django.utils.decorators import method_decorator
 
 from users.auth_decorators import requer_sessao_ativa
 from users.models import Usuario
+from users.permissoes import usuario_tem_permissao
 from clientes.models import Cliente
 from .models import (
     RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo, HistoricoFinanceiro
@@ -22,12 +23,18 @@ from .views import BaseContextMixin
 
 class ReportPermissionMixin:
     allowed_roles = []
+    required_permission = ''
 
     def dispatch(self, request, *args, **kwargs):
+        from .views import _user_tem_acesso_total
+        if _user_tem_acesso_total(request):
+            return super().dispatch(request, *args, **kwargs)
+        if self.required_permission and usuario_tem_permissao(request, self.required_permission):
+            return super().dispatch(request, *args, **kwargs)
         papel = request.session.get('usuario', {}).get('papel', '')
-        if papel not in self.allowed_roles:
-            return redirect('financeiro:requisicao_lista')
-        return super().dispatch(request, *args, **kwargs)
+        if papel in self.allowed_roles:
+            return super().dispatch(request, *args, **kwargs)
+        return redirect('financeiro:requisicao_lista')
 
 
 class ReportMixin(ReportPermissionMixin, BaseContextMixin):
@@ -66,11 +73,21 @@ class ReportMixin(ReportPermissionMixin, BaseContextMixin):
         return Cliente.objects.all()
 
 
+class OperacionalMixin:
+    """Usuários com ver_relatorios_operacionais veem dados de TODOS os despachantes."""
+    def clientes_scope(self):
+        return Cliente.objects.all()
+
+    def _get_user_requisicao_filter(self):
+        return None
+
+
 # ── Relatórios Operacionais ────────────────────────────────────────────────
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
-class RelatorioRequisicaoFundosView(ReportMixin, TemplateView):
-    allowed_roles = ['Despachante Oficial', 'Gestor Financeiro', 'Administrador']
+class RelatorioRequisicaoFundosView(OperacionalMixin, ReportMixin, TemplateView):
+    allowed_roles = []
+    required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Requisição de Fundos'
     report_subtitle = 'Listagem de todas as requisições de fundos'
@@ -120,8 +137,9 @@ class RelatorioRequisicaoFundosView(ReportMixin, TemplateView):
 
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
-class RelatorioFacturacaoView(ReportMixin, TemplateView):
-    allowed_roles = ['Despachante Oficial', 'Gestor Financeiro', 'Administrador']
+class RelatorioFacturacaoView(OperacionalMixin, ReportMixin, TemplateView):
+    allowed_roles = []
+    required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Facturação'
     report_subtitle = 'Resumo de todas as facturas emitidas'
@@ -132,7 +150,7 @@ class RelatorioFacturacaoView(ReportMixin, TemplateView):
         di, df, data_ini, data_fim = self.parse_dates()
 
         clientes = self.clientes_scope()
-        qs = FacturaCliente.objects.filter(cliente__in=clientes)
+        qs = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
         if di:
             qs = qs.filter(data_emissao__date__gte=di)
         if df:
@@ -165,8 +183,9 @@ class RelatorioFacturacaoView(ReportMixin, TemplateView):
 
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
-class RelatorioRecibosView(ReportMixin, TemplateView):
-    allowed_roles = ['Despachante Oficial', 'Gestor Financeiro', 'Administrador']
+class RelatorioRecibosView(OperacionalMixin, ReportMixin, TemplateView):
+    allowed_roles = []
+    required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Recibos'
     report_subtitle = 'Resumo de todos os recebimentos'
@@ -178,7 +197,7 @@ class RelatorioRecibosView(ReportMixin, TemplateView):
         fp = self.request.GET.get('forma_pagamento', '')
 
         clientes = self.clientes_scope()
-        qs = ReciboCliente.objects.filter(cliente__in=clientes)
+        qs = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
         if di:
             qs = qs.filter(data_pagamento__gte=di)
         if df:
@@ -223,16 +242,18 @@ class RelatorioRecibosView(ReportMixin, TemplateView):
 
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
-class RelatoriosNotasHomeView(ReportMixin, TemplateView):
-    allowed_roles = ['Despachante Oficial', 'Gestor Financeiro', 'Administrador']
+class RelatoriosNotasHomeView(OperacionalMixin, ReportMixin, TemplateView):
+    allowed_roles = []
+    required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorios_notas_home.html'
     report_name = 'Relatórios de Notas'
     active_sub = 'rel_notas'
 
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
-class RelatorioNotasCreditoView(ReportMixin, TemplateView):
-    allowed_roles = ['Despachante Oficial', 'Gestor Financeiro', 'Administrador']
+class RelatorioNotasCreditoView(OperacionalMixin, ReportMixin, TemplateView):
+    allowed_roles = []
+    required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Notas de Crédito'
     report_subtitle = 'Resumo de todas as notas de crédito emitidas'
@@ -280,8 +301,9 @@ class RelatorioNotasCreditoView(ReportMixin, TemplateView):
 
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
-class RelatorioNotasDebitoView(ReportMixin, TemplateView):
-    allowed_roles = ['Despachante Oficial', 'Gestor Financeiro', 'Administrador']
+class RelatorioNotasDebitoView(OperacionalMixin, ReportMixin, TemplateView):
+    allowed_roles = []
+    required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Notas de Débito'
     report_subtitle = 'Resumo de todas as notas de débito emitidas'
@@ -445,6 +467,7 @@ class RelatorioFluxoCaixaView(ReportMixin, TemplateView):
                 )
                 entradas += float(
                     ReciboCliente.objects.filter(cliente=c, data_pagamento__gte=di, data_pagamento__lt=df)
+                    .exclude(estado='Cancelado')
                     .aggregate(t=Sum('valor_recebido'))['t'] or 0
                 )
                 entradas += float(
@@ -485,6 +508,67 @@ class RelatorioFluxoCaixaView(ReportMixin, TemplateView):
         return context
 
 
+@requer_sessao_ativa
+def fluxo_caixa_json(request):
+    """API JSON com dados de fluxo de caixa mensal para gráficos."""
+    ano = request.GET.get('ano', str(timezone.now().year))
+    try:
+        ano = int(ano)
+    except ValueError:
+        ano = timezone.now().year
+
+    clientes = Cliente.objects.all()
+    filtro = {}
+    papel = request.session.get('usuario', {}).get('papel', '')
+    if papel not in ('Administrador', 'Gestor Financeiro'):
+        usuario_id = request.session.get('usuario_id')
+        if usuario_id:
+            filtro = {'usuario_id': usuario_id}
+            clientes = clientes.filter(**filtro)
+
+    meses_labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    entradas = []
+    saidas = []
+
+    for m in range(1, 13):
+        di = date(ano, m, 1)
+        df = date(ano + 1, 1, 1) if m == 12 else date(ano, m + 1, 1)
+
+        # Saídas: facturas (excluindo canceladas) + notas de débito aprovadas
+        s = float(
+            FacturaCliente.objects.filter(cliente__in=clientes, data_emissao__date__gte=di, data_emissao__date__lt=df)
+            .exclude(estado='Cancelada')
+            .aggregate(t=Sum('valor_total'))['t'] or 0
+        )
+        s += float(
+            NotaDebito.objects.filter(cliente__in=clientes, data__gte=di, data__lt=df, estado='Aprovada')
+            .aggregate(t=Sum('valor'))['t'] or 0
+        )
+        saidas.append(round(s, 2))
+
+        # Entradas: recibos + facturas-recibo
+        e = float(
+            ReciboCliente.objects.filter(cliente__in=clientes, data_pagamento__gte=di, data_pagamento__lt=df)
+            .exclude(estado='Cancelado')
+            .aggregate(t=Sum('valor_recebido'))['t'] or 0
+        )
+        e += float(
+            FacturaRecibo.objects.filter(cliente__in=clientes, data__gte=di, data__lt=df)
+            .exclude(estado='Cancelada')
+            .aggregate(t=Sum('valor'))['t'] or 0
+        )
+        entradas.append(round(e, 2))
+
+    saldos = [round(entradas[i] - saidas[i], 2) for i in range(12)]
+
+    return JsonResponse({
+        'meses': meses_labels,
+        'entradas': entradas,
+        'saidas': saidas,
+        'saldos': saldos,
+    })
+
+
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioDemonstrativoReceitasView(ReportMixin, TemplateView):
     allowed_roles = ['Gestor Financeiro', 'Administrador']
@@ -499,7 +583,7 @@ class RelatorioDemonstrativoReceitasView(ReportMixin, TemplateView):
         clientes = self.clientes_scope()
 
         qs_fact = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
-        qs_rec = ReciboCliente.objects.filter(cliente__in=clientes)
+        qs_rec = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
         qs_fr = FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
         qs_nc = NotaCredito.objects.filter(cliente__in=clientes, estado='Aprovada')
         qs_nd = NotaDebito.objects.filter(cliente__in=clientes, estado='Aprovada')
@@ -565,9 +649,9 @@ class RelatorioBalanceteFinanceiroView(ReportMixin, TemplateView):
         total_saldo_cc = clientes.aggregate(t=Sum('saldo_conta_corrente'))['t'] or 0
         total_facturas = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada') \
             .aggregate(t=Sum('valor_total'))['t'] or 0
-        total_pago = FacturaCliente.objects.filter(cliente__in=clientes) \
+        total_pago = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada') \
             .aggregate(t=Sum('valor_pago'))['t'] or 0
-        total_recibos = ReciboCliente.objects.filter(cliente__in=clientes) \
+        total_recibos = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado') \
             .aggregate(t=Sum('valor_recebido'))['t'] or 0
         total_nc = NotaCredito.objects.filter(cliente__in=clientes, estado='Aprovada') \
             .aggregate(t=Sum('valor_creditado'))['t'] or 0
@@ -609,6 +693,75 @@ class RelatorioBalanceteFinanceiroView(ReportMixin, TemplateView):
 
 # ── Relatórios Executivos ──────────────────────────────────────────────────
 
+@requer_sessao_ativa
+def dashboard_financeiro_json(request):
+    """API JSON com dados para gráficos do dashboard financeiro."""
+    from datetime import date, timedelta
+    from django.db.models import Sum
+    from clientes.models import Cliente
+    from .models import FacturaCliente, ReciboCliente, FacturaRecibo, NotaCredito, NotaDebito
+
+    clientes = Cliente.objects.all()
+    filtro = {}
+    papel = request.session.get('usuario', {}).get('papel', '')
+    if papel not in ('Administrador', 'Gestor Financeiro'):
+        usuario_id = request.session.get('usuario_id')
+        if usuario_id:
+            filtro = {'usuario_id': usuario_id}
+            clientes = clientes.filter(**filtro)
+
+    ano_atual = timezone.now().year
+
+    # Dados mensais de faturação vs recebimentos (para gráfico de linhas/barras)
+    meses_labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    faturacao_mensal = []
+    recebimentos_mensal = []
+
+    for m in range(1, 13):
+        di = date(ano_atual, m, 1)
+        df = date(ano_atual + 1, 1, 1) if m == 12 else date(ano_atual, m + 1, 1)
+
+        fat = float(FacturaCliente.objects.filter(cliente__in=clientes, data_emissao__date__gte=di, data_emissao__date__lt=df)
+                    .exclude(estado='Cancelada')
+                    .aggregate(t=Sum('valor_total'))['t'] or 0)
+        faturacao_mensal.append(fat)
+
+        rec = float(ReciboCliente.objects.filter(cliente__in=clientes, data_pagamento__gte=di, data_pagamento__lt=df)
+                    .exclude(estado='Cancelado')
+                    .aggregate(t=Sum('valor_recebido'))['t'] or 0)
+        fr_val = float(FacturaRecibo.objects.filter(cliente__in=clientes, data__gte=di, data__lt=df)
+                       .exclude(estado='Cancelada')
+                       .aggregate(t=Sum('valor'))['t'] or 0)
+        recebimentos_mensal.append(rec + fr_val)
+
+    # Top 10 clientes por facturação
+    top_clientes_data = []
+    for c in clientes.filter(ativo=True):
+        total = float(FacturaCliente.objects.filter(cliente=c).exclude(estado='Cancelada')
+                      .aggregate(t=Sum('valor_total'))['t'] or 0)
+        if total > 0:
+            top_clientes_data.append({'nome': c.nome[:20], 'total': total})
+    top_clientes_data.sort(key=lambda x: x['total'], reverse=True)
+    top_clientes_data = top_clientes_data[:10]
+
+    # Distribuição de estados de facturas
+    total_facturas = FacturaCliente.objects.filter(cliente__in=clientes).count()
+    pagas = FacturaCliente.objects.filter(cliente__in=clientes, estado='Paga').count()
+    pendentes = FacturaCliente.objects.filter(cliente__in=clientes, estado__in=['Pendente', 'Parcialmente Paga']).count()
+    canceladas = FacturaCliente.objects.filter(cliente__in=clientes, estado='Cancelada').count()
+
+    return JsonResponse({
+        'meses': meses_labels,
+        'faturacao_mensal': [round(v, 2) for v in faturacao_mensal],
+        'recebimentos_mensal': [round(v, 2) for v in recebimentos_mensal],
+        'top_clientes': top_clientes_data,
+        'distribuicao_facturas': {
+            'labels': ['Pagas', 'Pendentes', 'Canceladas'],
+            'values': [pagas, pendentes, canceladas],
+        },
+    })
+
+
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioDashboardFinanceiroView(ReportMixin, TemplateView):
     allowed_roles = ['Gestor Financeiro', 'Administrador']
@@ -621,25 +774,32 @@ class RelatorioDashboardFinanceiroView(ReportMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         clientes = self.clientes_scope()
 
-        qs_fact = FacturaCliente.objects.filter(cliente__in=clientes)
+        qs_fact = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
         tot_fact = qs_fact.aggregate(t=Sum('valor_total'))['t'] or 0
         tot_pago = qs_fact.aggregate(t=Sum('valor_pago'))['t'] or 0
         saldo_cc = clientes.aggregate(t=Sum('saldo_conta_corrente'))['t'] or 0
 
-        qs_rec = ReciboCliente.objects.filter(cliente__in=clientes)
+        qs_rec = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
         tot_rec = qs_rec.aggregate(t=Sum('valor_recebido'))['t'] or 0
 
+        # FR vinculadas a facturas já contam no valor_pago; standalone FRs somam ao facturado
         qs_fr = FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
         tot_fr = qs_fr.aggregate(t=Sum('valor'))['t'] or 0
+        tot_fr_standalone = qs_fr.filter(factura__isnull=True).aggregate(t=Sum('valor'))['t'] or 0
 
-        margem = min((float(tot_rec) + float(tot_fr)) / float(tot_fact) * 100, 100) if tot_fact else 0
+        tot_fact_total = float(tot_fact) + float(tot_fr_standalone)
+        tot_recebido = float(tot_rec) + float(tot_fr)
+
+        margem = (tot_recebido / tot_fact_total * 100) if tot_fact_total else 0
+        a_receber = float(tot_fact) - float(tot_pago)
         clientes_com_divida = clientes.filter(saldo_conta_corrente__lt=0).count()
         total_clientes = clientes.count()
         pct_inadimplencia = (clientes_com_divida / total_clientes * 100) if total_clientes else 0
 
         context.update({
-            'total_facturado': f'{tot_fact:,.2f}',
-            'total_recebido': f'{float(tot_rec) + float(tot_fr):,.2f}',
+            'total_facturado': f'{tot_fact_total:,.2f}',
+            'total_recebido': f'{tot_recebido:,.2f}',
+            'a_receber': f'{a_receber:,.2f}',
             'saldo_cc': f'{saldo_cc:,.2f}',
             'margem_recebimento': f'{margem:.1f}',
             'clientes_com_divida': clientes_com_divida,
@@ -663,14 +823,17 @@ class RelatorioIndicadoresCobrancaView(ReportMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         clientes = self.clientes_scope()
 
-        qs_fact = FacturaCliente.objects.filter(cliente__in=clientes)
-        qs_rec = ReciboCliente.objects.filter(cliente__in=clientes)
+        qs_fact = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
+        qs_rec = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
         qs_fr = FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
 
         total_facturado = float(qs_fact.aggregate(t=Sum('valor_total'))['t'] or 0)
         total_pago = float(qs_fact.aggregate(t=Sum('valor_pago'))['t'] or 0)
         total_recebido = float(qs_rec.aggregate(t=Sum('valor_recebido'))['t'] or 0) + \
                          float(qs_fr.aggregate(t=Sum('valor'))['t'] or 0)
+        total_fr_standalone = float(qs_fr.filter(factura__isnull=True).aggregate(t=Sum('valor'))['t'] or 0)
+
+        tot_fact_total = total_facturado + total_fr_standalone
 
         prazo_medio = 0
         tem_prazo = False
@@ -684,8 +847,8 @@ class RelatorioIndicadoresCobrancaView(ReportMixin, TemplateView):
                 prazo_medio = dias / contados
                 tem_prazo = True
 
-        eficiencia = min(total_recebido / total_facturado * 100, 100) if total_facturado else 0
-        taxa_pagamento = min(total_pago / total_facturado * 100, 100) if total_facturado else 0
+        eficiencia = (total_recebido / tot_fact_total * 100) if tot_fact_total else 0
+        taxa_pagamento = (total_pago / tot_fact_total * 100) if tot_fact_total else 0
         devedores = clientes.filter(saldo_conta_corrente__lt=0).count()
         total_clientes = clientes.count()
         inadimplencia = (devedores / total_clientes * 100) if total_clientes else 0
@@ -707,7 +870,7 @@ class RelatorioIndicadoresCobrancaView(ReportMixin, TemplateView):
                 {'cells': ['Clientes em Dívida', str(devedores)], 'url': None, 'pk': None},
                 {'cells': ['Taxa de Inadimplência', f'{inadimplencia:.1f}%'], 'url': None, 'pk': None},
                 {'cells': ['Total Recebido (Kz)', f'{total_recebido:,.2f}'], 'url': None, 'pk': None},
-                {'cells': ['Total Facturado (Kz)', f'{total_facturado:,.2f}'], 'url': None, 'pk': None},
+                {'cells': ['Total Facturado (Kz)', f'{tot_fact_total:,.2f}'], 'url': None, 'pk': None},
             ],
         })
         return context
@@ -730,7 +893,7 @@ class RelatorioReceitaPorClienteView(ReportMixin, TemplateView):
         total_geral_receita = 0
         for c in clientes:
             qs_f = FacturaCliente.objects.filter(cliente=c).exclude(estado='Cancelada')
-            qs_r = ReciboCliente.objects.filter(cliente=c)
+            qs_r = ReciboCliente.objects.filter(cliente=c).exclude(estado='Cancelado')
             qs_fr = FacturaRecibo.objects.filter(cliente=c).exclude(estado='Cancelada')
             if di:
                 qs_f = qs_f.filter(data_emissao__date__gte=di)
@@ -790,7 +953,7 @@ class RelatorioReceitaPorLocalizacaoView(ReportMixin, TemplateView):
                 .aggregate(t=Sum('valor_total'))['t'] or 0
             )
             dados[loc]['recebido'] += float(
-                ReciboCliente.objects.filter(cliente=c)
+                ReciboCliente.objects.filter(cliente=c).exclude(estado='Cancelado')
                 .aggregate(t=Sum('valor_recebido'))['t'] or 0
             )
             dados[loc]['fr'] += float(
@@ -849,7 +1012,7 @@ class RelatorioReceitaPorDespachanteView(ReportMixin, TemplateView):
                 .aggregate(t=Sum('valor_total'))['t'] or 0
             )
             total_r = float(
-                ReciboCliente.objects.filter(cliente__in=cls)
+                ReciboCliente.objects.filter(cliente__in=cls).exclude(estado='Cancelado')
                 .aggregate(t=Sum('valor_recebido'))['t'] or 0
             )
             total_fr = float(

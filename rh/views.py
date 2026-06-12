@@ -639,7 +639,9 @@ def banca_view(request):
     if not is_desp:
         return redirect('rh_presencas')
 
-    filiais = list(banca.filiais.filter(ativa=True).order_by('provincia'))
+    filiais = list(banca.filiais.filter(ativa=True).annotate(
+        num_colaboradores=Count('colaboradores', distinct=True)
+    ).order_by('provincia'))
     colaboradores_recentes = list(
         banca.colaboradores.select_related('filial').order_by('-criado_em')[:5]
     )
@@ -1071,8 +1073,9 @@ def colaboradores_view(request):
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
     papel = request.session.get('usuario', {}).get('papel', '')
-    # Administrador vê todos os colaboradores de todas as bancas
-    if papel == 'Administrador':
+    from users.permissoes import _is_admin_ou_acesso_total
+    # Administrador e acesso total veem todos os colaboradores de todas as bancas
+    if _is_admin_ou_acesso_total(request):
         cols = Colaborador.objects.all().select_related('filial').prefetch_related('documentos')
         filiais = []
     else:
@@ -2768,7 +2771,9 @@ def avaliacoes_view(request):
     if not acc:
         return redirect_sem_acesso_rh(request)
     banca = acc[0]
-    ciclos = banca.ciclos_avaliacao.all()
+    ciclos = banca.ciclos_avaliacao.annotate(
+        num_avaliacoes=Count('avaliacoes')
+    ).all()
     paginator = Paginator(ciclos, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)

@@ -81,6 +81,36 @@ def _notificar_para_papel(papel, tipo, titulo, mensagem='', link=''):
             _criar_notificacao(u_id, tipo, titulo, mensagem, link)
 
 
+def _enviar_convocatorias_email(assembleia):
+    """Envia email das convocatórias publicadas aos membros quando a assembleia inicia."""
+    from django.conf import settings as dj_settings
+    from utils.email_utils import _enviar
+    convocatorias = list(assembleia.convocatorias.filter(status='Publicada'))
+    if not convocatorias:
+        return
+    topicos = '\n'.join(f'  • {c.titulo}' for c in convocatorias)
+    data_hora = assembleia.data_hora.strftime('%d/%m/%Y às %H:%M')
+    site_url = getattr(dj_settings, 'SITE_URL', 'http://127.0.0.1:8000')
+    assunto = f'Assembleia em Curso: {assembleia.titulo}'
+    texto = (
+        f'Prezado(a) Membro,\n\n'
+        f'A assembleia "{assembleia.titulo}" teve início às {data_hora}.\n\n'
+        f'Tema: {assembleia.descricao or "—"}\n'
+        f'Local: {assembleia.local}\n\n'
+        f'Convocatórias publicadas:\n{topicos}\n\n'
+        f'Aceda à sala virtual: {site_url}/governanca/assembleia/{assembleia.pk}/sala/\n\n'
+        f'Atenciosamente,\nCDOA'
+    )
+    destinatarios = list(
+        Usuario.objects.filter(
+            status='Ativo',
+            papel__in=('Administrador', 'Despachante Oficial'),
+        ).exclude(email='').values_list('email', flat=True)
+    )
+    if destinatarios:
+        _enviar(assunto, texto, None, destinatarios)
+
+
 def _gerar_otp():
     return f'{random.randint(100000, 999999)}'
 
@@ -160,7 +190,8 @@ def index(request):
     usuario_obj = request.usuario_obj
     hoje = timezone.now()
 
-    if usuario_obj.papel == 'Administrador':
+    from users.permissoes import _is_admin_ou_acesso_total
+    if _is_admin_ou_acesso_total(request):
         qs_quotas = QuotaGerada.objects.all()
         quotas_pendentes = qs_quotas.filter(status='Pendente').count()
         quotas_pagas = qs_quotas.filter(status='Paga').count()
@@ -270,6 +301,7 @@ def nova_assembleia(request):
             if not data_hora_str:
                 messages.error(request, 'Preencha a data e hora.')
                 return render(request, 'governanca/nova_assembleia.html', {**locals()})
+            import pytz
             from django.utils.dateparse import parse_datetime
             from django.utils.timezone import make_aware
             data_hora = parse_datetime(data_hora_str)
@@ -277,7 +309,7 @@ def nova_assembleia(request):
                 messages.error(request, 'Data/hora inválida.')
                 return render(request, 'governanca/nova_assembleia.html', {**locals()})
             if timezone.is_naive(data_hora):
-                data_hora = make_aware(data_hora)
+                data_hora = make_aware(data_hora, timezone=pytz.timezone('Africa/Luanda'))
             if data_hora <= timezone.now():
                 messages.error(request, 'A data e hora deve ser posterior ao momento atual.')
                 return render(request, 'governanca/nova_assembleia.html', {**locals()})
@@ -360,7 +392,11 @@ def nova_assembleia(request):
                     )
 
             messages.success(request, 'Assembleia criada com sucesso!')
-            return redirect('governanca_detalhe', pk=assembleia.pk)
+            if iniciar_agora:
+                return redirect('governanca_detalhe', pk=assembleia.pk)
+            else:
+                messages.info(request, 'Agora crie a convocatória para esta assembleia.')
+                return redirect('governanca_criar_convocatoria', pk=assembleia.pk)
         except ValidationError as e:
             if hasattr(e, 'message_dict'):
                 for field, messages_list in e.message_dict.items():
@@ -578,28 +614,16 @@ def gerir_assembleia(request, pk):
         messages.error(request, 'Sem permissão.')
         return redirect('governanca_detalhe', pk=pk)
 
-    from users.models import Cargo
-    cargos_para_mesa = Cargo.objects.all()
-    membros_direcao = Usuario.objects.filter(
-        status='Ativo', cargos__isnull=False
-    ).distinct()
+    from rh.models import CargoMesa
     mesa_existing = set(MembroMesa.objects.filter(assembleia=assembleia).values_list('usuario_id', flat=True))
-    for u in membros_direcao:
-        if u.id not in mesa_existing:
-            funcao_map = {
-                'secretario': 'Secretário',
-                'vice-secretario': 'Vice-Secretário',
-                'vogal': 'Vogal',
-                'presidente': 'Presidente',
-                'vice-presidente': 'Vice-Presidente',
-            }
-            uc = u.cargos.through.objects.filter(usuario=u, cargo__in=cargos_para_mesa).select_related('cargo').first()
-            if uc:
-                funcao = funcao_map.get(uc.cargo.slug, 'Vogal')
-                MembroMesa.objects.get_or_create(
-                    assembleia=assembleia, usuario=u,
-                    defaults={'funcao': funcao, 'ordem': MembroMesa.objects.filter(assembleia=assembleia).count()},
-                )
+    membros_direcao = CargoMesa.objects.select_related('usuario').all()
+    for cargo_mesa in membros_direcao:
+        u = cargo_mesa.usuario
+        if u.status == 'Ativo' and u.id not in mesa_existing:
+            MembroMesa.objects.get_or_create(
+                assembleia=assembleia, usuario=u,
+                defaults={'funcao': cargo_mesa.funcao, 'ordem': MembroMesa.objects.filter(assembleia=assembleia).count()},
+            )
 
     context = {
         'usuario': request.session['usuario'],
@@ -616,7 +640,7 @@ def gerir_assembleia(request, pk):
             papel__in=['Administrador', 'Despachante Oficial'], status='Ativo'
         ).exclude(id=request.session['usuario_id']),
         'tem_convocatoria_publicada': assembleia.convocatorias.filter(status='Publicada').exists(),
-        'direcao_ids': list(membros_direcao.values_list('id', flat=True)),
+        'direcao_ids': list(membros_direcao.values_list('usuario_id', flat=True)),
     }
     return render(request, 'governanca/gerir_assembleia.html', context)
 
@@ -1228,21 +1252,18 @@ def api_iniciar_assembleia(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem iniciar assembleias.'}, status=403)
     if assembleia.status != 'Agendada':
         return JsonResponse({'status': 'error', 'message': 'Assembleia já foi iniciada ou concluída.'}, status=400)
-    if assembleia.data_hora > timezone.now():
-        return JsonResponse({
-            'status': 'error',
-            'message': f'A assembleia só pode ser iniciada a partir da data agendada: {assembleia.data_hora.strftime("%d/%m/%Y %H:%M")}.'
-        }, status=400)
     if not assembleia.convocatorias.filter(status='Publicada').exists():
         return JsonResponse({'status': 'error', 'message': 'É necessário publicar pelo menos uma Convocatória antes de iniciar a assembleia.'}, status=400)
     assembleia.status = 'Em Curso'
     assembleia.save()
+    _enviar_convocatorias_email(assembleia)
     _notificar_para_papel('Administrador', 'assembleia_iniciada', f'Assembleia em curso: {assembleia.titulo}', 'A assembleia já está em curso. Entre na sala virtual!', f'/governanca/assembleia/{assembleia.pk}/sala/')
     _notificar_para_papel('Despachante Oficial', 'assembleia_iniciada', f'Assembleia em curso: {assembleia.titulo}', 'A assembleia já está em curso. Entre na sala virtual!', f'/governanca/assembleia/{assembleia.pk}/sala/')
     _log_assembleia(assembleia.id, request.session['usuario_id'], 'assembleia_iniciada', {}, ip=_get_client_ip(request))
     return JsonResponse({'status': 'ok'})
 
 
+@csrf_exempt
 @csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
@@ -1370,17 +1391,8 @@ def api_publicar_ata(request, pk):
 def api_upload_documento(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    papel = request.session['usuario']['papel']
-    usuario_id = request.session['usuario_id']
-    is_admin = papel == 'Administrador'
-    usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
-    is_secretario = MembroMesa.objects.filter(
-        assembleia=assembleia,
-        usuario_id=usuario_id,
-        funcao__in=('1º Secretário', '2º Secretário')
-    ).exists() or (usuario_obj and (usuario_obj.is_secretario or usuario_obj.is_vice_secretario))
-    if not is_admin and not is_secretario and not usuario_tem_permissao(request, 'gerir_documentos'):
-        return JsonResponse({'status': 'error', 'message': 'Apenas administradores e secretários (1º/2º).'}, status=403)
+    if not usuario_tem_permissao(request, 'gerir_documentos'):
+        return JsonResponse({'status': 'error', 'message': 'Sem permissão para gerir documentos.'}, status=403)
     titulo = request.POST.get('titulo', '').strip()
     tipo = request.POST.get('tipo', 'ata')
     if not titulo:
@@ -1401,7 +1413,7 @@ def api_upload_documento(request, pk):
 @_requer_login
 def api_listar_documentos(request, pk):
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    docs = assembleia.documentos.all()
+    docs = assembleia.documentos.select_related('created_by').all()
     data = [{
         'id': d.id, 'tipo': d.tipo, 'titulo': d.titulo,
         'descricao': d.descricao,
@@ -1420,13 +1432,8 @@ def api_listar_documentos(request, pk):
 def api_publicar_documento(request, pk, doc_pk):
     from users.permissoes import usuario_tem_permissao
     doc = get_object_or_404(DocumentoAssembleia, pk=doc_pk, assembleia_id=pk)
-    papel = request.session['usuario']['papel']
-    usuario_id = request.session['usuario_id']
-    is_admin = papel == 'Administrador'
-    usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
-    is_secretario = usuario_obj and (usuario_obj.is_secretario or usuario_obj.is_vice_secretario)
-    if not is_admin and not is_secretario and not usuario_tem_permissao(request, 'gerir_documentos'):
-        return JsonResponse({'status': 'error', 'message': 'Apenas administradores e secretários.'}, status=403)
+    if not usuario_tem_permissao(request, 'gerir_documentos'):
+        return JsonResponse({'status': 'error', 'message': 'Sem permissão para gerir documentos.'}, status=403)
     doc.publicado = True
     doc.publicado_em = timezone.now()
     doc.save()
@@ -1475,7 +1482,8 @@ def api_remover_documento(request, pk, doc_pk):
     doc = get_object_or_404(DocumentoAssembleia, pk=doc_pk, assembleia_id=pk)
     papel = request.session['usuario']['papel']
     usuario_id = request.session['usuario_id']
-    is_admin = papel == 'Administrador'
+    from users.permissoes import _is_admin_ou_acesso_total
+    is_admin = _is_admin_ou_acesso_total(request)
     is_criador = doc.created_by_id == usuario_id if doc.created_by_id else False
     usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
     is_secretario = MembroMesa.objects.filter(
@@ -1489,8 +1497,9 @@ def api_remover_documento(request, pk, doc_pk):
     return JsonResponse({'status': 'ok'})
 
 
-def _pode_admin_ou_secretario(papel, usuario_obj):
-    if papel == 'Administrador':
+def _pode_admin_ou_secretario(papel, usuario_obj, request=None):
+    from users.permissoes import _is_admin_ou_acesso_total
+    if _is_admin_ou_acesso_total(request) if request else papel == 'Administrador':
         return True
     if usuario_obj and (usuario_obj.is_secretario or usuario_obj.is_vice_secretario):
         return True
@@ -1511,7 +1520,7 @@ def _pode_admin_ou_secretario(papel, usuario_obj):
 @require_http_methods(['POST'])
 @_requer_login
 def api_gerar_documento(request):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
         return JsonResponse({'status': 'error', 'message': 'Sem permissão.'}, status=403)
 
     assembleia_id = request.POST.get('assembleia_id', '').strip()
@@ -1567,7 +1576,8 @@ def secretario_documentos(request):
     usuario_id = usuario.get('id')
     usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
     from users.permissoes import usuario_tem_permissao
-    if not usuario_obj or not (usuario_obj.has_cargo('secretario') or usuario_obj.has_cargo('vice-secretario') or usuario_tem_permissao(request, 'ver_secretaria') or usuario_tem_permissao(request, 'gerir_documentos')):
+    from rh.models import CargoMesa
+    if not usuario_obj or not (CargoMesa.objects.filter(usuario=usuario_obj, funcao__in=['Secretário', '1º Secretário', '2º Secretário', 'Vice-Presidente']).exists() or usuario_tem_permissao(request, 'ver_secretaria') or usuario_tem_permissao(request, 'gerir_documentos')):
         return redirect('governanca_index')
 
     from django.db.models import Count, Q, Prefetch
@@ -1612,7 +1622,10 @@ def api_secretario_assembleias(request):
     usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
     if not usuario_obj or not (usuario_obj.has_cargo('secretario') or usuario_obj.has_cargo('vice-secretario')):
         return JsonResponse({'status': 'error', 'message': 'Apenas Secretário e Vice-Secretário.'}, status=403)
-    assembleias = Assembleia.objects.all().order_by('-data_hora')
+    from django.db.models import Prefetch
+    assembleias = Assembleia.objects.prefetch_related(
+        Prefetch('documentos', queryset=DocumentoAssembleia.objects.select_related('created_by'))
+    ).order_by('-data_hora')
     data = []
     for assem in assembleias:
         docs = [{
@@ -1655,9 +1668,6 @@ def api_mesa_adicionar(request, pk):
     valida = dict(MembroMesa.FUNCOES)
     if funcao not in valida:
         return JsonResponse({'status': 'error', 'message': 'Função inválida.'}, status=400)
-    from users.models import Cargo
-    if Usuario.objects.filter(id=usuario_id, cargos__isnull=False).exists():
-        return JsonResponse({'status': 'error', 'message': 'Membros da Direção já são adicionados automaticamente à Mesa.'}, status=400)
     membro, created = MembroMesa.objects.get_or_create(
         assembleia=assembleia, usuario_id=usuario_id,
         defaults={'funcao': funcao, 'ordem': MembroMesa.objects.filter(assembleia=assembleia).count()},
@@ -1682,9 +1692,6 @@ def api_mesa_remover(request, pk, membro_pk):
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     membro = get_object_or_404(MembroMesa, pk=membro_pk, assembleia=assembleia)
-    from users.models import Cargo
-    if membro.usuario.cargos.exists():
-        return JsonResponse({'status': 'error', 'message': 'Membros da Direção não podem ser removidos manualmente da Mesa.'}, status=400)
     membro.delete()
     return JsonResponse({'status': 'ok'})
 
@@ -2113,7 +2120,8 @@ def quotas_dashboard(request):
 def quotas_faturas(request):
     usuario_id = request.session['usuario_id']
     papel = request.session['usuario']['papel']
-    if papel in ('Administrador',):
+    from users.permissoes import _is_admin_ou_acesso_total
+    if _is_admin_ou_acesso_total(request):
         quotas = QuotaGerada.objects.all().select_related('despachante').order_by('-ano','-mes')
     else:
         quotas = QuotaGerada.objects.filter(despachante_id=usuario_id).order_by('-ano','-mes')
@@ -2123,7 +2131,7 @@ def quotas_faturas(request):
     context = {
         'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
         'papel': papel, 'active_menu': 'Governanca', 'active_sub': 'quotas',
-        'quotas': page_obj, 'page_obj': page_obj, 'is_admin': papel == 'Administrador',
+        'quotas': page_obj, 'page_obj': page_obj, 'is_admin': _is_admin_ou_acesso_total(request),
     }
     return render(request, 'governanca/quotas/faturas.html', context)
 
@@ -2531,7 +2539,9 @@ def api_quotas_verificar_estado(request):
 def api_quotas_listar(request):
     usuario_id = request.session['usuario_id']
     papel = request.session['usuario']['papel']
-    if papel == 'Administrador':
+    from users.permissoes import _is_admin_ou_acesso_total
+    e_admin = _is_admin_ou_acesso_total(request)
+    if e_admin:
         quotas = QuotaGerada.objects.all().select_related('despachante').order_by('-ano','-mes')
     else:
         quotas = QuotaGerada.objects.filter(despachante_id=usuario_id).order_by('-ano','-mes')
@@ -2540,7 +2550,7 @@ def api_quotas_listar(request):
         data.append({
             'id': q.id, 'fatura_uuid': q.fatura_uuid, 'ano': q.ano, 'mes': q.mes,
             'valor': str(q.valor), 'data_vencimento': str(q.data_vencimento),
-            'status': q.status, 'despachante_nome': q.despachante.nome if papel == 'Administrador' else None,
+            'status': q.status, 'despachante_nome': q.despachante.nome if e_admin else None,
         })
     return JsonResponse({'quotas': data})
 
@@ -3141,10 +3151,9 @@ def consulta_detalhe(request, pk):
 
 @_requer_login
 def consulta_criar(request):
-    papel = request.session['usuario']['papel']
-    usuario_obj = request.usuario_obj
-    if not _pode_admin_ou_secretario(papel, usuario_obj):
-        messages.error(request, 'Apenas administradores e secretários podem criar consultas.')
+    from users.permissoes import usuario_tem_permissao
+    if not usuario_tem_permissao(request, 'gerir_consultas'):
+        messages.error(request, 'Sem permissão para gerir consultas.')
         return redirect('governanca_consultas')
     if request.method == 'POST':
         titulo = request.POST.get('titulo', '').strip()
@@ -3197,11 +3206,10 @@ def consulta_criar(request):
 
 @_requer_login
 def consulta_editar(request, pk):
+    from users.permissoes import usuario_tem_permissao
     consulta = get_object_or_404(ConsultaPublica, pk=pk)
-    papel = request.session['usuario']['papel']
-    usuario_obj = request.usuario_obj
-    if not _pode_admin_ou_secretario(papel, usuario_obj):
-        messages.error(request, 'Apenas administradores e secretários podem editar consultas.')
+    if not usuario_tem_permissao(request, 'gerir_consultas'):
+        messages.error(request, 'Sem permissão para gerir consultas.')
         return redirect('governanca_consultas')
     if consulta.status != 'Rascunho':
         messages.error(request, 'Apenas consultas em rascunho podem ser editadas.')
@@ -3271,7 +3279,7 @@ def consulta_relatorio(request, pk):
 
 @_requer_login
 def api_consulta_publicar(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Rascunho')
     consulta.status = 'Publicada'
@@ -3345,7 +3353,7 @@ def api_consulta_responder(request, pk):
 @_requer_login
 def api_consulta_abrir_votacao(request, pk):
     papel = request.session['usuario']['papel']
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Publicada')
     if consulta.prazo_fim and consulta.prazo_fim <= timezone.now():
@@ -3384,7 +3392,7 @@ def api_consulta_votar(request, pk):
 
 @_requer_login
 def api_consulta_encerrar(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='EmVotacao')
     votacao = consulta.votacoes.filter(ativa=True).first()
@@ -3406,7 +3414,7 @@ def api_consulta_encerrar(request, pk):
 
 @_requer_login
 def api_consulta_gerar_relatorio(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     if hasattr(consulta, 'relatorio'):
@@ -3450,7 +3458,7 @@ def api_consulta_gerar_relatorio(request, pk):
 
 @_requer_login
 def api_consulta_publicar_versao_final(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     consulta.status = 'Aprovada'
@@ -3467,7 +3475,7 @@ def api_consulta_publicar_versao_final(request, pk):
 
 @_requer_login
 def api_consulta_rejeitar(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj):
+    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     consulta.status = 'Rejeitada'
@@ -3509,8 +3517,9 @@ def lista_convocatorias(request, pk):
 
 @_requer_login
 def criar_convocatoria(request, pk):
+    from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_convocatorias'):
         messages.error(request, 'Sem permissão.')
         return redirect('governanca_detalhe', pk=pk)
     if assembleia.status != 'Agendada':
@@ -3535,6 +3544,8 @@ def criar_convocatoria(request, pk):
             if not dt:
                 messages.error(request, 'Prazo de confirmação inválido. Use AAAA-MM-DD HH:MM.')
                 return render(request, 'governanca/convocatorias/criar.html', locals())
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt)
             if dt <= timezone.now():
                 messages.error(request, 'O prazo de confirmação deve ser posterior ao momento atual.')
                 return render(request, 'governanca/convocatorias/criar.html', locals())
@@ -3863,7 +3874,8 @@ def api_assinar_ata(request, pk):
     raw = f'{ata.id}-{usuario.id}-{timezone.now().isoformat()}'
     assinatura = hashlib.sha256(raw.encode()).hexdigest()
 
-    if is_presidente or papel == 'Administrador':
+    from users.permissoes import _is_admin_ou_acesso_total
+    if is_presidente or _is_admin_ou_acesso_total(request):
         if ata.assinatura_hash_presidente:
             return JsonResponse({'status': 'error', 'message': 'Presidente já assinou.'}, status=400)
         ata.assinatura_hash_presidente = assinatura
@@ -3942,12 +3954,16 @@ def pagina_notificacoes(request):
     usuario_id = request.session['usuario_id']
     qs = Notificacao.objects.filter(usuario_id=usuario_id).order_by('-created_at')
     nao_lidas = qs.filter(lida=False).count()
+    paginator = Paginator(qs, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     context = {
         'usuario': usuario,
         'nome': usuario['nome'],
         'papel': usuario['papel'],
         'active_menu': 'Governanca',
-        'notificacoes': qs[:100],
+        'notificacoes': page_obj,
+        'page_obj': page_obj,
         'nao_lidas': nao_lidas,
     }
     return render(request, 'governanca/notificacoes.html', context)
@@ -3989,157 +4005,7 @@ def api_notificacoes_marcar_todas_lidas(request):
     return JsonResponse({'status': 'ok'})
 
 
-@_requer_login
-def gerir_cargos(request):
-    usuario = _get_usuario(request)
-    if not usuario:
-        return redirect('login')
-    from users.permissoes import usuario_tem_permissao
-    if usuario.get('papel') != 'Administrador' and not usuario_tem_permissao(request, 'gerir_membros_direcao'):
-        messages.error(request, 'Apenas administradores podem gerir cargos.')
-        return redirect('governanca_index')
-    from users.models import Cargo, Usuario, UsuarioCargo, Permissao
-    cargos = Cargo.objects.prefetch_related('permissoes').all()
-    q = request.GET.get('q', '').strip()
-    ids_com_cargo = UsuarioCargo.objects.values_list('usuario_id', flat=True).distinct()
-    membros_qs = Usuario.objects.filter(id__in=ids_com_cargo, status='Ativo')
-    if q:
-        membros_qs = membros_qs.filter(nome__icontains=q)
-    membros_qs = membros_qs.order_by('nome').prefetch_related('cargos')
-    paginator = Paginator(membros_qs, 12)
-    page_number = request.GET.get('page')
-    membros = paginator.get_page(page_number)
-    membro_cargos_map = {m.id: list(m.cargos.values_list('slug', flat=True)) for m in membros_qs}
-    total = membros_qs.count()
-    com_cargo = total
-    sem_cargo = 0
-    cargo_ocupado_por = {}
-    cargo_ocupado_ids = set()
-    for uc in UsuarioCargo.objects.select_related('usuario', 'cargo').all():
-        cargo_ocupado_por[uc.cargo_id] = uc.usuario.nome
-        cargo_ocupado_ids.add(uc.cargo_id)
-    extra_params = ''
-    if q:
-        extra_params = 'q=' + q
-    return render(request, 'governanca/gerir_cargos.html', {
-        'usuario': usuario,
-        'nome': usuario['nome'],
-        'papel': usuario['papel'],
-        'active_menu': 'RH',
-        'active_sub': 'gerir_cargos',
-        'is_admin_sistema': True,
-        'cargos': cargos,
-        'membros': membros,
-        'membro_cargos': membro_cargos_map,
-        'stats_total': total,
-        'stats_com_cargo': com_cargo,
-        'stats_sem_cargo': sem_cargo,
-        'cargo_ocupado_por': cargo_ocupado_por,
-        'cargo_ocupado_ids': cargo_ocupado_ids,
-        'page_obj': membros,
-        'q': q,
-        'extra_params': extra_params,
-        'permissoes': Permissao.objects.all().order_by('grupo', 'nome'),
-        'cargo_permissoes': {c.id: list(c.permissoes.values_list('id', flat=True)) for c in cargos},
-    })
 
-
-@csrf_exempt
-@require_http_methods(['POST'])
-@_requer_login
-def api_cargo_toggle(request):
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
-    from users.models import Cargo, Usuario, UsuarioCargo
-    data = json.loads(request.body)
-    usuario_id = data.get('usuario_id')
-    cargo_id = data.get('cargo_id')
-    ativar = data.get('ativar', True)
-    if not usuario_id or not cargo_id:
-        return JsonResponse({'erro': 'Parâmetros incompletos.'}, status=400)
-    usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
-    cargo = get_object_or_404(Cargo, pk=cargo_id)
-    if ativar:
-        if UsuarioCargo.objects.filter(usuario=usuario_obj).count() >= 1:
-            return JsonResponse({'erro': 'Cada membro pode ter apenas 1 cargo.'}, status=400)
-        if UsuarioCargo.objects.filter(cargo=cargo).exclude(usuario=usuario_obj).exists():
-            return JsonResponse({'erro': f'O cargo "{cargo.nome}" já está atribuído a outro membro.'}, status=400)
-        UsuarioCargo.objects.get_or_create(usuario=usuario_obj, cargo=cargo, defaults={'atribuido_por': request.usuario_obj})
-        _criar_notificacao(
-            usuario_id=usuario_obj.id,
-            tipo='cargo_atribuido',
-            titulo=f'Cargo Atribuído: {cargo.nome}',
-            mensagem=f'O cargo "{cargo.nome}" foi-lhe atribuído por {request.usuario_obj.nome}.',
-            link='/governanca/cargos/',
-        )
-        return JsonResponse({'status': 'ok', 'message': f'{cargo.nome} atribuído a {usuario_obj.nome}.'})
-    else:
-        UsuarioCargo.objects.filter(usuario=usuario_obj, cargo=cargo).delete()
-        _criar_notificacao(
-            usuario_id=usuario_obj.id,
-            tipo='cargo_removido',
-            titulo=f'Cargo Removido: {cargo.nome}',
-            mensagem=f'O cargo "{cargo.nome}" foi-lhe removido por {request.usuario_obj.nome}.',
-            link='/governanca/cargos/',
-        )
-        return JsonResponse({'status': 'ok', 'message': f'{cargo.nome} removido de {usuario_obj.nome}.'})
-
-
-@csrf_exempt
-@require_http_methods(['POST'])
-@_requer_login
-def api_cargo_criar(request):
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
-    from users.models import Cargo
-    from django.utils.text import slugify
-    data = json.loads(request.body)
-    nome = data.get('nome', '').strip()
-    descricao = data.get('descricao', '').strip()
-    if not nome:
-        return JsonResponse({'erro': 'O nome do cargo é obrigatório.'}, status=400)
-    slug = slugify(nome)
-    if Cargo.objects.filter(slug=slug).exists():
-        return JsonResponse({'erro': 'Já existe um cargo com este nome.'}, status=400)
-    cargo = Cargo.objects.create(nome=nome, slug=slug, descricao=descricao)
-    return JsonResponse({'status': 'ok', 'cargo': {'id': cargo.id, 'nome': cargo.nome, 'slug': cargo.slug, 'descricao': cargo.descricao}})
-
-
-@csrf_exempt
-@require_http_methods(['POST'])
-@_requer_login
-def api_cargo_remover(request, pk):
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
-    from users.models import Cargo
-    cargo = get_object_or_404(Cargo, pk=pk)
-    cargo.delete()
-    return JsonResponse({'status': 'ok', 'message': 'Cargo removido.'})
-
-
-@csrf_exempt
-@require_http_methods(['POST'])
-@_requer_login
-def api_cargo_permissoes(request):
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
-    from users.models import Cargo, Permissao
-    data = json.loads(request.body)
-    cargo_id = data.get('cargo_id')
-    permissao_id = data.get('permissao_id')
-    ativar = data.get('ativar', True)
-    if not cargo_id or not permissao_id:
-        return JsonResponse({'erro': 'Parâmetros incompletos.'}, status=400)
-    cargo = get_object_or_404(Cargo, pk=cargo_id)
-    permissao = get_object_or_404(Permissao, pk=permissao_id)
-    if ativar:
-        cargo.permissoes.add(permissao)
-    else:
-        cargo.permissoes.remove(permissao)
-    return JsonResponse({
-        'status': 'ok',
-        'message': f'{permissao.nome} {"ativada" if ativar else "desativada"} em {cargo.nome}.'
-    })
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4148,10 +4014,11 @@ def api_cargo_permissoes(request):
 
 @_requer_login
 def utilizador_novo_view(request):
+    from users.permissoes import usuario_tem_permissao
     usuario = _get_usuario(request)
     if not usuario:
         return redirect('login')
-    if usuario.get('papel') != 'Administrador':
+    if usuario.get('papel') != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
         messages.error(request, 'Apenas administradores podem criar utilizadores.')
         return redirect('dashboard')
 
@@ -4170,6 +4037,7 @@ def utilizador_novo_view(request):
         area_actuacao = request.POST.get('area_actuacao', '').strip()
         nome_tipo = request.POST.get('nome_tipo', '').strip()
         salario_base = request.POST.get('salario_base', '').strip()
+        funcao_id = request.POST.get('funcao', '').strip()
 
         if not nome: erros['nome'] = 'O nome é obrigatório.'
         if not email: erros['email'] = 'O email é obrigatório.'
@@ -4194,61 +4062,114 @@ def utilizador_novo_view(request):
             salt = bcrypt.gensalt()
             hash_senha = bcrypt.hashpw(senha.encode('utf-8'), salt).decode('utf-8').replace('$2b$', '$2y$')
 
-            user = Usuario.objects.create(
-                username=username, password=hash_senha, nome=nome, email=email,
-                telefone=telefone, nif=nif, cedula=cedula if tipo == 'despachante' else '',
-                papel=papel, status='Ativo',
-                area_actuacao=area_actuacao if tipo == 'colaborador' else '',
-                cargo_personalizado=nome_tipo if tipo == 'outro' else '',
+            funcao_obj = None
+            if funcao_id and funcao_id.isdigit():
+                from users.models import Funcao
+                funcao_obj = Funcao.objects.filter(pk=int(funcao_id)).first()
+
+        user = Usuario.objects.create(
+            username=username, password=hash_senha, nome=nome, email=email,
+            telefone=telefone, nif=nif, cedula=cedula if tipo == 'despachante' else '',
+            papel=papel, status='Ativo',
+            area_actuacao=area_actuacao if tipo == 'colaborador' else '',
+            cargo_personalizado=nome_tipo if tipo == 'outro' else '',
+            funcao=funcao_obj if funcao_obj else None,
+        )
+
+        if tipo == 'colaborador':
+            from decimal import Decimal
+            salario_dec = Decimal(salario_base.replace(',', '.')) if salario_base else None
+            ColaboradorInstitucional.objects.create(
+                usuario=user, nome=nome, email=email, telefone=telefone,
+                area_actuacao=area_actuacao, salario_base=salario_dec,
             )
 
-            if tipo == 'colaborador':
-                from decimal import Decimal
-                salario_dec = Decimal(salario_base.replace(',', '.')) if salario_base else None
-                ColaboradorInstitucional.objects.create(
-                    usuario=user, nome=nome, email=email, telefone=telefone,
-                    area_actuacao=area_actuacao, salario_base=salario_dec,
-                )
+        _enviar_credenciais_utilizador(user, senha)
 
-            _enviar_credenciais_utilizador(user, senha)
+        messages.success(request, f'Utilizador "{nome}" criado com sucesso. Credenciais enviadas para {email}.')
+        return redirect('governanca_gerir_utilizadores')
 
-            messages.success(request, f'Utilizador "{nome}" criado com sucesso. Credenciais enviadas para {email}.')
-            return redirect('governanca_gerir_utilizadores')
-
+    from users.models import Funcao
     ctx = {
         'usuario': usuario, 'nome': usuario['nome'], 'papel': usuario['papel'],
         'active_menu': 'ADMIN_RH', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
-        'erros': erros,
+        'erros': erros, 'funcoes': Funcao.objects.all().order_by('nome'),
     }
     return render(request, 'governanca/utilizador_novo.html', ctx)
 
 
 @_requer_login
-def utilizador_permissoes_view(request, usuario_id):
+def utilizador_editar_view(request, usuario_id):
+    from users.permissoes import usuario_tem_permissao
     usuario = _get_usuario(request)
     if not usuario:
         return redirect('login')
-    if usuario.get('papel') != 'Administrador':
-        messages.error(request, 'Apenas administradores podem gerir permissões.')
+    if usuario.get('papel') != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
+        messages.error(request, 'Apenas administradores podem editar utilizadores.')
         return redirect('dashboard')
 
-    from users.models import Usuario, Permissao
+    from users.models import Usuario, ColaboradorInstitucional
     user_obj = get_object_or_404(Usuario, pk=usuario_id)
-    permissoes = Permissao.objects.all().order_by('grupo', 'nome')
-    user_perm_ids = list(user_obj.permissoes_diretas.values_list('id', flat=True))
 
+    erros = {}
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        email = request.POST.get('email', '').strip().lower()
+        telefone = request.POST.get('telefone', '').strip()
+        nif = request.POST.get('nif', '').strip()
+        cedula = request.POST.get('cedula', '').strip()
+        area_actuacao = request.POST.get('area_actuacao', '').strip()
+        cargo_personalizado = request.POST.get('cargo_personalizado', '').strip()
+        funcao_id = request.POST.get('funcao', '').strip()
+
+        if not nome:
+            erros['nome'] = 'O nome é obrigatório.'
+        if not email:
+            erros['email'] = 'O email é obrigatório.'
+        elif email != user_obj.email and Usuario.objects.filter(email=email).exists():
+            erros['email'] = 'Já existe um utilizador com este email.'
+
+        if not erros:
+            user_obj.nome = nome
+            user_obj.email = email
+            user_obj.telefone = telefone
+            user_obj.nif = nif
+            if user_obj.papel == 'Despachante Oficial':
+                user_obj.cedula = cedula
+            if user_obj.papel == 'Colaborador Institucional':
+                user_obj.area_actuacao = area_actuacao
+                # Atribuir função
+                if funcao_id and funcao_id.isdigit():
+                    from users.models import Funcao
+                    funcao_obj = Funcao.objects.filter(pk=int(funcao_id)).first()
+                    user_obj.funcao = funcao_obj
+                else:
+                    user_obj.funcao = None
+            if user_obj.papel == 'Visualizador':
+                user_obj.cargo_personalizado = cargo_personalizado
+            user_obj.save()
+
+            messages.success(request, f'Dados de "{user_obj.nome}" actualizados com sucesso.')
+            return redirect('governanca_gerir_utilizadores')
+
+    from users.models import Funcao
     ctx = {
         'usuario': usuario, 'nome': usuario['nome'], 'papel': usuario['papel'],
         'active_menu': 'ADMIN_RH', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
-        'user_obj': user_obj,
-        'permissoes': permissoes,
-        'user_perm_ids': user_perm_ids,
+        'user_obj': user_obj, 'erros': erros, 'funcoes': Funcao.objects.all().order_by('nome'),
     }
-    return render(request, 'governanca/utilizador_permissoes.html', ctx)
+    return render(request, 'governanca/utilizador_editar.html', ctx)
+
+
+@_requer_login
+def utilizador_permissoes_view(request, usuario_id):
+    messages.error(request, 'Permissões diretas desativadas. Atribua uma função ao utilizador para definir as permissões.')
+    return redirect('governanca_gerir_utilizadores')
 
 
 @_requer_login
 def gerir_utilizadores(request):
+    from users.permissoes import usuario_tem_permissao
     usuario = _get_usuario(request)
     if not usuario:
         return redirect('login')
@@ -4256,7 +4177,7 @@ def gerir_utilizadores(request):
         messages.error(request, 'Apenas administradores podem gerir utilizadores.')
         return redirect('dashboard')
 
-    from users.models import Usuario, Cargo, Permissao, UsuarioCargo
+    from users.models import Usuario
     q = request.GET.get('q', '').strip()
     tipo = request.GET.get('tipo', '').strip()
 
@@ -4264,30 +4185,18 @@ def gerir_utilizadores(request):
     if q:
         utilizadores_qs = utilizadores_qs.filter(nome__icontains=q)
     if tipo:
-        if tipo == 'ComCargo':
-            utilizadores_qs = utilizadores_qs.filter(vinculos_cargo__isnull=False)
-        elif tipo == 'SemCargo':
-            utilizadores_qs = utilizadores_qs.filter(vinculos_cargo__isnull=True)
-        else:
-            utilizadores_qs = utilizadores_qs.filter(papel=tipo)
+        utilizadores_qs = utilizadores_qs.filter(papel=tipo)
 
-    utilizadores_qs = utilizadores_qs.order_by('nome').prefetch_related('cargos', 'permissoes_diretas')
+    utilizadores_qs = utilizadores_qs.order_by('nome').prefetch_related('permissoes_diretas').select_related('funcao')
     paginator = Paginator(utilizadores_qs, 12)
     page_number = request.GET.get('page')
     utilizadores = paginator.get_page(page_number)
-
-    cargos = Cargo.objects.prefetch_related('permissoes').all()
-    membro_cargos_map = {m.id: list(m.cargos.values_list('slug', flat=True)) for m in utilizadores}
-    cargo_ocupado_por = {}
-    cargo_ocupado_ids = set()
-    for uc in UsuarioCargo.objects.select_related('usuario', 'cargo').all():
-        cargo_ocupado_por[uc.cargo_id] = uc.usuario.nome
-        cargo_ocupado_ids.add(uc.cargo_id)
 
     stats_total = utilizadores_qs.count()
     stats_ativos = utilizadores_qs.filter(status='Ativo').count()
     stats_inativos = utilizadores_qs.filter(status__in=['Inativo', 'Suspenso']).count()
 
+    from users.models import Funcao
     extra_params = ''
     if q: extra_params = 'q=' + q
     if tipo: extra_params += ('&' if extra_params else '') + 'tipo=' + tipo
@@ -4299,19 +4208,15 @@ def gerir_utilizadores(request):
         'active_menu': 'ADMIN_RH',
         'active_sub': 'gerir_utilizadores',
         'is_admin_sistema': True,
-        'cargos': cargos,
         'utilizadores': utilizadores,
-        'membro_cargos': membro_cargos_map,
         'stats_total': stats_total,
         'stats_ativos': stats_ativos,
         'stats_inativos': stats_inativos,
-        'cargo_ocupado_por': cargo_ocupado_por,
-        'cargo_ocupado_ids': cargo_ocupado_ids,
         'page_obj': utilizadores,
         'q': q,
         'tipo': tipo,
         'extra_params': extra_params,
-        'permissoes': Permissao.objects.all().order_by('grupo', 'nome'),
+        'funcoes': Funcao.objects.all().order_by('nome'),
     })
 
 
@@ -4324,7 +4229,8 @@ def api_utilizador_criar(request):
     import bcrypt, json
     from django.utils.text import slugify
 
-    if request.session['usuario']['papel'] != 'Administrador':
+    from users.permissoes import usuario_tem_permissao
+    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
     data = json.loads(request.body)
@@ -4336,6 +4242,7 @@ def api_utilizador_criar(request):
     cedula = data.get('cedula', '').strip()
     area_actuacao = data.get('area_actuacao', '').strip()
     nome_tipo = data.get('nome_tipo', '').strip()
+    funcao_id = data.get('funcao_id', '')
     enviar_credenciais = data.get('enviar_credenciais', True)
 
     if not nome or not email:
@@ -4368,6 +4275,11 @@ def api_utilizador_criar(request):
     salt = bcrypt.gensalt()
     hash_senha = bcrypt.hashpw(senha.encode('utf-8'), salt).decode('utf-8').replace('$2b$', '$2y$')
 
+    funcao_obj = None
+    if funcao_id and str(funcao_id).isdigit():
+        from users.models import Funcao
+        funcao_obj = Funcao.objects.filter(pk=int(funcao_id)).first()
+
     usuario = Usuario.objects.create(
         username=username,
         password=hash_senha,
@@ -4380,6 +4292,7 @@ def api_utilizador_criar(request):
         status='Ativo',
         area_actuacao=area_actuacao if tipo_criacao == 'colaborador' else '',
         cargo_personalizado=nome_tipo if tipo_criacao == 'outro' else '',
+        funcao=funcao_obj if funcao_obj else None,
     )
 
     # Criar ColaboradorInstitucional se for colaborador institucional
@@ -4481,7 +4394,8 @@ Administração SICDOA — CDOA Angola
 @_requer_login
 def api_utilizador_toggle_status(request):
     from users.models import Usuario
-    if request.session['usuario']['papel'] != 'Administrador':
+    from users.permissoes import usuario_tem_permissao
+    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
@@ -4503,7 +4417,8 @@ def api_utilizador_enviar_credenciais(request):
     from users.models import Usuario
     from utils.email_utils import gerar_senha_aleatoria
     import bcrypt
-    if request.session['usuario']['papel'] != 'Administrador':
+    from users.permissoes import usuario_tem_permissao
+    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
@@ -4526,76 +4441,64 @@ def api_utilizador_enviar_credenciais(request):
 @require_http_methods(['POST'])
 @_requer_login
 def api_utilizador_permissoes(request):
-    from users.models import Usuario, Permissao
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
-    data = json.loads(request.body)
-    usuario_id = data.get('usuario_id')
-    permissao_id = data.get('permissao_id')
-    ativar = data.get('ativar', True)
-    if not usuario_id or not permissao_id:
-        return JsonResponse({'erro': 'Parâmetros incompletos.'}, status=400)
-    usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
-    permissao = get_object_or_404(Permissao, pk=permissao_id)
-    if ativar:
-        usuario_obj.permissoes_diretas.add(permissao)
-    else:
-        usuario_obj.permissoes_diretas.remove(permissao)
     return JsonResponse({
-        'status': 'ok',
-        'message': f'{permissao.nome} {"ativada" if ativar else "desativada"} para {usuario_obj.nome}.'
-    })
+        'status': 'erro',
+        'message': 'Permissões diretas desativadas. Atribua uma função ao utilizador para definir as permissões.'
+    }, status=403)
 
 
-@csrf_exempt
-@require_http_methods(['POST'])
-@_requer_login
-def api_utilizador_cargo_atribuir(request):
-    from users.models import Cargo, Usuario, UsuarioCargo
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
-    data = json.loads(request.body)
-    usuario_id = data.get('usuario_id')
-    cargo_id = data.get('cargo_id')
-    if not usuario_id or not cargo_id:
-        return JsonResponse({'erro': 'Parâmetros incompletos.'}, status=400)
-    usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
-    cargo = get_object_or_404(Cargo, pk=cargo_id)
-    if UsuarioCargo.objects.filter(usuario=usuario_obj).count() >= 1:
-        return JsonResponse({'erro': 'Cada utilizador pode ter apenas 1 cargo da direção.'}, status=400)
-    if UsuarioCargo.objects.filter(cargo=cargo).exclude(usuario=usuario_obj).exists():
-        return JsonResponse({'erro': f'O cargo "{cargo.nome}" já está atribuído a outro membro.'}, status=400)
-    UsuarioCargo.objects.get_or_create(usuario=usuario_obj, cargo=cargo, defaults={'atribuido_por': request.usuario_obj})
-    _criar_notificacao(usuario_id=usuario_obj.id, tipo='cargo_atribuido',
-        titulo=f'Cargo Atribuído: {cargo.nome}',
-        mensagem=f'O cargo "{cargo.nome}" foi-lhe atribuído por {request.usuario_obj.nome}.',
-        link='/governanca/utilizadores/')
-    return JsonResponse({'status': 'ok', 'message': f'{cargo.nome} atribuído a {usuario_obj.nome}.'})
 
-
-@csrf_exempt
-@require_http_methods(['POST'])
-@_requer_login
-def api_utilizador_cargo_remover(request):
-    from users.models import UsuarioCargo
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
-    data = json.loads(request.body)
-    usuario_id = data.get('usuario_id')
-    cargo_id = data.get('cargo_id')
-    if not usuario_id or not cargo_id:
-        return JsonResponse({'erro': 'Parâmetros incompletos.'}, status=400)
-    deleted, _ = UsuarioCargo.objects.filter(usuario_id=usuario_id, cargo_id=cargo_id).delete()
-    return JsonResponse({'status': 'ok', 'removido': deleted > 0})
 
 
 def api_permissoes_usuario(request):
-    """GET: retorna lista de IDs de permissões diretas de um utilizador."""
+    """GET: desativado — permissões vêm exclusivamente da função."""
+    return JsonResponse({
+        'status': 'erro',
+        'message': 'Permissões diretas desativadas. Atribua uma função ao utilizador para definir as permissões.'
+    }, status=403)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+@_requer_login
+def api_utilizador_eliminar(request):
+    """Elimina um utilizador."""
     from users.models import Usuario
-    usuario_id = request.GET.get('usuario_id')
+    from users.permissoes import usuario_tem_permissao
+    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    data = json.loads(request.body)
+    usuario_id = data.get('usuario_id')
     if not usuario_id:
-        return JsonResponse({'erro': 'ID obrigatório.'}, status=400)
+        return JsonResponse({'erro': 'ID do utilizador obrigatório.'}, status=400)
     usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
-    permissoes_ids = list(usuario_obj.permissoes_diretas.values_list('id', flat=True))
-    return JsonResponse({'permissoes': permissoes_ids})
+    nome = usuario_obj.nome
+    usuario_obj.delete()
+    return JsonResponse({'status': 'ok', 'message': f'Utilizador "{nome}" eliminado com sucesso.'})
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+@_requer_login
+def api_utilizador_atribuir_funcao(request):
+    """Atribui ou remove a função de um utilizador."""
+    from users.models import Funcao, Usuario
+    from users.permissoes import usuario_tem_permissao
+    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    data = json.loads(request.body)
+    usuario_id = data.get('usuario_id')
+    funcao_id = data.get('funcao_id')
+    if not usuario_id:
+        return JsonResponse({'erro': 'ID do utilizador obrigatório.'}, status=400)
+    usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
+    if funcao_id:
+        funcao_obj = get_object_or_404(Funcao, pk=funcao_id)
+        usuario_obj.funcao = funcao_obj
+        msg = f'Função "{funcao_obj.nome}" atribuída a {usuario_obj.nome}.'
+    else:
+        usuario_obj.funcao = None
+        msg = f'Função removida de {usuario_obj.nome}.'
+    usuario_obj.save(update_fields=['funcao'])
+    return JsonResponse({'status': 'ok', 'message': msg, 'funcao_nome': funcao_obj.nome if funcao_id else None})
 

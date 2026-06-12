@@ -43,7 +43,8 @@ def _requer_admin_ou_permissoes(*perm_codigos):
             if not request.session.get('usuario_id'):
                 return redirect('login')
             papel = request.session.get('usuario', {}).get('papel', '')
-            if papel == 'Administrador':
+            from users.permissoes import _is_admin_ou_acesso_total
+            if _is_admin_ou_acesso_total(request):
                 return fn(request, *args, **kwargs)
             from users.permissoes import usuario_tem_permissao
             for codigo in perm_codigos:
@@ -534,7 +535,9 @@ def admin_banca_detalhe_view(request, banca_id):
     ), pk=banca_id)
     dono = Usuario.objects.filter(pk=banca.usuario_id).first()
 
-    filiais = banca.filiais.order_by('provincia')
+    filiais = banca.filiais.annotate(
+        num_colaboradores=Count('colaboradores')
+    ).order_by('provincia')
     colaboradores = banca.colaboradores.select_related('filial').order_by('nome')
 
     stats = colaboradores.aggregate(
@@ -717,7 +720,11 @@ def admin_colaborador_inst_editar_view(request, pk):
             colaborador.area_actuacao = area_actuacao
             if salario_base:
                 from decimal import Decimal
-                colaborador.salario_base = Decimal(salario_base.replace(',', '.'))
+                salario_clean = salario_base.replace('.', '').replace(',', '.')
+                try:
+                    colaborador.salario_base = Decimal(salario_clean)
+                except Exception:
+                    colaborador.salario_base = None
             colaborador.observacoes = observacoes
             colaborador.save()
             # Sync usuario
@@ -821,8 +828,13 @@ def admin_ferias_inst_view(request):
     if estado:
         pedidos = pedidos.filter(estado=estado)
 
+    paginator = Paginator(pedidos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     ctx = _ctx_admin(request, sub='ferias_inst', extra={
-        'pedidos': pedidos,
+        'pedidos': page_obj,
+        'page_obj': page_obj,
         'estado': estado,
     })
     return render(request, 'rh/admin/ferias_inst_lista.html', ctx)
@@ -848,8 +860,13 @@ def admin_ferias_inst_acao_view(request, pk):
 def admin_avaliacoes_inst_view(request):
     ciclos = CicloAvaliacaoInstitucional.objects.all().order_by('-periodo_inicio')
 
+    paginator = Paginator(ciclos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     ctx = _ctx_admin(request, sub='avaliacoes_inst', extra={
-        'ciclos': ciclos,
+        'ciclos': page_obj,
+        'page_obj': page_obj,
     })
     return render(request, 'rh/admin/avaliacoes_inst_lista.html', ctx)
 
@@ -927,8 +944,13 @@ def admin_avaliacao_inst_nova_view(request, ciclo_pk, col_pk=None):
 def admin_salarios_inst_view(request):
     processamentos = ProcessamentoSalarialInstitucional.objects.all().order_by('-ano', '-mes')
 
+    paginator = Paginator(processamentos, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     ctx = _ctx_admin(request, sub='salarios_inst', extra={
-        'processamentos': processamentos,
+        'processamentos': page_obj,
+        'page_obj': page_obj,
     })
     return render(request, 'rh/admin/salarios_inst_lista.html', ctx)
 

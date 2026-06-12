@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 
 from clientes.models import Cliente
 from users.models import Usuario
+from users.permissoes import _is_admin_ou_acesso_total
 from utils.validators import email_ja_existe
 from django.core.paginator import Paginator
 from .models import DeclaracaoUnica
@@ -41,6 +42,10 @@ def du_view(request, du_uuid=None):
     """Formulário de criação ou edição de DU."""
     if not _sessao_ok(request):
         return redirect('login')
+
+    # Apenas Despachante Oficial pode criar nova DU
+    if du_uuid is None and _papel(request) != 'Despachante Oficial':
+        return redirect('du_lista')
 
     du = None
     dados_iniciais = '{}'
@@ -120,7 +125,12 @@ def du_guardar(request):
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'erro': 'JSON inválido'}, status=400)
 
-    du_uuid   = payload.get('uuid')
+    du_uuid = payload.get('uuid')
+
+    # Apenas Despachante Oficial pode criar nova DU
+    if not du_uuid and _papel(request) != 'Despachante Oficial':
+        logger.warning(f"Papel {_papel(request)} sem permissão para criar DU")
+        return JsonResponse({'erro': 'Sem permissão para criar DU'}, status=403)
     submeter  = payload.get('submeter', False)
     dados     = payload.get('dados', {})
     totais    = payload.get('totais', {})
@@ -323,7 +333,8 @@ def du_lista(request):
     papel = _papel(request)
     uid   = _usuario_id(request)
 
-    if papel == 'Administrador':
+    e_admin = _is_admin_ou_acesso_total(request)
+    if e_admin:
         dus = DeclaracaoUnica.objects.all()
     else:
         # Despachante e Operador vêem as suas próprias DUs
@@ -359,7 +370,7 @@ def du_lista(request):
         'page_obj': page_obj,
         'q': q,
         'status_filtro': status,
-        'is_admin': papel == 'Administrador',
+        'is_admin': e_admin,
         'total_dus': dus.count(),
     })
     return render(request, 'du_lista.html', ctx)
@@ -376,7 +387,8 @@ def du_detalhe(request, du_uuid):
     papel = _papel(request)
     uid   = _usuario_id(request)
 
-    if du.usuario_id != uid and papel not in ('Administrador', 'Operador'):
+    e_admin = _is_admin_ou_acesso_total(request)
+    if du.usuario_id != uid and not e_admin and papel not in ('Operador',):
         return redirect('du_lista')
 
     ctx = _ctx_base(request)
@@ -385,8 +397,8 @@ def du_detalhe(request, du_uuid):
         'active_sub': 'du',
         'du': du,
         'dados': du.get_dados(),
-        'is_admin': papel == 'Administrador',
-        'pode_editar': papel == 'Administrador' or du.usuario_id == uid,
+        'is_admin': e_admin,
+        'pode_editar': e_admin or du.usuario_id == uid,
     })
     return render(request, 'du_detalhe.html', ctx)
 
@@ -859,7 +871,7 @@ def du_pesquisar(request):
     if len(q) < 2:
         return JsonResponse({'resultados': []})
 
-    if papel == 'Administrador':
+    if _is_admin_ou_acesso_total(request):
         qs = DeclaracaoUnica.objects.all()
     else:
         qs = DeclaracaoUnica.objects.filter(usuario_id=uid)

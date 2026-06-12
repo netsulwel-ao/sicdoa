@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'utils',
     'users',
     'aduaneiro',
     'rh',
@@ -48,6 +49,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'users.middleware.SessionExpirationMiddleware',
+    'users.middleware.ActivityLogMiddleware',
 ]
 
 ROOT_URLCONF = 'sicdoa.urls'
@@ -194,7 +196,7 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Internacionalização
 LANGUAGE_CODE = 'pt-br'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Luanda'
 USE_I18N = True
 USE_TZ = True
 
@@ -230,10 +232,10 @@ SESSION_SAVE_EVERY_REQUEST = False
 
 # Email
 EMAIL_BACKEND = 'utils.email_backend.SSLRelaxedEmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.hostinger.com')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
-EMAIL_USE_TLS = False
-EMAIL_USE_SSL = True
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', os.environ.get('EMAIL_PASS', ''))
 DEFAULT_FROM_EMAIL = f'{os.environ.get("EMAIL_FROM_NAME", "SICDOA")} <{os.environ.get("EMAIL_FROM_ADDRESS", EMAIL_HOST_USER)}>'
@@ -258,6 +260,11 @@ if REDIS_ENABLED:
     CELERY_TASK_TRACK_STARTED = True
     CELERY_TASK_TIME_LIMIT = 300
     CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# ── Backup ─────────────────────────────────────────────────────────
+BACKUP_DIR = os.environ.get('BACKUP_DIR', os.path.join(BASE_DIR, 'backups'))
+BACKUP_RETENTION_DAYS = int(os.environ.get('BACKUP_RETENTION_DAYS', '30'))
+BACKUP_EMAIL_TO = os.environ.get('BACKUP_EMAIL_TO', 'ramosfranciscotch@gmail.com')
 
 # ── APScheduler (tarefas agendadas) ────────────────────────────────
 APSCHEDULER_DATETIME_FORMAT = 'N/A'
