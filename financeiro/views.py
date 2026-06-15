@@ -11,28 +11,49 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.core.mail import EmailMultiAlternatives
 from django.db.models import Q
+from django.views.decorators.http import require_POST
 
 from django.conf import settings
 
 from users.auth_decorators import requer_sessao_ativa
+from users.permissoes import _is_admin_ou_acesso_total
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
-from .models import RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo, HistoricoFinanceiro, registrar_historico
+from .models import (
+    RequisicaoFundo, FluxoAprovacao, NivelAprovacao,
+    AprovacaoRequisicao,
+    FacturaCliente, ReciboCliente, NotaCredito, NotaDebito,
+    FacturaRecibo, HistoricoFinanceiro, registrar_historico
+)
+from .forms import FluxoAprovacaoForm, NivelAprovacaoForm
 
 
 def _user_tem_acesso_total(request):
-    """True se user tem bypass de scoping (Admin, Gestor Financeiro, ou permissão admin)."""
-    from users.permissoes import _is_admin_ou_acesso_total
+    """True se user tem bypass de scoping (Admin ou permissão admin/financeiro)."""
+    from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel in ('Administrador', 'Gestor Financeiro'):
+    if papel == 'Administrador':
         return True
-    return _is_admin_ou_acesso_total(request)
+    if _is_admin_ou_acesso_total(request):
+        return True
+    permissoes = get_usuario_permissoes(request)
+    if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes:
+        return True
+    perms_granulares = [
+        'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
+        'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros',
+    ]
+    if any(p in permissoes for p in perms_granulares):
+        return True
+    if 'acesso_auditoria' in permissoes:
+        return True
+    return False
 
 
 def _pode_escrever(request):
     """True se o user pode escrever no módulo financeiro (não é apenas auditor)."""
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel in ('Administrador', 'Gestor Financeiro', 'Despachante Oficial', 'Operador'):
+    if papel in ('Administrador', 'Despachante Oficial'):
         return True
     from users.permissoes import usuario_tem_permissao, _is_admin_ou_acesso_total
     if _is_admin_ou_acesso_total(request):
@@ -72,10 +93,21 @@ class BaseContextMixin:
         )
         return context
 
+    def _resolve_usuario_id(self):
+        """Retorna o usuario_id efectivo para filtragem de dados.
+        
+        Para colaboradores da banca, usa o usuario_id do despachante dono da banca.
+        Para os restantes users, usa o próprio usuario_id da sessão.
+        """
+        banca_usuario_id = self.request.session.get('banca_usuario_id')
+        if banca_usuario_id:
+            return banca_usuario_id
+        return self.request.session.get('usuario_id')
+
     def _get_user_cliente_filter(self):
         if _user_tem_acesso_total(self.request):
             return {}
-        usuario_id = self.request.session.get('usuario_id')
+        usuario_id = self._resolve_usuario_id()
         if not usuario_id:
             return {}
         return {'cliente__usuario_id': usuario_id}
@@ -83,7 +115,7 @@ class BaseContextMixin:
     def _get_user_filter_direct(self):
         if _user_tem_acesso_total(self.request):
             return {}
-        usuario_id = self.request.session.get('usuario_id')
+        usuario_id = self._resolve_usuario_id()
         if not usuario_id:
             return {}
         return {'usuario_id': usuario_id}
@@ -91,7 +123,7 @@ class BaseContextMixin:
     def _get_user_requisicao_filter(self):
         if _user_tem_acesso_total(self.request):
             return {}
-        usuario_id = self.request.session.get('usuario_id')
+        usuario_id = self._resolve_usuario_id()
         if not usuario_id:
             return {}
         return Q(cliente__usuario_id=usuario_id) | Q(solicitante_id=usuario_id)
@@ -191,8 +223,11 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
 
     def dispatch(self, request, *args, **kwargs):
         papel = request.session.get('usuario', {}).get('papel', '')
-        if papel in ('Administrador', 'Gestor Financeiro') or _user_tem_acesso_total(request):
-            messages.error(request, 'Apenas Despachantes podem criar requisições de fundos.')
+        if papel == 'Administrador':
+            messages.error(request, 'Apenas Despachantes e Colaboradores autorizados podem criar requisições de fundos.')
+            return redirect('financeiro:requisicao_lista')
+        if not FluxoAprovacao.objects.filter(ativo=True).exists():
+            messages.error(request, 'Não existem Fluxos de Aprovação activos. Peça ao Administrador para criar um fluxo antes de submeter.')
             return redirect('financeiro:requisicao_lista')
         return super().dispatch(request, *args, **kwargs)
 
@@ -235,9 +270,12 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
         if filtro:
             queryset = queryset.filter(filtro)
         obj = get_object_or_404(queryset, pk=self.kwargs.get('pk'))
-        if obj.estado == 'Pendente' and _user_tem_acesso_total(self.request):
-            obj.estado = 'Em Aprovação'
-            obj.save(update_fields=['estado'])
+        if obj.estado == 'Pendente':
+            if obj.fluxo_aprovacao_id:
+                _iniciar_fluxo_aprovacao(obj)
+            else:
+                obj.estado = 'Em Aprovação'
+                obj.save(update_fields=['estado'])
             obj.refresh_from_db()
         return obj
 
@@ -248,6 +286,8 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
         context['historico'] = HistoricoFinanceiro.objects.filter(
             tipo_documento='Requisicao', documento_id=self.object.pk
         )[:20]
+        ctx_aprov = _get_contexto_aprovacao(self.object, self.request)
+        context.update(ctx_aprov)
         return context
 
 @requer_sessao_ativa
@@ -256,7 +296,6 @@ def aprovar_requisicao(request, pk):
     papel = request.session.get('usuario', {}).get('papel', '')
     pode_aprovar = (
         _user_tem_acesso_total(request) or
-        papel == 'Gestor Financeiro' or
         usuario_tem_permissao(request, 'aprovar_requisicao')
     )
     if not pode_aprovar:
@@ -265,6 +304,43 @@ def aprovar_requisicao(request, pk):
 
     requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
     if request.method == 'POST':
+
+        # ── Fluxo hierárquico ──────────────────────────────────────
+        if requisicao.fluxo_aprovacao_id:
+            usuario_id = request.session.get('usuario_id')
+            resultado = _processar_voto_aprovacao(requisicao, usuario_id, 'Aprovada')
+            if resultado is None:
+                messages.error(request, 'Não foi possível registar o seu voto.')
+                return redirect('financeiro:requisicao_detalhe', pk=pk)
+            usuario_data = request.session.get('usuario', {})
+            accao_map = {
+                'rejeitada': 'Requisição Rejeitada',
+                'avancou_nivel': 'Voto Aprovado — Nível Avançou',
+                'aprovada': 'Requisição Aprovada (fim do fluxo)',
+                'nivel_parcial': 'Voto Aprovado — Nível Parcial',
+            }
+            if resultado == 'rejeitada':
+                messages.warning(request, f'Requisição {requisicao.numero_requisicao} foi rejeitada.')
+            elif resultado == 'avancou_nivel':
+                messages.success(request, 'Voto registado. A requisição avançou para o próximo nível.')
+            elif resultado == 'aprovada':
+                messages.success(request, f'Requisição {requisicao.numero_requisicao} aprovada com sucesso. Todos os níveis concluídos.')
+            elif resultado == 'nivel_parcial':
+                messages.success(request, 'Voto registado. Aguardando restantes aprovações deste nível.')
+            registrar_historico(
+                'Requisicao', requisicao.pk, requisicao.numero_requisicao, accao_map.get(resultado, 'Voto Registado'),
+                estado_anterior='Em Aprovação', estado_novo=requisicao.estado,
+                valor=requisicao.valor_solicitado,
+                utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
+                cliente_nome=requisicao.cliente.nome,
+            )
+
+            # Notificar solicitante por email se fluxo concluído
+            if resultado in ('aprovada', 'rejeitada') and requisicao.solicitante_id:
+                _notificar_solicitante(requisicao, usuario_data)
+            return redirect('financeiro:requisicao_detalhe', pk=pk)
+
+        # ── Fluxo simples (sem hierarquia) ─────────────────────────
         estado_anterior = requisicao.estado
         requisicao.estado = 'Aprovada'
         requisicao.responsavel_aprovacao_id_usuario = request.session.get('usuario_id')
@@ -278,47 +354,14 @@ def aprovar_requisicao(request, pk):
             cliente_nome=requisicao.cliente.nome,
         )
         messages.success(request, f'Requisição {requisicao.numero_requisicao} aprovada com sucesso.')
-
-        # Notificar solicitante por email
-        if requisicao.solicitante_id:
-            try:
-                from users.models import Usuario
-                from utils.email_utils import _enviar
-                solicitante = Usuario.objects.get(id=requisicao.solicitante_id)
-                if solicitante.email:
-                    assunto = f"Requisição {requisicao.numero_requisicao} Aprovada — SICDOA"
-                    texto = (
-                        f"Prezado(a) {solicitante.nome},\n\n"
-                        f"A sua requisição de fundos {requisicao.numero_requisicao} "
-                        f"no valor de {requisicao.valor_solicitado:,.2f} Kz foi APROVADA.\n\n"
-                        f"Cliente: {requisicao.cliente.nome}\n"
-                        f"Justificação: {requisicao.justificacao}\n"
-                        f"Aprovado por: {usuario_data.get('nome', '')}\n\n"
-                        f"Atenciosamente,\nEquipa SICDOA"
-                    )
-                    html = (
-                        f"<html><body style='font-family:Arial;padding:20px;'>"
-                        f"<h2 style='color:#16a34a;'>Requisição Aprovada</h2>"
-                        f"<p>Prezado(a) <strong>{solicitante.nome}</strong>,</p>"
-                        f"<p>A sua requisição foi <strong style='color:#16a34a;'>APROVADA</strong>.</p>"
-                        f"<table style='border-collapse:collapse;width:100%;max-width:500px;'>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Nº Requisição:</td><td>{requisicao.numero_requisicao}</td></tr>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Valor:</td><td>{requisicao.valor_solicitado:,.2f} Kz</td></tr>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Cliente:</td><td>{requisicao.cliente.nome}</td></tr>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Aprovado por:</td><td>{usuario_data.get('nome', '')}</td></tr>"
-                        f"</table><br><p>Atenciosamente,<br><strong>Equipa SICDOA</strong></p></body></html>"
-                    )
-                    _enviar(assunto, texto, html, solicitante.email)
-            except Exception:
-                pass
+        _notificar_solicitante(requisicao, usuario_data)
     return redirect('financeiro:requisicao_detalhe', pk=pk)
 
 @requer_sessao_ativa
 def rejeitar_requisicao(request, pk):
-    papel = request.session.get('usuario', {}).get('papel', '')
     from users.permissoes import usuario_tem_permissao
     pode_rejeitar = (
-        papel in ('Administrador', 'Gestor Financeiro') or
+        _user_tem_acesso_total(request) or
         usuario_tem_permissao(request, 'aprovar_requisicao')
     )
     if not pode_rejeitar:
@@ -331,6 +374,27 @@ def rejeitar_requisicao(request, pk):
         if not motivo:
             messages.error(request, 'Indique o motivo da rejeição.')
             return redirect('financeiro:requisicao_detalhe', pk=pk)
+
+        # ── Fluxo hierárquico ──────────────────────────────────────
+        if requisicao.fluxo_aprovacao_id:
+            usuario_id = request.session.get('usuario_id')
+            resultado = _processar_voto_aprovacao(requisicao, usuario_id, 'Rejeitada', observacao=motivo)
+            if resultado is None:
+                messages.error(request, 'Não foi possível registar o seu voto.')
+                return redirect('financeiro:requisicao_detalhe', pk=pk)
+            usuario_data = request.session.get('usuario', {})
+            messages.warning(request, f'Requisição {requisicao.numero_requisicao} foi rejeitada.')
+            registrar_historico(
+                'Requisicao', requisicao.pk, requisicao.numero_requisicao, 'Requisição Rejeitada (fluxo)',
+                estado_anterior='Em Aprovação', estado_novo='Rejeitada',
+                valor=requisicao.valor_solicitado,
+                utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
+                cliente_nome=requisicao.cliente.nome,
+            )
+            _notificar_solicitante(requisicao, usuario_data, motivo=motivo)
+            return redirect('financeiro:requisicao_detalhe', pk=pk)
+
+        # ── Fluxo simples (sem hierarquia) ─────────────────────────
         estado_anterior = requisicao.estado
         requisicao.estado = 'Rejeitada'
         requisicao.motivo_rejeicao = motivo
@@ -345,41 +409,7 @@ def rejeitar_requisicao(request, pk):
             cliente_nome=requisicao.cliente.nome,
         )
         messages.warning(request, f'Requisição {requisicao.numero_requisicao} foi rejeitada.')
-
-        # Notificar solicitante por email
-        if requisicao.solicitante_id:
-            try:
-                from users.models import Usuario
-                from utils.email_utils import _enviar
-                solicitante = Usuario.objects.get(id=requisicao.solicitante_id)
-                if solicitante.email:
-                    assunto = f"Requisição {requisicao.numero_requisicao} Rejeitada — SICDOA"
-                    texto = (
-                        f"Prezado(a) {solicitante.nome},\n\n"
-                        f"A sua requisição de fundos {requisicao.numero_requisicao} "
-                        f"no valor de {requisicao.valor_solicitado:,.2f} Kz foi REJEITADA.\n\n"
-                        f"Cliente: {requisicao.cliente.nome}\n"
-                        f"Justificação: {requisicao.justificacao}\n"
-                        f"Motivo da rejeição: {motivo}\n"
-                        f"Rejeitado por: {usuario_data.get('nome', '')}\n\n"
-                        f"Atenciosamente,\nEquipa SICDOA"
-                    )
-                    html = (
-                        f"<html><body style='font-family:Arial;padding:20px;'>"
-                        f"<h2 style='color:#dc2626;'>Requisição Rejeitada</h2>"
-                        f"<p>Prezado(a) <strong>{solicitante.nome}</strong>,</p>"
-                        f"<p>A sua requisição foi <strong style='color:#dc2626;'>REJEITADA</strong>.</p>"
-                        f"<table style='border-collapse:collapse;width:100%;max-width:500px;'>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Nº Requisição:</td><td>{requisicao.numero_requisicao}</td></tr>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Valor:</td><td>{requisicao.valor_solicitado:,.2f} Kz</td></tr>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Cliente:</td><td>{requisicao.cliente.nome}</td></tr>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Motivo:</td><td>{motivo}</td></tr>"
-                        f"<tr><td style='padding:8px;font-weight:bold;'>Rejeitado por:</td><td>{usuario_data.get('nome', '')}</td></tr>"
-                        f"</table><br><p>Atenciosamente,<br><strong>Equipa SICDOA</strong></p></body></html>"
-                    )
-                    _enviar(assunto, texto, html, solicitante.email)
-            except Exception:
-                pass
+        _notificar_solicitante(requisicao, usuario_data, motivo=motivo)
     return redirect('financeiro:requisicao_detalhe', pk=pk)
 
 @requer_sessao_ativa
@@ -712,6 +742,7 @@ class ReciboClienteListView(BaseContextMixin, ListView):
         return context
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
+@method_decorator(requer_escrita_financeira, name='dispatch')
 class ReciboClienteCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     model = ReciboCliente
     form_class = ReciboClienteForm
@@ -779,10 +810,9 @@ def cancelar_recibo(request, pk):
         messages.error(request, 'Este recibo já está cancelado.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
-    papel = request.session.get('usuario', {}).get('papel', '')
-    pode_cancelar = papel in ('Administrador', 'Gestor Financeiro')
+    pode_cancelar = _user_tem_acesso_total(request)
     if not pode_cancelar:
-        messages.error(request, 'Apenas Administrador ou Gestor Financeiro podem cancelar recibos.')
+        messages.error(request, 'Não tem permissão para cancelar recibos.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -810,10 +840,9 @@ def editar_recibo(request, pk):
         messages.error(request, 'Este recibo não pode ser editado.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
-    papel = request.session.get('usuario', {}).get('papel', '')
-    pode_editar = papel in ('Administrador', 'Gestor Financeiro')
+    pode_editar = _user_tem_acesso_total(request)
     if not pode_editar:
-        messages.error(request, 'Apenas Administrador ou Gestor Financeiro podem editar recibos.')
+        messages.error(request, 'Não tem permissão para editar recibos.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -866,6 +895,7 @@ class NotaCreditoListView(BaseContextMixin, ListView):
         return context
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
+@method_decorator(requer_escrita_financeira, name='dispatch')
 class NotaCreditoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     model = NotaCredito
     form_class = NotaCreditoForm
@@ -931,7 +961,7 @@ def aprovar_nota_credito(request, pk):
     papel = request.session.get('usuario', {}).get('papel', '')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
     pode_aprovar = (
-        papel in ('Administrador', 'Gestor Financeiro') or
+        papel == 'Administrador' or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_aprovar:
@@ -976,7 +1006,7 @@ def rejeitar_nota_credito(request, pk):
     papel = request.session.get('usuario', {}).get('papel', '')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
     pode_rejeitar = (
-        papel in ('Administrador', 'Gestor Financeiro') or
+        papel == 'Administrador' or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_rejeitar:
@@ -1057,6 +1087,7 @@ class NotaDebitoListView(BaseContextMixin, ListView):
         return context
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
+@method_decorator(requer_escrita_financeira, name='dispatch')
 class NotaDebitoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     model = NotaDebito
     form_class = NotaDebitoForm
@@ -1123,7 +1154,7 @@ def aprovar_nota_debito(request, pk):
     papel = request.session.get('usuario', {}).get('papel', '')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
     pode_aprovar = (
-        papel in ('Administrador', 'Gestor Financeiro') or
+        papel == 'Administrador' or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_aprovar:
@@ -1169,7 +1200,7 @@ def rejeitar_nota_debito(request, pk):
     papel = request.session.get('usuario', {}).get('papel', '')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
     pode_rejeitar = (
-        papel in ('Administrador', 'Gestor Financeiro') or
+        papel == 'Administrador' or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_rejeitar:
@@ -1351,6 +1382,8 @@ def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_
     )
     W = A4[0] - 3.6*cm
 
+    cor_cdoa = colors.HexColor('#1a3a5c')
+    cor_cdoa_gold = colors.HexColor('#c9a84c')
     cor_primaria = colors.HexColor('#137fec')
     cor_cabecalho = colors.HexColor('#0f172a')
     cor_borda = colors.HexColor('#e2e8f0')
@@ -1366,19 +1399,30 @@ def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_
 
     story = []
 
-    # Cabeçalho
-    header_data = [[
-        Paragraph(titulo.upper(), s_titulo),
-        Paragraph(f'<b>{info_geral}</b>', ParagraphStyle('st', fontSize=10, fontName='Helvetica-Bold', alignment=2, textColor=cor_primaria))
-    ]]
-    t_header = Table(header_data, colWidths=[W - 5.5*cm, 5.5*cm])
-    t_header.setStyle(TableStyle([
+    # Cabeçalho CDOA
+    cdoa_header = Table([
+        [
+            Paragraph('<font color="white"><b>REPÚBLICA DE ANGOLA</b><br/><font size="8">CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)</font></font>',
+                       ParagraphStyle('cdoa_top', fontSize=11, fontName='Helvetica-Bold', alignment=0, leading=14)),
+            Paragraph(f'<font color="{cor_cdoa_gold}"><b>{info_geral}</b></font>',
+                       ParagraphStyle('cdoa_right', fontSize=10, fontName='Helvetica-Bold', alignment=2))
+        ]
+    ], colWidths=[W - 5.5*cm, 5.5*cm])
+    cdoa_header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), cor_cdoa),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
     ]))
-    story.append(t_header)
+    story.append(cdoa_header)
+    story.append(Spacer(1, 0.5*cm))
+
+    # Título do documento
+    story.append(Paragraph(titulo.upper(), ParagraphStyle('doc_titulo', fontSize=20, fontName='Helvetica-Bold', textColor=cor_cdoa, spaceAfter=4)))
     story.append(Paragraph(subtitulo, s_subtitulo))
-    story.append(HRFlowable(width=W, thickness=2, color=cor_primaria, spaceAfter=12))
+    story.append(HRFlowable(width=W, thickness=2, color=cor_cdoa_gold, spaceAfter=12))
 
     # Tabela KV
     rows = []
@@ -1629,6 +1673,7 @@ def factura_recibo_pdf(request, pk):
 # ─── Envio por Email ─────────────────────────────────────────────────────────
 
 @requer_sessao_ativa
+@requer_escrita_financeira
 def recibo_enviar_email(request, pk):
     recibo = _get_object_or_404_com_scope(request, ReciboCliente, pk)
     cliente = recibo.cliente
@@ -1725,6 +1770,7 @@ Equipa SICDOA
     return redirect('financeiro:recibo_detalhe', pk=pk)
 
 @requer_sessao_ativa
+@requer_escrita_financeira
 def factura_recibo_enviar_email(request, pk):
     fr = _get_object_or_404_com_scope(request, FacturaRecibo, pk)
     cliente = fr.cliente
@@ -1816,6 +1862,7 @@ Equipa SICDOA
 # ─── Envio por Email — Notas de Crédito e Débito ────────────────────────────
 
 @requer_sessao_ativa
+@requer_escrita_financeira
 def nota_credito_enviar_email(request, pk):
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
     cliente = nota.cliente
@@ -1910,6 +1957,7 @@ Equipa SICDOA
 
 
 @requer_sessao_ativa
+@requer_escrita_financeira
 def nota_debito_enviar_email(request, pk):
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
     cliente = nota.cliente
@@ -1999,3 +2047,402 @@ Equipa SICDOA
         messages.error(request, f'Erro ao enviar e-mail: {str(e)}')
 
     return redirect('financeiro:nota_debito_detalhe', pk=pk)
+
+
+# ═══════════════════════════════════════════════════════════
+#  FLUXOS DE APROVAÇÃO (CRUD)
+# ═══════════════════════════════════════════════════════════
+
+def _pode_gerir_fluxos(request):
+    papel = request.session.get('usuario', {}).get('papel', '')
+    if papel == 'Administrador':
+        return True
+    if _is_admin_ou_acesso_total(request):
+        return True
+    return False
+
+
+def fluxo_aprovacao_lista(request):
+    if not _pode_gerir_fluxos(request):
+        messages.error(request, 'Acesso negado.')
+        return redirect('financeiro:requisicao_lista')
+    fluxos = FluxoAprovacao.objects.prefetch_related('niveis').order_by('-ativo', 'nome')
+    ctx = {
+        'fluxos': fluxos,
+        'active_menu': 'Financeiro',
+        'active_sub': 'fluxos_aprovacao',
+        'titulo': 'Fluxos de Aprovação',
+    }
+    u = request.session.get('usuario', {})
+    ctx['usuario'] = u
+    ctx['nome'] = u.get('nome', '')
+    ctx['papel'] = u.get('papel', '')
+    ctx['papel_display'] = u.get('papel_display', '') or ctx['papel']
+    return render(request, 'financeiro/fluxo_aprovacao_lista.html', ctx)
+
+
+def fluxo_aprovacao_criar(request):
+    if not _pode_gerir_fluxos(request):
+        messages.error(request, 'Acesso negado.')
+        return redirect('financeiro:requisicao_lista')
+    if request.method == 'POST':
+        form = FluxoAprovacaoForm(request.POST)
+        if form.is_valid():
+            fluxo = form.save(commit=False)
+            fluxo.criado_por_id = request.session.get('usuario_id')
+            fluxo.save()
+            from users.models import Usuario
+            niveis_nomes = request.POST.getlist('nivel_nome[]')
+            niveis_qtde = request.POST.getlist('nivel_qtde[]')
+            niveis_funcao = request.POST.getlist('nivel_funcao[]')
+            funcoes_usadas = []
+            for i in range(len(niveis_nomes)):
+                if not niveis_nomes[i].strip():
+                    continue
+                fid = niveis_funcao[i].strip() if i < len(niveis_funcao) and niveis_funcao[i].strip() else None
+                if fid and fid in funcoes_usadas:
+                    messages.error(request, 'Não pode repetir a mesma função aprovadora em mais de um nível.')
+                    fluxo.delete()
+                    return redirect('financeiro:fluxo_aprovacao_criar')
+                if fid:
+                    funcoes_usadas.append(fid)
+                qtde = int(niveis_qtde[i]) if i < len(niveis_qtde) and niveis_qtde[i].strip() else 1
+                if fid:
+                    qtde_users = Usuario.objects.filter(funcao_id=int(fid)).count()
+                    if qtde > qtde_users:
+                        fluxo.delete()
+                        messages.error(request, f'"{niveis_nomes[i].strip()}": Qtde Aprovadores ({qtde}) excede os colaboradores com essa função ({qtde_users}).')
+                        return redirect('financeiro:fluxo_aprovacao_criar')
+                kwargs = {
+                    'fluxo': fluxo,
+                    'ordem': i + 1,
+                    'nome': niveis_nomes[i].strip(),
+                    'qtde_aprovadores': qtde,
+                }
+                if fid:
+                    kwargs['funcao_id'] = int(fid)
+                NivelAprovacao.objects.create(**kwargs)
+            messages.success(request, f'Fluxo "{fluxo.nome}" criado com sucesso!')
+            return redirect('financeiro:fluxo_aprovacao_lista')
+        else:
+            messages.error(request, 'Corrija os erros do formulário.')
+    else:
+        form = FluxoAprovacaoForm()
+    from users.models import Funcao, Usuario
+    funcoes = Funcao.objects.all().order_by('nome')
+    funcoes_contagem = {str(f.id): Usuario.objects.filter(funcao=f).count() for f in funcoes}
+    ctx = {
+        'form': form,
+        'funcoes': funcoes,
+        'funcoes_contagem': funcoes_contagem,
+        'active_menu': 'Financeiro',
+        'active_sub': 'fluxos_aprovacao',
+        'titulo': 'Novo Fluxo de Aprovação',
+    }
+    u = request.session.get('usuario', {})
+    ctx['usuario'] = u
+    ctx['nome'] = u.get('nome', '')
+    ctx['papel'] = u.get('papel', '')
+    ctx['papel_display'] = u.get('papel_display', '') or ctx['papel']
+    return render(request, 'financeiro/fluxo_aprovacao_form.html', ctx)
+
+
+def fluxo_aprovacao_editar(request, pk):
+    if not _pode_gerir_fluxos(request):
+        messages.error(request, 'Acesso negado.')
+        return redirect('financeiro:requisicao_lista')
+    fluxo = get_object_or_404(FluxoAprovacao, pk=pk)
+    if request.method == 'POST':
+        form = FluxoAprovacaoForm(request.POST, instance=fluxo)
+        if form.is_valid():
+            form.save()
+            fluxo.niveis.all().delete()
+            from users.models import Usuario
+            niveis_nomes = request.POST.getlist('nivel_nome[]')
+            niveis_qtde = request.POST.getlist('nivel_qtde[]')
+            niveis_funcao = request.POST.getlist('nivel_funcao[]')
+            funcoes_usadas = []
+            for i in range(len(niveis_nomes)):
+                if not niveis_nomes[i].strip():
+                    continue
+                fid = niveis_funcao[i].strip() if i < len(niveis_funcao) and niveis_funcao[i].strip() else None
+                if fid and fid in funcoes_usadas:
+                    messages.error(request, 'Não pode repetir a mesma função aprovadora em mais de um nível.')
+                    return redirect('financeiro:fluxo_aprovacao_editar', pk=fluxo.pk)
+                if fid:
+                    funcoes_usadas.append(fid)
+                qtde = int(niveis_qtde[i]) if i < len(niveis_qtde) and niveis_qtde[i].strip() else 1
+                if fid:
+                    qtde_users = Usuario.objects.filter(funcao_id=int(fid)).count()
+                    if qtde > qtde_users:
+                        messages.error(request, f'"{niveis_nomes[i].strip()}": Qtde Aprovadores ({qtde}) excede os colaboradores com essa função ({qtde_users}).')
+                        return redirect('financeiro:fluxo_aprovacao_editar', pk=fluxo.pk)
+                kwargs = {
+                    'fluxo': fluxo,
+                    'ordem': i + 1,
+                    'nome': niveis_nomes[i].strip(),
+                    'qtde_aprovadores': qtde,
+                }
+                if fid:
+                    kwargs['funcao_id'] = int(fid)
+                NivelAprovacao.objects.create(**kwargs)
+            messages.success(request, f'Fluxo "{fluxo.nome}" actualizado com sucesso!')
+            return redirect('financeiro:fluxo_aprovacao_lista')
+        else:
+            messages.error(request, 'Corrija os erros do formulário.')
+    else:
+        form = FluxoAprovacaoForm(instance=fluxo)
+    niveis = fluxo.niveis.all().order_by('ordem')
+    from users.models import Funcao, Usuario
+    funcoes = Funcao.objects.all().order_by('nome')
+    funcoes_contagem = {str(f.id): Usuario.objects.filter(funcao=f).count() for f in funcoes}
+    niveis_data = []
+    for nivel in niveis:
+        niveis_data.append({
+            'nivel': nivel,
+            'funcao_id': nivel.funcao_id,
+        })
+    ctx = {
+        'form': form,
+        'fluxo': fluxo,
+        'funcoes': funcoes,
+        'funcoes_contagem': funcoes_contagem,
+        'niveis_data': niveis_data,
+        'active_menu': 'Financeiro',
+        'active_sub': 'fluxos_aprovacao',
+        'titulo': 'Editar Fluxo de Aprovação',
+    }
+    u = request.session.get('usuario', {})
+    ctx['usuario'] = u
+    ctx['nome'] = u.get('nome', '')
+    ctx['papel'] = u.get('papel', '')
+    ctx['papel_display'] = u.get('papel_display', '') or ctx['papel']
+    return render(request, 'financeiro/fluxo_aprovacao_form.html', ctx)
+
+
+@require_POST
+def fluxo_aprovacao_eliminar(request, pk):
+    if not _pode_gerir_fluxos(request):
+        messages.error(request, 'Acesso negado.')
+        return redirect('financeiro:requisicao_lista')
+    fluxo = get_object_or_404(FluxoAprovacao, pk=pk)
+    nome = fluxo.nome
+    fluxo.delete()
+    messages.success(request, f'Fluxo "{nome}" eliminado com sucesso!')
+    return redirect('financeiro:fluxo_aprovacao_lista')
+
+
+# ═══════════════════════════════════════════════════════════
+#  HELPERS DE NOTIFICAÇÃO
+# ═══════════════════════════════════════════════════════════
+
+def _notificar_solicitante(requisicao, usuario_data, motivo=None):
+    if not requisicao.solicitante_id:
+        return
+    try:
+        from users.models import Usuario
+        from utils.email_utils import _enviar
+        solicitante = Usuario.objects.get(id=requisicao.solicitante_id)
+        if not solicitante.email:
+            return
+        aprovada = requisicao.estado == 'Aprovada'
+        assunto = f"Requisição {requisicao.numero_requisicao} — {'APROVADA' if aprovada else 'REJEITADA'} — SICDOA"
+        cor = '#16a34a' if aprovada else '#dc2626'
+        status = 'APROVADA' if aprovada else 'REJEITADA'
+        texto = (
+            f"Prezado(a) {solicitante.nome},\n\n"
+            f"A sua requisição de fundos {requisicao.numero_requisicao} "
+            f"no valor de {requisicao.valor_solicitado:,.2f} Kz foi {status}.\n\n"
+            f"Cliente: {requisicao.cliente.nome}\n"
+            f"Justificação: {requisicao.justificacao}\n"
+        )
+        if motivo:
+            texto += f"Motivo: {motivo}\n"
+        texto += f"{'Aprovado' if aprovada else 'Rejeitado'} por: {usuario_data.get('nome', '')}\n\nAtenciosamente,\nEquipa SICDOA"
+        html_rows = (
+            f"<tr><td style='padding:8px;font-weight:bold;'>Nº Requisição:</td><td>{requisicao.numero_requisicao}</td></tr>"
+            f"<tr><td style='padding:8px;font-weight:bold;'>Valor:</td><td>{requisicao.valor_solicitado:,.2f} Kz</td></tr>"
+            f"<tr><td style='padding:8px;font-weight:bold;'>Cliente:</td><td>{requisicao.cliente.nome}</td></tr>"
+        )
+        if motivo:
+            html_rows += f"<tr><td style='padding:8px;font-weight:bold;'>Motivo:</td><td>{motivo}</td></tr>"
+        html_rows += f"<tr><td style='padding:8px;font-weight:bold;'>{'Aprovado' if aprovada else 'Rejeitado'} por:</td><td>{usuario_data.get('nome', '')}</td></tr>"
+        html = (
+            f"<html><body style='font-family:Arial;padding:20px;'>"
+            f"<h2 style='color:{cor};'>Requisição {status}</h2>"
+            f"<p>Prezado(a) <strong>{solicitante.nome}</strong>,</p>"
+            f"<p>A sua requisição foi <strong style='color:{cor};'>{status}</strong>.</p>"
+            f"<table style='border-collapse:collapse;width:100%;max-width:500px;'>{html_rows}</table><br>"
+            f"<p>Atenciosamente,<br><strong>Equipa SICDOA</strong></p></body></html>"
+        )
+        _enviar(assunto, texto, html, solicitante.email)
+    except Exception:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════
+#  LÓGICA DE APROVAÇÃO HIERÁRQUICA
+# ═══════════════════════════════════════════════════════════
+
+def _iniciar_fluxo_aprovacao(requisicao):
+    if not requisicao.fluxo_aprovacao_id:
+        return
+    if requisicao.nivel_atual != 0:
+        return
+    niveis = requisicao.fluxo_aprovacao.niveis.all().order_by('ordem')
+    if not niveis.exists():
+        return
+    primeiro = niveis.first()
+    requisicao.estado = 'Em Aprovação'
+    requisicao.nivel_atual = primeiro.ordem
+    requisicao.save(update_fields=['estado', 'nivel_atual'])
+    from users.models import Usuario
+    if primeiro.funcao:
+        for usuario in Usuario.objects.filter(funcao=primeiro.funcao):
+            AprovacaoRequisicao.objects.get_or_create(
+                requisicao=requisicao,
+                nivel=primeiro,
+                aprovador=usuario,
+                defaults={'estado': 'Pendente'}
+            )
+
+
+def _processar_voto_aprovacao(requisicao, aprovador_user_id, estado, observacao=''):
+    from django.contrib.auth import get_user_model
+    UserModel = get_user_model()
+
+    if not requisicao.fluxo_aprovacao_id or not requisicao.nivel_atual:
+        return None
+
+    nivel_atual_obj = requisicao.fluxo_aprovacao.niveis.filter(ordem=requisicao.nivel_atual).first()
+    if not nivel_atual_obj:
+        return None
+
+    aprovacao = AprovacaoRequisicao.objects.filter(
+        requisicao=requisicao,
+        nivel=nivel_atual_obj,
+        aprovador_id=aprovador_user_id,
+        estado='Pendente'
+    ).first()
+    if not aprovacao:
+        return None
+
+    now = timezone.now()
+    aprovacao.estado = estado
+    aprovacao.observacao = observacao
+    aprovacao.respondida_em = now
+    aprovacao.save(update_fields=['estado', 'observacao', 'respondida_em'])
+
+    if estado == 'Rejeitada':
+        requisicao.estado = 'Rejeitada'
+        requisicao.motivo_rejeicao = observacao
+        requisicao.responsavel_aprovacao_id_usuario = aprovador_user_id
+        usuario = UserModel.objects.filter(pk=aprovador_user_id).first()
+        requisicao.responsavel_aprovacao_nome = usuario.nome if usuario else ''
+        requisicao.save(update_fields=['estado', 'motivo_rejeicao', 'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome'])
+        AprovacaoRequisicao.objects.filter(requisicao=requisicao, nivel=nivel_atual_obj, estado='Pendente').update(estado='Cancelada')
+        return 'rejeitada'
+
+    aprovacoes_ok = AprovacaoRequisicao.objects.filter(
+        requisicao=requisicao,
+        nivel=nivel_atual_obj,
+        estado='Aprovada'
+    ).count()
+
+    if aprovacoes_ok >= nivel_atual_obj.qtde_aprovadores:
+        AprovacaoRequisicao.objects.filter(requisicao=requisicao, nivel=nivel_atual_obj, estado='Pendente').update(estado='Cancelada')
+        prox_nivel = requisicao.fluxo_aprovacao.niveis.filter(ordem=requisicao.nivel_atual + 1).first()
+        if prox_nivel:
+            requisicao.nivel_atual = prox_nivel.ordem
+            if requisicao.estado != 'Em Aprovação':
+                requisicao.estado = 'Em Aprovação'
+            requisicao.save(update_fields=['nivel_atual', 'estado'])
+            from users.models import Usuario
+            if prox_nivel.funcao:
+                for usuario in Usuario.objects.filter(funcao=prox_nivel.funcao):
+                    AprovacaoRequisicao.objects.get_or_create(
+                        requisicao=requisicao,
+                        nivel=prox_nivel,
+                        aprovador=usuario,
+                        defaults={'estado': 'Pendente'}
+                    )
+            return 'avancou_nivel'
+        else:
+            requisicao.estado = 'Aprovada'
+            requisicao.responsavel_aprovacao_id_usuario = aprovador_user_id
+            usuario = UserModel.objects.filter(pk=aprovador_user_id).first()
+            requisicao.responsavel_aprovacao_nome = usuario.nome if usuario else ''
+            requisicao.save(update_fields=['estado', 'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome'])
+            return 'aprovada'
+    else:
+        return 'nivel_parcial'
+
+
+def _get_contexto_aprovacao(requisicao, request):
+    ctx = {
+        'fluxo_progresso': None,
+        'user_pode_votar': False,
+        'user_votou': False,
+    }
+    if not requisicao.fluxo_aprovacao_id:
+        return ctx
+
+    niveis = requisicao.fluxo_aprovacao.niveis.all().order_by('ordem')
+    if not niveis.exists():
+        return ctx
+
+    usuario_id = request.session.get('usuario_id')
+    from users.models import Usuario
+    progresso = []
+    nivel_atual_obj = None
+    for nivel in niveis:
+        aprovacoes = nivel.aprovacoes.filter(requisicao=requisicao)
+        aprovadas = aprovacoes.filter(estado='Aprovada')
+        rejeitadas = aprovacoes.filter(estado='Rejeitada')
+        pendentes_count = aprovacoes.filter(estado='Pendente').count()
+        completo = aprovadas.count() >= nivel.qtde_aprovadores
+
+        if nivel.ordem == requisicao.nivel_atual:
+            nivel_atual_obj = nivel
+
+        # Resolve função → usuários com detalhe de voto
+        usuarios_com_funcao = Usuario.objects.filter(funcao=nivel.funcao) if nivel.funcao else Usuario.objects.none()
+        usuarios_detalhe = []
+        for u in usuarios_com_funcao:
+            voto = aprovacoes.filter(aprovador=u).first()
+            usuarios_detalhe.append({
+                'usuario_id': u.id,
+                'usuario_nome': u.nome,
+                'funcao_nome': u.funcao.nome if u.funcao else '',
+                'estado_voto': voto.estado if voto else 'Pendente',
+                'votou': voto is not None and voto.estado != 'Pendente',
+            })
+
+        progresso.append({
+            'nivel': nivel,
+            'funcao': nivel.funcao,
+            'funcao_nome': nivel.funcao.nome if nivel.funcao else '(sem função)',
+            'usuarios_detalhe': usuarios_detalhe,
+            'total_aprovadores': usuarios_com_funcao.count(),
+            'aprovadas': aprovadas,
+            'rejeitadas': rejeitadas,
+            'pendentes': pendentes_count,
+            'necessarias': nivel.qtde_aprovadores,
+            'completo': completo,
+            'is_current': nivel.ordem == requisicao.nivel_atual,
+        })
+
+    ctx['fluxo_progresso'] = progresso
+
+    if nivel_atual_obj and requisicao.estado in ('Em Aprovação', 'Pendente'):
+        user_voto = AprovacaoRequisicao.objects.filter(
+            requisicao=requisicao,
+            nivel=nivel_atual_obj,
+            aprovador_id=usuario_id,
+        ).first()
+        if user_voto:
+            ctx['user_pode_votar'] = user_voto.estado == 'Pendente'
+            ctx['user_votou'] = user_voto.estado != 'Pendente'
+            ctx['user_voto_estado'] = user_voto.estado
+
+    return ctx

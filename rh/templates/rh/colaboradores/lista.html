@@ -23,6 +23,26 @@
       {% endif %}
     </div>
 
+    {% if banca %}
+    <div class="flex flex-wrap items-center gap-2 mb-6 pb-4 border-b border-gray-200 dark:border-gray-800">
+      <a href="{% url 'rh_vagas' %}"
+         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium
+                {% if sub == 'recrutamento' %}bg-primary/15 text-primary{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+        <i class="fas fa-briefcase"></i>Recrutamento
+      </a>
+      <a href="{% url 'rh_presencas' %}"
+         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium
+                {% if sub == 'presencas' %}bg-primary/15 text-primary{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+        <i class="fas fa-calendar-check"></i>Controlo de Presenças
+      </a>
+      <a href="{% url 'rh_avaliacoes' %}"
+         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium
+                {% if sub == 'avaliacoes' %}bg-primary/15 text-primary{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+        <i class="fas fa-trophy"></i>Avaliação de Desempenho
+      </a>
+    </div>
+    {% endif %}
+
     {% if not banca %}
     <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-8 text-center">
       <i class="fas fa-building text-amber-500 text-5xl mb-4 block"></i>
@@ -65,11 +85,26 @@
                 {% if f.bi %}<p class="text-xs text-gray-500">BI: {{ f.bi }}</p>{% endif %}
               </div>
             </div>
-            <div class="space-y-2 text-sm">
+              <div class="space-y-2 text-sm">
               <div class="flex justify-between">
                 <span class="text-gray-500">Cargo</span>
                 <span class="font-medium text-gray-900 dark:text-white">{{ f.cargo_label }}</span>
               </div>
+              {% if banca and banca.cargos.exists %}
+              <div class="flex justify-between items-center pt-1">
+                <span class="text-xs text-gray-400">Cargo (Permissões)</span>
+                <form method="POST" action="{% url 'rh_colaborador_cargo' f.pk %}" class="inline-flex items-center gap-1">
+                  {% csrf_token %}
+                  <select name="cargo_banca" onchange="this.form.submit()"
+                          class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-primary max-w-[130px]">
+                    <option value="">—</option>
+                    {% for cb in banca.cargos.all %}
+                    <option value="{{ cb.pk }}" {% if f.cargo_banca_id == cb.pk %}selected{% endif %}>{{ cb.nome }}</option>
+                    {% endfor %}
+                  </select>
+                </form>
+              </div>
+              {% endif %}
               {% if f.departamento %}
               <div class="flex justify-between">
                 <span class="text-gray-500">Depart.</span>
@@ -137,6 +172,18 @@
               <td class="px-5 py-4">
                 <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ f.cargo_label }}</span>
                 {% if f.departamento %}<p class="text-xs text-gray-500 mt-1">{{ f.departamento }}</p>{% endif %}
+                {% if banca and banca.cargos.exists %}
+                <form method="POST" action="{% url 'rh_colaborador_cargo' f.pk %}" class="inline-flex items-center gap-1 mt-1.5">
+                  {% csrf_token %}
+                  <select name="cargo_banca" onchange="this.form.submit()"
+                          class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-primary max-w-[140px]">
+                    <option value="">Sem cargo</option>
+                    {% for cb in banca.cargos.all %}
+                    <option value="{{ cb.pk }}" {% if f.cargo_banca_id == cb.pk %}selected{% endif %}>{{ cb.nome }}</option>
+                    {% endfor %}
+                  </select>
+                </form>
+                {% endif %}
               </td>
               <td class="px-5 py-4">
                 <p class="text-sm text-gray-700 dark:text-gray-300">{{ f.telefone|default:"—" }}</p>

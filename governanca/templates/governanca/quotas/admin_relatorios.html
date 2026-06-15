@@ -5,20 +5,28 @@
 {% csrf_token %}
 <main class="p-4 md:p-6 lg:p-8 space-y-6">
 
-  <!-- Header -->
-  <div class="flex items-center justify-between mb-4">
-    <div>
-      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Relatórios de Quotas</h1>
-      <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">Visão global da arrecadação, inadimplência e histórico de pagamentos</p>
+  <!-- Header Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">Relatórios de Quotas</h1>
+                <p class="text-base text-gray-600 dark:text-gray-300 mt-2">Visão global da arrecadação, inadimplência e histórico de pagamentos</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                    Gerado em {% now "d/m/Y H:i" %}
+                </p>
+            </div>
+            <div class="flex items-center gap-3 print-hidden">
+                <a href="{% url 'governanca_quotas_admin' %}"
+                   class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+                    <i class="fas fa-arrow-left text-base"></i>Voltar
+                </a>
+                <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium shadow-sm">
+                    <i class="fas fa-print"></i> Imprimir
+                </button>
+                {% include 'includes/view-toggle.html' %}
+            </div>
+        </div>
     </div>
-    <div class="flex items-center gap-2">
-      <a href="{% url 'governanca_quotas_admin' %}"
-         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-        <i class="fas fa-arrow-left text-base"></i>Voltar
-      </a>
-      {% include 'includes/view-toggle.html' %}
-    </div>
-  </div>
 
   <!-- Stats Cards -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4">

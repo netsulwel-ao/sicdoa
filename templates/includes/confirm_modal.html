@@ -140,24 +140,30 @@
   };
 
   document.getElementById('confirmModalConfirmar').addEventListener('click', function () {
+    var modal = document.getElementById('confirmModal');
+    var formId = modal.dataset.confirmFormId;
     var cb = _cb;
     fecharConfirm();
-    if (typeof cb === 'function') cb();
+    if (formId) {
+      var f = document.getElementById(formId);
+      if (f) f.submit();
+    } else if (typeof cb === 'function') {
+      cb();
+    }
   });
 
   /** Confirma e submete um formulário POST (eliminar, reenviar, etc.) */
   window.confirmarFormPost = function (form, opts) {
     if (!form) return;
+    var formId = form.id || ('f' + Date.now() + Math.random().toString(36).slice(2));
+    if (!form.id) form.id = formId;
+    document.getElementById('confirmModal').dataset.confirmFormId = formId;
     abrirConfirm(Object.assign({
       tipo: 'danger',
       titulo: 'Confirmar',
       mensagem: 'Tem a certeza?',
       textoBotao: 'Confirmar',
-    }, opts || {}, {
-      onConfirm: function () {
-        form.submit();
-      },
-    }));
+    }, opts || {}));
   };
 })();
 </script>

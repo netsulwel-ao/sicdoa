@@ -63,7 +63,7 @@
           <i class="fas fa-archive text-amber-500"></i> Repositório Digital de Atas e Decretos
         </h2>
         <div class="flex items-center gap-2">
-          {% if is_membro_mesa or papel == 'Administrador' or 'gerir_documentos' in user_permissoes %}
+          {% if papel == 'Administrador' or 'ser_membro_mesa' in user_permissoes or 'gerir_documentos' in user_permissoes %}
           <button onclick="document.getElementById('gerarDocumentoModal').classList.remove('hidden')" class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-1.5">
             <i class="fas fa-plus-circle text-xs"></i> Gerar Documento
           </button>

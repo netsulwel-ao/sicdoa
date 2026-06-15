@@ -261,39 +261,9 @@ CREATE TABLE `auth_user_user_permissions` (
 
 -- --------------------------------------------------------
 
---
--- Estrutura da tabela `cargos`
---
-
-CREATE TABLE `cargos` (
-  `id` bigint(20) NOT NULL,
-  `nome` varchar(100) NOT NULL,
-  `slug` varchar(100) NOT NULL,
-  `descricao` longtext NOT NULL,
-  `created_at` datetime(6) NOT NULL,
-  `sistema` tinyint(1) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
---
--- Extraindo dados da tabela `cargos`
---
-
-INSERT INTO `cargos` (`id`, `nome`, `slug`, `descricao`, `created_at`, `sistema`) VALUES
-(1, 'Recursos Humanos', 'recursos-humanos', 'O Usuario com esse nivel de acesso pode fazer a gestão de RH dos despachnates.', '2026-06-09 08:50:31.270942', 0);
-
 -- --------------------------------------------------------
 
---
--- Estrutura da tabela `cargos_permissoes`
---
 
-CREATE TABLE `cargos_permissoes` (
-  `id` bigint(20) NOT NULL,
-  `cargo_id` bigint(20) NOT NULL,
-  `permissao_id` bigint(20) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- --------------------------------------------------------
 
 --
 -- Estrutura da tabela `clientes_clientes`
@@ -1145,29 +1115,7 @@ CREATE TABLE `permissoes` (
 
 -- --------------------------------------------------------
 
---
--- Estrutura da tabela `permissoes_cargo`
---
 
-CREATE TABLE `permissoes_cargo` (
-  `id` bigint(20) NOT NULL,
-  `codigo` varchar(100) NOT NULL,
-  `nome` varchar(100) NOT NULL,
-  `descricao` longtext NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
---
--- Extraindo dados da tabela `permissoes_cargo`
---
-
-INSERT INTO `permissoes_cargo` (`id`, `codigo`, `nome`, `descricao`) VALUES
-(1, 'ver_secretaria', 'Ver Secretaria', 'Acesso à secção Secretaria e seus documentos'),
-(2, 'gerir_quotas', 'Gerir Quotas', 'Atribuir, definir e editar quotas'),
-(3, 'ver_gestao_financeira', 'Ver Gestão Financeira', 'Visualizar o painel financeiro'),
-(4, 'gerir_assembleia', 'Gerir Assembleia', 'Convocar, editar e gerir assembleias'),
-(5, 'ver_rh', 'Ver RH', 'Acesso à secção de Recursos Humanos');
-
--- --------------------------------------------------------
 
 --
 -- Estrutura da tabela `rh_avaliacoes`
@@ -1640,17 +1588,7 @@ INSERT INTO `usuarios` (`id`, `username`, `password`, `nome`, `email`, `foto`, `
 
 -- --------------------------------------------------------
 
---
--- Estrutura da tabela `usuarios_cargos`
---
 
-CREATE TABLE `usuarios_cargos` (
-  `id` bigint(20) NOT NULL,
-  `atribuido_em` datetime(6) NOT NULL,
-  `atribuido_por_id` bigint(20) DEFAULT NULL,
-  `cargo_id` bigint(20) NOT NULL,
-  `usuario_id` bigint(20) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Índices para tabelas despejadas
@@ -1700,22 +1638,6 @@ ALTER TABLE `auth_user_user_permissions`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `auth_user_user_permissions_user_id_permission_id_14a6b632_uniq` (`user_id`,`permission_id`),
   ADD KEY `auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm` (`permission_id`);
-
---
--- Índices para tabela `cargos`
---
-ALTER TABLE `cargos`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `nome` (`nome`),
-  ADD UNIQUE KEY `slug` (`slug`);
-
---
--- Índices para tabela `cargos_permissoes`
---
-ALTER TABLE `cargos_permissoes`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `cargos_permissoes_cargo_id_permissao_id_27cf5e40_uniq` (`cargo_id`,`permissao_id`),
-  ADD KEY `cargos_permissoes_permissao_id_d6ba7a05_fk_permissoes_id` (`permissao_id`);
 
 --
 -- Índices para tabela `clientes_clientes`
@@ -2054,13 +1976,6 @@ ALTER TABLE `permissoes`
   ADD UNIQUE KEY `codigo` (`codigo`);
 
 --
--- Índices para tabela `permissoes_cargo`
---
-ALTER TABLE `permissoes_cargo`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `codigo` (`codigo`);
-
---
 -- Índices para tabela `rh_avaliacoes`
 --
 ALTER TABLE `rh_avaliacoes`
@@ -2267,15 +2182,6 @@ ALTER TABLE `usuarios`
   ADD KEY `usuarios_nome_d429eb95` (`nome`);
 
 --
--- Índices para tabela `usuarios_cargos`
---
-ALTER TABLE `usuarios_cargos`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `usuarios_cargos_cargo_id_9c79f074_uniq` (`cargo_id`),
-  ADD KEY `usuarios_cargos_atribuido_por_id_3580ad62_fk_usuarios_id` (`atribuido_por_id`),
-  ADD KEY `usuarios_cargos_usuario_id_d3f97be5` (`usuario_id`);
-
---
 -- AUTO_INCREMENT de tabelas despejadas
 --
 
@@ -2313,18 +2219,6 @@ ALTER TABLE `auth_user_groups`
 -- AUTO_INCREMENT de tabela `auth_user_user_permissions`
 --
 ALTER TABLE `auth_user_user_permissions`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de tabela `cargos`
---
-ALTER TABLE `cargos`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
--- AUTO_INCREMENT de tabela `cargos_permissoes`
---
-ALTER TABLE `cargos_permissoes`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 --
@@ -2556,12 +2450,6 @@ ALTER TABLE `permissoes`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT de tabela `permissoes_cargo`
---
-ALTER TABLE `permissoes_cargo`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
-
---
 -- AUTO_INCREMENT de tabela `rh_avaliacoes`
 --
 ALTER TABLE `rh_avaliacoes`
@@ -2706,12 +2594,6 @@ ALTER TABLE `usuarios`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
--- AUTO_INCREMENT de tabela `usuarios_cargos`
---
-ALTER TABLE `usuarios_cargos`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
-
---
 -- Restrições para despejos de tabelas
 --
 
@@ -2741,13 +2623,6 @@ ALTER TABLE `auth_user_groups`
 ALTER TABLE `auth_user_user_permissions`
   ADD CONSTRAINT `auth_user_user_permi_permission_id_1fbb5f2c_fk_auth_perm` FOREIGN KEY (`permission_id`) REFERENCES `auth_permission` (`id`),
   ADD CONSTRAINT `auth_user_user_permissions_user_id_a95ead1b_fk_auth_user_id` FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`);
-
---
--- Limitadores para a tabela `cargos_permissoes`
---
-ALTER TABLE `cargos_permissoes`
-  ADD CONSTRAINT `cargos_permissoes_cargo_id_a60ba049_fk_cargos_id` FOREIGN KEY (`cargo_id`) REFERENCES `cargos` (`id`),
-  ADD CONSTRAINT `cargos_permissoes_permissao_id_d6ba7a05_fk_permissoes_id` FOREIGN KEY (`permissao_id`) REFERENCES `permissoes` (`id`);
 
 --
 -- Limitadores para a tabela `django_admin_log`
@@ -3112,13 +2987,6 @@ ALTER TABLE `rh_vagas`
 ALTER TABLE `usuarios`
   ADD CONSTRAINT `usuarios_categoria_id_a38b1748_fk_governanc` FOREIGN KEY (`categoria_id`) REFERENCES `governanca_categorias_membro` (`id`);
 
---
--- Limitadores para a tabela `usuarios_cargos`
---
-ALTER TABLE `usuarios_cargos`
-  ADD CONSTRAINT `usuarios_cargos_atribuido_por_id_3580ad62_fk_usuarios_id` FOREIGN KEY (`atribuido_por_id`) REFERENCES `usuarios` (`id`),
-  ADD CONSTRAINT `usuarios_cargos_cargo_id_9c79f074_fk_cargos_id` FOREIGN KEY (`cargo_id`) REFERENCES `cargos` (`id`),
-  ADD CONSTRAINT `usuarios_cargos_usuario_id_d3f97be5_fk_usuarios_id` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

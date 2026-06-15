@@ -1,9 +1,93 @@
 from django.db import models
 from django.db.models import F as ModelF
-from django.conf import settings
 from django.utils import timezone
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
+
+
+class FluxoAprovacao(models.Model):
+    nome = models.CharField(max_length=100, verbose_name='Nome do Fluxo')
+    descricao = models.TextField(blank=True, default='', verbose_name='Descrição')
+    criado_por = models.ForeignKey(
+        'users.Usuario', on_delete=models.SET_NULL,
+        null=True, blank=True, verbose_name='Criado por'
+    )
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
+    ativo = models.BooleanField(default=True, verbose_name='Activo')
+
+    class Meta:
+        db_table = 'financeiro_fluxo_aprovacao'
+        verbose_name = 'Fluxo de Aprovação'
+        verbose_name_plural = 'Fluxos de Aprovação'
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
+
+
+class NivelAprovacao(models.Model):
+    fluxo = models.ForeignKey(
+        FluxoAprovacao, on_delete=models.CASCADE,
+        related_name='niveis', verbose_name='Fluxo'
+    )
+    ordem = models.PositiveSmallIntegerField(verbose_name='Ordem')
+    nome = models.CharField(max_length=100, verbose_name='Nome do Nível')
+    qtde_aprovadores = models.PositiveSmallIntegerField(
+        default=1, verbose_name='Quantidade de Aprovadores Necessários'
+    )
+    funcao = models.ForeignKey(
+        'users.Funcao', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='niveis_aprovacao', verbose_name='Função Aprovadora'
+    )
+
+    class Meta:
+        db_table = 'financeiro_nivel_aprovacao'
+        verbose_name = 'Nível de Aprovação'
+        verbose_name_plural = 'Níveis de Aprovação'
+        ordering = ['fluxo', 'ordem']
+        unique_together = [['fluxo', 'ordem'], ['fluxo', 'funcao']]
+
+    def __str__(self):
+        return f'{self.fluxo.nome} — Nível {self.ordem}: {self.nome}'
+
+
+class AprovacaoRequisicao(models.Model):
+    ESTADOS = [
+        ('Pendente', 'Pendente'),
+        ('Aprovada', 'Aprovada'),
+        ('Rejeitada', 'Rejeitada'),
+    ]
+
+    requisicao = models.ForeignKey(
+        'RequisicaoFundo', on_delete=models.CASCADE,
+        related_name='aprovacoes', verbose_name='Requisição'
+    )
+    nivel = models.ForeignKey(
+        NivelAprovacao, on_delete=models.CASCADE,
+        related_name='aprovacoes', verbose_name='Nível'
+    )
+    aprovador = models.ForeignKey(
+        'users.Usuario', on_delete=models.CASCADE,
+        related_name='votos_aprovacao', verbose_name='Aprovador'
+    )
+    estado = models.CharField(
+        max_length=20, choices=ESTADOS, default='Pendente',
+        db_index=True, verbose_name='Estado'
+    )
+    observacao = models.TextField(blank=True, default='', verbose_name='Observação')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
+    respondida_em = models.DateTimeField(null=True, blank=True, verbose_name='Respondida em')
+
+    class Meta:
+        db_table = 'financeiro_aprovacao_requisicao'
+        verbose_name = 'Aprovação de Requisição'
+        verbose_name_plural = 'Aprovações de Requisições'
+        ordering = ['nivel__ordem', 'created_at']
+        unique_together = ['requisicao', 'nivel', 'aprovador']
+
+    def __str__(self):
+        return f'{self.requisicao.numero_requisicao} — {self.aprovador.nome} — {self.estado}'
+
 
 class RequisicaoFundo(models.Model):
     """Modelo para Requisição de Fundos para processos aduaneiros"""
@@ -29,6 +113,12 @@ class RequisicaoFundo(models.Model):
     responsavel_aprovacao_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Aprovador')
     documento_justificativo = models.FileField(upload_to='requisicoes_fundos/', null=True, blank=True, verbose_name='Documento Justificativo')
     motivo_rejeicao = models.TextField(blank=True, default='', verbose_name='Motivo da Rejeição')
+    fluxo_aprovacao = models.ForeignKey(
+        FluxoAprovacao, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='requisicoes',
+        verbose_name='Fluxo de Aprovação'
+    )
+    nivel_atual = models.PositiveSmallIntegerField(default=0, verbose_name='Nível Actual')
 
     class Meta:
         db_table = 'financeiro_requisicao_fundo'

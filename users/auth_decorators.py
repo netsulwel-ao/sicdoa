@@ -95,23 +95,25 @@ def criar_sessao_usuario(request, usuario):
     # Guardar informações do utilizador na sessão
     request.session['usuario_id'] = usuario.id
     funcao_nome = usuario.funcao.nome if hasattr(usuario, 'funcao') and usuario.funcao else ''
-    # Se não for Administrador nem Despachante Oficial, o papel passa a ser o nome da função
-    if usuario.papel not in ('Administrador', 'Despachante Oficial') and funcao_nome:
-        papel_sessao = funcao_nome
-    else:
-        papel_sessao = usuario.papel
+    papel_sessao = usuario.papel
+    cargo_banca_nome = getattr(usuario, 'cargo_banca_nome', '')
+    papel_display = getattr(usuario, 'papel_display', '') or funcao_nome or usuario.papel
+    permissoes_lista = getattr(usuario, '_permissoes', [])
     request.session['usuario'] = {
         'id': usuario.id,
         'nome': usuario.nome,
         'email': usuario.email,
         'papel': papel_sessao,
+        'papel_display': papel_display,
         'nif': usuario.nif or '',
         'cedula': usuario.cedula or '',
         'telefone': usuario.telefone or '',
         'username': usuario.username,
-        'is_secretario': usuario.is_secretario,
-        'is_vice_secretario': usuario.is_vice_secretario,
+        'is_secretario': getattr(usuario, 'is_secretario', False),
+        'is_vice_secretario': getattr(usuario, 'is_vice_secretario', False),
         'funcao_nome': funcao_nome,
+        'cargo_banca_nome': cargo_banca_nome,
+        'permissoes': permissoes_lista,
     }
     
     # Guardar tipo de usuário (usuario ou colaborador)
@@ -119,6 +121,8 @@ def criar_sessao_usuario(request, usuario):
         request.session['tipo_usuario'] = usuario.tipo
         if usuario.tipo == 'colaborador' and hasattr(usuario, 'colaborador_id'):
             request.session['colaborador_id'] = usuario.colaborador_id
+        if usuario.tipo == 'colaborador' and hasattr(usuario, 'banca_usuario_id'):
+            request.session['banca_usuario_id'] = usuario.banca_usuario_id
     else:
         request.session['tipo_usuario'] = 'usuario'
     

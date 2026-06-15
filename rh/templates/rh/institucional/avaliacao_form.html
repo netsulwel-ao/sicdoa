@@ -1,0 +1,78 @@
+{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+  <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <a href="{% url 'rh_inst_dashboard' %}" class="hover:text-primary transition-colors">RH Institucional</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <a href="{% url 'rh_inst_avaliacoes' %}" class="hover:text-primary transition-colors">Avaliações</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <a href="{% url 'rh_inst_ciclo_detalhe' ciclo.pk %}" class="hover:text-primary transition-colors">{{ ciclo.nome }}</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <span class="text-gray-700 dark:text-gray-300 font-medium">{% if col %}{{ col.nome }}{% else %}Nova Avaliação{% endif %}</span>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">{% if col %}{{ col.nome }}{% else %}Nova Avaliação{% endif %}</h1>
+    <p class="text-gray-500 mt-1 text-sm">{{ ciclo.nome }}</p>
+  </div>
+</div>
+{% if erro %}<div class="mb-5 flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800"><i class="fas fa-times-circle text-red-600"></i><p class="text-sm font-medium">{{ erro }}</p></div>{% endif %}
+<form method="POST">{% csrf_token %}
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
+  <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <i class="fas fa-trophy text-primary"></i>
+    <h2 class="font-semibold text-gray-900 dark:text-white">Métricas de Avaliação</h2>
+  </div>
+  <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+    {% if not col %}
+    <div class="md:col-span-2">
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Colaborador <span class="text-red-500">*</span></label>
+      <select name="colaborador" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+        {% for c in colaboradores %}<option value="{{ c.pk }}">{{ c.nome }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% for chave, nome, desc, valor in kpis_list %}
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{{ nome }}</label>
+      {% if desc %}<p class="text-xs text-gray-500 mb-2">{{ desc }}</p>{% endif %}
+      <div class="flex items-center gap-4">
+        {% for n in "12345"|make_list %}
+        <label class="flex flex-col items-center gap-1 cursor-pointer">
+          <input type="radio" name="{{ chave }}" value="{{ n }}" {% if valor|add:'0' == n|add:'0' %}checked{% endif %} {% if readonly %}disabled{% endif %} class="w-4 h-4 text-primary focus:ring-primary border-gray-300">
+          <span class="text-xs font-medium {% if readonly %}text-gray-400{% else %}text-gray-500{% endif %}">{{ n }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
+  <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <i class="fas fa-comment text-primary"></i>
+    <h2 class="font-semibold text-gray-900 dark:text-white">Feedback</h2>
+  </div>
+  <div class="p-6 grid grid-cols-1 gap-5">
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Pontos Fortes</label>
+      <textarea name="pontos_fortes" rows="3" {% if readonly %}readonly{% endif %} class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.pontos_fortes|default:'' }}</textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Pontos de Melhoria</label>
+      <textarea name="pontos_melhoria" rows="3" {% if readonly %}readonly{% endif %} class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.pontos_melhoria|default:'' }}</textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Plano de Desenvolvimento</label>
+      <textarea name="plano_desenvolvimento" rows="3" {% if readonly %}readonly{% endif %} class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ aval.plano_desenvolvimento|default:'' }}</textarea>
+    </div>
+  </div>
+</div>
+<div class="flex items-center justify-end gap-3">
+  <a href="{% url 'rh_inst_ciclo_detalhe' ciclo.pk %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Voltar</a>
+  {% if not readonly %}
+  <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2"><i class="fas fa-save"></i>{% if aval %}Actualizar{% else %}Registar{% endif %} Avaliação</button>
+  {% endif %}
+</div>
+</form>
+</main></div>{% include 'includes/footer.html' %}

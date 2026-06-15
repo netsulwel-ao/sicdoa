@@ -1,0 +1,121 @@
+{% load rh_extras %}
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidatura - {{ vaga.titulo }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-effect { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .hover-lift { transition: all 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); }
+        .fade-in { animation: fadeIn 0.6s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <header class="gradient-bg text-white py-6 px-4 shadow-lg">
+        <div class="max-w-3xl mx-auto">
+            <div class="flex items-center justify-center">
+                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-paper-plane text-2xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h1 class="text-2xl font-bold">Candidatura</h1>
+                    <p class="text-white/80 text-sm">{{ vaga.titulo }}</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 py-8">
+        {% if erro %}
+        <div class="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 fade-in mb-6">
+            <i class="fas fa-times-circle text-red-600"></i>
+            <p class="text-sm font-medium">{{ erro }}</p>
+        </div>
+        {% endif %}
+
+        <div class="glass-effect rounded-2xl shadow-xl p-8 fade-in hover-lift">
+            <div class="flex items-center gap-2 mb-6">
+                <i class="fas fa-briefcase text-indigo-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">{{ vaga.titulo }}</h2>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
+                {% if vaga.departamento %}
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-building text-gray-400"></i>
+                    <div>
+                        <p class="text-xs text-gray-500">Departamento</p>
+                        <p class="text-sm font-semibold text-gray-900">{{ vaga.departamento }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                {% if vaga.salario_min or vaga.salario_max %}
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-credit-card text-gray-400"></i>
+                    <div>
+                        <p class="text-xs text-gray-500">Salário</p>
+                        <p class="text-sm font-semibold text-gray-900">
+                            {% if vaga.salario_min %}{{ vaga.salario_min|fmtkz }}{% endif %}
+                            {% if vaga.salario_min and vaga.salario_max %} - {% endif %}
+                            {% if vaga.salario_max %}{{ vaga.salario_max|fmtkz }}{% endif %} Kz
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-users text-gray-400"></i>
+                    <div>
+                        <p class="text-xs text-gray-500">Vagas</p>
+                        <p class="text-sm font-semibold text-gray-900">{{ vaga.vagas_numero }} vaga(s)</p>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data" class="space-y-5">{% csrf_token %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nome <span class="text-red-500">*</span></label>
+                        <input type="text" name="nome" required value="{{ form_data.nome|default:'' }}"
+                               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Email <span class="text-red-500">*</span></label>
+                        <input type="email" name="email" required value="{{ form_data.email|default:'' }}"
+                               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Telefone</label>
+                    <input type="text" name="telefone" value="{{ form_data.telefone|default:'' }}"
+                           class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Currículo (PDF, DOC, DOCX) <span class="text-red-500">*</span></label>
+                    <input type="file" name="curriculo" required accept=".pdf,.doc,.docx"
+                           class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 transition-all">
+                </div>
+                <button type="submit"
+                        class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm flex items-center justify-center gap-2">
+                    <i class="fas fa-paper-plane"></i>
+                    Submeter Candidatura
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <footer class="mt-12 py-6 border-t border-gray-200">
+        <div class="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
+            <p>&copy; 2024 SICDOA - Sistema Integrado de Gestão de Recursos Humanos</p>
+            <p class="mt-1">Todos os direitos reservados.</p>
+        </div>
+    </footer>
+</body>
+</html>

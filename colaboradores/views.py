@@ -30,7 +30,7 @@ def dashboard_colaborador_view(request):
         return redirect('login')
     
     try:
-        colaborador = Colaborador.objects.get(id=colaborador_id)
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     except Colaborador.DoesNotExist:
         return redirect('login')
     
@@ -39,7 +39,7 @@ def dashboard_colaborador_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
         'active_menu': 'Dashboard',
         'tempo_restante_sessao': tempo_restante,
         'colaborador': colaborador,
@@ -65,13 +65,13 @@ def perfil_view(request):
     
     colaborador_id = request.session.get('colaborador_id')
     try:
-        colaborador = Colaborador.objects.get(id=colaborador_id)
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     except Colaborador.DoesNotExist:
         return redirect('login')
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
         'active_menu': 'Meus Dados',
         'active_sub': 'perfil',
         'colaborador': colaborador,
@@ -92,13 +92,13 @@ def documentos_view(request):
     
     colaborador_id = request.session.get('colaborador_id')
     try:
-        colaborador = Colaborador.objects.get(id=colaborador_id)
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     except Colaborador.DoesNotExist:
         return redirect('login')
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
         'active_menu': 'Meus Dados',
         'active_sub': 'documentos',
         'colaborador': colaborador,
@@ -119,13 +119,13 @@ def presenca_view(request):
     
     colaborador_id = request.session.get('colaborador_id')
     try:
-        colaborador = Colaborador.objects.get(id=colaborador_id)
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     except Colaborador.DoesNotExist:
         return redirect('login')
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
         'active_menu': 'Presença',
         'colaborador': colaborador,
         'e_responsavel': colaborador.e_gestor_filial,
@@ -145,13 +145,13 @@ def salario_view(request):
     
     colaborador_id = request.session.get('colaborador_id')
     try:
-        colaborador = Colaborador.objects.get(id=colaborador_id)
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     except Colaborador.DoesNotExist:
         return redirect('login')
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
         'active_menu': 'Salarial',
         'active_sub': 'salario',
         'colaborador': colaborador,
@@ -172,13 +172,13 @@ def historico_salarial_view(request):
     
     colaborador_id = request.session.get('colaborador_id')
     try:
-        colaborador = Colaborador.objects.get(id=colaborador_id)
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     except Colaborador.DoesNotExist:
         return redirect('login')
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
         'active_menu': 'Salarial',
         'active_sub': 'historico-salarial',
         'colaborador': colaborador,
@@ -199,13 +199,13 @@ def ferias_view(request):
     
     colaborador_id = request.session.get('colaborador_id')
     try:
-        colaborador = Colaborador.objects.get(id=colaborador_id)
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     except Colaborador.DoesNotExist:
         return redirect('login')
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
         'active_menu': 'Ferias',
         'colaborador': colaborador,
         'e_responsavel': colaborador.e_gestor_filial,
@@ -229,13 +229,13 @@ def buscar_view(request):
     
     colaborador_id = request.session.get('colaborador_id')
     try:
-        colaborador = Colaborador.objects.get(id=colaborador_id)
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     except Colaborador.DoesNotExist:
         return redirect('login')
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
         'active_menu': 'Dashboard',
         'query': query,
         'colaborador': colaborador,
@@ -243,3 +243,6 @@ def buscar_view(request):
     }
     
     return render(request, 'colaboradores/buscar.html', contexto)
+
+
+@login_required

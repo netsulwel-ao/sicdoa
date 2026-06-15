@@ -57,13 +57,13 @@ def _requer_admin_ou_permissoes(*perm_codigos):
     return decorator
 
 
-def _ctx_admin(request, sub='', extra=None):
+def _ctx_admin(request, sub='', extra=None, active_menu='ADMIN_RH'):
     u = request.session.get('usuario', {})
     ctx = {
         'usuario': u,
         'nome': u.get('nome', ''),
         'papel': u.get('papel', ''),
-        'active_menu': 'ADMIN_RH',
+        'active_menu': active_menu,
         'active_sub': sub,
         'is_admin_sistema': True,
     }
@@ -83,115 +83,7 @@ def _hash_password(senha: str) -> str:
 
 @_requer_admin
 def admin_despachante_novo_view(request):
-    """Cria um novo despachante no sistema."""
-    erros = {}
-    form_data = {}
-
-    if request.method == 'POST':
-        nome     = request.POST.get('nome', '').strip()
-        apelido  = request.POST.get('apelido', '').strip()
-        telefone = request.POST.get('telefone', '').strip()
-        email    = request.POST.get('email', '').strip().lower()
-        nif      = request.POST.get('nif', '').strip()
-        cedula   = request.POST.get('cedula', '').strip()
-        enviar   = request.POST.get('enviar_credenciais') == '1'
-
-        form_data = {
-            'nome': nome, 'apelido': apelido, 'telefone': telefone,
-            'email': email, 'nif': nif, 'cedula': cedula,
-        }
-
-        # ── Validações ────────────────────────────────────────────────────
-        if not nome:
-            erros['nome'] = 'O nome é obrigatório.'
-        if not apelido:
-            erros['apelido'] = 'O apelido é obrigatório.'
-        if not email:
-            erros['email'] = 'O e-mail é obrigatório.'
-        elif Usuario.objects.filter(email=email).exists():
-            erros['email'] = 'Já existe um utilizador com este e-mail.'
-        if not nif:
-            erros['nif'] = 'O NIF é obrigatório.'
-        elif Usuario.objects.filter(nif=nif).exists():
-            erros['nif'] = 'Já existe um despachante com este NIF.'
-        if not cedula:
-            erros['cedula'] = 'A cédula é obrigatória.'
-        elif Usuario.objects.filter(cedula=cedula).exists():
-            erros['cedula'] = 'Já existe um despachante com esta cédula.'
-
-        if not erros:
-            # ── Gerar username único ──────────────────────────────────────
-            base_username = email.split('@')[0]
-            username = base_username
-            contador = 1
-            while Usuario.objects.filter(username=username).exists():
-                username = f'{base_username}{contador}'
-                contador += 1
-
-            # ── Gerar senha temporária ────────────────────────────────────
-            senha = gerar_senha_aleatoria(10)
-            hash_senha = _hash_password(senha)
-
-            # ── Criar utilizador ──────────────────────────────────────────
-            nome_completo = f'{nome} {apelido}'.strip()
-
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """INSERT INTO usuarios
-                       (username, password, nome, email, telefone, nif, cedula,
-                        papel, status, created_at, updated_at)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s,
-                               'Despachante Oficial', 'Ativo', NOW(), NOW())""",
-                    [username, hash_senha, nome_completo, email,
-                     telefone, nif, cedula],
-                )
-                novo_id = cursor.lastrowid
-
-            # ── Foto de perfil ────────────────────────────────────────────
-            if 'foto' in request.FILES:
-                import os
-                from django.conf import settings as django_settings
-                foto = request.FILES['foto']
-                ext = os.path.splitext(foto.name)[1].lower()
-                pasta = os.path.join(django_settings.MEDIA_ROOT, 'funcionarios', 'fotos')
-                os.makedirs(pasta, exist_ok=True)
-                nome_ficheiro = f'despachante_{novo_id}{ext}'
-                caminho = os.path.join(pasta, nome_ficheiro)
-                with open(caminho, 'wb+') as dest:
-                    for chunk in foto.chunks():
-                        dest.write(chunk)
-                caminho_relativo = f'funcionarios/fotos/{nome_ficheiro}'
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        'UPDATE usuarios SET foto = %s WHERE id = %s',
-                        [caminho_relativo, novo_id],
-                    )
-
-            # ── Enviar credenciais ────────────────────────────────────────
-            msg_email = ''
-            if enviar:
-                novo_usuario = Usuario.objects.get(pk=novo_id)
-                sucesso_email, msg_email = _enviar_credenciais_despachante(novo_usuario, senha)
-                if sucesso_email:
-                    messages.success(
-                        request,
-                        f'Despachante criado e credenciais enviadas para {email}.',
-                    )
-                else:
-                    messages.warning(
-                        request,
-                        f'Despachante criado, mas falhou o envio do email: {msg_email}',
-                    )
-            else:
-                messages.success(request, f'Despachante "{nome_completo}" criado com sucesso.')
-
-            return redirect('admin_despachante_detalhe', usuario_id=novo_id)
-
-    ctx = _ctx_admin(request, sub='admin_despachantes', extra={
-        'erros': erros,
-        'form_data': form_data,
-    })
-    return render(request, 'rh/admin/despachante_novo.html', ctx)
+    return redirect('governanca_utilizador_novo')
 
 def _enviar_credenciais_despachante(despachante, senha):
     """Envia email com credenciais de acesso SICDOA ao despachante."""
@@ -295,123 +187,22 @@ Administração SICDOA — CDOA Angola
 
 @_requer_admin
 def admin_despachantes_view(request):
-    """Lista todos os despachantes (utilizadores com papel Despachante Oficial)."""
-    q = request.GET.get('q', '').strip()
-    status_filtro = request.GET.get('status', '')
-
-    despachantes = Usuario.objects.filter(papel='Despachante Oficial').order_by('nome')
-
-    if q:
-        despachantes = despachantes.filter(
-            Q(nome__icontains=q) | Q(email__icontains=q) | Q(nif__icontains=q)
-        )
-    if status_filtro:
-        despachantes = despachantes.filter(status=status_filtro)
-
-    ids = list(despachantes.values_list('id', flat=True))
-    bancas = Banca.objects.filter(usuario_id__in=ids).annotate(
-        num_colaboradores=Count('colaboradores')
-    )
-    bancas_por_usuario = {}
-    for b in bancas:
-        bancas_por_usuario.setdefault(b.usuario_id, []).append(b)
-
-    despachantes_info = []
-    for d in despachantes:
-        bancas_lista = bancas_por_usuario.get(d.id, [])
-        despachantes_info.append({
-            'usuario': d,
-            'bancas': bancas_lista,
-            'total_bancas': len(bancas_lista),
-            'total_colaboradores': sum(getattr(b, 'num_colaboradores', 0) for b in bancas_lista),
-        })
-
-    paginator = Paginator(despachantes_info, 8)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    ctx = _ctx_admin(request, sub='admin_despachantes', extra={
-        'despachantes_info': page_obj,
-        'total_despachantes': len(despachantes_info),
-        'page_obj': page_obj,
-        'q': q,
-        'status_filtro': status_filtro,
-    })
-    return render(request, 'rh/admin/despachantes_lista.html', ctx)
+    from django.shortcuts import redirect
+    return redirect('governanca_gerir_utilizadores')
 
 
 # ─── Detalhe de Despachante ───────────────────────────────────────────────────
 
 @_requer_admin
 def admin_despachante_detalhe_view(request, usuario_id):
-    """Detalhe de um despachante: dados pessoais + todas as suas bancas."""
-    despachante = get_object_or_404(Usuario, pk=usuario_id, papel='Despachante Oficial')
-    bancas = Banca.objects.filter(usuario_id=usuario_id).prefetch_related(
-        'filiais', 'colaboradores__filial'
-    ).order_by('-criado_em')
-
-    bancas_info = []
-    for b in bancas:
-        filiais = [f for f in b.filiais.all() if f.ativa]
-        filiais.sort(key=lambda x: x.provincia)
-        colaboradores = list(b.colaboradores.select_related('filial').all())
-        colaboradores.sort(key=lambda x: x.nome)
-        bancas_info.append({
-            'banca': b,
-            'filiais': filiais,
-            'colaboradores': colaboradores,
-            'total_filiais': len(filiais),
-            'total_colaboradores': len(colaboradores),
-        })
-
-    ctx = _ctx_admin(request, sub='admin_despachantes', extra={
-        'despachante': despachante,
-        'bancas_info': bancas_info,
-        'total_bancas': len(bancas_info),
-        'total_colaboradores': sum(info['total_colaboradores'] for info in bancas_info),
-    })
-    return render(request, 'rh/admin/despachante_detalhe.html', ctx)
+    return redirect('governanca_utilizador_editar', usuario_id=usuario_id)
 
 
 # ─── Editar Despachante ───────────────────────────────────────────────────────
 
 @_requer_admin
 def admin_despachante_editar_view(request, usuario_id):
-    """Edita os dados de um despachante."""
-    despachante = get_object_or_404(Usuario, pk=usuario_id, papel='Despachante Oficial')
-
-    if request.method == 'POST':
-        nome = request.POST.get('nome', '').strip()
-        email = request.POST.get('email', '').strip().lower()
-        telefone = request.POST.get('telefone', '').strip()
-        nif = request.POST.get('nif', '').strip()
-        cedula = request.POST.get('cedula', '').strip()
-
-        erros = []
-        if not nome:
-            erros.append('O nome é obrigatório.')
-        if not email:
-            erros.append('O email é obrigatório.')
-        elif Usuario.objects.filter(email=email).exclude(pk=usuario_id).exists():
-            erros.append('Já existe outro utilizador com este email.')
-
-        if erros:
-            for e in erros:
-                messages.error(request, e)
-        else:
-            despachante.nome = nome
-            despachante.email = email
-            despachante.telefone = telefone
-            despachante.nif = nif
-            despachante.cedula = cedula
-            despachante.save()
-            messages.success(request, f'Dados de {nome} actualizados com sucesso.')
-            return redirect('admin_despachante_detalhe', usuario_id=usuario_id)
-
-    ctx = _ctx_admin(request, sub='admin_despachantes', extra={
-        'despachante': despachante,
-    })
-    return render(request, 'rh/admin/despachante_editar.html', ctx)
+    return redirect('governanca_utilizador_editar', usuario_id=usuario_id)
 
 
 # ─── Bloquear / Desbloquear Despachante ──────────────────────────────────────
@@ -690,7 +481,7 @@ def admin_colaboradores_inst_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    ctx = _ctx_admin(request, sub='colaboradores_inst', extra={
+    ctx = _ctx_admin(request, sub='colaboradores_inst', active_menu='RH_INST', extra={
         'colaboradores': page_obj,
         'total': colaboradores.count(),
         'page_obj': page_obj,
@@ -736,7 +527,7 @@ def admin_colaborador_inst_editar_view(request, pk):
             messages.success(request, f'Colaborador "{nome}" atualizado.')
             return redirect('rh_admin_colaboradores_inst')
 
-    ctx = _ctx_admin(request, sub='colaboradores_inst', extra={
+    ctx = _ctx_admin(request, sub='colaboradores_inst', active_menu='RH_INST', extra={
         'colaborador': colaborador,
     })
     return render(request, 'rh/admin/colaborador_inst_editar.html', ctx)
@@ -765,7 +556,7 @@ def admin_presencas_inst_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    ctx = _ctx_admin(request, sub='presencas_inst', extra={
+    ctx = _ctx_admin(request, sub='presencas_inst', active_menu='RH_INST', extra={
         'presencas': page_obj,
         'page_obj': page_obj,
         'colaboradores': colaboradores,
@@ -799,7 +590,7 @@ def admin_presenca_inst_registar_view(request):
         messages.success(request, 'Presença registada com sucesso.')
         return redirect('rh_admin_presencas_inst')
 
-    ctx = _ctx_admin(request, sub='presencas_inst', extra={
+    ctx = _ctx_admin(request, sub='presencas_inst', active_menu='RH_INST', extra={
         'colaboradores': ColaboradorInstitucional.objects.filter(estado='Ativo'),
     })
     return render(request, 'rh/admin/presenca_inst_registar.html', ctx)
@@ -832,7 +623,7 @@ def admin_ferias_inst_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    ctx = _ctx_admin(request, sub='ferias_inst', extra={
+    ctx = _ctx_admin(request, sub='ferias_inst', active_menu='RH_INST', extra={
         'pedidos': page_obj,
         'page_obj': page_obj,
         'estado': estado,
@@ -864,7 +655,7 @@ def admin_avaliacoes_inst_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    ctx = _ctx_admin(request, sub='avaliacoes_inst', extra={
+    ctx = _ctx_admin(request, sub='avaliacoes_inst', active_menu='RH_INST', extra={
         'ciclos': page_obj,
         'page_obj': page_obj,
     })
@@ -888,7 +679,7 @@ def admin_ciclo_inst_novo_view(request):
         messages.success(request, 'Ciclo de avaliação criado.')
         return redirect('rh_admin_avaliacoes_inst')
 
-    ctx = _ctx_admin(request, sub='avaliacoes_inst')
+    ctx = _ctx_admin(request, sub='avaliacoes_inst', active_menu='RH_INST')
     return render(request, 'rh/admin/ciclo_inst_novo.html', ctx)
 
 
@@ -930,7 +721,7 @@ def admin_avaliacao_inst_nova_view(request, ciclo_pk, col_pk=None):
     colaboradores = ColaboradorInstitucional.objects.filter(estado='Ativo')
     ja_avaliados = AvaliacaoInstitucional.objects.filter(ciclo=ciclo).values_list('colaborador_id', flat=True)
 
-    ctx = _ctx_admin(request, sub='avaliacoes_inst', extra={
+    ctx = _ctx_admin(request, sub='avaliacoes_inst', active_menu='RH_INST', extra={
         'ciclo': ciclo,
         'avaliacao': avaliacao,
         'colaboradores': colaboradores,
@@ -948,14 +739,14 @@ def admin_salarios_inst_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    ctx = _ctx_admin(request, sub='salarios_inst', extra={
+    ctx = _ctx_admin(request, sub='salarios_inst', active_menu='RH_INST', extra={
         'processamentos': page_obj,
         'page_obj': page_obj,
     })
     return render(request, 'rh/admin/salarios_inst_lista.html', ctx)
 
 
-@_requer_admin
+@_requer_admin_ou_permissoes('processar_salarios_inst')
 def admin_salario_inst_novo_view(request):
     if request.method == 'POST':
         mes = int(request.POST.get('mes'))
@@ -980,5 +771,5 @@ def admin_salario_inst_novo_view(request):
         messages.success(request, f'Salários processados para {mes:02d}/{ano}.')
         return redirect('rh_admin_salarios_inst')
 
-    ctx = _ctx_admin(request, sub='salarios_inst')
+    ctx = _ctx_admin(request, sub='salarios_inst', active_menu='RH_INST')
     return render(request, 'rh/admin/salario_inst_novo.html', ctx)

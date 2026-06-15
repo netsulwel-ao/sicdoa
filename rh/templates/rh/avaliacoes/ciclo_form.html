@@ -9,13 +9,13 @@
       <i class="fas fa-chevron-right text-xs"></i>
       <a href="{% url 'rh_avaliacoes' %}" class="hover:text-primary transition-colors">Avaliações</a>
       <i class="fas fa-chevron-right text-xs"></i>
-      <span class="text-gray-700 dark:text-gray-300 font-medium">Novo Ciclo</span>
+      <span class="text-gray-700 dark:text-gray-300 font-medium">{% if ciclo %}Editar Ciclo{% else %}Novo Ciclo{% endif %}</span>
     </div>
 
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Novo Ciclo de Avaliação</h1>
-          <p class="text-gray-500 mt-1 text-sm">Criar um novo período de avaliação de desempenho</p>
+          <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">{% if ciclo %}Editar Ciclo de Avaliação{% else %}Novo Ciclo de Avaliação{% endif %}</h1>
+          <p class="text-gray-500 mt-1 text-sm">{% if ciclo %}Editar período e métricas do ciclo{% else %}Criar um novo período de avaliação de desempenho{% endif %}</p>
         </div>
         <a href="{% url 'rh_avaliacoes' %}"
            class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
@@ -35,16 +35,19 @@
             <div class="lg:col-span-3">
               <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome do Ciclo <span class="text-red-500">*</span></label>
               <input type="text" name="nome" required placeholder="Ex: Avaliação Semestral 2026"
+                     value="{{ ciclo.nome|default:'' }}"
                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Período Início <span class="text-red-500">*</span></label>
               <input type="date" name="periodo_inicio" required
+                     value="{{ ciclo.periodo_inicio|date:'Y-m-d'|default:'' }}"
                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Período Fim <span class="text-red-500">*</span></label>
               <input type="date" name="periodo_fim" required
+                     value="{{ ciclo.periodo_fim|date:'Y-m-d'|default:'' }}"
                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
             </div>
           </div>
@@ -88,7 +91,7 @@
         <div class="flex justify-end gap-3">
           <a href="{% url 'rh_avaliacoes' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>
           <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
-            <i class="fas fa-save text-lg"></i>Criar Ciclo
+            <i class="fas fa-save text-lg"></i>{% if ciclo %}Salvar Alterações{% else %}Criar Ciclo{% endif %}
           </button>
         </div>
       </form>

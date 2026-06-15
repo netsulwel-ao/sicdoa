@@ -115,23 +115,31 @@
         </div>
       </div>
 
-      {# ── Editar Telefone ─────────────────────────────────────────────── #}
+      {% if pode_editar_perfil %}
+      {# ── Editar Perfil ──────────────────────────────────────────────── #}
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
         <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
           <i class="fas fa-edit text-primary text-xl"></i>
-          <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Editar Contacto</h2>
+          <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Editar Perfil</h2>
         </div>
         <form method="post" class="p-5 space-y-4">
           {% csrf_token %}
           <input type="hidden" name="acao" value="editar_perfil">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Telefone
-            </label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nome</label>
+            <input type="text" name="nome" value="{{ colaborador.nome }}"
+                   class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+            <input type="email" name="email" value="{{ colaborador.email }}"
+                   class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telefone</label>
             <input type="tel" name="telefone" value="{{ colaborador.telefone }}"
                    placeholder="+244 9XX XXX XXX"
                    class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Apenas o telefone pode ser editado. Para outros dados, contacte o RH.</p>
           </div>
           <button type="submit"
                   class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
@@ -150,6 +158,15 @@
         <form method="post" class="p-5 space-y-4" id="form-password">
           {% csrf_token %}
           <input type="hidden" name="acao" value="alterar_password">
+      {% else %}
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden lg:col-span-2">
+        <div class="flex flex-col items-center justify-center py-10 text-center px-4">
+          <i class="fas fa-lock text-gray-300 dark:text-gray-600 mb-3" style="font-size: 40px;"></i>
+          <p class="text-gray-500 dark:text-gray-400 font-medium">Não tem permissão para editar o perfil</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">A permissão <strong>Alterar Próprio Perfil</strong> não está atribuída ao seu cargo.</p>
+        </div>
+      </div>
+      {% endif %}
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Palavra-passe Actual <span class="text-red-500">*</span>

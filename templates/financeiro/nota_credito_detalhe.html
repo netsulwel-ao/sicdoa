@@ -100,7 +100,7 @@
               <button type="submit" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-semibold transition-colors active:scale-95">Cancelar</button>
             </form>
             {% endif %}
-            {% if papel == 'Administrador' or papel == 'Gestor Financeiro' or nota.utilizador_criador_id == request.session.usuario_id %}
+            {% if papel == 'Administrador' or nota.utilizador_criador_id == request.session.usuario_id %}
             <form method="post" action="{% url 'financeiro:nota_credito_rejeitar' nota.pk %}">
               {% csrf_token %}
               <button type="submit" class="px-5 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-semibold transition-colors active:scale-95">Rejeitar Nota</button>

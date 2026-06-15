@@ -123,9 +123,74 @@
           </div>
         </div>
 
+        {% if fluxo_progresso %}
+        <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4">
+            <i class="fas fa-layer-group mr-1"></i> Fluxo de Aprovação — {{ requisicao.fluxo_aprovacao.nome }}
+          </h3>
+          <div class="space-y-3">
+            {% for nivel_data in fluxo_progresso %}
+            <div class="flex items-start gap-3 p-3 rounded-xl border {% if nivel_data.is_current %}border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20{% else %}border-gray-200 dark:border-gray-700{% endif %}">
+              <div class="flex-shrink-0 mt-0.5">
+                {% if nivel_data.completo %}
+                  <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400"><i class="fas fa-check text-xs"></i></span>
+                {% elif nivel_data.is_current %}
+                  <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"><i class="fas fa-clock text-xs"></i></span>
+                {% else %}
+                  <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500"><i class="fas fa-circle text-xs"></i></span>
+                {% endif %}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                    {{ nivel_data.nivel.nome }}
+                    {% if nivel_data.is_current %}<span class="text-xs text-blue-600 dark:text-blue-400 font-normal ml-1">(Nível Actual)</span>{% endif %}
+                  </p>
+                  <span class="text-xs text-gray-500">{{ nivel_data.aprovadas|length }}/{{ nivel_data.necessarias }} aprovações necessárias</span>
+                </div>
+                <div class="mt-1 flex flex-wrap gap-1.5">
+                  <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded font-semibold bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800">{{ nivel_data.funcao_nome }}</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  {% for ud in nivel_data.usuarios_detalhe %}
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium
+                    {% if ud.estado_voto == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400{% elif ud.estado_voto == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400{% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}
+                    {% if nivel_data.is_current and ud.usuario_id == request.session.usuario_id and user_pode_votar %}ring-2 ring-blue-400{% endif %}">
+                    {% if ud.estado_voto == 'Aprovada' %}<i class="fas fa-check-circle text-xs"></i>{% elif ud.estado_voto == 'Rejeitada' %}<i class="fas fa-times-circle text-xs"></i>{% endif %}
+                    {{ ud.usuario_nome }}
+                    <span class="opacity-60">({{ ud.funcao_nome }})</span>
+                  </span>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Ações de Aprovação (baseado em permissões) -->
         {% if requisicao.estado == 'Pendente' or requisicao.estado == 'Em Aprovação' %}
-          {% if pode_aprovar_requisicao %}
+          {% if fluxo_progresso %}
+            {% if user_pode_votar %}
+          <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center gap-4">
+            <p class="text-sm text-gray-500 font-medium">O seu voto neste nível:</p>
+            <div class="flex gap-3 w-full sm:w-auto ml-auto">
+              <button type="button" onclick="mostrarModalRejeicao()"
+                class="w-full sm:w-auto px-6 py-2.5 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/40 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                <i class="fas fa-times-circle"></i> Rejeitar
+              </button>
+              <form method="post" action="{% url 'financeiro:requisicao_aprovar' requisicao.pk %}" class="flex-1 sm:flex-none">
+                {% csrf_token %}
+                <button type="button" onclick="confirmarFormPost(this.form, { tipo:'warning', titulo:'Aprovar Requisição', mensagem:'Tem a certeza que pretende APROVAR esta requisição no nível actual?', textoBotao:'Aprovar', textoCancelar:'Cancelar' })"
+                  class="w-full sm:w-auto px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold transition-all shadow-sm flex items-center justify-center gap-2">
+                  <i class="fas fa-check-circle"></i> Aprovar
+                </button>
+              </form>
+            </div>
+          </div>
+            {% endif %}
+          {% elif pode_aprovar_requisicao %}
           <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center gap-4">
             <p class="text-sm text-gray-500 font-medium">Acções de Aprovação:</p>
             <div class="flex gap-3 w-full sm:w-auto ml-auto">
@@ -149,8 +214,9 @@
               </form>
             </div>
           </div>
+          {% endif %}
 
-          <!-- Modal de Motivo de Rejeição -->
+          <!-- Modal de Motivo de Rejeição (compartilhado) -->
           <div id="modalRejeicao" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full mx-4 overflow-hidden">
               <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -195,7 +261,6 @@
             if (e.target === this) fecharModalRejeicao();
           });
           </script>
-          {% endif %}
         {% endif %}
 
         {% if requisicao.editavel and pode_aprovar_requisicao %}

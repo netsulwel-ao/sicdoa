@@ -1,0 +1,271 @@
+{% load rh_extras %}{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_inst_dashboard' %}" class="hover:text-primary transition-colors">RH Institucional</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_inst_subsidios' %}" class="hover:text-primary transition-colors">Subsídios</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300 font-medium">
+        {% if subsidio %}Editar Subsídio{% else %}Novo Subsídio{% endif %}
+      </span>
+    </div>
+
+    <!-- Cabeçalho -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+          {% if subsidio %}Editar Subsídio{% else %}Novo Subsídio{% endif %}
+        </h1>
+        <p class="text-gray-500 mt-1 text-sm">
+          {% if subsidio %}Altere os dados do subsídio existente{% else %}Configure um novo tipo de subsídio para sua instituição{% endif %}
+        </p>
+      </div>
+      <a href="{% url 'rh_inst_subsidios' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+    </div>
+
+    <!-- Formulário -->
+    <form method="POST" class="space-y-6">
+      {% csrf_token %}
+      
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-credit-card text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Configuração do Subsídio</h2>
+        </div>
+        <div class="p-6">
+        
+        <!-- Erro -->
+        {% if erro %}
+        <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+          <i class="fas fa-times-circle text-red-600 flex-shrink-0"></i>
+          <div class="text-sm text-red-800 dark:text-red-300">
+            <p class="font-semibold">Erro ao salvar:</p>
+            <p>{{ erro }}</p>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Dados Básicos -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Nome do Subsídio <span class="text-red-500">*</span>
+            </label>
+            <input type="text" 
+                   name="nome" 
+                   value="{{ form.nome|default:'' }}"
+                   required
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                   placeholder="Ex: Subsídio de Alimentação">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Código Interno <span class="text-red-500">*</span>
+            </label>
+            <input type="text" 
+                   name="codigo" 
+                   value="{{ form.codigo|default:'' }}"
+                   required
+                   maxlength="20"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
+                   placeholder="Ex: ALIM">
+            <p class="text-xs text-gray-500 mt-1">Código único para identificação (máx. 20 caracteres)</p>
+          </div>
+        </div>
+
+        <!-- Tipo de Cálculo -->
+        <div class="mt-6">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Tipo de Cálculo <span class="text-red-500">*</span>
+          </label>
+          <select name="tipo_calculo" 
+                  id="tipo_calculo"
+                  class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            {% for valor, texto in tipos_calculo %}
+            <option value="{{ valor }}" {% if form.tipo_calculo == valor %}selected{% endif %}>
+              {{ texto }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Campos Condicionais -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div id="campo_valor_fixo">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Valor Padrão (Kz) <span class="text-red-500">*</span>
+            </label>
+            <input type="text" inputmode="decimal"
+                   name="valor_padrao" 
+                   value="{{ form.valor_padrao|fmtkz:'0' }}"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                   placeholder="0,00">
+          </div>
+          
+          <div id="campo_percentual" style="display: none;">
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Percentual (%) <span class="text-red-500">*</span>
+            </label>
+            <input type="text" inputmode="decimal"
+                   name="percentual" 
+                   value="{{ form.percentual|fmtkz }}"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                   placeholder="0,00">
+          </div>
+        </div>
+
+        <!-- Descrição -->
+        <div class="mt-6">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Descrição
+          </label>
+          <textarea name="descricao" 
+                    rows="3"
+                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                    placeholder="Descreva o propósito deste subsídio...">{{ form.descricao|default:'' }}</textarea>
+        </div>
+
+        <!-- Colaboradores Específicos -->
+        <div class="mt-6 space-y-4">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" 
+                   name="obrigatorio" 
+                   id="id_obrigatorio"
+                   {% if form.obrigatorio|default:False %}checked{% endif %}
+                   class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary">
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Obrigatório para Todos
+            </span>
+            <span class="text-xs text-gray-500">Será aplicado automaticamente a todos os colaboradores</span>
+          </label>
+          
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" 
+                   name="apenas_especificos" 
+                   id="id_apenas_especificos"
+                   {% if form.apenas_especificos|default:False %}checked{% endif %}
+                   class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary">
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Apenas para Colaboradores Específicos
+            </span>
+            <span class="text-xs text-gray-500">Selecionar manualmente os colaboradores que recebem este subsídio</span>
+          </label>
+        </div>
+
+        <!-- Selecção de Colaboradores -->
+        <div id="selecao_colaboradores" class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700" style="display: none;">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+            Colaboradores que recebem este subsídio
+          </label>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+            {% for colab in colaboradores %}
+            <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-white dark:hover:bg-gray-700 transition-colors cursor-pointer">
+              <input type="checkbox" 
+                     name="colaboradores_ids" 
+                     value="{{ colab.pk }}"
+                     {% if colab.pk in colaboradores_selecionados %}checked{% endif %}
+                     class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{{ colab.nome }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Opções -->
+        <div class="mt-6 space-y-4">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" 
+                   name="ativo" 
+                   {% if form.ativo|default:True %}checked{% endif %}
+                   class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary">
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Subsídio Ativo
+            </span>
+            <span class="text-xs text-gray-500">Será exibido no processamento salarial</span>
+          </label>
+        </div>
+
+        </div>
+      </div>
+
+      <!-- Botões -->
+      <div class="flex justify-end gap-3">
+        <a href="{% url 'rh_inst_subsidios' %}" 
+           class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+          Cancelar
+        </a>
+        <button type="submit" 
+                class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+          <i class="fas fa-save text-lg"></i>
+          {% if subsidio %}Salvar Alterações{% else %}Criar Subsídio{% endif %}
+        </button>
+      </div>
+
+    </form>
+
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const tipoCalculo = document.getElementById('tipo_calculo');
+  const campoValorFixo = document.getElementById('campo_valor_fixo');
+  const campoPercentual = document.getElementById('campo_percentual');
+  
+  function toggleCampos() {
+    const valor = tipoCalculo.value;
+    campoValorFixo.style.display = valor === 'PERCENTUAL' ? 'none' : 'block';
+    campoPercentual.style.display = valor === 'PERCENTUAL' ? 'block' : 'none';
+  }
+  
+  function toggleCamposELimpar() {
+    const valor = tipoCalculo.value;
+    if (valor === 'PERCENTUAL') {
+      campoValorFixo.style.display = 'none';
+      campoPercentual.style.display = 'block';
+      document.querySelector('input[name="valor_padrao"]').value = '0';
+    } else {
+      campoValorFixo.style.display = 'block';
+      campoPercentual.style.display = 'none';
+      document.querySelector('input[name="percentual"]').value = '';
+    }
+  }
+  
+  toggleCampos();
+  tipoCalculo.addEventListener('change', toggleCamposELimpar);
+
+  // Toggle colaboradores específicos
+  const chkObrigatorio = document.getElementById('id_obrigatorio');
+  const chkEspecificos = document.getElementById('id_apenas_especificos');
+  const divSelecao = document.getElementById('selecao_colaboradores');
+
+  function toggleEspecificos() {
+    if (chkObrigatorio.checked) {
+      chkEspecificos.checked = false;
+      chkEspecificos.disabled = true;
+      divSelecao.style.display = 'none';
+    } else {
+      chkEspecificos.disabled = false;
+      divSelecao.style.display = chkEspecificos.checked ? 'block' : 'none';
+    }
+  }
+
+  chkObrigatorio.addEventListener('change', toggleEspecificos);
+  chkEspecificos.addEventListener('change', function() {
+    divSelecao.style.display = this.checked ? 'block' : 'none';
+  });
+  toggleEspecificos();
+});
+</script>
+
+{% include 'includes/footer.html' %}

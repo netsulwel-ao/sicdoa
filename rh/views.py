@@ -24,13 +24,15 @@ from .acesso import (
     filial_id_obrigatoria_gestor,
     redirect_sem_acesso_rh,
 )
+from users.permissoes import get_usuario_permissoes
 from .models import (
-    Banca, FilialBanca, Colaborador, GestorFilial, DocumentoColaborador,
+    Banca, FilialBanca, Colaborador, GestorFilial, CargoBanca, DocumentoColaborador,
     ProcessamentoSalarial, ReciboSalarial, Subsidio, SubsidioRecibo, Fatura,
     Vaga, Candidatura, Entrevista, PlanoIntegracao, TarefaIntegracao,
     RegistoPresenca, PedidoFerias,
     CicloAvaliacao, Avaliacao, MetricaAvaliacao, NotaMetrica,
 )
+from users.models import Permissao
 
 # ─── Constantes ───────────────────────────────────────────────────────────────
 PROVINCIAS = [
@@ -58,15 +60,20 @@ def _requer_sessao(fn):
 
 def _ctx(request, sub='', extra=None):
     u = request.session['usuario']
+    from users.permissoes import get_usuario_permissoes
+    user_permissoes = get_usuario_permissoes(request)
     ctx = {'usuario': u, 'nome': u['nome'], 'papel': u['papel'],
-           'active_menu': 'RH', 'active_sub': sub}
+           'active_menu': 'RH', 'active_sub': sub,
+           'user_permissoes': user_permissoes}
     acc = obter_acesso_rh(request)
     if acc:
         banca, col_log, gestor, is_desp = acc
         ctx['is_despachante'] = is_desp
         ctx['e_gestor_filial'] = bool(gestor and not is_desp)
-        ctx['e_responsavel'] = ctx['e_gestor_filial']
-        ctx['filial_gestor'] = gestor.filial if gestor else None
+        ctx['e_responsavel'] = ctx['e_gestor_filial'] or bool(
+            col_log and not is_desp and 'gerir_rh' in user_permissoes
+        )
+        ctx['filial_gestor'] = banca.filiais.filter(pk=gestor.filial_id).first() if gestor and gestor.filial_id else None
         ctx['colaborador_logado'] = col_log
     if extra:
         ctx.update(extra)
@@ -85,11 +92,45 @@ def _banca(request):
 
 
 def _redirect_se_nao_despachante(request, acc, destino='rh_presencas'):
-    """Bloqueia gestores de filial em acções reservadas ao despachante."""
+    """
+    Bloqueia gestores de filial em acções reservadas ao despachante,
+    a menos que o colaborador tenha gerir_rh, admin_banca, ou qualquer
+    permissão granular RH (ver_minha_banca, gerir_colaboradores_banca, etc.).
+    """
     if acc and not acc[3]:
+        permissoes = get_usuario_permissoes(request)
+        perms_rh_granular = [
+            'gerir_rh', 'gerir_rh_filial', 'gerir_filial', 'admin_banca',
+            'ver_minha_banca', 'gerir_colaboradores_banca', 'gerir_cargos_banca',
+            'gerir_processamento_salarial', 'gerir_recrutamento_banca',
+            'gerir_presencas_banca', 'gerir_avaliacoes_banca',
+        ]
+        if any(p in permissoes for p in perms_rh_granular):
+            return None
         messages.error(request, 'Apenas o despachante pode realizar esta acção.')
         return redirect(destino)
     return None
+
+
+def _pode_agir_como_despachante_rh(request, *permissoes_extra):
+    """
+    Retorna True se o user é despachante, admin_banca,
+    tem gerir_rh, ou tem uma das permissões_extra.
+    """
+    permissoes = get_usuario_permissoes(request)
+    if 'admin_banca' in permissoes:
+        return True
+    uid = request.session.get('usuario_id')
+    if uid:
+        banca = Banca.objects.filter(usuario_id=uid, ativa=True).first()
+        if banca:
+            return True
+    if 'gerir_rh' in permissoes:
+        return True
+    for p in permissoes_extra:
+        if p in permissoes:
+            return True
+    return False
 
 
 # ─── Helpers de Presenças / Férias ─────────────────────────────────────────────
@@ -345,11 +386,11 @@ def _gerar_pdf_processamento(processamento, request):
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm
-    from reportlab.lib.colors import black, gray, green
+    from reportlab.lib.colors import black, gray, green, HexColor
     from decimal import Decimal
     import os
 
-    recibos = processamento.recibos.select_related('colaborador').all()
+    recibos = processamento.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
     banca = processamento.banca
     estado_display = processamento.get_estado_display()
 
@@ -371,31 +412,47 @@ def _gerar_pdf_processamento(processamento, request):
     margin_top = 2 * cm
     margin_bottom = 2 * cm
 
-    y_position = height - margin_top
+    # Cabeçalho CDOA
+    cor_cdoa = HexColor('#1a3a5c')
+    cor_cdoa_gold = HexColor('#c9a84c')
+    c.setFillColor(cor_cdoa)
+    c.rect(0, height - 50, width, 50, fill=1, stroke=0)
+    c.setFillColor(white)
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
+    c.setFont('Helvetica', 9)
+    c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+    c.setFillColor(cor_cdoa_gold)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawRightString(width - 30, height - 30, estado_display)
 
-    # Cabeçalho
-    c.setFont("Helvetica-Bold", 16)
+    y_position = height - 70
+
+    # Título
+    c.setFont("Helvetica-Bold", 18)
+    c.setFillColor(cor_cdoa)
     title_text = "PROCESSAMENTO SALARIAL - COMPROVANTE DE PAGAMENTO"
-    text_width = c.stringWidth(title_text, "Helvetica-Bold", 16)
-    c.drawString((width - text_width) / 2, y_position, title_text)
-    y_position -= 30
+    text_width = c.stringWidth(title_text, "Helvetica-Bold", 18)
+    c.drawCentredString(width / 2, y_position, title_text)
+    y_position -= 25
 
     c.setFont("Helvetica-Bold", 12)
+    c.setFillColor(black)
     banca_text = banca.nome
     text_width = c.stringWidth(banca_text, "Helvetica-Bold", 12)
-    c.drawString((width - text_width) / 2, y_position, banca_text)
+    c.drawCentredString(width / 2, y_position, banca_text)
     y_position -= 20
 
     c.setFont("Helvetica", 10)
     periodo_text = f"Período: {processamento.mes:02d}/{processamento.ano} | Status: {estado_display}"
     text_width = c.stringWidth(periodo_text, "Helvetica", 10)
-    c.drawString((width - text_width) / 2, y_position, periodo_text)
+    c.drawCentredString(width / 2, y_position, periodo_text)
     y_position -= 15
 
     from django.utils import timezone
     data_text = f"Data de pagamento: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
     text_width = c.stringWidth(data_text, "Helvetica", 10)
-    c.drawString((width - text_width) / 2, y_position, data_text)
+    c.drawCentredString(width / 2, y_position, data_text)
     y_position -= 30
 
     # Linha separadora
@@ -427,9 +484,21 @@ def _gerar_pdf_processamento(processamento, request):
         # Verificar se há espaço suficiente
         if y_position < margin_bottom + 100:
             c.showPage()
-            y_position = height - margin_top
+            # Cabeçalho CDOA na nova página
+            c.setFillColor(cor_cdoa)
+            c.rect(0, height - 50, width, 50, fill=1, stroke=0)
+            c.setFillColor(white)
+            c.setFont('Helvetica-Bold', 12)
+            c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
+            c.setFont('Helvetica', 9)
+            c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+            c.setFillColor(cor_cdoa_gold)
+            c.setFont('Helvetica-Bold', 11)
+            c.drawRightString(width - 30, height - 30, estado_display)
 
-            # Repetir cabeçalho na nova página
+            y_position = height - 70
+
+            # Repetir cabeçalho da tabela
             c.setFont("Helvetica-Bold", 8)
             x_position = margin_left
             for i, header in enumerate(headers):
@@ -621,22 +690,42 @@ def _calcular_irt(salario: Decimal) -> Decimal:
 @_requer_sessao
 def banca_view(request):
     """Dashboard da banca com visão geral das filiais, colaboradores e recrutamento."""
-    uid = request.session['usuario_id']
+    acc = obter_acesso_rh(request)
+    if acc:
+        banca, col_log, gestor, is_desp = acc
+    else:
+        # Colaborador sem acesso RH mas com admin_banca
+        if request.session.get('tipo_usuario') == 'colaborador':
+            from rh.models import Colaborador
+            col_id = request.session.get('colaborador_id')
+            try:
+                col = Colaborador.objects.get(pk=col_id)
+                banca = col.banca if col.banca_id else None
+                col_log, gestor, is_desp = col, col.gestor_filial, False
+                acc = (banca, col_log, gestor, is_desp) if banca else None
+            except Colaborador.DoesNotExist:
+                acc = None
+        else:
+            acc = None
 
-    # Verificar se existe banca (activa ou inactiva)
-    banca = Banca.objects.filter(usuario_id=uid).first()
-    if not banca:
+    if not acc or not banca:
+        # Verificar se existe banca (activa ou inactiva) via usuario_id
+        uid = request.session['usuario_id']
+        banca = Banca.objects.filter(usuario_id=uid).first()
+        if not banca:
+            return redirect('rh_banca_criar')
+        if not banca.ativa:
+            return render(request, 'rh/banca/bloqueada.html', _ctx(request, 'banca', {
+                'banca': banca,
+            }))
         return redirect('rh_banca_criar')
+
     if not banca.ativa:
         return render(request, 'rh/banca/bloqueada.html', _ctx(request, 'banca', {
             'banca': banca,
         }))
 
-    acc = obter_acesso_rh(request)
-    if not acc:
-        return redirect_sem_acesso_rh(request)
-    banca, col_log, gestor, is_desp = acc
-    if not is_desp:
+    if not is_desp and 'admin_banca' not in get_usuario_permissoes(request):
         return redirect('rh_presencas')
 
     filiais = list(banca.filiais.filter(ativa=True).annotate(
@@ -741,8 +830,7 @@ def banca_criar_view(request):
 @_requer_sessao
 def banca_editar_view(request):
     """Edição dos dados da banca."""
-    uid = request.session['usuario_id']
-    banca = Banca.objects.filter(usuario_id=uid).first()
+    banca = _banca(request)
     if not banca or not banca.ativa:
         return redirect('rh_banca')
 
@@ -1076,15 +1164,15 @@ def colaboradores_view(request):
     from users.permissoes import _is_admin_ou_acesso_total
     # Administrador e acesso total veem todos os colaboradores de todas as bancas
     if _is_admin_ou_acesso_total(request):
-        cols = Colaborador.objects.all().select_related('filial').prefetch_related('documentos')
+        cols = Colaborador.objects.all().select_related('filial', 'cargo_banca').prefetch_related('documentos')
         filiais = []
     else:
         cols = escopo_colaboradores(
             banca, col_log, gestor, is_desp,
-        ).select_related('filial').prefetch_related('documentos')
+        ).select_related('filial', 'cargo_banca').prefetch_related('documentos')
         filiais = (
             list(banca.filiais.all()) if is_desp
-            else [gestor.filial]
+            else [f for f in [banca.filiais.filter(pk=gestor.filial_id).first()] if f]
         )
     paginator = Paginator(cols, 8)
     page_number = request.GET.get('page')
@@ -1104,7 +1192,7 @@ def colaborador_novo_view(request):
     banca, col_log, gestor, is_desp = acc
     filiais = (
         list(banca.filiais.all()) if is_desp
-        else [gestor.filial]
+        else [f for f in [banca.filiais.filter(pk=gestor.filial_id).first()] if f]
     )
 
     def _render(extra=None):
@@ -1112,6 +1200,7 @@ def colaborador_novo_view(request):
                       _ctx(request, 'colaboradores', {
                           'banca': banca, 'filiais': filiais,
                           'cargos': CARGOS, 'estados': ESTADOS_COL,
+                          'cargos_banca': banca.cargos.all(),
                           'col': None, **(extra or {}),
                       }))
 
@@ -1160,6 +1249,15 @@ def colaborador_novo_view(request):
         if 'foto' in request.FILES:
             col.foto = request.FILES['foto']
         col.save()
+
+        # Atribuir cargo_banca
+        cargo_banca_pk = request.POST.get('cargo_banca', '').strip()
+        if cargo_banca_pk:
+            try:
+                col.cargo_banca = banca.cargos.get(pk=cargo_banca_pk)
+                col.save(update_fields=['cargo_banca'])
+            except CargoBanca.DoesNotExist:
+                pass
         
         # Enviar email com senha se tiver email
         if email_colaborador and senha_gerada:
@@ -1217,7 +1315,7 @@ def colaborador_editar_view(request, pk):
         return redirect('rh_colaboradores')
     filiais = (
         list(banca.filiais.prefetch_related('gestores').all()) if is_desp
-        else [gestor.filial]
+        else [f for f in [banca.filiais.filter(pk=gestor.filial_id).first()] if f]
     )
     gestor_filial = None
     try:
@@ -1239,6 +1337,7 @@ def colaborador_editar_view(request, pk):
                       _ctx(request, 'colaboradores', {
                           'banca': banca, 'col': col, 'filiais': filiais,
                           'cargos': CARGOS, 'estados': ESTADOS_COL,
+                          'cargos_banca': banca.cargos.all(),
                           'gestor_filial': gestor_filial,
                           'filiais_sem_gestor': filiais_sem_gestor,
                           **(extra or {}),
@@ -1317,6 +1416,16 @@ def colaborador_editar_view(request, pk):
         col.observacoes = request.POST.get('observacoes', '').strip()
         if 'foto' in request.FILES:
             col.foto = request.FILES['foto']
+        # Atribuir cargo_banca
+        cargo_banca_pk = request.POST.get('cargo_banca', '').strip()
+        if cargo_banca_pk:
+            try:
+                col.cargo_banca = banca.cargos.get(pk=cargo_banca_pk)
+            except CargoBanca.DoesNotExist:
+                col.cargo_banca = None
+        else:
+            col.cargo_banca = None
+
         col.save()
 
         _processar_documentos_colaborador(col, request)
@@ -1427,9 +1536,9 @@ def subsidios_view(request):
     acc = obter_acesso_rh(request)
     if not acc:
         return redirect_sem_acesso_rh(request)
-    if not acc[3]:
-        messages.error(request, 'Apenas o despachante pode gerir subsídios.')
-        return redirect('dashboard_colaborador')
+    bloqueio = _redirect_se_nao_despachante(request, acc, 'dashboard_colaborador')
+    if bloqueio:
+        return bloqueio
     banca = acc[0]
 
     from .models import Subsidio
@@ -1642,12 +1751,9 @@ def salarios_view(request):
     acc = obter_acesso_rh(request)
     if not acc:
         return redirect_sem_acesso_rh(request)
-    if not acc[3]:
-        messages.info(
-            request,
-            'Consulte o seu recibo em Processo Salarial no menu pessoal.',
-        )
-        return redirect('colaborador_salario')
+    bloqueio = _redirect_se_nao_despachante(request, acc, 'colaborador_salario')
+    if bloqueio:
+        return bloqueio
     banca = acc[0]
 
     todos = banca.processamentos.annotate(
@@ -1694,8 +1800,8 @@ def salario_novo_view(request):
                               'ano_atual': timezone.now().year,
                               'erro': f'Já existe processamento para {MESES[mes-1]}/{ano}.',
                           }))
-        # Obter todos os subsídios ativos da banca (excluindo ALIM e TRANS)
-        subsidios_banca = list(banca.subsidios.filter(ativo=True).exclude(codigo__in=['ALIM', 'TRANS']))
+        # Obter todos os subsídios ativos da banca
+        subsidios_banca = list(banca.subsidios.filter(ativo=True))
 
         # Pré-carregar M2M de subsídios específicos (bulk, 1 query por subsídio)
         subsidio_colab_ids = {}
@@ -1917,7 +2023,7 @@ def salario_detalhe_view(request, pk):
 
         action = request.POST.get('action', '')
         if action == 'salvar':
-            subsidios_ativos = list(banca.subsidios.filter(ativo=True).exclude(codigo__in=['ALIM', 'TRANS']))
+            subsidios_ativos = list(banca.subsidios.filter(ativo=True))
 
             for r in recibos:
                 p = f'rec_{r.pk}_'
@@ -2017,8 +2123,8 @@ def salario_detalhe_view(request, pk):
             else:
                 messages.error(request, 'Apenas processamentos no estado Processado podem ser reabertos.')
         return redirect('rh_salario_detalhe', pk=proc.pk)
-    # Obter subsídios ativos para o template (excluindo ALIM e TRANS)
-    subsidios_ativos = banca.subsidios.filter(ativo=True).exclude(codigo__in=['ALIM', 'TRANS'])
+    # Obter subsídios ativos para o template
+    subsidios_ativos = banca.subsidios.filter(ativo=True)
 
     # Garantir que subsídios obrigatórios tenham SubsidioRecibo (mesmo que criados após o processamento)
     tem_faltantes = False
@@ -2068,7 +2174,7 @@ def vagas_view(request):
     vagas_base = escopo_vagas(banca, gestor, is_desp)
     filiais = (
         list(banca.filiais.all()) if is_desp
-        else [gestor.filial]
+        else [f for f in [banca.filiais.filter(pk=gestor.filial_id).first()] if f]
     )
 
     # Filtros
@@ -2134,7 +2240,7 @@ def vaga_nova_view(request):
     banca, col_log, gestor, is_desp = acc
     filiais = (
         list(banca.filiais.all()) if is_desp
-        else [gestor.filial]
+        else [f for f in [banca.filiais.filter(pk=gestor.filial_id).first()] if f]
     )
     if request.method == 'POST':
         titulo = request.POST.get('titulo', '').strip()
@@ -2185,7 +2291,7 @@ def vaga_editar_view(request, pk):
         return redirect('rh_vagas')
     filiais = (
         list(banca.filiais.all()) if is_desp
-        else [gestor.filial]
+        else [f for f in [banca.filiais.filter(pk=gestor.filial_id).first()] if f]
     )
     if request.method == 'POST':
         try:
@@ -2436,7 +2542,7 @@ def integracao_nova_view(request, candidatura_pk):
 
     filiais = (
         list(banca.filiais.all()) if is_desp
-        else [gestor.filial]
+        else [f for f in [banca.filiais.filter(pk=gestor.filial_id).first()] if f]
     )
     colaborador_atual = col_log
     responsavel_nome = colaborador_atual.nome if colaborador_atual else "Despachante"
@@ -2786,9 +2892,9 @@ def ciclo_novo_view(request):
     acc = obter_acesso_rh(request)
     if not acc:
         return redirect_sem_acesso_rh(request)
-    if not acc[3]:
-        messages.error(request, 'Apenas o despachante pode criar ciclos de avaliação.')
-        return redirect('rh_avaliacoes')
+    bloqueio = _redirect_se_nao_despachante(request, acc, 'rh_avaliacoes')
+    if bloqueio:
+        return bloqueio
     banca = acc[0]
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
@@ -2799,7 +2905,6 @@ def ciclo_novo_view(request):
                     periodo_inicio=request.POST.get('periodo_inicio'),
                     periodo_fim=request.POST.get('periodo_fim'),
                 )
-                # Guardar métricas do ciclo
                 metricas_nomes = request.POST.getlist('metrica_nome[]')
                 metricas_desc = request.POST.getlist('metrica_descricao[]')
                 for i, mnome in enumerate(metricas_nomes):
@@ -2825,6 +2930,45 @@ def ciclo_novo_view(request):
 
 
 @_requer_sessao
+def ciclo_editar_view(request, pk):
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    bloqueio = _redirect_se_nao_despachante(request, acc, 'rh_avaliacoes')
+    if bloqueio:
+        return bloqueio
+    banca = acc[0]
+    ciclo = get_object_or_404(CicloAvaliacao, pk=pk, banca=banca)
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        if nome:
+            ciclo.nome = nome
+            ciclo.periodo_inicio = request.POST.get('periodo_inicio')
+            ciclo.periodo_fim = request.POST.get('periodo_fim')
+            ciclo.save()
+            return redirect('rh_avaliacoes')
+        messages.error(request, 'O nome do ciclo é obrigatório.')
+    return render(request, 'rh/avaliacoes/ciclo_form.html',
+                  _ctx(request, 'avaliacoes', {'banca': banca, 'ciclo': ciclo}))
+
+
+@_requer_sessao
+def ciclo_apagar_view(request, pk):
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    bloqueio = _redirect_se_nao_despachante(request, acc, 'rh_avaliacoes')
+    if bloqueio:
+        return bloqueio
+    banca = acc[0]
+    ciclo = get_object_or_404(CicloAvaliacao, pk=pk, banca=banca)
+    if request.method == 'POST':
+        ciclo.delete()
+        messages.success(request, 'Ciclo de avaliação removido.')
+    return redirect('rh_avaliacoes')
+
+
+@_requer_sessao
 def ciclo_detalhe_view(request, pk):
     acc = obter_acesso_rh(request)
     if not acc:
@@ -2833,9 +2977,9 @@ def ciclo_detalhe_view(request, pk):
     ciclo = get_object_or_404(CicloAvaliacao, pk=pk, banca=banca)
     metricas = ciclo.metricas.all()
     avaliacoes = ciclo.avaliacoes.select_related('colaborador').prefetch_related('notas_metricas__metrica').all()
-    if not is_desp:
+    if not is_desp and gestor and gestor.filial_id:
         avaliacoes = avaliacoes.filter(
-            colaborador__filial=gestor.filial,
+            colaborador__filial_id=gestor.filial_id,
         ).exclude(colaborador=col_log)
     # Construir mapa de notas por avaliação para template
     for a in avaliacoes:
@@ -3025,3 +3169,200 @@ def avaliacao_detalhe_view(request, ciclo_pk, col_pk):
                       'kpis_list': kpis_list,
                       'readonly': True,
                   }))
+
+
+# ─── Cargos da Banca (CRUD) ─────────────────────────────────────────────────────
+
+@_requer_sessao
+def cargos_lista_view(request):
+    """Lista todos os cargos da banca do despachante logado."""
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    if not is_desp:
+        messages.error(request, 'Apenas o despachante pode gerir cargos.')
+        return redirect('rh_presencas')
+    cargos = banca.cargos.all().annotate(
+        total_colab=models.Count('colaboradores')
+    )
+    return render(request, 'rh/cargos_lista.html',
+                  _ctx(request, 'cargos', {
+                      'banca': banca, 'cargos': cargos,
+                  }))
+
+
+@_requer_sessao
+def _grupos_permissoes_banca(request):
+    """Retorna a estrutura agrupada de permissões para o formulário de cargo."""
+    from users.permissoes import PERMISSOES_BANCA
+    todas = Permissao.objects.filter(codigo__in=PERMISSOES_BANCA)
+    perm_map = {p.codigo: p for p in todas}
+    GRUPOS = [
+        {
+            'nome': 'Gestão Aduaneira',
+            'header_codigo': 'gerir_aduaneiro',
+            'items': ['criar_declaracao_unica', 'ver_pauta_aduaneira', 'gerir_clientes'],
+        },
+        {
+            'nome': 'Recursos Humanos',
+            'header_codigo': 'gerir_rh',
+            'items': ['ver_minha_banca', 'gerir_colaboradores_banca', 'gerir_cargos_banca',
+                      'gerir_processamento_salarial', 'gerir_recrutamento_banca',
+                      'gerir_presencas_banca', 'gerir_avaliacoes_banca'],
+        },
+        {
+            'nome': 'Gestão Financeira',
+            'header_codigo': 'gerir_financeiro',
+            'items': ['ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
+                      'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros'],
+        },
+        {
+            'nome': 'Colaborador',
+            'header_codigo': 'alterar_perfil',
+            'items': ['alterar_perfil'],
+        },
+        {
+            'nome': 'Administração',
+            'header_codigo': 'ver_logs_banca',
+            'items': ['ver_logs_banca'],
+        },
+        {
+            'nome': 'Administrador da Banca',
+            'header_codigo': 'admin_banca',
+            'items': ['admin_banca'],
+        },
+    ]
+    grupos = []
+    for g in GRUPOS:
+        header = perm_map.get(g['header_codigo'])
+        if not header:
+            continue
+        items = []
+        for cod in g['items']:
+            p = perm_map.get(cod)
+            if p:
+                items.append(p)
+        grupos.append({'nome': g['nome'], 'header': header, 'items': items})
+    return grupos
+
+
+def cargo_novo_view(request):
+    """Cria um novo cargo na banca do despachante."""
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    if not is_desp:
+        return redirect_sem_acesso_rh(request)
+    grupos = _grupos_permissoes_banca(request)
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        descricao = request.POST.get('descricao', '').strip()
+        codigos_perm = request.POST.getlist('permissoes')
+        if not nome:
+            messages.error(request, 'O nome do cargo é obrigatório.')
+        elif banca.cargos.filter(nome__iexact=nome).exists():
+            messages.error(request, f'Já existe um cargo com o nome "{nome}" nesta banca.')
+        else:
+            cargo = CargoBanca.objects.create(
+                banca=banca, nome=nome, descricao=descricao,
+            )
+            if codigos_perm:
+                cargo.permissoes.set(Permissao.objects.filter(codigo__in=codigos_perm))
+            messages.success(request, f'Cargo "{nome}" criado com sucesso.')
+            return redirect('rh_cargos_lista')
+
+    return render(request, 'rh/cargo_form.html',
+                  _ctx(request, 'cargos', {
+                      'banca': banca, 'grupos': grupos, 'cargo': None,
+                  }))
+
+
+@_requer_sessao
+def cargo_editar_view(request, pk):
+    """Edita um cargo existente da banca."""
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    if not is_desp:
+        return redirect_sem_acesso_rh(request)
+    cargo = get_object_or_404(CargoBanca, pk=pk, banca=banca)
+    grupos = _grupos_permissoes_banca(request)
+    permissoes_ids = set(cargo.permissoes.values_list('pk', flat=True))
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        descricao = request.POST.get('descricao', '').strip()
+        codigos_perm = request.POST.getlist('permissoes')
+        if not nome:
+            messages.error(request, 'O nome do cargo é obrigatório.')
+        elif banca.cargos.filter(nome__iexact=nome).exclude(pk=cargo.pk).exists():
+            messages.error(request, f'Já existe um cargo com o nome "{nome}" nesta banca.')
+        else:
+            cargo.nome = nome
+            cargo.descricao = descricao
+            cargo.save()
+            cargo.permissoes.set(Permissao.objects.filter(codigo__in=codigos_perm))
+            messages.success(request, f'Cargo "{nome}" actualizado com sucesso.')
+            return redirect('rh_cargos_lista')
+
+    return render(request, 'rh/cargo_form.html',
+                  _ctx(request, 'cargos', {
+                      'banca': banca, 'grupos': grupos,
+                      'cargo': cargo, 'permissoes_ids': permissoes_ids,
+                  }))
+
+
+@_requer_sessao
+def cargo_eliminar_view(request, pk):
+    """Elimina um cargo (apenas se nenhum colaborador o usar)."""
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    if not is_desp:
+        return redirect_sem_acesso_rh(request)
+    cargo = get_object_or_404(CargoBanca, pk=pk, banca=banca)
+
+    if cargo.colaboradores.exists():
+        messages.error(request, f'Não é possível eliminar o cargo "{cargo.nome}" porque está atribuído a {cargo.colaboradores.count()} colaborador(es).')
+        return redirect('rh_cargos_lista')
+
+    nome = cargo.nome
+    cargo.delete()
+    messages.success(request, f'Cargo "{nome}" eliminado com sucesso.')
+    return redirect('rh_cargos_lista')
+
+
+@_requer_sessao
+def colaborador_cargo_view(request, pk):
+    """Atribui ou remove o cargo_banca de um colaborador (inline na listagem)."""
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+
+    from .acesso import pode_aceder_colaborador
+    col = get_object_or_404(Colaborador, pk=pk)
+    if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, col):
+        messages.error(request, 'Não tem permissão para alterar este colaborador.')
+        return redirect('rh_colaboradores')
+
+    if request.method == 'POST':
+        cargo_banca_pk = request.POST.get('cargo_banca', '').strip()
+        if cargo_banca_pk:
+            try:
+                col.cargo_banca = banca.cargos.get(pk=cargo_banca_pk)
+                col.save(update_fields=['cargo_banca'])
+                messages.success(request, f'Cargo "{col.cargo_banca.nome}" atribuído a {col.nome}.')
+            except CargoBanca.DoesNotExist:
+                messages.error(request, 'Cargo inválido.')
+        else:
+            col.cargo_banca = None
+            col.save(update_fields=['cargo_banca'])
+            messages.success(request, f'Cargo removido de {col.nome}.')
+
+    return redirect('rh_colaboradores')

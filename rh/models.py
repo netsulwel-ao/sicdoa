@@ -12,6 +12,27 @@ from governanca.utils import (
 )
 
 
+# ─── CargoBanca (cargos/perfis criados pelo despachante para os seus colaboradores) ──
+
+class CargoBanca(models.Model):
+    banca = models.ForeignKey('Banca', on_delete=models.CASCADE, related_name='cargos')
+    nome = models.CharField(max_length=100)
+    descricao = models.TextField(blank=True, default='')
+    permissoes = models.ManyToManyField('users.Permissao', blank=True, related_name='cargos_banca')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'rh_cargos_banca'
+        unique_together = ['banca', 'nome']
+        verbose_name = 'Cargo da Banca'
+        verbose_name_plural = 'Cargos da Banca'
+        ordering = ['nome']
+
+    def __str__(self):
+        return f"{self.nome} ({self.banca.nome})"
+
+
 # ─── Banca ────────────────────────────────────────────────────────────────────
 
 class Banca(models.Model):
@@ -61,45 +82,9 @@ class Banca(models.Model):
         return self.colaboradores.count()
 
     @property
-    def total_colaboradores_sede(self):
-        """Retorna o número de colaboradores na sede"""
-        return self.colaboradores.filter(filial__isnull=True).count()
-
-    @property
     def total_filiais(self):
         """Retorna o número de filiais ativas"""
         return self.filiais.filter(ativa=True).count()
-
-    @property
-    def colaboradores_por_filial(self):
-        """Retorna estatísticas de colaboradores por filial - otimizado com query única"""
-        from django.db.models import Count
-        
-        # Query única para obter contagem de colaboradores por filial
-        stats = list(self.colaboradores.values('filial__provincia').annotate(
-            total=Count('id')
-        ).order_by('filial__provincia'))
-        
-        resultado = []
-        # Adicionar sede (filial nula)
-        sede_total = next((s['total'] for s in stats if s['filial__provincia'] is None), 0)
-        if sede_total > 0:
-            resultado.append({'filial': 'Sede', 'total': sede_total})
-        
-        # Adicionar filiais com colaboradores
-        for stat in stats:
-            if stat['filial__provincia']:  # Excluir sede (nula)
-                resultado.append({
-                    'filial': stat['filial__provincia'],
-                    'total': stat['total']
-                })
-        
-        return resultado
-
-    def get_colaborador_by_usuario_id(self, usuario_id):
-        """Retorna o colaborador associado a um usuario_id"""
-        return self.colaboradores.filter(usuario_id=usuario_id).first()
-
 
 class FilialBanca(models.Model):
     """Filial/delegação da banca noutra província."""
@@ -206,7 +191,6 @@ class Subsidio(models.Model):
     def __str__(self):
         return f"{self.codigo} - {self.nome}"
     
-    @property
     def valor_calculado(self, salario_base=None, dias_trabalho=None, dependentes=None):
         """Calcula o valor do subsídio baseado no tipo de cálculo"""
         if self.tipo_calculo == 'FIXO':
@@ -286,6 +270,8 @@ class Colaborador(models.Model):
     data_nascimento = models.DateField(null=True, blank=True)
     cargo       = models.CharField(max_length=30, choices=CARGOS, default='Assistente')
     cargo_personalizado = models.CharField(max_length=100, blank=True, default='')
+    cargo_banca = models.ForeignKey('CargoBanca', null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='colaboradores')
     departamento = models.CharField(max_length=100, blank=True, default='')
     email       = models.EmailField(blank=True, default='', db_index=True)
     telefone    = models.CharField(max_length=30, blank=True, default='')
@@ -337,43 +323,6 @@ class Colaborador(models.Model):
         """Verifica se este colaborador é gestor de alguma filial"""
         return hasattr(self, 'gestor_filial') and self.gestor_filial.ativo
 
-    @property
-    def filiais_geridas(self):
-        """Retorna as filiais que este colaborador gere"""
-        if self.e_gestor_filial:
-            return FilialBanca.objects.filter(gestores__colaborador=self, gestores__ativo=True)
-        return FilialBanca.objects.none()
-
-    @property
-    def pode_gerir_todas_filiais(self):
-        """Verifica se pode gerir todas as filiais (apenas despachante principal via usuário)"""
-        return False
-
-    @property
-    def scope_colaboradores(self):
-        """Retorna os colaboradores que este utilizador pode gerir"""
-        if self.e_gestor_filial:
-            return Colaborador.objects.filter(
-                models.Q(filial=self.gestor_filial.filial) | models.Q(pk=self.pk)
-            )
-        return Colaborador.objects.filter(pk=self.pk)
-
-    @property
-    def pode_gerir_salarios(self):
-        """Verifica se pode gerir salários (apenas despachante principal via usuário)"""
-        return False
-
-    @property
-    def pode_gerir_presencas(self):
-        """Verifica se pode gerir presenças (responsáveis de filial)"""
-        return self.e_gestor_filial
-
-    @property
-    def pode_gerir_candidaturas(self):
-        """Verifica se pode gerir candidaturas (responsáveis de filial)"""
-        return self.e_gestor_filial
-
-
 # ─── Processamento Salarial ───────────────────────────────────────────────────
 
 class ProcessamentoSalarial(models.Model):
@@ -402,6 +351,14 @@ class ProcessamentoSalarial(models.Model):
     def total_liquido(self):
         return sum(r.liquido for r in self.recibos.all())
 
+    @property
+    def total_bruto(self):
+        return sum(r.bruto for r in self.recibos.all())
+
+    @property
+    def total_descontos(self):
+        return sum(r.total_descontos for r in self.recibos.all())
+
 
 class SubsidioRecibo(models.Model):
     """Vínculo entre subsídio e recibo salarial com valor personalizado"""
@@ -422,12 +379,6 @@ class SubsidioRecibo(models.Model):
     def __str__(self):
         return f"{self.recibo.colaborador.nome} - {self.subsidio.nome}: {self.valor} Kz"
     
-    @property
-    def diferenca(self):
-        """Diferença entre valor aplicado e valor padrão"""
-        return self.valor - self.valor_padrao
-
-
 class ReciboSalarial(models.Model):
     processamento = models.ForeignKey(ProcessamentoSalarial, on_delete=models.CASCADE, related_name='recibos')
     colaborador   = models.ForeignKey(Colaborador, on_delete=models.CASCADE, related_name='recibos')
@@ -509,13 +460,6 @@ class Vaga(models.Model):
     def total_candidatos(self):
         return self.candidaturas.count()
 
-    @property
-    def link_candidatura_externa(self):
-        """Gera link público absoluto para candidatura externa (usa SITE_URL de produção)."""
-        from django.conf import settings
-        base = getattr(settings, 'SITE_URL', 'https://sicdoa-ycg9.onrender.com').rstrip('/')
-        return f"{base}/candidatar/{self.link_externo}/"
-
     def clean(self):
         super().clean()
         # Valida que data_encerramento, se informada, não é anterior à data_abertura
@@ -533,14 +477,6 @@ class Vaga(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-
-    @property
-    def link_vaga_publica(self):
-        """Gera link público absoluto para visualização da vaga (usa SITE_URL de produção)."""
-        from django.conf import settings
-        base = getattr(settings, 'SITE_URL', 'https://sicdoa-ycg9.onrender.com').rstrip('/')
-        return f"{base}/vaga/{self.link_externo}/"
-
 
 class Candidatura(models.Model):
     ESTADOS = [
@@ -738,13 +674,6 @@ class Fatura(models.Model):
         from django.utils import timezone
         return self.data_vencimento < timezone.now().date() and self.estado != 'Paga'
 
-    @property
-    def dias_vencida(self):
-        from django.utils import timezone
-        if self.esta_vencida:
-            return (timezone.now().date() - self.data_vencimento).days
-        return 0
-
     def clean(self):
         validate_date_range(self.data_emissao.date(), self.data_vencimento, "Data de Emissão", "Data de Vencimento")
         if self.data_pagamento:
@@ -753,13 +682,6 @@ class Fatura(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-
-    def marcar_como_paga(self):
-        from django.utils import timezone
-        self.estado = 'Paga'
-        self.data_pagamento = timezone.now()
-        self.save()
-
 
 class RegistoPresenca(models.Model):
     TIPOS = [

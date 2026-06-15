@@ -1,0 +1,236 @@
+{% load rh_extras %}
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ vaga.titulo }} - Recrutamento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-effect { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .hover-lift { transition: all 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); }
+        .fade-in { animation: fadeIn 0.6s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .pulse-animation { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .badge-glow { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <header class="gradient-bg text-white py-6 px-4 shadow-lg">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-briefcase text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">{{ vaga.titulo }}</h1>
+                        <p class="text-white/80 text-sm">Oportunidade de Carreira</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if vaga.estado == 'Aberta' %}
+                    <span class="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold badge-glow pulse-animation">
+                        <i class="fas fa-circle text-sm align-middle"></i>
+                        Aberta
+                    </span>
+                    {% else %}
+                    <span class="bg-gray-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                        <i class="fas fa-clock text-sm align-middle"></i>
+                        {{ vaga.estado }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        <div class="glass-effect rounded-2xl shadow-xl p-8 fade-in hover-lift mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {% if vaga.departamento %}
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-building text-indigo-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Departamento</p>
+                        <p class="font-semibold text-gray-900">{{ vaga.departamento }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if vaga.salario_min or vaga.salario_max %}
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-credit-card text-green-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Salário</p>
+                        <p class="font-semibold text-gray-900">
+                            {% if vaga.salario_min %}{{ vaga.salario_min|fmtkz }}{% endif %}
+                            {% if vaga.salario_min and vaga.salario_max %} - {% endif %}
+                            {% if vaga.salario_max %}{{ vaga.salario_max|fmtkz }}{% endif %} Kz
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-users text-purple-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Vagas</p>
+                        <p class="font-semibold text-gray-900">{{ vaga.vagas_numero }} vaga(s)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+                <a href="{% url 'rh_inst_candidatura_publica' vaga.link_externo %}"
+                   class="px-8 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-2 text-lg">
+                    <i class="fas fa-paper-plane"></i>
+                    Candidatar-se Agora
+                </a>
+                <button onclick="shareJob()"
+                        class="px-6 py-4 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
+                    <i class="fas fa-share-alt"></i>
+                    Partilhar
+                </button>
+            </div>
+
+            {% if vaga.descricao %}
+            <div class="space-y-6">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-file-alt text-indigo-600"></i>
+                    <h2 class="text-xl font-semibold text-gray-900">Descrição da Vaga</h2>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-6">
+                    <div class="text-gray-700 leading-relaxed">{{ vaga.descricao|linebreaks }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if vaga.requisitos %}
+            <div class="space-y-6 mt-8">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-list-check text-indigo-600"></i>
+                    <h2 class="text-xl font-semibold text-gray-900">Requisitos</h2>
+                </div>
+                <div class="bg-amber-50 rounded-xl p-6">
+                    <div class="text-gray-700 leading-relaxed">{{ vaga.requisitos|linebreaks }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if vaga.departamento %}
+            <div class="flex items-center gap-2 mt-6">
+                <i class="fas fa-briefcase text-indigo-600"></i>
+                <p class="text-gray-700"><strong>Departamento:</strong> {{ vaga.departamento }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if vaga.estado == 'Aberta' %}
+        <div class="glass-effect rounded-2xl shadow-xl p-8 fade-in hover-lift mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 text-center">Estatísticas da Vaga</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-briefcase text-2xl text-purple-600"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-purple-600">{{ vaga.vagas_numero }}</h3>
+                    <p class="text-gray-500 text-sm">Vagas Disponíveis</p>
+                </div>
+
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-clock text-2xl text-green-600"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-green-600">{{ vaga.criado_em|timesince }}</h3>
+                    <p class="text-gray-500 text-sm">Publicada há</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if vaga.data_encerramento %}
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 fade-in">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-clock text-amber-600 mt-1"></i>
+                <div>
+                    <h3 class="font-semibold text-amber-900 mb-1">Atenção: Prazo Limitado</h3>
+                    <p class="text-amber-800">Esta vaga encerra em <strong>{{ vaga.data_encerramento|date:"d/m/Y" }}</strong>. Não perca esta oportunidade!</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="gradient-bg rounded-2xl shadow-xl p-8 fade-in text-center text-white">
+            <h2 class="text-2xl font-bold mb-4">Interessado(a) nesta oportunidade?</h2>
+            <p class="text-white/90 mb-6 max-w-2xl mx-auto">
+                Esta é a sua chance de fazer parte de uma equipa dinâmica e inovadora.
+                Não perca tempo - candidature-se agora e dê o primeiro passo para uma nova carreira!
+            </p>
+            <a href="{% url 'rh_inst_candidatura_publica' vaga.link_externo %}"
+               class="inline-flex items-center gap-2 px-8 py-4 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-gray-100 transition-all">
+                <i class="fas fa-rocket"></i>
+                Candidatar-se Agora
+            </a>
+        </div>
+    </main>
+
+    <footer class="mt-12 py-6 border-t border-gray-200">
+        <div class="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
+            <p>&copy; 2024 SICDOA - Sistema Integrado de Gestão de Recursos Humanos</p>
+            <p class="mt-1">Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <script>
+        function shareJob() {
+            const title = '{{ vaga.titulo }}';
+            const url = window.location.href;
+
+            if (navigator.share) {
+                navigator.share({ title: title, url: url }).catch(function(err) {});
+            } else {
+                navigator.clipboard.writeText(url).then(function() {
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+                    toast.innerHTML = '<i class="fas fa-check-circle text-sm align-middle"></i> Link copiado!';
+                    document.body.appendChild(toast);
+                    setTimeout(function() { toast.remove(); }, 3000);
+                });
+            }
+        }
+
+        document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.hover-lift').forEach(function(el) {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

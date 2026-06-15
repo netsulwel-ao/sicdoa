@@ -4,6 +4,22 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Cliente
 from utils.validators import email_ja_existe
+from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
+
+
+def _usuario_dono(request):
+    """Retorna o usuario_id do dono da banca para colaboradores."""
+    if request.session.get('tipo_usuario') == 'colaborador':
+        from rh.models import Colaborador
+        cid = request.session.get('colaborador_id')
+        if cid:
+            col = Colaborador.objects.select_related('banca').filter(
+                pk=cid, estado='Ativo'
+            ).first()
+            if col and col.banca:
+                return col.banca.usuario_id
+        return request.session.get('usuario_id')
+    return request.session.get('usuario_id')
 
 
 def _requer_sessao(fn):
@@ -20,20 +36,34 @@ def _ctx(request, sub='', extra=None):
     """Contexto base para templates"""
     u = request.session['usuario']
     ctx = {'usuario': u, 'nome': u['nome'], 'papel': u['papel'],
-           'active_menu': 'Clientes', 'active_sub': sub}
+           'active_menu': 'Gestão Aduaneira', 'active_sub': 'clientes'}
     if extra:
         ctx.update(extra)
     return ctx
 
 
+def _tem_perm_clientes(request):
+    """True se o user tem papel de acesso ou permissão gerir_clientes."""
+    papel = request.session.get('usuario', {}).get('papel', '')
+    if papel in ('Administrador', 'Despachante Oficial'):
+        return True
+    if _is_admin_ou_acesso_total(request):
+        return True
+    permissoes = get_usuario_permissoes(request)
+    return 'gerir_clientes' in permissoes or 'gerir_clientes_filial' in permissoes
+
+
 @_requer_sessao
 def lista_clientes(request):
     """View para listar todos os clientes"""
+    if not _tem_perm_clientes(request):
+        messages.error(request, 'Não tem permissão para aceder aos Clientes.')
+        return redirect('dashboard')
     busca = request.GET.get('busca', '')
-    usuario_id = request.session.get('usuario_id')
+    usuario_id = _usuario_dono(request)
     clientes_query = Cliente.objects.filter(ativo=True)
     
-    # Filtrar clientes por usuário logado
+    # Filtrar clientes por usuário dono (banca owner para colaboradores)
     if usuario_id:
         clientes_query = clientes_query.filter(usuario_id=usuario_id)
     
@@ -60,6 +90,9 @@ def lista_clientes(request):
 @_requer_sessao
 def criar_cliente(request):
     """View para criar um novo cliente"""
+    if not _tem_perm_clientes(request):
+        messages.error(request, 'Não tem permissão para criar clientes.')
+        return redirect('clientes:lista')
     if request.method == 'POST':
         try:
             nome = request.POST.get('nome', '').strip()
@@ -106,7 +139,7 @@ def criar_cliente(request):
                 email=email,
                 observacoes=observacoes,
                 limite_financeiro=limite_financeiro,
-                usuario_id=request.session.get('usuario_id')
+                usuario_id=_usuario_dono(request)
             )
             
             messages.success(request, f'Cliente "{cliente.nome}" cadastrado com sucesso!')
@@ -126,6 +159,9 @@ def criar_cliente(request):
 @_requer_sessao
 def editar_cliente(request, pk):
     """View para editar um cliente existente"""
+    if not _tem_perm_clientes(request):
+        messages.error(request, 'Não tem permissão para editar clientes.')
+        return redirect('clientes:lista')
     cliente = get_object_or_404(Cliente, pk=pk, ativo=True)
     
     if request.method == 'POST':
@@ -176,7 +212,7 @@ def editar_cliente(request, pk):
             cliente.email = email
             cliente.observacoes = observacoes
             cliente.limite_financeiro = limite_financeiro
-            cliente.usuario_id = request.session.get('usuario_id')
+            cliente.usuario_id = _usuario_dono(request)
             cliente.save()
             
             messages.success(request, f'Cliente "{cliente.nome}" atualizado com sucesso!')
@@ -197,6 +233,9 @@ def editar_cliente(request, pk):
 @_requer_sessao
 def detalhar_cliente(request, pk):
     """View para visualizar detalhes de um cliente"""
+    if not _tem_perm_clientes(request):
+        messages.error(request, 'Não tem permissão para aceder aos Clientes.')
+        return redirect('dashboard')
     cliente = get_object_or_404(Cliente, pk=pk, ativo=True)
     
     context = _ctx(request, 'detalhes', {'cliente': cliente})
@@ -206,6 +245,9 @@ def detalhar_cliente(request, pk):
 @_requer_sessao
 def excluir_cliente(request, pk):
     """View para excluir permanentemente um cliente"""
+    if not _tem_perm_clientes(request):
+        messages.error(request, 'Não tem permissão para excluir clientes.')
+        return redirect('clientes:lista')
     cliente = get_object_or_404(Cliente, pk=pk)
     
     if request.method == 'POST':

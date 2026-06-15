@@ -8,7 +8,7 @@
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5 flex-wrap">
       <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
       <i class="fas fa-chevron-right text-xs"></i>
-      <a href="{% url 'admin_despachantes' %}" class="hover:text-primary transition-colors">Despachantes</a>
+      <a href="{% url 'governanca_gerir_utilizadores' %}" class="hover:text-primary transition-colors">Utilizadores</a>
       <i class="fas fa-chevron-right text-xs"></i>
       <span class="text-gray-700 dark:text-gray-300">Novo Despachante</span>
     </div>
@@ -19,7 +19,7 @@
         <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Novo Despachante</h1>
         <p class="text-gray-500 mt-1 text-sm">Preencha os dados para registar um novo despachante no sistema</p>
       </div>
-      <a href="{% url 'admin_despachantes' %}"
+      <a href="{% url 'governanca_gerir_utilizadores' %}"
          class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
         <i class="fas fa-arrow-left text-base"></i>Voltar
       </a>
@@ -146,7 +146,7 @@
 
       <!-- ── Botões ─────────────────────────────────────────────────────── -->
       <div class="flex justify-end gap-3">
-        <a href="{% url 'admin_despachantes' %}"
+        <a href="{% url 'governanca_gerir_utilizadores' %}"
            class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
           Cancelar
         </a>

@@ -1,14 +1,15 @@
 ﻿{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+{% include 'includes/confirm_modal.html' %}
 <div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a><i class="fas fa-chevron-right text-xs"></i><span class="text-primary">RH</span><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">Avaliação de Desempenho</span></div>
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
   <div><h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Avaliação de Desempenho</h1><p class="text-gray-500 mt-1 text-sm">Ciclos de avaliação com KPIs personalizáveis</p></div>
-  {% if is_despachante %}<a href="{% url 'rh_ciclo_novo' %}" class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm"><i class="fas fa-plus"></i>Novo Ciclo</a>{% endif %}
+  {% if is_despachante or 'gerir_avaliacoes_banca' in user_permissoes %}<a href="{% url 'rh_ciclo_novo' %}" class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm"><i class="fas fa-plus"></i>Novo Ciclo</a>{% endif %}
 </div>
 {% if not ciclos %}
 <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center">
   <i class="fas fa-trophy text-gray-400 text-5xl mb-4 block"></i>
   <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhum ciclo de avaliação criado</h3>
-  {% if is_despachante %}<a href="{% url 'rh_ciclo_novo' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all mt-4"><i class="fas fa-plus"></i>Criar Ciclo</a>{% else %}<p class="text-sm text-gray-500 mt-4">Os ciclos são criados pelo despachante. Avalie a sua equipa dentro de cada ciclo activo.</p>{% endif %}
+  {% if is_despachante or 'gerir_avaliacoes_banca' in user_permissoes %}<a href="{% url 'rh_ciclo_novo' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all mt-4"><i class="fas fa-plus"></i>Criar Ciclo</a>{% else %}<p class="text-sm text-gray-500 mt-4">Os ciclos são criados pelo despachante. Avalie a sua equipa dentro de cada ciclo activo.</p>{% endif %}
 </div>
 {% else %}
 
@@ -30,7 +31,14 @@
           {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 flex-shrink-0">Aberto</span>{% endif %}
         </div>
         <div class="flex items-center gap-2 text-sm text-gray-600 mb-4"><i class="fas fa-chart-bar text-base"></i>{{ c.num_avaliacoes }} avaliação{{ c.num_avaliacoes|pluralize:"ões" }}</div>
-        <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="w-full text-center block px-4 py-2.5 bg-primary/10 text-primary rounded-xl text-sm font-semibold hover:bg-primary/20 transition-all">Ver Detalhes</a>
+        <div class="flex gap-2">
+          <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="flex-1 text-center block px-4 py-2.5 bg-primary/10 text-primary rounded-xl text-sm font-semibold hover:bg-primary/20 transition-all"><i class="fas fa-eye"></i> Ver</a>
+          <a href="{% url 'rh_ciclo_editar' c.pk %}" class="flex-1 text-center block px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl text-sm font-semibold hover:bg-amber-100 transition-all"><i class="fas fa-edit"></i> Editar</a>
+          <form method="POST" action="{% url 'rh_ciclo_apagar' c.pk %}" class="flex-1" id="apagar-ciclo-{{ c.pk }}">
+            {% csrf_token %}
+            <button type="button" onclick="confirmarFormPost(this.closest('form'), {titulo:'Remover Ciclo', mensagem:'Remover o ciclo «{{ c.nome }}»? Esta acção não pode ser desfeita.', textoBotao:'Remover'})" class="w-full text-center px-4 py-2.5 bg-red-50 text-red-700 rounded-xl text-sm font-semibold hover:bg-red-100 transition-all"><i class="fas fa-trash"></i></button>
+          </form>
+        </div>
       </div>
     </div>
     {% endfor %}
@@ -62,9 +70,14 @@
                 {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aberto</span>{% endif %}
               </td>
               <td class="px-5 py-4 text-right">
-                <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-semibold hover:bg-primary/20 transition-all">
-                  <i class="fas fa-external-link-alt text-xs"></i>Ver Detalhes
-                </a>
+                <div class="flex items-center justify-end gap-1">
+                  <a href="{% url 'rh_ciclo_detalhe' c.pk %}" class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all" title="Ver"><i class="fas fa-eye text-lg"></i></a>
+                  <a href="{% url 'rh_ciclo_editar' c.pk %}" class="p-2 rounded-lg text-gray-500 hover:text-amber-600 hover:bg-amber-50 transition-all" title="Editar"><i class="fas fa-edit text-lg"></i></a>
+                  <form method="POST" action="{% url 'rh_ciclo_apagar' c.pk %}" class="inline" id="apagar-ciclo-tb-{{ c.pk }}">
+                    {% csrf_token %}
+                    <button type="button" onclick="confirmarFormPost(this.closest('form'), {titulo:'Remover Ciclo', mensagem:'Remover o ciclo «{{ c.nome }}»? Esta acção não pode ser desfeita.', textoBotao:'Remover'})" class="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all" title="Remover"><i class="fas fa-trash text-lg"></i></button>
+                  </form>
+                </div>
               </td>
             </tr>
             {% endfor %}

@@ -540,6 +540,14 @@
                     Está a editar uma DU de <strong>{{ dono_du.nome }}</strong>. Os dados do despachante pertencem ao proprietário da DU e não podem ser alterados.
                   </p>
                 </div>
+                {% elif is_colaborador_operando %}
+                <!-- Colaborador a operar em nome do despachante -->
+                <div class="mb-4 flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                  <i class="fas fa-info-circle text-blue-600 flex-shrink-0 mt-0.5" style="font-size:18px;"></i>
+                  <p class="text-sm text-blue-700 dark:text-blue-400">
+                    A assinar como <strong>{{ dono_du.nome }}</strong> (dono da banca). A assinatura digital será aplicada automaticamente ao submeter a declaração.
+                  </p>
+                </div>
                 <div class="form-grid-3">
                   <div class="form-field">
                     <label class="form-label required">
@@ -1200,7 +1208,7 @@
                     <h5>Assinatura Automática</h5>
                     <p>A assinatura digital será aplicada automaticamente ao submeter a declaração.</p>
                     <div class="signature-user">
-                      <strong>Despachante:</strong> {{ usuario.nome }}
+                      <strong>Despachante:</strong> {% if dono_du %}{{ dono_du.nome }}{% else %}{{ usuario.nome }}{% endif %}
                     </div>
                   </div>
                 </div>
@@ -2390,7 +2398,7 @@ function adicionarNovaAdicao(dadosExistentes) {
   // Colapsar todas as adições anteriores
   wrapper.querySelectorAll('.adicao-card-body').forEach(c => c.classList.remove('expanded'));
   wrapper.querySelectorAll('.adicao-card-wrapper').forEach(c => c.classList.remove('active-adicao'));
-  wrapper.querySelectorAll('.adicao-chevron').forEach(c => c.textContent = 'expand_more');
+  wrapper.querySelectorAll('.adicao-chevron').forEach(c => { c.className = 'fas fa-chevron-down adicao-chevron'; });
 
   // Criar elemento e injetar HTML
   const temp = document.createElement('div');
@@ -2628,7 +2636,7 @@ function toggleAdicao(n) {
   const aberto = body.classList.contains('expanded');
   body.classList.toggle('expanded', !aberto);
   card?.classList.toggle('active-adicao', !aberto);
-  if (chevron) chevron.textContent = aberto ? 'expand_more' : 'expand_less';
+  if (chevron) chevron.className = aberto ? 'fas fa-chevron-down adicao-chevron' : 'fas fa-chevron-up adicao-chevron';
 }
 
 

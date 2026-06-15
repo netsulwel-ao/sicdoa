@@ -53,7 +53,11 @@ def _requer_login(view_func):
         usuario = _get_usuario(request)
         if not usuario:
             return redirect('login')
-        request.usuario_obj = Usuario.objects.get(id=request.session['usuario_id'])
+        uid = (request.session.get('banca_usuario_id')
+               or request.session.get('usuario_id'))
+        if not uid:
+            return redirect('login')
+        request.usuario_obj = Usuario.objects.get(id=uid)
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -222,7 +226,7 @@ def index(request):
 def lista_assembleias(request):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial', 'Operador') and not usuario_tem_permissao(request, 'gerir_assembleia'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_governanca') and not usuario_tem_permissao(request, 'gerir_governanca_filial'):
         return redirect('governanca_index')
 
     status_filtro = request.GET.get('status', '')
@@ -279,7 +283,7 @@ def lista_assembleias(request):
 def nova_assembleia(request):
     from users.permissoes import usuario_tem_permissao
     papel = request.session['usuario']['papel']
-    if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
+    if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_governanca') and not usuario_tem_permissao(request, 'gerir_governanca_filial'):
         messages.error(request, 'Sem permissão para criar assembleias.')
         return redirect('governanca_assembleias')
 
@@ -422,7 +426,7 @@ def nova_assembleia(request):
 def detalhe_assembleia(request, pk):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial', 'Operador') and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_votacoes') and not usuario_tem_permissao(request, 'gerir_convocatorias'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_votacoes') and not usuario_tem_permissao(request, 'gerir_convocatorias'):
         return redirect('governanca_index')
     assembleia = get_object_or_404(Assembleia, pk=pk)
     if assembleia.status == 'Agendada' and assembleia.data_hora <= timezone.now():
@@ -523,7 +527,7 @@ def editar_assembleia(request, pk):
 def sala_assembleia(request, pk):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial', 'Operador') and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_votacoes') and not usuario_tem_permissao(request, 'gerir_convocatorias'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_votacoes') and not usuario_tem_permissao(request, 'gerir_convocatorias'):
         return redirect('governanca_index')
     assembleia = get_object_or_404(Assembleia, pk=pk)
     usuario_id = request.session['usuario_id']
@@ -651,7 +655,7 @@ def gerir_assembleia(request, pk):
 def repositorio_atas(request):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial', 'Operador') and not usuario_tem_permissao(request, 'gerir_atas'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_atas'):
         return redirect('governanca_index')
 
     page_number = request.GET.get('page', '1')
@@ -2097,7 +2101,7 @@ def quotas_dashboard(request):
     from users.permissoes import usuario_tem_permissao
     usuario_id = request.session['usuario_id']
     papel = request.session['usuario']['papel']
-    if papel not in ('Administrador', 'Despachante Oficial', 'Operador') and not (usuario_tem_permissao(request, 'gerir_quotas') or usuario_tem_permissao(request, 'ver_quotas')):
+    if papel not in ('Administrador', 'Despachante Oficial') and not (usuario_tem_permissao(request, 'gerir_quotas') or usuario_tem_permissao(request, 'ver_quotas')):
         return redirect('governanca_index')
     ef = _get_estado_financeiro(usuario_id)
     quotas_pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada']).count()
@@ -2218,7 +2222,7 @@ def quotas_admin_dashboard(request):
 
 @_requer_login
 def quotas_admin_pagamentos(request):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     pagamentos_qs = PagamentoQuota.objects.all().select_related('despachante','quota').order_by('-data_pagamento')
     paginator = Paginator(pagamentos_qs, 8)
@@ -2246,7 +2250,7 @@ def quotas_admin_pagamentos(request):
 
 @_requer_login
 def quotas_admin_config(request):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     configs_qs = QuotaConfig.objects.order_by('-ano','-mes')
     paginator = Paginator(configs_qs, 8)
@@ -2264,7 +2268,7 @@ def quotas_admin_config(request):
 
 @_requer_login
 def quotas_admin_relatorios(request):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
 
     from django.db.models import Sum, Count, Q
@@ -2319,7 +2323,7 @@ def quotas_admin_relatorios(request):
 
 @_requer_login
 def quotas_admin_gerar_retroativo(request):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     hoje = timezone.now()
     config_qs = QuotaConfig.objects.filter(ativa=True).select_related('tipo', 'categoria').order_by('-ano', '-mes')
@@ -2389,7 +2393,7 @@ def api_quotas_pagar(request, fatura_uuid):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_confirmar_pagamento(request, pk):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     pag = get_object_or_404(PagamentoQuota, pk=pk)
     acao = request.POST.get('acao', 'confirmar')
@@ -2502,7 +2506,7 @@ def api_quotas_definir_estado(request, pk):
 @_requer_login
 def api_quotas_buscar_membros(request):
     """Busca membros (despachantes) para o admin definir estado financeiro."""
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     q = request.GET.get('q', '').strip()
     membros = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')
@@ -2617,7 +2621,7 @@ def api_quotas_carteira(request):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_salvar_config(request):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
         ano = int(request.POST.get('ano', 0))
@@ -2947,7 +2951,7 @@ def api_quotas_cancelar(request, fatura_uuid):
 
 @_requer_login
 def api_quotas_listar_isencoes(request):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     isencoes = IsencaoMembro.objects.all().select_related('despachante', 'tipo_quota', 'aprovado_por').order_by('-created_at')
     data = []
@@ -2970,7 +2974,7 @@ def api_quotas_listar_isencoes(request):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_criar_isencao(request):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
         despachante_id = int(request.POST.get('despachante_id', 0))
@@ -3061,7 +3065,7 @@ def api_quotas_historico(request, fatura_uuid):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_verificar_vencimentos(request):
-    if request.session['usuario']['papel'] != 'Administrador':
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     from governanca.management.commands.verificar_vencimentos import Command as VencCmd
     from io import StringIO
@@ -3083,7 +3087,7 @@ def api_quotas_verificar_vencimentos(request):
 def consulta_lista(request):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial', 'Operador') and not usuario_tem_permissao(request, 'gerir_consultas'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_consultas') and not usuario_tem_permissao(request, 'gerir_governanca') and not usuario_tem_permissao(request, 'gerir_governanca_filial'):
         return redirect('governanca_index')
 
     status_filtro = request.GET.get('status', '')
@@ -3118,7 +3122,7 @@ def consulta_lista(request):
 def consulta_detalhe(request, pk):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial', 'Operador') and not usuario_tem_permissao(request, 'gerir_consultas'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_consultas'):
         return redirect('governanca_index')
     consulta = get_object_or_404(ConsultaPublica.objects.prefetch_related(
         'artigos__comentarios__autor', 'artigos__comentarios__respostas__autor',
@@ -3252,7 +3256,7 @@ def consulta_editar(request, pk):
 def consulta_relatorio(request, pk):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial', 'Operador') and not usuario_tem_permissao(request, 'gerir_consultas'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_consultas'):
         return redirect('governanca_index')
     consulta = get_object_or_404(ConsultaPublica.objects.prefetch_related(
         'artigos__comentarios__autor', 'votacoes__votos'
@@ -3645,9 +3649,10 @@ def api_responder_presenca(request, pk):
 @require_http_methods(['POST'])
 @_requer_login
 def api_reabrir_votacao(request, pk):
+    from users.permissoes import usuario_tem_permissao
     pauta = get_object_or_404(PautaVotacao, pk=pk)
-    if request.session['usuario']['papel'] != 'Administrador':
-        return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_votacoes'):
+        return JsonResponse({'status': 'error', 'message': 'Sem permissão.'}, status=403)
     if pauta.status != 'Concluida':
         return JsonResponse({'status': 'error', 'message': 'Apenas pautas concluídas podem ser reabertas.'}, status=400)
     if pauta.assembleia.status != 'Em Curso':
@@ -3709,23 +3714,41 @@ def exportar_resultados_pdf(request, pk):
     w, h = A4
     c.setTitle(f'Resultados - {assembleia.titulo}')
 
-    # Header
+    # Header CDOA
+    cor_cdoa = HexColor('#1a3a5c')
+    cor_cdoa_gold = HexColor('#c9a84c')
+    estado_display = assembleia.get_status_display()
     c.saveState()
-    c.setFillColor(HexColor('#1a3a5c'))
+    c.setFillColor(cor_cdoa)
     c.rect(0, h - 50, w, 50, fill=1, stroke=0)
     c.setFillColor(HexColor('#ffffff'))
-    c.setFont('Helvetica-Bold', 16)
-    c.drawCentredString(w / 2, h - 35, 'CDOA — Resultados da Assembleia')
-    c.setFont('Helvetica', 10)
-    c.drawCentredString(w / 2, h - 20, assembleia.titulo)
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(30, h - 35, 'REPÚBLICA DE ANGOLA')
+    c.setFont('Helvetica', 9)
+    c.drawString(30, h - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+    c.setFillColor(cor_cdoa_gold)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawRightString(w - 30, h - 30, estado_display)
     c.restoreState()
 
     y = h - 80
+    # Título do documento
+    c.saveState()
+    c.setFont('Helvetica-Bold', 18)
+    c.setFillColor(cor_cdoa)
+    c.drawCentredString(w / 2, y, 'Resultados da Assembleia')
+    y -= 25
+    c.setFont('Helvetica', 10)
+    c.setFillColor(HexColor('#333333'))
+    c.drawCentredString(w / 2, y, assembleia.titulo)
+    y -= 25
+    c.restoreState()
+
     c.saveState()
     c.setFont('Helvetica-Bold', 11)
     c.drawString(40, y, f'Data: {assembleia.data_hora:%d/%m/%Y %H:%M}')
     y -= 16
-    c.drawString(40, y, f'Status: {assembleia.get_status_display()}')
+    c.drawString(40, y, f'Status: {estado_display}')
     y -= 16
     c.drawString(40, y, f'Presentes: {assembleia.presentes_count} / Quórum: {assembleia.quorum_minimo}')
     y -= 25
@@ -3744,7 +3767,20 @@ def exportar_resultados_pdf(request, pk):
         y -= 22
         if y < 80:
             c.showPage()
-            y = h - 50
+            # Header CDOA na nova página
+            c.saveState()
+            c.setFillColor(cor_cdoa)
+            c.rect(0, h - 50, w, 50, fill=1, stroke=0)
+            c.setFillColor(HexColor('#ffffff'))
+            c.setFont('Helvetica-Bold', 12)
+            c.drawString(30, h - 35, 'REPÚBLICA DE ANGOLA')
+            c.setFont('Helvetica', 9)
+            c.drawString(30, h - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+            c.setFillColor(cor_cdoa_gold)
+            c.setFont('Helvetica-Bold', 11)
+            c.drawRightString(w - 30, h - 30, estado_display)
+            c.restoreState()
+            y = h - 80
 
     c.saveState()
     c.setFont('Helvetica', 8)
@@ -4180,17 +4216,35 @@ def gerir_utilizadores(request):
     from users.models import Usuario
     q = request.GET.get('q', '').strip()
     tipo = request.GET.get('tipo', '').strip()
+    if not tipo:
+        tipo = 'Colaborador Institucional'
 
     utilizadores_qs = Usuario.objects.exclude(papel='Administrador')
     if q:
         utilizadores_qs = utilizadores_qs.filter(nome__icontains=q)
     if tipo:
         utilizadores_qs = utilizadores_qs.filter(papel=tipo)
-
     utilizadores_qs = utilizadores_qs.order_by('nome').prefetch_related('permissoes_diretas').select_related('funcao')
+
     paginator = Paginator(utilizadores_qs, 12)
     page_number = request.GET.get('page')
     utilizadores = paginator.get_page(page_number)
+
+    ids = [u.id for u in utilizadores_qs]
+    from django.db.models import Count
+    from rh.models import Banca
+    bancas = Banca.objects.filter(usuario_id__in=ids).annotate(
+        num_colaboradores=Count('colaboradores')
+    )
+    bancas_por_usuario = {}
+    for b in bancas:
+        bancas_por_usuario.setdefault(b.usuario_id, []).append(b)
+    for u in utilizadores:
+        u.bancas_list = bancas_por_usuario.get(u.id, [])
+        u.bancas_total = len(u.bancas_list)
+        u.bancas_colaboradores = sum(
+            getattr(b, 'num_colaboradores', 0) or 0 for b in u.bancas_list
+        )
 
     stats_total = utilizadores_qs.count()
     stats_ativos = utilizadores_qs.filter(status='Ativo').count()
@@ -4209,6 +4263,7 @@ def gerir_utilizadores(request):
         'active_sub': 'gerir_utilizadores',
         'is_admin_sistema': True,
         'utilizadores': utilizadores,
+        'bancas_por_usuario': bancas_por_usuario,
         'stats_total': stats_total,
         'stats_ativos': stats_ativos,
         'stats_inativos': stats_inativos,

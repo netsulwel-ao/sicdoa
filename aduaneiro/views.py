@@ -11,10 +11,12 @@ from django.views.decorators.http import require_POST
 
 from clientes.models import Cliente
 from users.models import Usuario
-from users.permissoes import _is_admin_ou_acesso_total
+from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
 from utils.validators import email_ja_existe
 from django.core.paginator import Paginator
+from rh.models import Colaborador, Banca
 from .models import DeclaracaoUnica
+import logging
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -36,6 +38,43 @@ def _ctx_base(request):
     return {'usuario': u, 'nome': u.get('nome', ''), 'papel': u.get('papel', '')}
 
 
+def _tem_permissao_ou_papel(request, *perm_codigos):
+    """True se o user tem papel de acesso ou uma das permissões (para colaboradores)."""
+    papel = _papel(request)
+    if papel in ('Administrador', 'Despachante Oficial'):
+        return True
+    if _is_admin_ou_acesso_total(request):
+        return True
+    permissoes = get_usuario_permissoes(request)
+    return any(p in permissoes for p in perm_codigos)
+
+
+def _banca_owner(request):
+    """
+    Se o utilizador actual é um colaborador, devolve o Usuario dono da banca
+    (o despachante) a quem este colaborador pertence.
+    Caso contrário, devolve o próprio Usuario logado.
+    Retorna (usuario_obj, usuario_id).
+    """
+    uid = _usuario_id(request)
+    if request.session.get('tipo_usuario') == 'colaborador':
+        colaborador_id = request.session.get('colaborador_id')
+        if colaborador_id:
+            try:
+                colab = Colaborador.objects.select_related('banca').get(id=colaborador_id)
+                if colab.banca and colab.banca.usuario_id:
+                    dono = Usuario.objects.get(id=colab.banca.usuario_id)
+                    return dono, dono.id
+            except (Colaborador.DoesNotExist, Usuario.DoesNotExist):
+                pass
+    # Fallback: o próprio utilizador
+    try:
+        u = Usuario.objects.get(id=uid)
+        return u, u.id
+    except Usuario.DoesNotExist:
+        return None, uid
+
+
 # ─── DU — Criar / Editar ─────────────────────────────────────────────────────
 
 def du_view(request, du_uuid=None):
@@ -43,19 +82,37 @@ def du_view(request, du_uuid=None):
     if not _sessao_ok(request):
         return redirect('login')
 
-    # Apenas Despachante Oficial pode criar nova DU
-    if du_uuid is None and _papel(request) != 'Despachante Oficial':
+    # Apenas Despachante Oficial (ou quem tem permissão) pode criar nova DU
+    if du_uuid is None and not _tem_permissao_ou_papel(request, 'criar_declaracao_unica'):
         return redirect('du_lista')
 
     du = None
     dados_iniciais = '{}'
     dono_du = None          # dados do proprietário da DU (para o admin ver)
     is_admin_editando = False
+    is_colaborador_operando = False
+
+    # Se for colaborador, carregar dados do dono da banca para exibir no formulário
+    if request.session.get('tipo_usuario') == 'colaborador':
+        dono_banca, _ = _banca_owner(request)
+        if dono_banca:
+            dono_du = {
+                'nome':    dono_banca.nome,
+                'nif':     dono_banca.nif or '',
+                'cedula':  dono_banca.cedula or '',
+                'papel':   dono_banca.papel,
+                'email':   dono_banca.email or '',
+                'telefone': dono_banca.telefone or '',
+            }
+            is_colaborador_operando = True
 
     if du_uuid:
         du = get_object_or_404(DeclaracaoUnica, du_uuid=du_uuid)
         papel_atual = _papel(request)
-        uid_atual   = _usuario_id(request)
+
+        # Se for colaborador, comparar com o dono da banca
+        _, uid_efetivo = _banca_owner(request)
+        uid_atual = uid_efetivo if request.session.get('tipo_usuario') == 'colaborador' else _usuario_id(request)
 
         # Só o dono ou Administrador pode editar
         if du.usuario_id != uid_atual and papel_atual != 'Administrador':
@@ -95,6 +152,7 @@ def du_view(request, du_uuid=None):
         'du': du,
         'dados_iniciais': dados_iniciais,
         'is_admin_editando': is_admin_editando,
+        'is_colaborador_operando': is_colaborador_operando,
         'dono_du': dono_du,
     })
     return render(request, 'du.html', ctx)
@@ -105,8 +163,18 @@ def du_view(request, du_uuid=None):
 @require_POST
 def du_guardar(request):
     """Guarda ou actualiza uma DU via AJAX (JSON body)."""
-    # Debug: verificar sessão
     import logging
+    import traceback
+    logger = logging.getLogger(__name__)
+    try:
+        return _du_guardar_impl(request)
+    except Exception as exc:
+        logger.error(f"Erro ao guardar DU: {exc}\n{traceback.format_exc()}")
+        return JsonResponse({'erro': f'Erro interno: {exc}'}, status=500)
+
+
+def _du_guardar_impl(request):
+    """Implementação real do guardar DU."""
     logger = logging.getLogger(__name__)
     
     logger.info(f"=== DEBUG du_guardar ===")
@@ -127,15 +195,18 @@ def du_guardar(request):
 
     du_uuid = payload.get('uuid')
 
-    # Apenas Despachante Oficial pode criar nova DU
-    if not du_uuid and _papel(request) != 'Despachante Oficial':
-        logger.warning(f"Papel {_papel(request)} sem permissão para criar DU")
-        return JsonResponse({'erro': 'Sem permissão para criar DU'}, status=403)
+    # Apenas Despachante Oficial ou quem tem permissão pode criar nova DU
+    if not du_uuid:
+        papel = _papel(request)
+        if papel != 'Despachante Oficial' and not _tem_permissao_ou_papel(request, 'criar_declaracao_unica'):
+            logger.warning(f"Papel {papel} sem permissão para criar DU")
+            return JsonResponse({'erro': 'Sem permissão para criar DU'}, status=403)
     submeter  = payload.get('submeter', False)
     dados     = payload.get('dados', {})
     totais    = payload.get('totais', {})
 
-    uid = _usuario_id(request)
+    # Se for colaborador, a DU deve ficar em nome do dono da banca
+    dono_banca, uid = _banca_owner(request)
 
     # ── Normalizar e validar totais recebidos ─────────────────────────────
     def _safe_float(v, default=0.0):
@@ -292,6 +363,20 @@ def du_guardar(request):
         du.valor_fob = du.valor_frete = du.valor_seguro = 0
     du.valor_cif = du.valor_fob + du.valor_frete + du.valor_seguro
 
+    # Se um colaborador está a agir em nome do dono da banca, registar quem operou
+    if request.session.get('tipo_usuario') == 'colaborador':
+        colaborador_id = request.session.get('colaborador_id')
+        if colaborador_id:
+            try:
+                colab = Colaborador.objects.get(id=colaborador_id)
+                dados['_operado_por'] = {
+                    'tipo': 'colaborador',
+                    'colaborador_id': colab.id,
+                    'nome': colab.nome,
+                }
+            except Colaborador.DoesNotExist:
+                pass
+
     du.set_dados(dados)
 
     # Gerar UUID e código de processo se novo registo
@@ -331,11 +416,13 @@ def du_lista(request):
         return redirect('login')
 
     papel = _papel(request)
-    uid   = _usuario_id(request)
+    _, uid = _banca_owner(request)
 
     e_admin = _is_admin_ou_acesso_total(request)
     if e_admin:
         dus = DeclaracaoUnica.objects.all()
+    elif _tem_permissao_ou_papel(request, 'gerir_aduaneiro', 'criar_declaracao_unica'):
+        dus = DeclaracaoUnica.objects.filter(usuario_id=uid)
     else:
         # Despachante e Operador vêem as suas próprias DUs
         dus = DeclaracaoUnica.objects.filter(usuario_id=uid)
@@ -363,6 +450,8 @@ def du_lista(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    pode_criar = _tem_permissao_ou_papel(request, 'criar_declaracao_unica') and _papel(request) not in ('Administrador', 'Colaborador Institucional')
+
     ctx = _ctx_base(request)
     ctx.update({
         'active_menu': 'Gestão Aduaneira',
@@ -372,6 +461,7 @@ def du_lista(request):
         'status_filtro': status,
         'is_admin': e_admin,
         'total_dus': dus.count(),
+        'pode_criar': pode_criar,
     })
     return render(request, 'du_lista.html', ctx)
 
@@ -385,10 +475,10 @@ def du_detalhe(request, du_uuid):
 
     du = get_object_or_404(DeclaracaoUnica, du_uuid=du_uuid)
     papel = _papel(request)
-    uid   = _usuario_id(request)
+    _, uid = _banca_owner(request)
 
     e_admin = _is_admin_ou_acesso_total(request)
-    if du.usuario_id != uid and not e_admin and papel not in ('Operador',):
+    if du.usuario_id != uid and not e_admin:
         return redirect('du_lista')
 
     ctx = _ctx_base(request)
@@ -451,9 +541,9 @@ def du_download_pdf(request, du_uuid):
 
     du    = get_object_or_404(DeclaracaoUnica, du_uuid=du_uuid)
     papel = _papel(request)
-    uid   = _usuario_id(request)
+    _, uid = _banca_owner(request)
 
-    if du.usuario_id != uid and papel not in ('Administrador', 'Operador'):
+    if du.usuario_id != uid and papel != 'Administrador':
         return redirect('du_lista')
 
     try:
@@ -492,6 +582,8 @@ def du_download_pdf(request, du_uuid):
         )
         W = A4[0] - 3.6*cm
 
+        cor_cdoa = colors.HexColor('#1a3a5c')
+        cor_cdoa_gold = colors.HexColor('#c9a84c')
         cor_primaria  = colors.HexColor('#137fec')
         cor_cabecalho = colors.HexColor('#0f172a')
         cor_linha_par = colors.HexColor('#f8fafc')
@@ -500,7 +592,7 @@ def du_download_pdf(request, du_uuid):
 
         s_secao = ParagraphStyle('secao',
             fontSize=10, fontName='Helvetica-Bold',
-            textColor=cor_primaria, spaceBefore=10, spaceAfter=4)
+            textColor=cor_cdoa, spaceBefore=10, spaceAfter=4)
         s_normal = ParagraphStyle('normal',
             fontSize=8.5, fontName='Helvetica',
             textColor=cor_cabecalho, leading=12)
@@ -517,7 +609,7 @@ def du_download_pdf(request, du_uuid):
         story = []
         dados = du.get_dados()
 
-        # Cabecalho
+        # Cabecalho CDOA
         status_cores = {
             'Aprovada':   ('#dcfce7', '#166534'),
             'Rascunho':   ('#fef9c3', '#854d0e'),
@@ -527,35 +619,51 @@ def du_download_pdf(request, du_uuid):
         }
         sc = status_cores.get(du.status, ('#f1f5f9', '#374151'))
 
+        # Header CDOA
+        cdoa_header = Table([
+            [
+                Paragraph('<font color="white"><b>REPÚBLICA DE ANGOLA</b><br/><font size="8">CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)</font></font>',
+                       ParagraphStyle('cdoa_top', fontSize=11, fontName='Helvetica-Bold', alignment=0, leading=14)),
+                Paragraph(
+                    f'<font color="{sc[1]}"><b>{du.status}</b></font>',
+                    ParagraphStyle('cdoa_right', fontSize=10, fontName='Helvetica-Bold',
+                               alignment=2)
+                ),
+            ]
+        ], colWidths=[W - 3.5*cm, 3.5*cm])
+        cdoa_header.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), cor_cdoa),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(cdoa_header)
+        story.append(Spacer(1, 1*cm))
+
         s_titulo = ParagraphStyle('titulo',
-            fontSize=18, fontName='Helvetica-Bold',
-            textColor=cor_cabecalho, spaceAfter=2)
+            fontSize=20, fontName='Helvetica-Bold',
+            textColor=cor_cdoa, spaceAfter=24)
         s_subtitulo = ParagraphStyle('subtitulo',
-            fontSize=9, fontName='Helvetica',
-            textColor=colors.HexColor('#64748b'), spaceAfter=0)
+            fontSize=10, fontName='Helvetica',
+            textColor=colors.HexColor('#475569'), spaceAfter=8, leading=14)
 
         header_data = [[
             Paragraph('DECLARACAO UNICA (DU)', s_titulo),
-            Paragraph(
-                f'<font color="{sc[1]}"><b>{du.status}</b></font>',
-                ParagraphStyle('st', fontSize=10, fontName='Helvetica-Bold',
-                               alignment=2)
-            ),
         ]]
-        t_header = Table(header_data, colWidths=[W - 3.5*cm, 3.5*cm])
+        t_header = Table(header_data, colWidths=[W])
         t_header.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ]))
         story.append(t_header)
+        story.append(Spacer(1, 0.5*cm))
         story.append(Paragraph(
-            f'N: <b>{du.numero_du or "Rascunho"}</b>  |  '
-            f'Processo: <b>{du.codigo_processo or "N/D"}</b>  |  '
-            f'Ref.: <b>{du.ref_despachante or "N/D"}</b>  |  '
-            f'Data: <b>{du.created_at.strftime("%d/%m/%Y %H:%M")}</b>',
+            f'N: <b>{du.numero_du or "Rascunho"}</b> | Processo: <b>{du.codigo_processo or "N/D"}</b><br/>'
+            f'Ref.: <b>{du.ref_despachante or "N/D"}</b> | Data: <b>{du.created_at.strftime("%d/%m/%Y %H:%M")}</b>',
             s_subtitulo
         ))
-        story.append(HRFlowable(width=W, thickness=2, color=cor_primaria, spaceAfter=8))
+        story.append(HRFlowable(width=W, thickness=2, color=cor_cdoa_gold, spaceAfter=8))
 
         def tabela_kv(linhas, col_label=5.5*cm):
             rows = []
@@ -672,7 +780,7 @@ def du_download_pdf(request, du_uuid):
                 ])
             t_cont = Table(cont_rows, colWidths=[0.8*cm, 5*cm, 3*cm, 3*cm, 3*cm])
             t_cont.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), cor_primaria),
+                ('BACKGROUND', (0, 0), (-1, 0), cor_cdoa),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -722,9 +830,10 @@ def du_download_pdf(request, du_uuid):
                                 info.get('acao', ''),
                             ])
                     if len(imp_rows) > 1:
-                        t_imp = Table(imp_rows, colWidths=[2*cm, 3.5*cm, 2*cm, 3.5*cm, 2.5*cm])
+                        story.append(Spacer(1, 1.0*cm))
+                        t_imp = Table(imp_rows, colWidths=[W*0.18, W*0.22, W*0.14, W*0.26, W*0.2])
                         t_imp.setStyle(TableStyle([
-                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#334155')),
+                            ('BACKGROUND', (0, 0), (-1, 0), cor_cdoa),
                             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                             ('FONTSIZE', (0, 0), (-1, -1), 7.5),
@@ -749,7 +858,7 @@ def du_download_pdf(request, du_uuid):
         ]
         t_tot = Table(totais_rows, colWidths=[W - 4*cm, 4*cm])
         t_tot.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), cor_primaria),
+            ('BACKGROUND', (0, 0), (-1, 0), cor_cdoa),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTSIZE', (0, 0), (-1, -1), 8.5),
             ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
@@ -768,7 +877,7 @@ def du_download_pdf(request, du_uuid):
                 fontSize=11, fontName='Helvetica-Bold', textColor=colors.white, alignment=2)),
         ]], colWidths=[W - 4*cm, 4*cm])
         t_total.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), cor_cabecalho),
+            ('BACKGROUND', (0, 0), (-1, -1), cor_cdoa),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ('LEFTPADDING', (0, 0), (-1, -1), 6),
@@ -863,10 +972,12 @@ def du_pesquisar(request):
     """API JSON — pesquisa DUs por código_processo (4+ dígitos) ou nome do cliente."""
     if not _sessao_ok(request):
         return JsonResponse({'resultados': []})
+    if not _tem_permissao_ou_papel(request, 'gerir_aduaneiro', 'criar_declaracao_unica'):
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
     q     = request.GET.get('q', '').strip()
     papel = _papel(request)
-    uid   = _usuario_id(request)
+    _, uid = _banca_owner(request)
 
     if len(q) < 2:
         return JsonResponse({'resultados': []})
@@ -905,13 +1016,16 @@ def consultar_nif_cliente(request):
     """API para consultar NIF de clientes/exportadores dinamicamente."""
     if not _sessao_ok(request):
         return JsonResponse({'error': 'Não autorizado'}, status=401)
+    if not _tem_permissao_ou_papel(request, 'criar_declaracao_unica'):
+        return JsonResponse({'error': 'Sem permissão'}, status=403)
 
     nif = request.GET.get('nif', '').strip()
     if not nif:
         return JsonResponse({'error': 'NIF não fornecido'}, status=400)
 
     try:
-        uid = _usuario_id(request)
+        # Se for colaborador, usar o ID do dono da banca para filtrar clientes
+        _, uid = _banca_owner(request)
 
         # 1. Procura exacta no próprio utilizador
         if len(nif) >= 4:
@@ -967,11 +1081,13 @@ def criar_cliente_rapido(request):
     """API para criar cliente rapidamente via AJAX."""
     if not _sessao_ok(request):
         return JsonResponse({'error': 'Não autorizado'}, status=401)
+    if not _tem_permissao_ou_papel(request, 'criar_declaracao_unica', 'gerir_clientes', 'gerir_clientes_filial'):
+        return JsonResponse({'error': 'Sem permissão'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
 
     try:
-        uid        = _usuario_id(request)
+        _, uid = _banca_owner(request)
         nome       = request.POST.get('nome', '').strip()
         nif        = request.POST.get('nif', '').strip()
         localizacao = request.POST.get('localizacao', '').strip()
@@ -1010,6 +1126,8 @@ def pauta_aduaneira_view(request):
     """Página de consulta da pauta aduaneira."""
     if not _sessao_ok(request):
         return redirect('login')
+    if not _tem_permissao_ou_papel(request, 'ver_pauta_aduaneira'):
+        return redirect('du_lista')
 
     ctx = _ctx_base(request)
     ctx.update({
@@ -1208,6 +1326,8 @@ def pauta_aduaneira_api(request):
     """API de pesquisa da pauta aduaneira — busca dados reais da API externa."""
     if not _sessao_ok(request):
         return JsonResponse({'erro': 'Não autorizado'}, status=401)
+    if not _tem_permissao_ou_papel(request, 'ver_pauta_aduaneira'):
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
     q_codigo    = request.GET.get('codigo',    '').strip().upper()
     q_descricao = request.GET.get('descricao', '').strip().lower()
@@ -1293,9 +1413,19 @@ def api_vinhetas(request):
     """
     if not _sessao_ok(request):
         return JsonResponse({'erro': 'Não autorizado'}, status=401)
+    if not _tem_permissao_ou_papel(request, 'criar_declaracao_unica'):
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
-    # Obter a cédula do utilizador da sessão
-    usuario_sessao = request.session.get('usuario', {})
+    # Se for colaborador, usar a cédula do dono da banca
+    if request.session.get('tipo_usuario') == 'colaborador':
+        dono, _ = _banca_owner(request)
+        if dono:
+            usuario_sessao = {'cedula': dono.cedula or ''}
+        else:
+            usuario_sessao = request.session.get('usuario', {})
+    else:
+        usuario_sessao = request.session.get('usuario', {})
+
     cedula = usuario_sessao.get('cedula', '').strip()
 
     if not cedula:

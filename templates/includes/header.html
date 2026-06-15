@@ -1,3 +1,6 @@
+{% if request.session.tipo_usuario == 'colaborador' %}
+  {% include 'colaboradores/header.html' %}
+{% else %}
 <header id="main-header" class="flex items-center border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 lg:px-6 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm fixed top-0 left-0 lg:left-64 right-0 z-30 shadow-sm" style="height:60px; min-height:60px;">
 
   <!-- ── Lado Esquerdo: Menu + Pesquisa ── -->
@@ -107,7 +110,7 @@
       </div>
       <div class="flex flex-col leading-tight overflow-hidden">
         <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 group-hover:text-primary transition-colors truncate" style="max-width:110px;">{{ nome }}</span>
-        <span class="text-xs text-gray-500 dark:text-gray-400 truncate" style="max-width:110px;">{{ papel }}</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400 truncate" style="max-width:110px;">{{ papel_display|default:papel }}</span>
       </div>
       <i class="fas fa-chevron-down text-gray-400 dark:text-gray-500 group-hover:text-primary transition-colors flex-shrink-0" style="font-size:15px; line-height:1;"></i>
     </a>
@@ -121,9 +124,9 @@
     </a>
   </div>
 </header>
-
 <!-- Espaçador para compensar o header fixo -->
 <div style="height:60px; min-height:60px;" aria-hidden="true"></div>
+{% endif %}
 
 <!-- ── Barra "Em Reunião" (cross‑page PIP indicator) ── -->
 <div id="reuniao-ativa-bar" class="hidden fixed top-0 left-0 right-0 z-[9999] bg-gradient-to-r from-primary/90 to-blue-600/90 backdrop-blur-sm text-white text-sm px-4 py-2 shadow-lg flex items-center justify-between" style="transform:translateY(0);transition:transform 0.3s ease">

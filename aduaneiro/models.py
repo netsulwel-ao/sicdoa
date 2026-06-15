@@ -123,5 +123,4 @@ class DeclaracaoUnica(models.Model):
         import time
         return str(int(time.time()))[-8:]
 
-    def get_status_display_pt(self):
-        return dict(self.STATUS_CHOICES).get(self.status, self.status)
+

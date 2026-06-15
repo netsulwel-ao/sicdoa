@@ -40,6 +40,7 @@ if REDIS_ENABLED:
     INSTALLED_APPS += ['django_celery_beat']
 
 MIDDLEWARE = [
+    'utils.middleware.ErrorCaptureMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -66,6 +67,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'rh.context_processors.cargos_mesa',
+                'users.context_processors.user_permissoes',
             ],
             'loaders': [
                 'django.template.loaders.filesystem.Loader',
@@ -265,6 +267,7 @@ if REDIS_ENABLED:
 BACKUP_DIR = os.environ.get('BACKUP_DIR', os.path.join(BASE_DIR, 'backups'))
 BACKUP_RETENTION_DAYS = int(os.environ.get('BACKUP_RETENTION_DAYS', '30'))
 BACKUP_EMAIL_TO = os.environ.get('BACKUP_EMAIL_TO', 'ramosfranciscotch@gmail.com')
+ERROR_REPORT_EMAIL = os.environ.get('ERROR_REPORT_EMAIL', BACKUP_EMAIL_TO)
 
 # ── APScheduler (tarefas agendadas) ────────────────────────────────
 APSCHEDULER_DATETIME_FORMAT = 'N/A'

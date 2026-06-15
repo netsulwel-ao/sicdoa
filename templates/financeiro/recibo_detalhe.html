@@ -23,7 +23,7 @@
             <i class="fas fa-arrow-left"></i>
             <span>Voltar</span>
           </a>
-          {% if recibo.estado != 'Cancelado' and papel in 'Administrador,Gestor Financeiro' %}
+          {% if recibo.estado != 'Cancelado' and papel == 'Administrador' %}
           <a href="{% url 'financeiro:recibo_editar' recibo.pk %}"
             class="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
             <i class="fas fa-edit"></i>

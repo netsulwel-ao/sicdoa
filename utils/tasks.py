@@ -15,9 +15,3 @@ def enviar_email_task(subject, message, html_message, recipient_list, from_email
     )
 
 
-@shared_task(bind=True, max_retries=3)
-def enviar_email_retry_task(self, subject, message, html_message, recipient_list, from_email=None, anexos=None):
-    try:
-        return enviar_email_task(subject, message, html_message, recipient_list, from_email, anexos)
-    except Exception as exc:
-        raise self.retry(exc=exc, countdown=60)

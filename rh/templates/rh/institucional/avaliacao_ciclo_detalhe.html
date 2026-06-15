@@ -1,0 +1,77 @@
+{% load avaliacao_extras %}{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+  <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <a href="{% url 'rh_inst_dashboard' %}" class="hover:text-primary transition-colors">RH Institucional</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <a href="{% url 'rh_inst_avaliacoes' %}" class="hover:text-primary transition-colors">Avaliações</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <span class="text-gray-700 dark:text-gray-300 font-medium">{{ ciclo.nome }}</span>
+</div>
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-6">
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-black text-gray-900 dark:text-white">{{ ciclo.nome }}</h1>
+      <p class="text-gray-500 mt-1 text-sm">{{ ciclo.periodo_inicio|date:'d/m/Y' }} — {{ ciclo.periodo_fim|date:'d/m/Y' }}</p>
+    </div>
+    <span class="px-3 py-1.5 rounded-full text-sm font-semibold {% if ciclo.estado == 'Aberto' %}bg-green-100 text-green-700{% elif ciclo.estado == 'Em Curso' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">{{ ciclo.estado }}</span>
+  </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-users text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Avaliações Realizadas</h2>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        {% for a in avaliacoes %}
+        <div class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+          <div>
+            <p class="font-semibold text-gray-900 dark:text-white">{{ a.colaborador.nome }}</p>
+            <div class="flex items-center gap-1 mt-1">{% for m in metricas %}{% with nota=a.notas_map|dict_get:m.id|default_if_none:a.nota_global %}<span class="text-xs px-2 py-0.5 rounded-full {% if nota >= 4 %}bg-green-100 text-green-700{% elif nota >= 3 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">{{ nota }}</span>{% endwith %}{% endfor %}</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-lg font-bold {% if a.nota_global >= 4 %}text-green-600{% elif a.nota_global >= 3 %}text-amber-600{% else %}text-red-600{% endif %}">{{ a.nota_global }}</span>
+            <a href="{% url 'rh_inst_avaliacao_detalhe' ciclo.pk a.colaborador.pk %}" class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all"><i class="fas fa-eye"></i></a>
+            <a href="{% url 'rh_inst_avaliacao_editar' ciclo.pk a.colaborador.pk %}" class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all"><i class="fas fa-edit"></i></a>
+            <form method="POST" action="{% url 'rh_inst_avaliacao_apagar' ciclo.pk a.colaborador.pk %}" class="inline">{% csrf_token %}<button type="button" class="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" onclick="confirmarFormPost(this.form, { mensagem: 'Remover avaliação?' })"><i class="fas fa-trash"></i></button></form>
+          </div>
+        </div>
+        {% empty %}
+        <div class="p-12 text-center text-sm text-gray-400">Nenhuma avaliação realizada.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="space-y-6">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-clock text-amber-500"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Pendentes</h2>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        {% for col in cols_pendentes %}
+        <a href="{% url 'rh_inst_avaliacao_nova' ciclo.pk col.pk %}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+          <span class="text-sm font-medium text-gray-900 dark:text-white">{{ col.nome }}</span>
+          <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+        </a>
+        {% empty %}
+        <div class="p-6 text-center text-sm text-gray-400">Todos avaliados.</div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-chart-line text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Métricas</h2>
+      </div>
+      <div class="p-4 space-y-2">
+        {% for m in metricas %}
+        <div class="flex items-center gap-2 text-sm"><i class="fas fa-circle text-primary text-xs"></i><span class="text-gray-700 dark:text-gray-300">{{ m.nome }}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+</main></div>{% include 'includes/footer.html' %}

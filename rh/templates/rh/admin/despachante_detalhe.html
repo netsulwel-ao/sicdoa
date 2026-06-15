@@ -2,7 +2,7 @@
 
 {% block breadcrumb %}
 <i class="fas fa-chevron-right text-xs"></i>
-<a href="{% url 'admin_despachantes' %}" class="hover:text-primary transition-colors">Despachantes</a>
+<a href="{% url 'governanca_gerir_utilizadores' %}" class="hover:text-primary transition-colors">Utilizadores</a>
 <i class="fas fa-chevron-right text-xs"></i>
 <span class="text-gray-700 dark:text-gray-300 font-medium">{{ despachante.nome }}</span>
 {% endblock %}
@@ -50,7 +50,7 @@
       </div>
     </div>
     <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
-      <a href="{% url 'admin_despachantes' %}"
+      <a href="{% url 'governanca_gerir_utilizadores' %}"
          class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-all">
         <i class="fas fa-arrow-left text-base"></i>Voltar
       </a>

@@ -7,49 +7,69 @@
   <main class="p-4 md:p-6 lg:p-8 space-y-6">
 
     <div class="flex items-center justify-between flex-wrap gap-3">
-      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">
-        <i class="fas fa-user-shield text-primary mr-2"></i>
-        Gestão de Utilizadores
-      </h1>
+      <div>
+        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black flex items-center gap-3">
+          <span class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <i class="fas fa-users-cog text-primary"></i>
+          </span>
+          Gestão de Utilizadores
+        </h1>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1 ml-[52px]">
+          Gerir contas de acesso ao sistema
+        </p>
+      </div>
       <a href="{% url 'governanca_utilizador_novo' %}"
-         class="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2">
+         class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm hover:shadow-md flex items-center gap-2">
         <i class="fas fa-user-plus"></i> Novo Utilizador
       </a>
     </div>
 
-    <div class="grid grid-cols-3 gap-3">
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <i class="fas fa-users text-primary"></i>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-gradient-to-br from-primary/5 to-primary/[0.02] dark:from-primary/10 dark:to-transparent rounded-xl border border-primary/10 dark:border-primary/20 shadow-sm p-5">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <i class="fas fa-users text-primary text-xl"></i>
           </div>
           <div>
-            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_total }}</p>
-            <p class="text-xs text-gray-500">Total de Utilizadores</p>
+            <p class="text-3xl font-black text-[#111418] dark:text-white">{{ stats_total }}</p>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</p>
           </div>
+        </div>
+        <div class="mt-3 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full" style="width: 100%"></div>
         </div>
       </div>
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center shrink-0">
-            <i class="fas fa-check-circle text-green-600"></i>
+      <div class="bg-gradient-to-br from-green-50 to-green-50/30 dark:from-green-900/15 dark:to-transparent rounded-xl border border-green-100 dark:border-green-900/30 shadow-sm p-5">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+            <i class="fas fa-user-check text-green-600 dark:text-green-400 text-xl"></i>
           </div>
           <div>
-            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_ativos }}</p>
-            <p class="text-xs text-gray-500">Ativos</p>
+            <p class="text-3xl font-black text-[#111418] dark:text-white">{{ stats_ativos }}</p>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Activos</p>
           </div>
         </div>
+        {% if stats_total > 0 %}
+        <div class="mt-3 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+          <div class="h-full bg-green-500 rounded-full" style="width: {% widthratio stats_ativos stats_total 100 %}%"></div>
+        </div>
+        {% endif %}
       </div>
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0">
-            <i class="fas fa-user-slash text-red-500"></i>
+      <div class="bg-gradient-to-br from-red-50 to-red-50/30 dark:from-red-900/15 dark:to-transparent rounded-xl border border-red-100 dark:border-red-900/30 shadow-sm p-5">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+            <i class="fas fa-user-times text-red-500 dark:text-red-400 text-xl"></i>
           </div>
           <div>
-            <p class="text-2xl font-black text-[#111418] dark:text-white">{{ stats_inativos }}</p>
-            <p class="text-xs text-gray-500">Inativos/Suspensos</p>
+            <p class="text-3xl font-black text-[#111418] dark:text-white">{{ stats_inativos }}</p>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Inactivos/Suspensos</p>
           </div>
         </div>
+        {% if stats_total > 0 %}
+        <div class="mt-3 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+          <div class="h-full bg-red-500 rounded-full" style="width: {% widthratio stats_inativos stats_total 100 %}%"></div>
+        </div>
+        {% endif %}
       </div>
     </div>
 
@@ -57,193 +77,313 @@
 
     <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
       <div class="relative flex-1 max-w-md">
-        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Buscar utilizador..."
-               class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30">
+        <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nome..."
+               class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
+        {% if q %}
+        <a href="?{% if tipo %}tipo={{ tipo }}{% endif %}" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+          <i class="fas fa-times"></i>
+        </a>
+        {% endif %}
       </div>
-      <select name="tipo" class="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30">
-        <option value="">Todos os tipos</option>
-        <option value="Despachante Oficial" {% if tipo == 'Despachante Oficial' %}selected{% endif %}>Despachante Oficial</option>
+      <select name="tipo" class="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
         <option value="Colaborador Institucional" {% if tipo == 'Colaborador Institucional' %}selected{% endif %}>Colaborador Institucional</option>
+        <option value="Despachante Oficial" {% if tipo == 'Despachante Oficial' %}selected{% endif %}>Despachante Oficial</option>
       </select>
-      <button type="submit" class="px-4 py-2 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/20 transition-colors">
-        <i class="fas fa-search mr-1"></i> Buscar
+      <button type="submit" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+        <i class="fas fa-search text-xs"></i> Filtrar
       </button>
       {% if q or tipo %}
-      <a href="?" class="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-        Limpar
+      <a href="?" class="px-5 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all flex items-center gap-2">
+        <i class="fas fa-undo text-xs"></i> Limpar
       </a>
       {% endif %}
     </form>
 
+    <div class="flex items-center justify-between">
+      <p class="text-xs text-gray-400 dark:text-gray-500">
+        <i class="fas fa-list-ul mr-1"></i>
+        {% if page_obj.paginator.num_pages > 1 %}
+          Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+          <span class="mx-1.5">·</span>
+        {% endif %}
+        {{ page_obj.paginator.count }} utilizador{{ page_obj.paginator.count|pluralize:'es' }}
+      </p>
+    </div>
+
     <div data-view-container>
     <div id="utilizadores-grid" data-grid-view class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {% for u in utilizadores %}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+      <div class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 p-4">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              {% if u.status == 'Ativo' %}
-              <i class="fas fa-user text-primary"></i>
+            <div class="w-11 h-11 rounded-xl {% if u.status == 'Ativo' %}
+              {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20
+              {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20
+              {% elif u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20
+              {% else %}bg-indigo-50 dark:bg-indigo-900/20{% endif %}
+            {% else %}bg-gray-100 dark:bg-gray-800{% endif %} flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 duration-200">
+              {% if u.papel == 'Despachante Oficial' %}
+                <i class="fas fa-briefcase {% if u.status == 'Ativo' %}text-blue-600 dark:text-blue-400{% else %}text-gray-400{% endif %} text-lg"></i>
+              {% elif u.papel == 'Colaborador Institucional' %}
+                <i class="fas fa-building {% if u.status == 'Ativo' %}text-green-600 dark:text-green-400{% else %}text-gray-400{% endif %} text-lg"></i>
+              {% elif u.papel == 'Administrador' %}
+                <i class="fas fa-crown {% if u.status == 'Ativo' %}text-purple-600 dark:text-purple-400{% else %}text-gray-400{% endif %} text-lg"></i>
               {% else %}
-              <i class="fas fa-user-slash text-gray-400"></i>
+                <i class="fas fa-eye {% if u.status == 'Ativo' %}text-indigo-600 dark:text-indigo-400{% else %}text-gray-400{% endif %} text-lg"></i>
               {% endif %}
             </div>
             <div class="min-w-0">
-              <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate">{{ u.nome }}</h3>
-          <span class="text-xs
-            {% if u.papel == 'Administrador' %}text-purple-500
-            {% elif u.papel == 'Despachante Oficial' %}text-blue-500
-            {% elif u.papel == 'Colaborador Institucional' %}text-green-600
-            {% elif u.papel == 'Gestor Financeiro' %}text-amber-600
-            {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}text-indigo-500
-            {% else %}text-gray-400{% endif %}">
-            {% if u.papel == 'Visualizador' and u.cargo_personalizado %}
-              {{ u.cargo_personalizado }}
-            {% else %}
-              {{ u.papel }}
-            {% endif %}
-          </span>
-          {% if u.papel == 'Colaborador Institucional' %}
-            <div class="mt-1.5">
-              <button type="button"
-                      class="btn-atribuir-funcao inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer border-0
-                        {% if u.funcao %}
-                          bg-primary/10 text-primary hover:bg-primary/15 shadow-sm
-                        {% else %}
-                          bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30
-                        {% endif %}"
-                      data-usuario-id="{{ u.id }}"
-                      data-usuario-nome="{{ u.nome }}"
-                      data-funcao-id="{{ u.funcao_id|default:'' }}"
-                      data-funcao-nome="{% if u.funcao %}{{ u.funcao.nome }}{% endif %}"
-                      title="Clique para atribuir função">
-                <i class="fas {% if u.funcao %}fa-badge-check{% else %}fa-exclamation-circle{% endif %} text-[10px]"></i>
-                <span class="funcao-label">{% if u.funcao %}{{ u.funcao.nome }}{% else %}Sem função{% endif %}</span>
-                <i class="fas fa-chevron-down text-[8px] opacity-50"></i>
-              </button>
-            </div>
-          {% endif %}
+              <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate flex items-center gap-1.5">
+                {{ u.nome }}
+                {% if u.status == 'Ativo' %}
+                <span class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Activo"></span>
+                {% else %}
+                <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" title="{{ u.status }}"></span>
+                {% endif %}
+              </h3>
+              <span class="text-xs font-medium
+                {% if u.papel == 'Administrador' %}text-purple-500
+                {% elif u.papel == 'Despachante Oficial' %}text-blue-500
+                {% elif u.papel == 'Colaborador Institucional' %}text-green-600 dark:text-green-400
+                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}text-indigo-500
+                {% else %}text-gray-400{% endif %}">
+                {% if u.papel == 'Visualizador' and u.cargo_personalizado %}
+                  {{ u.cargo_personalizado }}
+                {% else %}
+                  {{ u.papel }}
+                {% endif %}
+              </span>
             </div>
           </div>
         </div>
 
-        <div class="flex items-center gap-1.5 flex-wrap border-t border-gray-100 dark:border-gray-800 pt-2 mt-1">
-          <a href="{% url 'governanca_utilizador_editar' u.id %}"
-             class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-             title="Editar">
-            <i class="fas fa-edit text-xs"></i>
-          </a>
-          <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
-                  data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
-            <i class="fas fa-envelope text-xs"></i>
-          </button>
-          <button class="btn-toggle-status w-8 h-8 flex items-center justify-center {% if u.status == 'Ativo' %}text-red-500 hover:bg-red-50{% else %}text-green-500 hover:bg-green-50{% endif %} rounded-lg transition-colors cursor-pointer bg-transparent border-none"
-                  data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Ativar{% endif %}">
-            <i class="fas {% if u.status == 'Ativo' %}fa-ban{% else %}fa-check{% endif %} text-xs"></i>
-          </button>
-          <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
-                  data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" title="Eliminar">
-            <i class="fas fa-trash-alt text-xs"></i>
-          </button>
+        <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1 mb-3">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-envelope w-3.5 text-center text-gray-400"></i>
+            <span class="truncate">{{ u.email }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fas fa-phone w-3.5 text-center text-gray-400"></i>
+            <span>{{ u.telefone|default:'—' }}</span>
+          </div>
+        </div>
+
+        {% if u.papel == 'Despachante Oficial' %}
+        <div class="mb-3 space-y-1">
+          {% if u.bancas_total > 0 %}
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <i class="fas fa-store text-primary/60 text-[10px]"></i>
+              <span>{{ u.bancas_total }} banca{{ u.bancas_total|pluralize:"s" }}</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              {% for b in u.bancas_list|slice:":3" %}
+              <a href="{% url 'admin_banca_detalhe' b.id %}"
+                 class="text-xs px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                {{ b.nome|truncatechars:20 }}
+              </a>
+              {% endfor %}
+              {% if u.bancas_total > 3 %}
+              <span class="text-xs text-gray-400 self-center">+{{ u.bancas_total|add:"-3" }}</span>
+              {% endif %}
+            </div>
+          {% else %}
+            <span class="text-xs text-gray-400 dark:text-gray-500 italic">
+              <i class="fas fa-store text-[10px] mr-1"></i>Sem banca associada
+            </span>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if u.papel == 'Colaborador Institucional' %}
+        <div class="mb-3">
+          <select class="select-atribuir-funcao w-full px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer
+                    {% if u.funcao %}
+                      bg-primary/5 border-primary/20 text-primary
+                    {% else %}
+                      bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400
+                    {% endif %}"
+                  data-usuario-id="{{ u.id }}"
+                  data-usuario-nome="{{ u.nome }}"
+                  data-funcao-atual="{{ u.funcao_id|default:'' }}">
+            <option value="" {% if not u.funcao %}selected{% endif %}>Sem função</option>
+            {% for f in funcoes %}
+            <option value="{{ f.id }}" {% if u.funcao_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <div class="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3">
+          <span class="text-xs text-gray-400 dark:text-gray-500">
+            <i class="far fa-clock mr-1"></i>
+            {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y" }}{% else %}Nunca acedeu{% endif %}
+          </span>
+          <div class="flex items-center gap-1">
+            <a href="{% url 'governanca_utilizador_editar' u.id %}"
+               class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-all hover:scale-110"
+               title="Editar">
+              <i class="fas fa-pen text-xs"></i>
+            </a>
+            <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:scale-110"
+                    data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
+              <i class="fas fa-paper-plane text-xs"></i>
+            </button>
+            <button class="btn-toggle-status w-8 h-8 flex items-center justify-center {% if u.status == 'Ativo' %}text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30{% else %}text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30{% endif %} rounded-lg transition-all cursor-pointer border-none hover:scale-110"
+                    data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
+              <i class="fas {% if u.status == 'Ativo' %}fa-user-lock{% else %}fa-unlock{% endif %} text-xs"></i>
+            </button>
+            <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:scale-110"
+                    data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" title="Eliminar">
+              <i class="fas fa-trash-alt text-xs"></i>
+            </button>
+          </div>
         </div>
       </div>
       {% empty %}
-      <div class="col-span-full text-center py-16 text-gray-400">
-        <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-          <i class="fas fa-users text-3xl text-gray-300 dark:text-gray-600"></i>
+      <div class="col-span-full text-center py-16">
+        <div class="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600"></i>
         </div>
-        <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum utilizador encontrado</p>
+        <h3 class="text-gray-700 dark:text-gray-300 font-semibold text-lg mb-1">Nenhum utilizador encontrado</h3>
+        <p class="text-gray-400 dark:text-gray-500 text-sm">
+          {% if q or tipo %}
+            Nenhum resultado para a sua pesquisa.
+          {% else %}
+            Ainda não existem utilizadores registados.
+          {% endif %}
+        </p>
+        {% if q or tipo %}
+        <a href="?" class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/20 transition-all">
+          <i class="fas fa-undo"></i> Limpar filtros
+        </a>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
 
     <div id="view-table" data-list-view class="hidden overflow-x-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
       <table class="w-full text-sm">
-        <thead class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-          <tr>
-            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Nome</th>
-            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Email</th>
-            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Papel</th>
-            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Função</th>
-            <th class="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Contacto</th>
-            <th class="text-center px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Status</th>
-            <th class="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Acções</th>
+        <thead>
+          <tr class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+            <th class="text-left px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Utilizador</th>
+            <th class="text-left px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Perfil</th>
+            <th class="text-left px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">{% if tipo == 'Despachante Oficial' %}Banca{% else %}Função{% endif %}</th>
+            <th class="text-left px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Contacto</th>
+            <th class="text-center px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Estado</th>
+            <th class="text-center px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Último Acesso</th>
+            <th class="text-right px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Acções</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
           {% for u in utilizadores %}
           <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
             <td class="px-4 py-3">
-              <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <i class="fas fa-user text-xs text-primary"></i>
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg {% if u.status == 'Ativo' %}
+                  {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20
+                  {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20
+                  {% elif u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20
+                  {% else %}bg-indigo-50 dark:bg-indigo-900/20{% endif %}
+                {% else %}bg-gray-100 dark:bg-gray-800{% endif %} flex items-center justify-center shrink-0">
+                  {% if u.papel == 'Despachante Oficial' %}
+                    <i class="fas fa-briefcase {% if u.status == 'Ativo' %}text-blue-600 dark:text-blue-400{% else %}text-gray-400{% endif %} text-sm"></i>
+                  {% elif u.papel == 'Colaborador Institucional' %}
+                    <i class="fas fa-building {% if u.status == 'Ativo' %}text-green-600 dark:text-green-400{% else %}text-gray-400{% endif %} text-sm"></i>
+                  {% elif u.papel == 'Administrador' %}
+                    <i class="fas fa-crown {% if u.status == 'Ativo' %}text-purple-600 dark:text-purple-400{% else %}text-gray-400{% endif %} text-sm"></i>
+                  {% else %}
+                    <i class="fas fa-eye {% if u.status == 'Ativo' %}text-indigo-600 dark:text-indigo-400{% else %}text-gray-400{% endif %} text-sm"></i>
+                  {% endif %}
                 </div>
-                <span class="font-medium text-[#111418] dark:text-white truncate max-w-[180px]">{{ u.nome }}</span>
+                <div>
+                  <span class="font-medium text-[#111418] dark:text-white text-sm">{{ u.nome }}</span>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ u.email }}</p>
+                </div>
               </div>
             </td>
-            <td class="px-4 py-3 text-gray-600 dark:text-gray-400 truncate max-w-[200px]">{{ u.email }}</td>
             <td class="px-4 py-3">
-              <span class="text-xs font-medium
-                {% if u.papel == 'Administrador' %}text-purple-500
-                {% elif u.papel == 'Despachante Oficial' %}text-blue-500
-                {% elif u.papel == 'Colaborador Institucional' %}text-green-600
-                {% elif u.papel == 'Gestor Financeiro' %}text-amber-600
-                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}text-indigo-500
-                {% else %}text-gray-400{% endif %}">
+              <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full
+                {% if u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300
+                {% elif u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300
+                {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300
+                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300
+                {% else %}bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400{% endif %}">
+                {% if u.papel == 'Administrador' %}<i class="fas fa-crown text-[10px]"></i>
+                {% elif u.papel == 'Despachante Oficial' %}<i class="fas fa-briefcase text-[10px]"></i>
+                {% elif u.papel == 'Colaborador Institucional' %}<i class="fas fa-building text-[10px]"></i>
+                {% elif u.papel == 'Visualizador' %}<i class="fas fa-eye text-[10px]"></i>
+                {% endif %}
                 {% if u.papel == 'Visualizador' and u.cargo_personalizado %}{{ u.cargo_personalizado }}{% else %}{{ u.papel }}{% endif %}
               </span>
             </td>
-            <td class="px-4 py-3 text-xs">
-              {% if u.papel == 'Colaborador Institucional' %}
-              <button type="button"
-                      class="btn-atribuir-funcao inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all duration-150 cursor-pointer border-0
+            <td class="px-4 py-3">
+              {% if u.papel == 'Despachante Oficial' %}
+                {% if u.bancas_total > 0 %}
+                <div class="flex flex-wrap gap-1">
+                  {% for b in u.bancas_list|slice:":2" %}
+                  <a href="{% url 'admin_banca_detalhe' b.id %}"
+                     class="text-xs px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors whitespace-nowrap">
+                    {{ b.nome|truncatechars:15 }}
+                  </a>
+                  {% endfor %}
+                  {% if u.bancas_total > 2 %}
+                  <span class="text-xs text-gray-400 self-center">+{{ u.bancas_total|add:"-2" }}</span>
+                  {% endif %}
+                </div>
+                {% else %}
+                <span class="text-gray-300 dark:text-gray-600 text-xs italic">Sem banca</span>
+                {% endif %}
+              {% elif u.papel == 'Colaborador Institucional' %}
+              <select class="select-atribuir-funcao px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer max-w-[140px]
                         {% if u.funcao %}
-                          bg-primary/10 text-primary hover:bg-primary/15
+                          bg-primary/5 border-primary/20 text-primary
                         {% else %}
-                          bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30
+                          bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400
                         {% endif %}"
                       data-usuario-id="{{ u.id }}"
                       data-usuario-nome="{{ u.nome }}"
-                      data-funcao-id="{{ u.funcao_id|default:'' }}"
-                      data-funcao-nome="{% if u.funcao %}{{ u.funcao.nome }}{% endif %}"
-                      title="Clique para atribuir função">
-                <i class="fas {% if u.funcao %}fa-badge-check{% else %}fa-exclamation-circle{% endif %} text-[10px]"></i>
-                <span class="funcao-label">{% if u.funcao %}{{ u.funcao.nome }}{% else %}Sem função{% endif %}</span>
-                <i class="fas fa-chevron-down text-[8px] opacity-50 ml-0.5"></i>
-              </button>
+                      data-funcao-atual="{{ u.funcao_id|default:'' }}">
+                <option value="" {% if not u.funcao %}selected{% endif %}>Sem função</option>
+                {% for f in funcoes %}
+                <option value="{{ f.id }}" {% if u.funcao_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
+                {% endfor %}
+              </select>
               {% else %}
-              <span class="text-gray-400">—</span>
+              <span class="text-gray-300 dark:text-gray-600 text-xs">—</span>
               {% endif %}
             </td>
             <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{{ u.telefone|default:'—' }}</td>
             <td class="px-4 py-3 text-center">
               {% if u.status == 'Ativo' %}
-              <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
-                <i class="fas fa-circle text-[6px]"></i> Ativo
+              <span class="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Activo
               </span>
               {% else %}
-              <span class="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
-                <i class="fas fa-circle text-[6px]"></i> {{ u.status }}
+              <span class="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-2.5 py-1 rounded-full">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> {{ u.status }}
               </span>
               {% endif %}
+            </td>
+            <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">
+              {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y H:i" }}{% else %}<span class="text-gray-300 dark:text-gray-600">Nunca</span>{% endif %}
             </td>
             <td class="px-4 py-3 text-right">
               <div class="flex items-center justify-end gap-1">
                 <a href="{% url 'governanca_utilizador_editar' u.id %}"
-                   class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                   class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-all hover:scale-110"
                    title="Editar">
-                  <i class="fas fa-edit text-xs"></i>
+                  <i class="fas fa-pen text-xs"></i>
                 </a>
-                <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+                <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:scale-110"
                         data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
-                  <i class="fas fa-envelope text-xs"></i>
+                  <i class="fas fa-paper-plane text-xs"></i>
                 </button>
-                <button class="btn-toggle-status w-8 h-8 flex items-center justify-center {% if u.status == 'Ativo' %}text-red-500 hover:bg-red-50{% else %}text-green-500 hover:bg-green-50{% endif %} rounded-lg transition-colors cursor-pointer bg-transparent border-none"
-                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Ativar{% endif %}">
-                  <i class="fas {% if u.status == 'Ativo' %}fa-ban{% else %}fa-check{% endif %} text-xs"></i>
+                <button class="btn-toggle-status w-8 h-8 flex items-center justify-center {% if u.status == 'Ativo' %}text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30{% else %}text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30{% endif %} rounded-lg transition-all cursor-pointer border-none hover:scale-110"
+                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
+                  <i class="fas {% if u.status == 'Ativo' %}fa-user-lock{% else %}fa-unlock{% endif %} text-xs"></i>
                 </button>
-                <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
+                <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:scale-110"
                         data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" title="Eliminar">
                   <i class="fas fa-trash-alt text-xs"></i>
                 </button>
@@ -252,7 +392,8 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="6" class="text-center py-12 text-gray-400">
+            <td colspan="7" class="text-center py-16 text-gray-400">
+              <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600 block mb-2"></i>
               <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum utilizador encontrado</p>
             </td>
           </tr>
@@ -273,66 +414,6 @@
 
 {% include 'includes/confirm-modal.html' %}
 
-{# ── Modal de Atribuição de Função ──────────────────────────────────────── #}
-<div id="funcao-modal" class="fixed inset-0 z-[200] hidden flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-all duration-200">
-  <div id="funcao-modal-content" class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col transform transition-all duration-200">
-    <div class="px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="text-base font-bold text-[#111418] dark:text-gray-200">
-            <i class="fas fa-badge-check text-primary mr-1.5"></i>Atribuir Função
-          </h3>
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Colaborador: <strong id="funcao-modal-usuario-nome" class="text-gray-800 dark:text-gray-200"></strong>
-          </p>
-        </div>
-        <button type="button" id="funcao-modal-close" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer bg-transparent border-0">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    </div>
-    <div id="funcao-modal-lista" class="flex-1 overflow-y-auto px-6 py-3 space-y-2 min-h-0">
-      {% for f in funcoes %}
-      <button type="button"
-              class="funcao-opcao w-full text-left px-4 py-3 rounded-xl border-2 transition-all duration-150 cursor-pointer flex items-center gap-3 hover:border-primary/40 hover:bg-primary/[0.03]"
-              data-funcao-id="{{ f.id }}"
-              data-funcao-nome="{{ f.nome }}"
-              data-permissoes-count="{{ f.permissoes.count }}">
-        <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <i class="fas fa-shield-alt text-primary text-sm"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-semibold text-[#111418] dark:text-gray-200">{{ f.nome }}</div>
-          <div class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ f.descricao|default:'Sem descrição' }}</div>
-        </div>
-        <div class="shrink-0 flex items-center gap-2">
-          <span class="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full font-medium">
-            {{ f.permissoes.count }} permissão{{ f.permissoes.count|pluralize:'ões' }}
-          </span>
-          <div class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center funcao-check hidden">
-            <i class="fas fa-check text-[10px] text-white"></i>
-          </div>
-        </div>
-      </button>
-      {% empty %}
-      <div class="text-center py-8 text-gray-400">
-        <i class="fas fa-shield-slash text-3xl block mb-2 text-gray-300"></i>
-        <p class="text-sm">Nenhuma função disponível.</p>
-        <p class="text-xs mt-1">Crie funções primeiro em <a href="{% url 'funcoes_lista' %}" class="text-primary underline">Gestão de Funções</a>.</p>
-      </div>
-      {% endfor %}
-    </div>
-    <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-800 shrink-0 flex items-center justify-between">
-      <button type="button" id="funcao-modal-remover"
-              class="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors border-0 cursor-pointer hidden"
-              title="Remover função do colaborador">
-        <i class="fas fa-trash-alt mr-1"></i> Remover função
-      </button>
-      <span class="text-xs text-gray-400"><i class="fas fa-info-circle mr-1"></i>Cada colaborador pode ter apenas uma função</span>
-    </div>
-  </div>
-</div>
-
 <script>
 (function() {
   const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
@@ -341,222 +422,62 @@
   const apiAtribuirFuncao = '{% url "governanca_api_utilizador_atribuir_funcao" %}';
   const apiEliminar = '{% url "governanca_api_utilizador_eliminar" %}';
 
-  // ── Dados das funções (do template) ────────────────────────────────────
   var funcoesData = {};
   {% for f in funcoes %}
   funcoesData[{{ f.id }}] = { id: {{ f.id }}, nome: '{{ f.nome|escapejs }}', permissoes_count: {{ f.permissoes.count }} };
   {% endfor %}
 
-  // ── Modal elements ─────────────────────────────────────────────────────
-  const modal = document.getElementById('funcao-modal');
-  const modalNome = document.getElementById('funcao-modal-usuario-nome');
-  const modalLista = document.getElementById('funcao-modal-lista');
-  const modalClose = document.getElementById('funcao-modal-close');
-  const modalRemover = document.getElementById('funcao-modal-remover');
-  let modalUsuarioId = null;
-  let modalFuncaoAtual = null;
-  let modalFuncaoBtn = null; // the button that opened the modal
-  let modalCloseTimer = null; // tracks the close animation timeout
+  document.querySelectorAll('.select-atribuir-funcao').forEach(function(sel) {
+    sel.addEventListener('change', async function() {
+      var usuarioId = parseInt(this.dataset.usuarioId);
+      var usuarioNome = this.dataset.usuarioNome;
+      var funcaoId = this.value || null;
+      var funcaoNome = funcaoId ? (funcoesData[funcaoId]?.nome || '') : null;
 
-  // ── Open modal ─────────────────────────────────────────────────────────
-  function openFuncaoModal(btn) {
-    // Cancel any pending close animation
-    if (modalCloseTimer) {
-      clearTimeout(modalCloseTimer);
-      modalCloseTimer = null;
-    }
+      if (funcaoId && funcaoId === this.dataset.funcaoAtual) return;
 
-    modalUsuarioId = parseInt(btn.dataset.usuarioId);
-    modalFuncaoAtual = btn.dataset.funcaoId || null;
-    modalFuncaoBtn = btn;
-    modalNome.textContent = btn.dataset.usuarioNome;
-
-    // Reset all options
-    modalLista.querySelectorAll('.funcao-opcao').forEach(function(opt) {
-      opt.classList.remove('border-primary', 'bg-primary/[0.06]');
-      opt.classList.add('border-gray-200', 'dark:border-gray-700');
-      var check = opt.querySelector('.funcao-check');
-      check.classList.add('hidden');
-      check.classList.remove('bg-primary');
-    });
-
-    // Highlight current
-    if (modalFuncaoAtual) {
-      var selected = modalLista.querySelector('.funcao-opcao[data-funcao-id="' + modalFuncaoAtual + '"]');
-      if (selected) {
-        selected.classList.remove('border-gray-200', 'dark:border-gray-700');
-        selected.classList.add('border-primary', 'bg-primary/[0.06]');
-        var check = selected.querySelector('.funcao-check');
-        check.classList.remove('hidden');
-        check.classList.add('bg-primary');
-      }
-    }
-
-    // Show/hide remove button
-    if (modalFuncaoAtual) {
-      modalRemover.classList.remove('hidden');
-    } else {
-      modalRemover.classList.add('hidden');
-    }
-
-    // Animate in — set initial invisible state BEFORE showing, force reflow, then transition
-    var content = document.getElementById('funcao-modal-content');
-    content.style.transform = 'scale(0.95)';
-    content.style.opacity = '0';
-    modal.classList.remove('hidden');
-    void content.offsetHeight;  // force reflow so the browser registers the initial computed values
-    content.style.transform = 'scale(1)';
-    content.style.opacity = '1';
-
-    // Focus first option for keyboard nav; scroll to selected if exists
-    var focusTarget = null;
-    if (modalFuncaoAtual) {
-      focusTarget = modalLista.querySelector('.funcao-opcao[data-funcao-id="' + modalFuncaoAtual + '"]');
-      if (focusTarget) {
-        setTimeout(function() { focusTarget.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 100);
-      }
-    }
-    setTimeout(function() {
-      (focusTarget || modalLista.querySelector('.funcao-opcao'))?.focus();
-    }, 200);
-  }
-
-  // ── Close modal ────────────────────────────────────────────────────────
-  function closeFuncaoModal() {
-    if (modalCloseTimer) return;  // already animating out
-    var content = document.getElementById('funcao-modal-content');
-    if (!content) return;
-    content.style.transform = 'scale(0.95)';
-    content.style.opacity = '0';
-    modal.style.opacity = '0';
-    modalCloseTimer = setTimeout(function() {
-      modal.classList.add('hidden');
-      // Reset inline styles for next open
-      content.style.transform = '';
-      content.style.opacity = '';
-      modal.style.opacity = '';
-      modalCloseTimer = null;
-    }, 200);
-  }
-
-  // ── Escape key to close ────────────────────────────────────────────────
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-      closeFuncaoModal();
-    }
-  });
-
-  modalClose.addEventListener('click', closeFuncaoModal);
-  modal.addEventListener('click', function(e) {
-    if (e.target === modal) closeFuncaoModal();
-  });
-
-  // ── Select function option ─────────────────────────────────────────────
-  modalLista.querySelectorAll('.funcao-opcao').forEach(function(opt) {
-    opt.addEventListener('click', function() {
-      if (!modalUsuarioId) return;
-      var funcaoId = this.dataset.funcaoId;
-      var funcaoNome = this.dataset.funcaoNome;
-
-      // If clicking the already selected one, do nothing
-      if (funcaoId === modalFuncaoAtual) {
-        closeFuncaoModal();
+      var msg = funcaoId
+        ? 'Atribuir a função "' + funcaoNome + '" a "' + usuarioNome + '"?'
+        : 'Remover a função de "' + usuarioNome + '"? Ele ficará sem acesso ao sistema.';
+      var ok = await showConfirm('Atribuir Função', msg, funcaoId ? 'Atribuir' : 'Remover');
+      if (!ok) {
+        this.value = this.dataset.funcaoAtual || '';
         return;
       }
 
-      // Confirm
-      var msg = modalFuncaoAtual
-        ? 'Tem certeza que deseja alterar a função para "' + funcaoNome + '"?'
-        : 'Atribuir a função "' + funcaoNome + '" a este colaborador?';
-      showConfirm('Atribuir Função', msg, 'Confirmar').then(function(ok) {
-        if (!ok) return;
-        atribuirFuncao(modalUsuarioId, funcaoId, funcaoNome);
-      });
-    });
-  });
-
-  // ── Remove function ────────────────────────────────────────────────────
-  modalRemover.addEventListener('click', function() {
-    if (!modalUsuarioId) return;
-    showConfirm('Remover Função', 'Remover a função deste colaborador? Ele ficará sem acesso ao sistema.', 'Remover').then(function(ok) {
-      if (!ok) return;
-      atribuirFuncao(modalUsuarioId, null, null);
-    });
-  });
-
-  // ── API call ───────────────────────────────────────────────────────────
-  function atribuirFuncao(usuarioId, funcaoId, funcaoNome) {
-    // Show loading state on the trigger button
-    if (modalFuncaoBtn) {
-      modalFuncaoBtn.disabled = true;
-      modalFuncaoBtn.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i><span class="funcao-label">A guardar...</span><i class="fas fa-chevron-down text-[8px] opacity-50"></i>';
-    }
-
-    fetch(apiAtribuirFuncao, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-      body: JSON.stringify({ usuario_id: usuarioId, funcao_id: funcaoId })
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-      if (data.status === 'ok') {
-        closeFuncaoModal();
-        // Update all buttons for this user
-        document.querySelectorAll('.btn-atribuir-funcao[data-usuario-id="' + usuarioId + '"]').forEach(function(btn) {
-          btn.dataset.funcaoId = funcaoId || '';
-          btn.dataset.funcaoNome = funcaoNome || '';
-          var label = btn.querySelector('.funcao-label');
-          if (funcaoId) {
-            label.textContent = funcaoNome;
-            btn.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'text-red-600', 'dark:text-red-400', 'hover:bg-red-100', 'dark:hover:bg-red-900/30');
-            btn.classList.add('bg-primary/10', 'text-primary', 'hover:bg-primary/15', 'shadow-sm');
-            btn.querySelector('i:first-child').className = 'fas fa-badge-check text-[10px]';
-          } else {
-            label.textContent = 'Sem função';
-            btn.classList.remove('bg-primary/10', 'text-primary', 'hover:bg-primary/15', 'shadow-sm');
-            btn.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-600', 'dark:text-red-400', 'hover:bg-red-100', 'dark:hover:bg-red-900/30');
-            btn.querySelector('i:first-child').className = 'fas fa-exclamation-circle text-[10px]';
-          }
-          btn.disabled = false;
+      this.disabled = true;
+      try {
+        var res = await fetch(apiAtribuirFuncao, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({ usuario_id: usuarioId, funcao_id: funcaoId })
         });
-        if (window.toast) {
-          window.toast.success(data.message || 'Função atribuída com sucesso!');
+        var data = await res.json();
+        if (data.status === 'ok') {
+          document.querySelectorAll('.select-atribuir-funcao[data-usuario-id="' + usuarioId + '"]').forEach(function(s) {
+            s.dataset.funcaoAtual = funcaoId || '';
+            s.value = funcaoId || '';
+            if (funcaoId) {
+              s.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
+              s.classList.add('bg-primary/5', 'border-primary/20', 'text-primary');
+            } else {
+              s.classList.remove('bg-primary/5', 'border-primary/20', 'text-primary');
+              s.classList.add('bg-red-50', 'dark:bg-red-900/20', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
+            }
+          });
+          if (window.toast) window.toast.success(data.message || 'Função atribuída com sucesso!');
+        } else {
+          this.value = this.dataset.funcaoAtual || '';
+          if (window.toast) window.toast.error(data.erro || 'Erro ao atribuir função.');
         }
-      } else {
-        if (window.toast) {
-          window.toast.error(data.erro || 'Erro ao atribuir função.');
-        }
-        if (modalFuncaoBtn) {
-          modalFuncaoBtn.disabled = false;
-          var label = modalFuncaoBtn.querySelector('.funcao-label');
-          if (label) label.textContent = modalFuncaoBtn.dataset.funcaoNome || 'Sem função';
-          // Restore spinner to original icon
-          var spinner = modalFuncaoBtn.querySelector('.fa-spinner');
-          if (spinner) {
-            var hasFuncao = !!modalFuncaoBtn.dataset.funcaoId;
-            spinner.className = hasFuncao ? 'fas fa-badge-check text-[10px]' : 'fas fa-exclamation-circle text-[10px]';
-          }
-        }
+      } catch(e) {
+        this.value = this.dataset.funcaoAtual || '';
+        if (window.toast) window.toast.error('Erro de conexão.');
       }
-    })
-    .catch(function() {
-      if (window.toast) {
-        window.toast.error('Erro de conexão ao atribuir função.');
-      }
-      if (modalFuncaoBtn) {
-        modalFuncaoBtn.disabled = false;
-      }
-    });
-  }
-
-  // ── Click handlers on badges ───────────────────────────────────────────
-  document.querySelectorAll('.btn-atribuir-funcao').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      openFuncaoModal(this);
+      this.disabled = false;
     });
   });
 
-  // ── Toggle Status ─────────────────────────────────────────────────────
   document.querySelectorAll('.btn-toggle-status').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       const nome = this.dataset.usuarioNome;
@@ -577,9 +498,6 @@
     });
   });
 
-
-
-  // ── Eliminar Utilizador ──────────────────────────────────────────────
   document.querySelectorAll('.btn-eliminar-usuario').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       const nome = this.dataset.usuarioNome;
@@ -605,7 +523,6 @@
     });
   });
 
-  // ── Reenviar Credenciais ──────────────────────────────────────────────
   document.querySelectorAll('.btn-enviar-credenciais').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       const ok = await showConfirm('Reenviar Credenciais', 'Reenviar credenciais de acesso por email?', 'Enviar');

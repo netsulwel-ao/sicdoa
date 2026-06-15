@@ -41,6 +41,7 @@ urlpatterns = [
     path('colaborador/perfil/', user_views.perfil_view, name='colaborador_perfil'),
     path('colaborador/documentos/', user_views.documentos_view, name='colaborador_documentos'),
     path('colaborador/presenca/', user_views.presenca_view, name='colaborador_presenca'),
+    path('colaborador/processo-salarial/', user_views.processo_salarial_view, name='colaborador_processo_salarial'),
     path('colaborador/salario/', user_views.salario_view, name='colaborador_salario'),
     path('colaborador/historico-salarial/', user_views.historico_salarial_view, name='colaborador_historico_salarial'),
     path('colaborador/ferias/', user_views.ferias_view, name='colaborador_ferias'),
@@ -82,6 +83,9 @@ urlpatterns = [
 
     # Clientes
     path('clientes/', include('clientes.urls')),
+
+    # Utilitários (reporte de erros, etc.)
+    path('utils/', include('utils.error_urls')),
 
     # Financeiro
     path('financeiro/', include('financeiro.urls')),

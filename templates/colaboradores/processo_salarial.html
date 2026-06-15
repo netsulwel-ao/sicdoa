@@ -1,0 +1,54 @@
+{% include 'includes/head.html' %}
+{% include 'colaboradores/sidebar.html' %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'colaboradores/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Processo Salarial</h1>
+        </div>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
+          Gerir o seu processamento salarial
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <a href="{% url 'colaborador_salario' %}"
+         class="group block bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:scale-110 transition-transform">
+            <i class="fas fa-receipt text-blue-600 dark:text-blue-400 text-2xl"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Ver Salário</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              Consulte o seu recibo de vencimento atual e detalhes salariais
+            </p>
+          </div>
+        </div>
+      </a>
+
+      <a href="{% url 'colaborador_historico_salarial' %}"
+         class="group block bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-xl group-hover:scale-110 transition-transform">
+            <i class="fas fa-history text-green-600 dark:text-green-400 text-2xl"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Histórico Salarial</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              Veja todo o seu histórico de recibos de vencimento
+            </p>
+          </div>
+        </div>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}

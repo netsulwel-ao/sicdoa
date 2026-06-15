@@ -151,13 +151,11 @@ function toggleCollapse(headerElement) {
   const icon = headerElement.querySelector('.collapse-icon');
   
   if (card.classList.contains('collapsed')) {
-    // Expandir
     card.classList.remove('collapsed');
-    if (icon) icon.textContent = 'expand_more';
+    if (icon) { icon.classList.remove('fa-chevron-up'); icon.classList.add('fa-chevron-down'); }
   } else {
-    // Colapsar
     card.classList.add('collapsed');
-    if (icon) icon.textContent = 'expand_less';
+    if (icon) { icon.classList.remove('fa-chevron-down'); icon.classList.add('fa-chevron-up'); }
   }
 }
 
@@ -1153,10 +1151,12 @@ function toggleContainerContent(containerId) {
   if (contentDiv && toggleIcon) {
     if (contentDiv.style.display === 'none') {
       contentDiv.style.display = 'block';
-      toggleIcon.textContent = 'expand_less';
+      toggleIcon.classList.remove('fa-chevron-down');
+      toggleIcon.classList.add('fa-chevron-up');
     } else {
       contentDiv.style.display = 'none';
-      toggleIcon.textContent = 'expand_more';
+      toggleIcon.classList.remove('fa-chevron-up');
+      toggleIcon.classList.add('fa-chevron-down');
     }
   }
 }
@@ -1172,25 +1172,25 @@ function toggleContainerList() {
   const containers = containerList.querySelectorAll('.container-item');
   
   if (containersVisible) {
-    // Ocultar todos
     containers.forEach(container => {
       const content = container.querySelector('.container-content');
       if (content) content.style.display = 'none';
       const icon = container.querySelector('.container-toggle-icon');
-      if (icon) icon.textContent = 'expand_more';
+      if (icon) { icon.classList.remove('fa-chevron-up'); icon.classList.add('fa-chevron-down'); }
     });
-    toggleIcon.textContent = 'visibility';
+    toggleIcon.classList.remove('fa-eye-slash');
+    toggleIcon.classList.add('fa-eye');
     toggleBtn.querySelector('span:last-child').textContent = 'Mostrar Todos';
     containersVisible = false;
   } else {
-    // Mostrar todos
     containers.forEach(container => {
       const content = container.querySelector('.container-content');
       if (content) content.style.display = 'block';
       const icon = container.querySelector('.container-toggle-icon');
-      if (icon) icon.textContent = 'expand_less';
+      if (icon) { icon.classList.remove('fa-chevron-down'); icon.classList.add('fa-chevron-up'); }
     });
-    toggleIcon.textContent = 'visibility_off';
+    toggleIcon.classList.remove('fa-eye');
+    toggleIcon.classList.add('fa-eye-slash');
     toggleBtn.querySelector('span:last-child').textContent = 'Ocultar Todos';
     containersVisible = true;
   }
@@ -1874,14 +1874,14 @@ function toggleSidebar() {
   if (!sidebar || !toggleBtn || !toggleIcon) return;
   
   if (sidebar.classList.contains('minimized')) {
-    // Expandir
     sidebar.classList.remove('minimized');
-    toggleIcon.textContent = 'chevron_right';
+    toggleIcon.classList.remove('fa-chevron-left');
+    toggleIcon.classList.add('fa-chevron-right');
     toggleBtn.setAttribute('title', 'Minimizar painel');
   } else {
-    // Minimizar
     sidebar.classList.add('minimized');
-    toggleIcon.textContent = 'chevron_left';
+    toggleIcon.classList.remove('fa-chevron-right');
+    toggleIcon.classList.add('fa-chevron-left');
     toggleBtn.setAttribute('title', 'Expandir painel');
   }
 }

@@ -1,0 +1,204 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>CDOA - Erro no Sistema</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; }
+        body { font-family: 'Public Sans', sans-serif; background: #f6f7f8; overflow-x: hidden; }
+        .bg-pattern { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 0; overflow: hidden; }
+        .bg-circle-1 { position: absolute; top: -120px; right: -80px; width: 350px; height: 350px; background: rgba(0,51,102,0.04); border-radius: 50%; }
+        .bg-circle-2 { position: absolute; bottom: -160px; left: -100px; width: 450px; height: 450px; background: rgba(212,175,55,0.04); border-radius: 50%; }
+        .bg-circle-3 { position: absolute; top: 30%; left: 70%; width: 200px; height: 200px; background: rgba(19,127,236,0.03); border-radius: 50%; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .float-anim { animation: float 3s ease-in-out infinite; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeInUp 0.6s ease-out both; }
+        .fade-in-up-d1 { animation-delay: 0.1s; }
+        .fade-in-up-d2 { animation-delay: 0.3s; }
+        .fade-in-up-d3 { animation-delay: 0.5s; }
+        .card-shine { background: rgba(255,255,255,0.98); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 20px 60px rgba(0,0,0,0.06); }
+        .btn-dark { background: #003366; transition: all 0.25s ease; }
+        .btn-dark:hover { background: #002244; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,51,102,0.2); }
+        .btn-outline { border: 1.5px solid #d1d5db; transition: all 0.25s ease; }
+        .btn-outline:hover { border-color: #9ca3af; background: #f3f4f6; transform: translateY(-2px); }
+        .btn-report { background: #dc2626; transition: all 0.25s ease; }
+        .btn-report:hover { background: #b91c1c; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(220,38,38,0.2); }
+        .traceback-box { background: #1e293b; color: #e2e8f0; border-radius: 0.75rem; font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 0.75rem; line-height: 1.6; overflow-x: auto; white-space: pre; max-height: 400px; overflow-y: auto; }
+        .path-highlight { color: #2563eb; font-weight: 600; }
+        .line-highlight { display: inline-block; background: #dc2626; color: #fff; font-weight: 700; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.375rem; min-width: 2rem; text-align: center; }
+        .detail-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; font-weight: 600; }
+        .detail-value { font-size: 0.85rem; color: #1f2937; font-weight: 500; word-break: break-all; }
+        .toast-report { position: fixed; bottom: 2rem; right: 2rem; z-index: 9999; padding: 1rem 1.5rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); transform: translateY(120%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .toast-report.show { transform: translateY(0); }
+        .toast-report.success { background: #059669; color: #fff; }
+        .toast-report.error { background: #dc2626; color: #fff; }
+        .toast-report.loading { background: #2563eb; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern">
+        <div class="bg-circle-1"></div>
+        <div class="bg-circle-2"></div>
+        <div class="bg-circle-3"></div>
+    </div>
+
+    <div class="relative z-10 flex items-center justify-center min-h-screen p-4 md:p-6">
+        <div class="w-full max-w-2xl mx-auto">
+
+            <div class="text-center fade-in-up mb-5">
+                <h1 class="text-xl md:text-2xl font-bold text-gray-900">CDOA Sistema</h1>
+                <p class="text-xs md:text-sm text-gray-500 font-medium mt-0.5">Câmara dos Despachantes Oficiais de Angola</p>
+            </div>
+
+            <div class="card-shine rounded-2xl p-6 md:p-10 fade-in-up fade-in-up-d1">
+
+                <div class="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 mb-6">
+                    <div class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 float-anim">
+                        <i class="fas fa-exclamation-triangle text-2xl md:text-3xl text-red-500"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md uppercase tracking-wider">{{ error_type }}</span>
+                            <span class="text-xs text-gray-400">na linha</span>
+                            <span class="line-highlight">{{ error_line }}</span>
+                        </div>
+                        <h2 class="text-base md:text-lg font-bold text-gray-800 leading-snug">
+                            {{ error_message|default:"Ocorreu um erro inesperado"|truncatechars:200 }}
+                        </h2>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <p class="detail-label mb-1"><i class="fas fa-file-code mr-1"></i> Ficheiro</p>
+                        <p class="detail-value text-xs md:text-sm break-all">{{ error_file }}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <p class="detail-label mb-1"><i class="fas fa-code mr-1"></i> Função</p>
+                        <p class="detail-value text-xs md:text-sm">{{ error_function }}</p>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <button onclick="toggleTraceback()"
+                            class="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-5 py-3.5 transition-colors text-left">
+                        <span class="text-sm font-semibold text-gray-700">
+                            <i class="fas fa-terminal mr-2 text-gray-400"></i>
+                            Traceback completo
+                        </span>
+                        <i id="tb-chevron" class="fas fa-chevron-down text-gray-400 transition-transform duration-200"></i>
+                    </button>
+                    <div id="traceback-section" class="hidden mt-3">
+                        <div class="traceback-box p-4">{{ traceback|linebreaksbr }}</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                    <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2">
+                        <button onclick="reportarErro()"
+                                class="btn-report inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm">
+                            <i class="fas fa-paper-plane"></i>
+                            Reportar Erro
+                        </button>
+                        <button onclick="location.reload()"
+                                class="btn-outline inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-gray-700 font-semibold text-sm">
+                            <i class="fas fa-redo"></i>
+                            Tentar Novamente
+                        </button>
+                    </div>
+                    <a href="/login/"
+                       class="btn-dark inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-semibold text-sm md:self-auto">
+                        <i class="fas fa-arrow-left"></i>
+                        Voltar ao Início
+                    </a>
+                </div>
+
+            </div>
+
+            <div class="fade-in-up fade-in-up-d3 mt-6 md:mt-8 text-center">
+                <p class="text-xs text-gray-400">
+                    Use o botão <strong>"Reportar Erro"</strong> para enviar automaticamente os detalhes à equipa de desenvolvimento
+                </p>
+                <div class="flex items-center justify-center gap-3 mt-2 text-xs text-gray-400">
+                    <span><i class="far fa-clock mr-1"></i> {% now "Y" %}</span>
+                    <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                    <span>CDOA &mdash; Todos os direitos reservados</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="report-toast" class="toast-report">
+        <span id="toast-icon" class="mr-2"></span>
+        <span id="toast-text"></span>
+    </div>
+
+    <script>
+    var ERROR_DATA = {
+        type: {{ error_type|escapejs }},
+        message: {{ error_message|escapejs }},
+        file: {{ error_file|escapejs }},
+        line: {{ error_line|escapejs }},
+        function: {{ error_function|escapejs }},
+        traceback: {{ traceback|escapejs }}
+    };
+
+    function toggleTraceback() {
+        var section = document.getElementById('traceback-section');
+        var chevron = document.getElementById('tb-chevron');
+        section.classList.toggle('hidden');
+        chevron.style.transform = section.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+
+    function mostrarToast(tipo, mensagem) {
+        var toast = document.getElementById('report-toast');
+        var icon = document.getElementById('toast-icon');
+        var text = document.getElementById('toast-text');
+        toast.className = 'toast-report ' + tipo;
+        icon.textContent = tipo === 'success' ? '\u2713' : tipo === 'loading' ? '\u21bb' : '\u2717';
+        text.textContent = mensagem;
+        toast.classList.add('show');
+        if (tipo !== 'loading') {
+            setTimeout(function() { toast.classList.remove('show'); }, 4000);
+        }
+    }
+
+    function reportarErro() {
+        var btn = event.target.closest('button');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A enviar...';
+        mostrarToast('loading', 'A enviar reporte...');
+
+        fetch('/utils/reportar-erro/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token|default:"" }}' },
+            body: JSON.stringify(ERROR_DATA)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                mostrarToast('success', 'Erro reportado com sucesso \u2014 obrigado!');
+            } else {
+                mostrarToast('error', 'Falha ao reportar: ' + data.message);
+            }
+        })
+        .catch(function(err) {
+            mostrarToast('error', 'Erro de rede ao reportar. Tenta novamente.');
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Reportar Erro';
+        });
+    }
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</body>
+</html>

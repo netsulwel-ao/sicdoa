@@ -1,0 +1,165 @@
+{% load rh_extras %}{% include 'includes/head.html' %}
+{% include 'includes/sidebar.html' %}
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% include 'includes/header.html' %}
+  <main class="p-4 md:p-6 lg:p-8">
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_cargos_lista' %}" class="hover:text-primary">Cargos</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">{% if cargo %}Editar{% else %}Novo{% endif %} Cargo</span>
+    </div>
+
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+          {% if cargo %}Editar Cargo{% else %}Novo Cargo{% endif %}
+        </h1>
+        <p class="text-gray-500 mt-1 text-sm">{{ banca.nome }}</p>
+      </div>
+      <a href="{% url 'rh_cargos_lista' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+    </div>
+
+    <form method="POST" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- Dados do Cargo -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-id-badge text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Informações do Cargo</h2>
+        </div>
+        <div class="p-6 space-y-5">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome do Cargo <span class="text-red-500">*</span></label>
+            <input type="text" name="nome" required value="{{ cargo.nome|default:'' }}" placeholder="Ex: Gestor Operacional"
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Descrição (opcional)</label>
+            <textarea name="descricao" rows="3" placeholder="Descreva as responsabilidades deste cargo..."
+                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">{{ cargo.descricao|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Permissões -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-lock text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Permissões</h2>
+        </div>
+        <div class="p-6">
+          {% if grupos %}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for grupo in grupos %}
+
+              {% if grupo.header.codigo == 'admin_banca' %}
+              <!-- Administrador da Banca - select all -->
+              <div class="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800 col-span-1 md:col-span-2">
+                <label class="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-amber-100/50 dark:hover:bg-amber-800/20 transition-colors">
+                  <input type="checkbox" name="permissoes" value="admin_banca"
+                         class="mt-0.5 size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500/30"
+                         id="chk-admin-banca"
+                         {% if cargo and grupo.header.pk in permissoes_ids %}checked{% endif %}>
+                  <div>
+                    <span class="text-sm font-bold text-gray-900 dark:text-gray-100">Administrador da Banca</span>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Administrar a banca do despachante (Acesso total a todos os módulos do despachante)</p>
+                  </div>
+                </label>
+              </div>
+
+              {% elif grupo.items|length == 1 and grupo.header.codigo == grupo.items.0.codigo %}
+              <!-- Single permission group (Colaborador, Administração) -->
+              <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
+                <label class="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors">
+                  <input type="checkbox" name="permissoes" value="{{ grupo.header.codigo }}"
+                         class="mt-0.5 size-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                         {% if cargo and grupo.header.pk in permissoes_ids %}checked{% endif %}>
+                  <div>
+                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ grupo.nome }}</span>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ grupo.header.nome }}</p>
+                  </div>
+                </label>
+              </div>
+
+              {% else %}
+              <!-- Group with sub-items (Gestão Aduaneira, RH, Financeiro) -->
+              <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
+                <label class="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors mb-1 border-b border-gray-200 dark:border-gray-700 pb-2">
+                  <input type="checkbox" name="permissoes" value="{{ grupo.header.codigo }}"
+                         class="mt-0.5 size-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                         data-header="{{ grupo.header.codigo }}"
+                         {% if cargo and grupo.header.pk in permissoes_ids %}checked{% endif %}>
+                  <div>
+                    <span class="text-sm font-bold text-gray-900 dark:text-gray-100">{{ grupo.nome }}</span>
+                    {% if grupo.header.descricao %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ grupo.header.descricao }}</p>
+                    {% endif %}
+                  </div>
+                </label>
+                <div class="ml-5 space-y-0.5">
+                  {% for perm in grupo.items %}
+                  <label class="flex items-start gap-3 p-1.5 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors">
+                    <input type="checkbox" name="permissoes" value="{{ perm.codigo }}"
+                           class="mt-0.5 size-3.5 rounded border-gray-300 text-primary focus:ring-primary/30"
+                           data-sub="{{ grupo.header.codigo }}"
+                           {% if cargo and perm.pk in permissoes_ids %}checked{% endif %}>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ perm.nome }}</span>
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-400 italic">Nenhuma permissão disponível.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button type="submit"
+                class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm">
+          <i class="fas fa-save"></i>{% if cargo %}Guardar Alterações{% else %}Criar Cargo{% endif %}
+        </button>
+        <a href="{% url 'rh_cargos_lista' %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+          Cancelar
+        </a>
+      </div>
+    </form>
+
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Toggle sub-items when header checkbox changes
+  document.querySelectorAll('input[data-header]').forEach(function(chk) {
+    chk.addEventListener('change', function() {
+      var subs = document.querySelectorAll('input[data-sub="' + chk.value + '"]');
+      subs.forEach(function(cb) { cb.checked = chk.checked; });
+    });
+  });
+
+  // admin_banca = select all
+  var chkAdminBanca = document.getElementById('chk-admin-banca');
+  if (chkAdminBanca) {
+    chkAdminBanca.addEventListener('change', function() {
+      document.querySelectorAll('input[name="permissoes"]').forEach(function(cb) {
+        if (cb !== chkAdminBanca) cb.checked = chkAdminBanca.checked;
+      });
+    });
+  }
+});
+</script>
+
+{% include 'includes/footer.html' %}

@@ -165,66 +165,6 @@ Equipa SICDOA
     return _enviar(assunto, texto, html, colaborador.email)
 
 
-# ─── Recrutamento ─────────────────────────────────────────────────────────────
-
-def enviar_confirmacao_candidatura(candidatura):
-    """Envia confirmação de recepção da candidatura ao candidato."""
-    if not candidatura.email:
-        return False, "Candidato não possui email"
-
-    link_vaga = _url_vaga(candidatura.vaga)
-    assunto = f"Candidatura recebida — {candidatura.vaga.titulo}"
-    texto = f"""Prezado(a) {candidatura.nome},
-
-A sua candidatura para a vaga "{candidatura.vaga.titulo}" foi recebida com sucesso.
-
-Iremos analisar o seu perfil e entraremos em contacto brevemente.
-
-Pode consultar os detalhes da vaga em: {link_vaga}
-
-Atenciosamente,
-Equipa de Recrutamento — SICDOA
-"""
-    html = f"""
-<!DOCTYPE html><html lang="pt">
-<body style="margin:0;padding:0;background:#f6f7f8;font-family:'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0">
-  <tr><td align="center" style="padding:40px 20px;">
-    <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-      <tr><td style="background:linear-gradient(135deg,#137fec,#0ea5e9);padding:32px 40px;">
-        <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">CDOA Sistema</h1>
-        <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:14px;">Candidatura Recebida</p>
-      </td></tr>
-      <tr><td style="padding:36px 40px;">
-        <p style="margin:0 0 16px;color:#374151;font-size:15px;">Prezado(a) <strong>{candidatura.nome}</strong>,</p>
-        <p style="margin:0 0 20px;color:#6b7280;font-size:14px;line-height:1.6;">
-          A sua candidatura para a vaga abaixo foi recebida com sucesso. Iremos analisar o seu perfil e entraremos em contacto brevemente.
-        </p>
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:24px;">
-          <tr><td style="padding:20px 24px;">
-            <p style="margin:0 0 6px;font-size:13px;color:#15803d;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Vaga</p>
-            <p style="margin:0;font-size:16px;font-weight:700;color:#111827;">{candidatura.vaga.titulo}</p>
-            {f'<p style="margin:4px 0 0;font-size:13px;color:#6b7280;">{candidatura.vaga.departamento}</p>' if candidatura.vaga.departamento else ''}
-          </td></tr>
-        </table>
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-          <tr><td align="center">
-            <a href="{link_vaga}" style="display:inline-block;background:#137fec;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;">
-              Ver detalhes da vaga
-            </a>
-          </td></tr>
-        </table>
-      </td></tr>
-      <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
-        <p style="margin:0;color:#9ca3af;font-size:12px;">© 2026 CDOA Sistema · Câmara dos Despachantes Oficiais de Angola</p>
-      </td></tr>
-    </table>
-  </td></tr>
-</table>
-</body></html>
-"""
-    return _enviar(assunto, texto, html, candidatura.email)
-
 
 def enviar_convocatoria_entrevista(entrevista):
     """Envia convocatória de entrevista ao candidato."""

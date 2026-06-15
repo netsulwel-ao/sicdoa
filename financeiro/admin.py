@@ -1,19 +1,19 @@
 from django.contrib import admin, messages
-from .models import RequisicaoFundo
+from .models import RequisicaoFundo, FluxoAprovacao, NivelAprovacao, AprovacaoRequisicao
 
 
-ADMIN_GF = ('Administrador', 'Gestor Financeiro')
+ADMIN = ('Administrador',)
 
 
 def _pode_aprovar(request):
     papel = getattr(request.user, 'papel', '')
-    return papel in ADMIN_GF
+    return papel in ADMIN
 
 
 @admin.action(description='Aprovar requisições seleccionadas')
 def aprovar_requicoes(modeladmin, request, queryset):
     if not _pode_aprovar(request):
-        messages.error(request, 'Apenas Administrador ou Gestor Financeiro pode aprovar.')
+        messages.error(request, 'Apenas Administrador pode aprovar.')
         return
     count = 0
     for obj in queryset.filter(estado__in=('Pendente', 'Em Aprovação')):
@@ -28,7 +28,7 @@ def aprovar_requicoes(modeladmin, request, queryset):
 @admin.action(description='Rejeitar requisições seleccionadas')
 def rejeitar_requicoes(modeladmin, request, queryset):
     if not _pode_aprovar(request):
-        messages.error(request, 'Apenas Administrador ou Gestor Financeiro pode rejeitar.')
+        messages.error(request, 'Apenas Administrador pode rejeitar.')
         return
     count = 0
     for obj in queryset.filter(estado__in=('Pendente', 'Em Aprovação')):
@@ -43,7 +43,7 @@ def rejeitar_requicoes(modeladmin, request, queryset):
 @admin.action(description='Cancelar requisições seleccionadas')
 def cancelar_requicoes(modeladmin, request, queryset):
     if not _pode_aprovar(request):
-        messages.error(request, 'Apenas Administrador ou Gestor Financeiro pode cancelar.')
+        messages.error(request, 'Apenas Administrador pode cancelar.')
         return
     count = 0
     for obj in queryset.filter(estado__in=('Pendente', 'Em Aprovação')):
@@ -87,3 +87,23 @@ class RequisicaoFundoAdmin(admin.ModelAdmin):
         if not _pode_aprovar(request):
             return {}
         return actions
+
+
+@admin.register(FluxoAprovacao)
+class FluxoAprovacaoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'ativo', 'criado_em', 'criado_por')
+    list_filter = ('ativo',)
+    search_fields = ('nome',)
+
+
+@admin.register(NivelAprovacao)
+class NivelAprovacaoAdmin(admin.ModelAdmin):
+    list_display = ('fluxo', 'ordem', 'nome', 'funcao', 'qtde_aprovadores')
+    list_filter = ('fluxo',)
+    ordering = ('fluxo', 'ordem')
+
+
+@admin.register(AprovacaoRequisicao)
+class AprovacaoRequisicaoAdmin(admin.ModelAdmin):
+    list_display = ('requisicao', 'nivel', 'aprovador', 'estado', 'created_at')
+    list_filter = ('estado',)

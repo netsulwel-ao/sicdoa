@@ -1,12 +1,12 @@
+import uuid
+from decimal import Decimal
 from django.db import models
 
 
 class Usuario(models.Model):
     PAPEIS = [
         ('Administrador', 'Administrador'),
-        ('Gestor Financeiro', 'Gestor Financeiro'),
         ('Despachante Oficial', 'Despachante Oficial'),
-        ('Operador', 'Operador'),
         ('Colaborador Institucional', 'Colaborador Institucional'),
         ('Visualizador', 'Visualizador'),
     ]
@@ -59,14 +59,13 @@ class Usuario(models.Model):
             return False
         if self.is_superuser:
             return True
-        if self.papel not in ('Administrador', 'Gestor Financeiro'):
+        if self.papel != 'Administrador':
             return False
         perms_ok = {
             'financeiro.view_requisicaofundo',
             'financeiro.change_requisicaofundo',
+            'financeiro.delete_requisicaofundo',
         }
-        if self.papel == 'Administrador':
-            perms_ok.add('financeiro.delete_requisicaofundo')
         return perm in perms_ok
 
     def has_module_perms(self, app_label):
@@ -74,7 +73,7 @@ class Usuario(models.Model):
             return False
         if self.is_superuser:
             return True
-        if self.papel not in ('Administrador', 'Gestor Financeiro'):
+        if self.papel != 'Administrador':
             return False
         return app_label == 'financeiro'
 
@@ -90,10 +89,10 @@ class Usuario(models.Model):
         if self.is_superuser:
             return {'financeiro.view_requisicaofundo', 'financeiro.change_requisicaofundo',
                     'financeiro.delete_requisicaofundo'}
-        base = {'financeiro.view_requisicaofundo', 'financeiro.change_requisicaofundo',
-                'financeiro.delete_requisicaofundo' if self.papel == 'Administrador' else '',
-               }
-        return {p for p in base if p}
+        if self.papel == 'Administrador':
+            return {'financeiro.view_requisicaofundo', 'financeiro.change_requisicaofundo',
+                    'financeiro.delete_requisicaofundo'}
+        return set()
 
     def get_user_permissions(self, obj=None):
         return set()
@@ -358,15 +357,6 @@ class AvaliacaoInstitucional(models.Model):
         verbose_name = 'Avaliação Institucional'
         verbose_name_plural = 'Avaliações Institucionais'
 
-    @property
-    def classificacao(self):
-        n = float(self.nota_global)
-        if n >= 4.5: return ('Excelente', 'green')
-        if n >= 3.5: return ('Bom', 'blue')
-        if n >= 2.5: return ('Satisfatório', 'amber')
-        return ('Necessita Melhoria', 'red')
-
-
 class ProcessamentoSalarialInstitucional(models.Model):
     ESTADOS = [
         ('Rascunho', 'Rascunho'),
@@ -379,6 +369,18 @@ class ProcessamentoSalarialInstitucional(models.Model):
     criado_em = models.DateTimeField(auto_now_add=True)
     processado_em = models.DateTimeField(null=True, blank=True)
     pdf_gerado = models.BooleanField(default=False)
+
+    @property
+    def total_bruto(self):
+        return sum(r.bruto for r in self.recibos.all())
+
+    @property
+    def total_descontos(self):
+        return sum(r.total_descontos for r in self.recibos.all())
+
+    @property
+    def total_liquido(self):
+        return sum(r.liquido for r in self.recibos.all())
 
     class Meta:
         db_table = 'processamentos_salariais_institucionais'
@@ -398,6 +400,7 @@ class ReciboSalarialInstitucional(models.Model):
     horas_extras_valor = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     irt = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     inss_trabalhador = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    inss_entidade = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     outros_descontos = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     observacoes = models.TextField(blank=True, default='')
 
@@ -419,3 +422,243 @@ class ReciboSalarialInstitucional(models.Model):
     @property
     def liquido(self):
         return self.bruto - self.total_descontos
+
+    @property
+    def base_calculo_impostos(self):
+        return max(Decimal('0'), self.salario_base - self.outros_descontos)
+
+
+# ─── Subsídios Institucionais ────────────────────────────────────────────
+
+class SubsidioInstitucional(models.Model):
+    TIPOS_CALCULO = [
+        ('FIXO', 'Valor Fixo'),
+        ('PERCENTUAL', 'Percentual do Salário'),
+        ('DIAS_TRABALHO', 'Por Dias de Trabalho'),
+        ('DEPENDENTES', 'Por Número de Dependentes'),
+    ]
+    nome = models.CharField(max_length=100, verbose_name='Nome do Subsídio')
+    codigo = models.CharField(max_length=20, verbose_name='Código Interno')
+    tipo_calculo = models.CharField(max_length=20, choices=TIPOS_CALCULO, default='FIXO')
+    valor_padrao = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='Valor Padrão')
+    percentual = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Percentual (%)')
+    ativo = models.BooleanField(default=True)
+    obrigatorio = models.BooleanField(default=False, verbose_name='Obrigatório para Todos')
+    apenas_especificos = models.BooleanField(default=False, verbose_name='Apenas para colaboradores específicos')
+    colaboradores_especificos = models.ManyToManyField('ColaboradorInstitucional', blank=True, related_name='subsidios_especificos')
+    descricao = models.TextField(blank=True, verbose_name='Descrição')
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'subsidios_institucionais'
+        verbose_name = 'Subsídio Institucional'
+        verbose_name_plural = 'Subsídios Institucionais'
+        unique_together = ('codigo',)
+        ordering = ['codigo']
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nome}"
+
+
+class SubsidioReciboInstitucional(models.Model):
+    recibo = models.ForeignKey('ReciboSalarialInstitucional', on_delete=models.CASCADE, related_name='subsidios_vinculados')
+    subsidio = models.ForeignKey(SubsidioInstitucional, on_delete=models.CASCADE)
+    valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Aplicado')
+    valor_padrao = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Padrão Original')
+    observacoes = models.TextField(blank=True, verbose_name='Observações')
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'recibo_subsidios_institucionais'
+        verbose_name = 'Subsídio do Recibo Institucional'
+        verbose_name_plural = 'Subsídios do Recibo Institucionais'
+        unique_together = ('recibo', 'subsidio')
+        ordering = ['subsidio__codigo']
+
+    def __str__(self):
+        return f"{self.recibo.colaborador.nome} - {self.subsidio.nome}: {self.valor} Kz"
+
+
+# ─── Recrutamento Institucional ──────────────────────────────────────────
+
+class VagaInstitucional(models.Model):
+    ESTADOS = [
+        ('Aberta', 'Aberta'),
+        ('Em Análise', 'Em Análise'),
+        ('Encerrada', 'Encerrada'),
+        ('Cancelada', 'Cancelada'),
+    ]
+    titulo = models.CharField(max_length=200)
+    departamento = models.CharField(max_length=100, blank=True, default='')
+    descricao = models.TextField(blank=True, default='')
+    requisitos = models.TextField(blank=True, default='')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Aberta', db_index=True)
+    link_externo = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    vagas_numero = models.PositiveIntegerField(default=1, verbose_name='Nº de Vagas')
+    salario_min = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    salario_max = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    data_encerramento = models.DateField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'vagas_institucionais'
+        ordering = ['-criado_em']
+        verbose_name = 'Vaga Institucional'
+        verbose_name_plural = 'Vagas Institucionais'
+
+    def __str__(self):
+        return self.titulo
+
+    @property
+    def link_publico(self):
+        from django.urls import reverse
+        return reverse('rh_inst_vaga_publica', kwargs={'link_uuid': self.link_externo})
+
+
+class CandidaturaInstitucional(models.Model):
+    ESTADOS = [
+        ('Recebida', 'Recebida'),
+        ('Em Análise', 'Em Análise'),
+        ('Entrevista', 'Entrevista'),
+        ('Aprovado', 'Aprovado'),
+        ('Rejeitado', 'Rejeitado'),
+    ]
+    vaga = models.ForeignKey(VagaInstitucional, on_delete=models.CASCADE, related_name='candidaturas')
+    nome = models.CharField(max_length=200)
+    email = models.EmailField(blank=True, default='')
+    telefone = models.CharField(max_length=30, blank=True, default='')
+    cv = models.FileField(upload_to='candidaturas_institucionais/cv/', null=True, blank=True)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Recebida', db_index=True)
+    notas = models.TextField(blank=True, default='')
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'candidaturas_institucionais'
+        ordering = ['-criado_em']
+        verbose_name = 'Candidatura Institucional'
+        verbose_name_plural = 'Candidaturas Institucionais'
+
+    def __str__(self):
+        return f"{self.nome} - {self.vaga.titulo}"
+
+
+class EntrevistaInstitucional(models.Model):
+    TIPOS = [
+        ('Presencial', 'Presencial'),
+        ('Online', 'Online'),
+        ('Telefónica', 'Telefónica'),
+    ]
+    RESULTADOS = [
+        ('Pendente', 'Pendente'),
+        ('Aprovado', 'Aprovado'),
+        ('Reprovado', 'Reprovado'),
+    ]
+    candidatura = models.ForeignKey(CandidaturaInstitucional, on_delete=models.CASCADE, related_name='entrevistas')
+    data_hora = models.DateTimeField()
+    tipo = models.CharField(max_length=20, choices=TIPOS, default='Presencial')
+    local_link = models.CharField(max_length=300, blank=True, default='')
+    entrevistador = models.CharField(max_length=200, blank=True, default='')
+    resultado = models.CharField(max_length=20, choices=RESULTADOS, default='Pendente')
+    nota = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    observacoes = models.TextField(blank=True, default='')
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'entrevistas_institucionais'
+        ordering = ['-data_hora']
+        verbose_name = 'Entrevista Institucional'
+        verbose_name_plural = 'Entrevistas Institucionais'
+
+    def __str__(self):
+        return f"Entrevista - {self.candidatura.nome} ({self.get_tipo_display()})"
+
+
+class PlanoIntegracaoInstitucional(models.Model):
+    ESTADOS = [
+        ('Pendente', 'Pendente'),
+        ('Em Curso', 'Em Curso'),
+        ('Concluído', 'Concluído'),
+    ]
+    candidatura = models.OneToOneField(CandidaturaInstitucional, on_delete=models.CASCADE, related_name='plano_integracao')
+    colaborador = models.ForeignKey('ColaboradorInstitucional', null=True, blank=True, on_delete=models.SET_NULL, related_name='planos_integracao')
+    data_inicio = models.DateField(null=True, blank=True)
+    data_fim_prevista = models.DateField(null=True, blank=True)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente')
+    responsavel = models.CharField(max_length=200, blank=True, default='')
+    notas = models.TextField(blank=True, default='')
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'planos_integracao_institucionais'
+        verbose_name = 'Plano de Integração Institucional'
+        verbose_name_plural = 'Planos de Integração Institucionais'
+
+    def __str__(self):
+        return f"Integração - {self.candidatura.nome}"
+
+    @property
+    def tarefas_concluidas(self):
+        return self.tarefas.filter(concluida=True).count()
+
+    @property
+    def total_tarefas(self):
+        return self.tarefas.count()
+
+    @property
+    def progresso(self):
+        if not self.total_tarefas:
+            return 0
+        return min(round(self.tarefas_concluidas / self.total_tarefas * 100), 100)
+
+
+class TarefaIntegracaoInstitucional(models.Model):
+    plano = models.ForeignKey(PlanoIntegracaoInstitucional, on_delete=models.CASCADE, related_name='tarefas')
+    titulo = models.CharField(max_length=300)
+    concluida = models.BooleanField(default=False)
+    responsavel = models.CharField(max_length=200, blank=True, default='')
+    prazo = models.DateField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tarefas_integracao_institucionais'
+        ordering = ['criado_em']
+        verbose_name = 'Tarefa de Integração Institucional'
+        verbose_name_plural = 'Tarefas de Integração Institucionais'
+
+    def __str__(self):
+        return self.titulo
+
+
+# ─── Métricas de Avaliação Institucionais ─────────────────────────────────
+
+class MetricaAvaliacaoInstitucional(models.Model):
+    ciclo = models.ForeignKey(CicloAvaliacaoInstitucional, on_delete=models.CASCADE, related_name='metricas')
+    nome = models.CharField(max_length=200)
+    descricao = models.TextField(blank=True, default='')
+    ordem = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'metricas_avaliacao_institucionais'
+        ordering = ['ordem']
+        verbose_name = 'Métrica de Avaliação Institucional'
+        verbose_name_plural = 'Métricas de Avaliação Institucionais'
+
+    def __str__(self):
+        return self.nome
+
+
+class NotaMetricaInstitucional(models.Model):
+    avaliacao = models.ForeignKey('AvaliacaoInstitucional', on_delete=models.CASCADE, related_name='notas_metricas')
+    metrica = models.ForeignKey(MetricaAvaliacaoInstitucional, on_delete=models.CASCADE)
+    nota = models.PositiveSmallIntegerField(default=3)
+
+    class Meta:
+        db_table = 'notas_metricas_avaliacao_institucionais'
+        unique_together = ('avaliacao', 'metrica')
+        verbose_name = 'Nota de Métrica Institucional'
+        verbose_name_plural = 'Notas de Métricas Institucionais'
+
+    def __str__(self):
+        return f"{self.metrica.nome}: {self.nota}"

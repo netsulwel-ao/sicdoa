@@ -1,0 +1,161 @@
+{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+
+<div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+  <a href="{% url 'rh_inst_candidatura_detalhe' plano.candidatura.pk %}" class="hover:text-primary">{{ plano.candidatura.nome }}</a>
+  <i class="fas fa-chevron-right text-xs"></i>
+  <span class="text-gray-700 dark:text-gray-300">Plano de Integração</span>
+</div>
+
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+      Integração — {{ plano.candidatura.nome }}
+    </h1>
+    <p class="text-gray-500 mt-1 text-sm">
+      {{ plano.candidatura.vaga.titulo }} ·
+      Início: {{ plano.data_inicio|date:"d/m/Y" }}
+      {% if plano.data_fim_prevista %} · Fim previsto: {{ plano.data_fim_prevista|date:"d/m/Y" }}{% endif %}
+    </p>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="{% url 'rh_inst_candidatura_detalhe' plano.candidatura.pk %}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+      <i class="fas fa-arrow-left text-base"></i>Voltar
+    </a>
+    {% if plano.estado == 'Pendente' %}
+    <form method="POST">{% csrf_token %}<button type="submit" name="action" value="iniciar"
+            class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all flex items-center gap-2 text-sm">
+      <i class="fas fa-play text-base"></i>Iniciar
+    </button></form>
+    {% elif plano.estado == 'Em Curso' %}
+    <form method="POST">{% csrf_token %}<button type="submit" name="action" value="concluir"
+            class="px-5 py-2.5 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all flex items-center gap-2 text-sm">
+      <i class="fas fa-check-circle text-base"></i>Concluir
+    </button></form>
+    {% endif %}
+    {% if plano.estado == 'Pendente' %}<span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>
+    {% elif plano.estado == 'Em Curso' %}<span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Em Curso</span>
+    {% else %}<span class="px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Concluído</span>{% endif %}
+  </div>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+  <div class="xl:col-span-2 space-y-5">
+
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Progresso Geral</span>
+        <span class="text-lg font-black text-primary">{{ plano.progresso }}%</span>
+      </div>
+      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+        <div class="bg-gradient-to-r from-primary to-green-500 h-3 rounded-full transition-all"
+             style="width: {{ plano.progresso }}%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">{{ plano.tarefas_concluidas }} de {{ plano.total_tarefas }} tarefas concluídas</p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <i class="fas fa-list-check text-primary text-base"></i>Tarefas de Integração
+        </h3>
+      </div>
+
+      {% if tarefas %}
+      <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        {% for t in tarefas %}
+        <div class="flex items-center gap-4 px-6 py-4 {% if t.concluida %}bg-green-50/30 dark:bg-green-900/10{% endif %}">
+          <form method="POST" class="flex-shrink-0">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="tarefa_toggle" />
+            <input type="hidden" name="tarefa_pk" value="{{ t.pk }}" />
+            <button type="submit"
+                    class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
+                           {% if t.concluida %}bg-green-500 border-green-500 text-white{% else %}border-gray-300 dark:border-gray-600 hover:border-green-400{% endif %}">
+              {% if t.concluida %}<i class="fas fa-check text-xs"></i>{% endif %}
+            </button>
+          </form>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-sm {% if t.concluida %}line-through text-gray-400{% else %}text-gray-900 dark:text-white{% endif %}">
+              {{ t.titulo }}
+            </p>
+            <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+              {% if t.responsavel %}<span class="flex items-center gap-1"><i class="fas fa-user text-xs"></i>{{ t.responsavel }}</span>{% endif %}
+              {% if t.prazo %}<span class="flex items-center gap-1"><i class="fas fa-calendar-alt text-xs"></i>{{ t.prazo|date:"d/m/Y" }}</span>{% endif %}
+            </div>
+          </div>
+          {% if t.concluida %}
+          <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Feito</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="p-8 text-center">
+        <i class="fas fa-list-check text-gray-400 text-3xl mb-2 block"></i>
+        <p class="text-sm text-gray-500">Nenhuma tarefa criada.</p>
+      </div>
+      {% endif %}
+
+      {% if plano.estado != 'Concluído' %}
+      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <form method="POST" class="flex items-center gap-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="tarefa_nova" />
+          <input type="text" name="titulo" placeholder="Nova tarefa..." required
+                 class="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm" />
+          <input type="text" name="responsavel" placeholder="Responsável"
+                 class="w-36 px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm" />
+          <input type="date" name="prazo"
+                 class="w-36 px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm" />
+          <button type="submit"
+                  class="px-4 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all text-sm flex items-center gap-1">
+            <i class="fas fa-plus text-base"></i>Adicionar
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <div class="space-y-5">
+
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+        <i class="fas fa-user text-primary text-base"></i>Candidato
+      </h3>
+      <div class="space-y-2 text-sm">
+        <p class="font-semibold text-gray-900 dark:text-white">{{ plano.candidatura.nome }}</p>
+        <p class="text-gray-500">{{ plano.candidatura.email }}</p>
+        {% if plano.candidatura.telefone %}<p class="text-gray-500">{{ plano.candidatura.telefone }}</p>{% endif %}
+        <p class="text-gray-500">Vaga: {{ plano.candidatura.vaga.titulo }}</p>
+      </div>
+    </div>
+
+    {% if plano.colaborador %}
+    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-5">
+      <h3 class="font-semibold text-green-800 dark:text-green-300 mb-3 flex items-center gap-2">
+        <i class="fas fa-user-check text-green-600 text-base"></i>Colaborador Criado
+      </h3>
+      <div class="space-y-1 text-sm">
+        <p class="font-semibold text-gray-900 dark:text-white">{{ plano.colaborador.nome }}</p>
+        <p class="text-gray-600 dark:text-gray-400">{{ plano.colaborador.area_actuacao }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if plano.notas %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <h3 class="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+        <i class="fas fa-sticky-note text-primary text-base"></i>Notas
+      </h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">{{ plano.notas }}</p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+</main></div>{% include 'includes/footer.html' %}

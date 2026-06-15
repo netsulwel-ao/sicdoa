@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import views_public
 from . import views_admin
+from . import views_institucional
 
 urlpatterns = [
     # ── Colaboradores Institucionais (Equipa do Administrador) ────────────
@@ -51,6 +52,7 @@ urlpatterns = [
     path('colaboradores/<int:pk>/dados/',           views.colaborador_dados_api,    name='rh_colaborador_dados'),
     path('colaboradores/<int:pk>/apagar/',          views.colaborador_apagar_view,  name='rh_colaborador_apagar'),
     path('colaboradores/<int:pk>/reenviar-email/',  views.colaborador_reenviar_email_view, name='rh_colaborador_reenviar_email'),
+    path('colaboradores/<int:pk>/cargo/',           views.colaborador_cargo_view,          name='rh_colaborador_cargo'),
     path('documentos/<int:pk>/download/',           views.documento_colaborador_download, name='rh_documento_download'),
     path('documentos/<int:pk>/apagar/',             views.documento_colaborador_apagar_view, name='rh_documento_apagar'),
 
@@ -95,13 +97,82 @@ urlpatterns = [
     path('ferias/<int:pk>/aprovar/',        views.ferias_aprovar_view,      name='rh_ferias_aprovar'),
     path('ferias/<int:pk>/apagar/',         views.ferias_apagar_view,       name='rh_ferias_apagar'),
 
+    # Cargos da Banca
+    path('cargos/',                           views.cargos_lista_view,    name='rh_cargos_lista'),
+    path('cargos/novo/',                      views.cargo_novo_view,     name='rh_cargo_novo'),
+    path('cargos/<int:pk>/editar/',           views.cargo_editar_view,   name='rh_cargo_editar'),
+    path('cargos/<int:pk>/eliminar/',         views.cargo_eliminar_view, name='rh_cargo_eliminar'),
+
     # Avaliações
     path('avaliacoes/',                                         views.avaliacoes_view,      name='rh_avaliacoes'),
     path('avaliacoes/ciclo/novo/',                              views.ciclo_novo_view,      name='rh_ciclo_novo'),
+    path('avaliacoes/ciclo/<int:pk>/editar/',                   views.ciclo_editar_view,    name='rh_ciclo_editar'),
+    path('avaliacoes/ciclo/<int:pk>/apagar/',                   views.ciclo_apagar_view,    name='rh_ciclo_apagar'),
     path('avaliacoes/ciclo/<int:pk>/',                          views.ciclo_detalhe_view,   name='rh_ciclo_detalhe'),
     path('avaliacoes/ciclo/<int:ciclo_pk>/avaliar/',            views.avaliacao_form_view,  name='rh_avaliacao_nova'),
     path('avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/', views.avaliacao_form_view, name='rh_avaliacao_editar'),
     path('avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/ver/', views.avaliacao_detalhe_view, name='rh_avaliacao_detalhe'),
     path('avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/apagar/', views.avaliacao_apagar_view, name='rh_avaliacao_apagar'),
+
+    # ── RH Institucional ────────────────────────────────────────────────────
+    # Dashboard
+    path('institucional/',                                                  views_institucional.inst_dashboard_view,              name='rh_inst_dashboard'),
+
+    # Subsídios
+    path('institucional/subsidios/',                                        views_institucional.inst_subsidios_view,              name='rh_inst_subsidios'),
+    path('institucional/subsidios/novo/',                                   views_institucional.inst_subsidio_novo_view,          name='rh_inst_subsidio_novo'),
+    path('institucional/subsidios/<int:pk>/editar/',                        views_institucional.inst_subsidio_editar_view,        name='rh_inst_subsidio_editar'),
+    path('institucional/subsidios/<int:pk>/apagar/',                        views_institucional.inst_subsidio_apagar_view,        name='rh_inst_subsidio_apagar'),
+
+    # Processamento Salarial
+    path('institucional/salarios/',                                         views_institucional.inst_salarios_view,               name='rh_inst_salarios'),
+    path('institucional/salarios/novo/',                                    views_institucional.inst_salario_novo_view,           name='rh_inst_salario_novo'),
+    path('institucional/salarios/<int:pk>/',                                views_institucional.inst_salario_detalhe_view,        name='rh_inst_salario_detalhe'),
+    path('institucional/salarios/<int:pk>/apagar/',                         views_institucional.inst_salario_apagar_view,         name='rh_inst_salario_apagar'),
+    path('institucional/salarios/<int:pk>/download/',                       views_institucional.inst_salario_download_view,       name='rh_inst_salario_download'),
+
+    # Recrutamento — Vagas
+    path('institucional/recrutamento/',                                     views_institucional.inst_vagas_view,                  name='rh_inst_vagas'),
+    path('institucional/recrutamento/nova/',                                views_institucional.inst_vaga_nova_view,              name='rh_inst_vaga_nova'),
+    path('institucional/recrutamento/<int:pk>/editar/',                     views_institucional.inst_vaga_editar_view,            name='rh_inst_vaga_editar'),
+    path('institucional/recrutamento/<int:pk>/eliminar/',                   views_institucional.inst_vaga_eliminar_view,          name='rh_inst_vaga_eliminar'),
+
+    # Recrutamento — Candidaturas
+    path('institucional/recrutamento/<int:vaga_pk>/candidaturas/',          views_institucional.inst_candidaturas_view,           name='rh_inst_candidaturas'),
+    path('institucional/recrutamento/candidatura/<int:pk>/',                views_institucional.inst_candidatura_detalhe_view,    name='rh_inst_candidatura_detalhe'),
+    path('institucional/recrutamento/candidatura/<int:pk>/estado/',         views_institucional.inst_candidatura_estado_view,     name='rh_inst_candidatura_estado'),
+
+    # Recrutamento — Entrevistas
+    path('institucional/recrutamento/candidatura/<int:candidatura_pk>/entrevista/nova/', views_institucional.inst_entrevista_nova_view,     name='rh_inst_entrevista_nova'),
+    path('institucional/recrutamento/entrevista/<int:pk>/resultado/',                     views_institucional.inst_entrevista_resultado_view, name='rh_inst_entrevista_resultado'),
+
+    # Recrutamento — Integração
+    path('institucional/recrutamento/candidatura/<int:candidatura_pk>/integracao/nova/',  views_institucional.inst_integracao_nova_view,    name='rh_inst_integracao_nova'),
+    path('institucional/recrutamento/integracao/<int:pk>/',                               views_institucional.inst_integracao_detalhe_view, name='rh_inst_integracao_detalhe'),
+
+    # Recrutamento — Público
+    path('recrutamento/vaga/<uuid:link_uuid>/',                           views_institucional.inst_vaga_publica_view,          name='rh_inst_vaga_publica'),
+    path('recrutamento/vaga/<uuid:link_uuid>/candidatar/',                views_institucional.inst_candidatura_externa_view,   name='rh_inst_candidatura_publica'),
+
+    # Presenças
+    path('institucional/presencas/',                                       views_institucional.inst_presencas_view,             name='rh_inst_presencas'),
+    path('institucional/presencas/registar/',                              views_institucional.inst_presenca_registar_view,     name='rh_inst_presenca_registar'),
+    path('institucional/presencas/<int:pk>/aprovar/',                      views_institucional.inst_presenca_aprovar_view,      name='rh_inst_presenca_aprovar'),
+    path('institucional/presencas/<int:pk>/apagar/',                       views_institucional.inst_presenca_apagar_view,       name='rh_inst_presenca_apagar'),
+
+    # Férias
+    path('institucional/ferias/',                                          views_institucional.inst_ferias_pedir_view,          name='rh_inst_ferias'),
+    path('institucional/ferias/pedir/',                                    views_institucional.inst_ferias_pedir_view,          name='rh_inst_ferias_pedir'),
+    path('institucional/ferias/<int:pk>/aprovar/',                         views_institucional.inst_ferias_aprovar_view,        name='rh_inst_ferias_aprovar'),
+    path('institucional/ferias/<int:pk>/apagar/',                          views_institucional.inst_ferias_apagar_view,         name='rh_inst_ferias_apagar'),
+
+    # Avaliações
+    path('institucional/avaliacoes/',                                      views_institucional.inst_avaliacoes_view,            name='rh_inst_avaliacoes'),
+    path('institucional/avaliacoes/ciclo/novo/',                           views_institucional.inst_ciclo_novo_view,            name='rh_inst_ciclo_novo'),
+    path('institucional/avaliacoes/ciclo/<int:pk>/',                       views_institucional.inst_ciclo_detalhe_view,         name='rh_inst_ciclo_detalhe'),
+    path('institucional/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/',         views_institucional.inst_avaliacao_form_view,        name='rh_inst_avaliacao_nova'),
+    path('institucional/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/', views_institucional.inst_avaliacao_form_view,    name='rh_inst_avaliacao_editar'),
+    path('institucional/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/ver/', views_institucional.inst_avaliacao_detalhe_view,   name='rh_inst_avaliacao_detalhe'),
+    path('institucional/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/apagar/', views_institucional.inst_avaliacao_apagar_view, name='rh_inst_avaliacao_apagar'),
 
     ]

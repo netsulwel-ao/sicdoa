@@ -6,11 +6,22 @@
   {% include 'includes/header.html' %}
 
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ report_name }}</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ report_subtitle }}</p>
-      </div>
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">{{ report_name }}</h1>
+                <p class="text-base text-gray-600 dark:text-gray-300 mt-2">{{ report_subtitle }}</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                    Gerado em {% now "d/m/Y H:i" %}
+                </p>
+            </div>
+            <div class="flex items-center gap-3 print-hidden">
+                <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium shadow-sm">
+                    <i class="fas fa-print"></i> Imprimir
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- KPIs principais -->
@@ -113,10 +124,12 @@
           <i class="fas fa-map-marker-alt text-primary"></i>
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Receita por Localização</span>
         </a>
+        {% if papel == 'Administrador' or 'admin' in user_permissoes %}
         <a href="{% url 'financeiro:relatorio_receita_despachante' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-primary/5 border border-gray-200 dark:border-gray-700 transition-colors">
           <i class="fas fa-user-tie text-primary"></i>
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Receita por Despachante</span>
         </a>
+        {% endif %}
       </div>
     </div>
   </div>

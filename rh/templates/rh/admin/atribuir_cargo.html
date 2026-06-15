@@ -2,7 +2,7 @@
 
 {% block breadcrumb %}
 <i class="fas fa-chevron-right text-xs"></i>
-<a href="{% url 'admin_despachantes' %}" class="hover:text-primary transition-colors">Gestão de Despachantes</a>
+<a href="{% url 'governanca_gerir_utilizadores' %}" class="hover:text-primary transition-colors">Utilizadores</a>
 <i class="fas fa-chevron-right text-xs"></i>
 <span class="text-gray-700 dark:text-gray-300 font-medium">Atribuir Cargo</span>
 {% endblock %}
@@ -66,7 +66,7 @@
                 class="flex-1 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all">
           <i class="fas fa-check mr-1"></i> Atribuir Cargo
         </button>
-        <a href="{% url 'admin_despachantes' %}"
+        <a href="{% url 'governanca_gerir_utilizadores' %}"
            class="px-5 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
           Cancelar
         </a>

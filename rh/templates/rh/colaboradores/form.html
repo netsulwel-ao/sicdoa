@@ -207,6 +207,19 @@
           </div>
 
           <div>
+            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Cargo da Banca (Permissões)</label>
+            <select name="cargo_banca" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+              <option value="">Sem cargo especial</option>
+              {% for cb in cargos_banca %}
+              <option value="{{ cb.pk }}" {% if col.cargo_banca_id == cb.pk %}selected{% endif %}>
+                {{ cb.nome }}
+              </option>
+              {% endfor %}
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Define as permissões do colaborador no sistema</p>
+          </div>
+
+          <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Departamento</label>
             <input type="text" name="departamento" value="{{ col.departamento|default:'' }}" placeholder="Ex: Operações"
                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />

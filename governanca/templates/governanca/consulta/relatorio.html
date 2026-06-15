@@ -7,15 +7,31 @@
   <main class="p-4 md:p-6 lg:p-8">
 
     <div class="max-w-4xl mx-auto mb-6">
-      <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+      <!-- Breadcrumb -->
+      <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
         <a href="{% url 'governanca_consultas' %}" class="hover:text-primary transition-colors">Consultas Públicas</a>
         <i class="fas fa-chevron-right text-xs"></i>
         <a href="{% url 'governanca_consulta_detalhe' consulta.id %}" class="hover:text-primary transition-colors">{{ consulta.titulo }}</a>
         <i class="fas fa-chevron-right text-xs"></i>
         <span class="text-gray-900 dark:text-gray-200 font-medium">Relatório</span>
       </div>
-      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Relatório da Consulta</h1>
-      <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">{{ consulta.titulo }}</p>
+      <!-- Header Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">Relatório da Consulta</h1>
+            <p class="text-base text-gray-600 dark:text-gray-300 mt-2">{{ consulta.titulo }}</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">
+              Gerado em {% now "d/m/Y H:i" %}
+            </p>
+          </div>
+          <div class="flex items-center gap-3 print-hidden">
+            <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium shadow-sm">
+              <i class="fas fa-print"></i> Imprimir
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="max-w-4xl mx-auto space-y-6">

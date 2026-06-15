@@ -351,13 +351,9 @@ function recalcularTotal() {
   if (totalEl) totalEl.textContent = fmtKZ(total) + ' KZ';
 }
 
-// Inicializar cálculos ao carregar
+// Inicializar recalculo do total ao carregar
 document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('input[name*="subsidio_"]').forEach(function(inp) {
-    if (inp.type !== 'hidden') {
-      inp.addEventListener('input', function() { recalcularLinha(this); });
-    }
-  });
+  recalcularTotal();
 });
 </script>
 

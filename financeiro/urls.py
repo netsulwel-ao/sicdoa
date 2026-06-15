@@ -16,6 +16,12 @@ urlpatterns = [
     path('requisicoes/<int:pk>/eliminar/', views.eliminar_requisicao, name='requisicao_eliminar'),
     path('requisicoes/<int:pk>/editar/', views.editar_requisicao, name='requisicao_editar'),
 
+    # Fluxos de Aprovação
+    path('fluxos-aprovacao/', views.fluxo_aprovacao_lista, name='fluxo_aprovacao_lista'),
+    path('fluxos-aprovacao/criar/', views.fluxo_aprovacao_criar, name='fluxo_aprovacao_criar'),
+    path('fluxos-aprovacao/<int:pk>/editar/', views.fluxo_aprovacao_editar, name='fluxo_aprovacao_editar'),
+    path('fluxos-aprovacao/<int:pk>/eliminar/', views.fluxo_aprovacao_eliminar, name='fluxo_aprovacao_eliminar'),
+
     # Facturas Finais
     path('facturas/', views.FacturaClienteListView.as_view(), name='factura_lista'),
     path('facturas/criar/', views.FacturaClienteCreateView.as_view(), name='factura_criar'),
@@ -82,6 +88,8 @@ urlpatterns = [
     path('conta-corrente/periodica/excel/', cc.conta_corrente_periodica_excel, name='conta_corrente_periodica_excel'),
 
     # ─── Relatórios Financeiros ────────────────────────────────────────────
+    # Home
+    path('relatorios/', rel.RelatorioHomeView.as_view(), name='relatorio_home'),
     # Operacionais
     path('relatorios/requisicao-fundos/', rel.RelatorioRequisicaoFundosView.as_view(), name='relatorio_requisicao_fundos'),
     path('relatorios/facturacao/', rel.RelatorioFacturacaoView.as_view(), name='relatorio_facturacao'),

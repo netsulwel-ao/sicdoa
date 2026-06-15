@@ -1,12 +1,57 @@
 from django import forms
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
-from .models import RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo
+from .models import (
+    RequisicaoFundo, FluxoAprovacao, NivelAprovacao,
+    FacturaCliente, ReciboCliente,
+    NotaCredito, NotaDebito, FacturaRecibo
+)
+
+
+class FluxoAprovacaoForm(forms.ModelForm):
+    class Meta:
+        model = FluxoAprovacao
+        fields = ['nome', 'descricao', 'ativo']
+        widgets = {
+            'nome': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all',
+                'placeholder': 'Ex: Fluxo Padrão'
+            }),
+            'descricao': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none',
+                'rows': 3,
+                'placeholder': 'Descrição do fluxo de aprovação...'
+            }),
+            'ativo': forms.CheckboxInput(attrs={
+                'class': 'size-4 rounded border-gray-300 text-primary focus:ring-primary/30'
+            }),
+        }
+
+
+class NivelAprovacaoForm(forms.ModelForm):
+    class Meta:
+        model = NivelAprovacao
+        fields = ['nome', 'qtde_aprovadores', 'funcao']
+        widgets = {
+            'nome': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all',
+                'placeholder': 'Ex: 1ª Aprovação'
+            }),
+            'qtde_aprovadores': forms.NumberInput(attrs={
+                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all',
+                'min': 1,
+                'placeholder': '1'
+            }),
+            'funcao': forms.Select(attrs={
+                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all',
+            }),
+        }
+
 
 class RequisicaoFundoForm(forms.ModelForm):
     class Meta:
         model = RequisicaoFundo
-        fields = ['cliente', 'processo_aduaneiro', 'valor_solicitado', 'justificacao', 'documento_justificativo']
+        fields = ['cliente', 'processo_aduaneiro', 'valor_solicitado', 'justificacao', 'documento_justificativo', 'fluxo_aprovacao']
         widgets = {
             'cliente': forms.Select(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
@@ -27,10 +72,16 @@ class RequisicaoFundoForm(forms.ModelForm):
             'documento_justificativo': forms.FileInput(attrs={
                 'class': 'w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer'
             }),
+            'fluxo_aprovacao': forms.Select(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
+            }),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['fluxo_aprovacao'].queryset = FluxoAprovacao.objects.filter(ativo=True)
+        self.fields['fluxo_aprovacao'].empty_label = None
+        self.fields['fluxo_aprovacao'].required = True
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
@@ -47,6 +98,9 @@ class RequisicaoFundoForm(forms.ModelForm):
         cliente = cleaned_data.get('cliente')
         valor_solicitado = cleaned_data.get('valor_solicitado')
         processo_aduaneiro = cleaned_data.get('processo_aduaneiro')
+        fluxo_aprovacao = cleaned_data.get('fluxo_aprovacao')
+        if not fluxo_aprovacao:
+            self.add_error('fluxo_aprovacao', 'Seleccione um Fluxo de Aprovação. A requisição não pode ser submetida sem um fluxo definido.')
 
         if cliente and processo_aduaneiro:
             nif_cliente = (cliente.nif or '').strip()

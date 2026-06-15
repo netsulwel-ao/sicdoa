@@ -74,19 +74,15 @@ class ReportMixin(ReportPermissionMixin, BaseContextMixin):
 
 
 class OperacionalMixin:
-    """Usuários com ver_relatorios_operacionais veem dados de TODOS os despachantes."""
-    def clientes_scope(self):
-        return Cliente.objects.all()
-
-    def _get_user_requisicao_filter(self):
-        return None
+    """Mixin para relatórios operacionais com scoping correcto por utilizador."""
+    pass
 
 
 # ── Relatórios Operacionais ────────────────────────────────────────────────
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioRequisicaoFundosView(OperacionalMixin, ReportMixin, TemplateView):
-    allowed_roles = []
+    allowed_roles = ['Despachante Oficial']
     required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Requisição de Fundos'
@@ -138,7 +134,7 @@ class RelatorioRequisicaoFundosView(OperacionalMixin, ReportMixin, TemplateView)
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioFacturacaoView(OperacionalMixin, ReportMixin, TemplateView):
-    allowed_roles = []
+    allowed_roles = ['Despachante Oficial']
     required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Facturação'
@@ -184,7 +180,7 @@ class RelatorioFacturacaoView(OperacionalMixin, ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioRecibosView(OperacionalMixin, ReportMixin, TemplateView):
-    allowed_roles = []
+    allowed_roles = ['Despachante Oficial']
     required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Recibos'
@@ -243,7 +239,7 @@ class RelatorioRecibosView(OperacionalMixin, ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatoriosNotasHomeView(OperacionalMixin, ReportMixin, TemplateView):
-    allowed_roles = []
+    allowed_roles = ['Despachante Oficial']
     required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorios_notas_home.html'
     report_name = 'Relatórios de Notas'
@@ -251,8 +247,21 @@ class RelatoriosNotasHomeView(OperacionalMixin, ReportMixin, TemplateView):
 
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
+class RelatorioHomeView(ReportPermissionMixin, BaseContextMixin, TemplateView):
+    allowed_roles = ['Administrador', 'Despachante Oficial']
+    required_permission = 'ver_relatorios_operacionais'
+    template_name = 'financeiro/relatorio_home.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_menu'] = 'Financeiro'
+        context['active_sub'] = 'rel_home'
+        return context
+
+
+@method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioNotasCreditoView(OperacionalMixin, ReportMixin, TemplateView):
-    allowed_roles = []
+    allowed_roles = ['Despachante Oficial']
     required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Notas de Crédito'
@@ -302,7 +311,7 @@ class RelatorioNotasCreditoView(OperacionalMixin, ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioNotasDebitoView(OperacionalMixin, ReportMixin, TemplateView):
-    allowed_roles = []
+    allowed_roles = ['Despachante Oficial']
     required_permission = 'ver_relatorios_operacionais'
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Relatório de Notas de Débito'
@@ -354,7 +363,7 @@ class RelatorioNotasDebitoView(OperacionalMixin, ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioContasAReceberView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Contas a Receber'
     report_subtitle = 'Facturas pendentes e parcialmente pagas'
@@ -395,7 +404,7 @@ class RelatorioContasAReceberView(ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioClientesDevedoresView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Clientes Devedores'
     report_subtitle = 'Clientes com saldo negativo em conta corrente'
@@ -434,7 +443,7 @@ class RelatorioClientesDevedoresView(ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioFluxoCaixaView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Fluxo de Caixa'
     report_subtitle = 'Movimentação financeira por período'
@@ -520,7 +529,7 @@ def fluxo_caixa_json(request):
     clientes = Cliente.objects.all()
     filtro = {}
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Gestor Financeiro'):
+    if papel != 'Administrador':
         usuario_id = request.session.get('usuario_id')
         if usuario_id:
             filtro = {'usuario_id': usuario_id}
@@ -571,7 +580,7 @@ def fluxo_caixa_json(request):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioDemonstrativoReceitasView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Demonstrativo de Receitas'
     report_subtitle = 'Receitas por tipo de documento'
@@ -636,7 +645,7 @@ class RelatorioDemonstrativoReceitasView(ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioBalanceteFinanceiroView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Balancete Financeiro'
     report_subtitle = 'Saldo consolidado de todas as contas'
@@ -704,7 +713,7 @@ def dashboard_financeiro_json(request):
     clientes = Cliente.objects.all()
     filtro = {}
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Gestor Financeiro'):
+    if papel != 'Administrador':
         usuario_id = request.session.get('usuario_id')
         if usuario_id:
             filtro = {'usuario_id': usuario_id}
@@ -764,7 +773,7 @@ def dashboard_financeiro_json(request):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioDashboardFinanceiroView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_dashboard.html'
     report_name = 'Dashboard Financeiro'
     report_subtitle = 'Painel executivo com indicadores financeiros'
@@ -813,7 +822,7 @@ class RelatorioDashboardFinanceiroView(ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioIndicadoresCobrancaView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Indicadores de Cobrança'
     report_subtitle = 'Eficiência na cobrança e recebimento'
@@ -878,7 +887,7 @@ class RelatorioIndicadoresCobrancaView(ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioReceitaPorClienteView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Receita por Cliente'
     report_subtitle = 'Facturação e recebimentos agrupados por cliente'
@@ -933,7 +942,7 @@ class RelatorioReceitaPorClienteView(ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioReceitaPorLocalizacaoView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Receita por Localização'
     report_subtitle = 'Facturação agrupada por localização do cliente'
@@ -990,7 +999,7 @@ class RelatorioReceitaPorLocalizacaoView(ReportMixin, TemplateView):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class RelatorioReceitaPorDespachanteView(ReportMixin, TemplateView):
-    allowed_roles = ['Gestor Financeiro', 'Administrador']
+    allowed_roles = ['Administrador', 'Despachante Oficial']
     template_name = 'financeiro/relatorio_financeiro.html'
     report_name = 'Receita por Despachante'
     report_subtitle = 'Facturação e recebimentos agrupados por despachante'
