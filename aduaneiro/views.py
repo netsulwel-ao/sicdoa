@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from clientes.models import Cliente
 from users.models import Usuario
 from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
+from users.auth_decorators import sessao_expirada
 from utils.validators import email_ja_existe
 from django.core.paginator import Paginator
 from rh.models import Colaborador, Banca
@@ -22,7 +23,14 @@ import logging
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def _sessao_ok(request):
-    return bool(request.session.get('usuario_id'))
+    if not request.session.get('usuario_id'):
+        return False
+    if sessao_expirada(request):
+        request.session.flush()
+        return False
+    request.session['login_time'] = timezone.now().isoformat()
+    request.session.modified = True
+    return True
 
 
 def _usuario_id(request):
@@ -67,6 +75,8 @@ def _banca_owner(request):
                     return dono, dono.id
             except (Colaborador.DoesNotExist, Usuario.DoesNotExist):
                 pass
+        # Colaborador sem banca válida — negar acesso
+        return None, 0
     # Fallback: o próprio utilizador
     try:
         u = Usuario.objects.get(id=uid)

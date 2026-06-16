@@ -279,7 +279,7 @@ class ReciboCliente(models.Model):
     utilizador_responsavel_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Responsável')
     utilizador_responsavel_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Responsável')
     data_criacao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Criação')
-    estado = models.CharField(max_length=20, choices=[('Pendente', 'Pendente'), ('Cancelado', 'Cancelado')], default=None, null=True, blank=True, db_index=True, verbose_name='Estado')
+    estado = models.CharField(max_length=20, choices=[('Pendente', 'Pendente'), ('Cancelado', 'Cancelado')], default='Pendente', null=True, blank=True, db_index=True, verbose_name='Estado')
 
     class Meta:
         db_table = 'financeiro_recibo_cliente'

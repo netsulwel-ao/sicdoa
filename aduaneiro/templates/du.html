@@ -384,6 +384,7 @@
                     <select name="regime_aduaneiro" id="regime_aduaneiro" class="form-input" required onchange="atualizarCamposDestinatario()">
                       <option value="">Carregando regimes...</option>
                     </select>
+                    <p class="field-hint">Digite para pesquisar o regime</p>
                     <div id="regime_error" class="field-status hidden" style="color: #ef4444; margin-top: 0.5rem;">
                       <i class="fas fa-times-circle" style="font-size: 16px;"></i>
                       <span>Erro ao carregar regimes aduaneiros</span>
@@ -689,6 +690,7 @@
                       <option value="EXW">EXW - À Porta da Fábrica</option>
                       <option value="DDP">DDP - Entrega com Direitos Pagos</option>
                     </select>
+                    <p class="field-hint">Digite para pesquisar o INCOTERM</p>
                   </div>
                   
                   <div class="form-field">
@@ -699,6 +701,7 @@
                     <select name="natureza_transacao" id="natureza_transacao" class="form-input" required>
                       <option value="">A carregar...</option>
                     </select>
+                    <p class="field-hint">Digite para pesquisar a natureza</p>
                   </div>
                   
                   <!--<div class="form-field">
@@ -933,6 +936,7 @@
                     <select name="modo_transporte_fronteira" id="modo_transporte_fronteira" class="form-input" required>
                       <option value="">A carregar...</option>
                     </select>
+                    <p class="field-hint">Digite para pesquisar o modo</p>
                   </div>
                   
                   <div class="form-field">
@@ -943,6 +947,7 @@
                     <select name="modo_transporte_interior" id="modo_transporte_interior" class="form-input">
                       <option value="">A carregar...</option>
                     </select>
+                    <p class="field-hint">Digite para pesquisar o modo</p>
                   </div>
                 </div>
                 
@@ -1384,6 +1389,7 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="{% static 'du/documento.js' %}?v={% now 'U' %}"></script>
 <script src="{% static 'du/script.js' %}?v={% now 'U' %}"></script>
+<script src="{% static 'du/searchable-dropdown.js' %}?v={% now 'U' %}"></script>
 
 <!-- Select2 Custom Styles -->
 <style>
@@ -2206,6 +2212,7 @@ function gerarHTMLAdicao(n, dados) {
                 class="form-input" onchange="atualizarCodigoIsencaoDinamico(${n})">
                 <option value="">A carregar...</option>
               </select>
+              <p class="field-hint">Digite para pesquisar o procedimento</p>
             </div>
 
             <div class="form-field">
@@ -2215,7 +2222,7 @@ function gerarHTMLAdicao(n, dados) {
               </label>
               <select name="adicao[${n}][codigo_isencao]" required id="codigo_isencao_${n}"
                 class="form-input"
-                data-valor-inicial="${dados.codigo_isencao || '000'}">
+                data-valor-inicial="${dados.codigo_isencao || ''}">
                 <option value="000">000 - Sem isenção</option>
               </select>
               <p class="field-hint">Códigos de isenção disponíveis baseados no procedimento selecionado</p>
@@ -2407,149 +2414,116 @@ function adicionarNovaAdicao(dadosExistentes) {
 
   wrapper.appendChild(card);
 
-  // Inicializar Select2 com AJAX para o campo código pautal
-  if (typeof $.fn.select2 !== 'undefined') {
-    $(`#codigo_pautal_${n}`).select2({
-      placeholder: 'Pesquisar código ou descrição...',
-      allowClear: true,
-      width: '100%',
-      minimumInputLength: 0,
-      language: {
-        searching: () => 'A pesquisar...',
-        noResults: () => 'Nenhum código encontrado',
-        loadingMore: () => 'A carregar mais resultados...'
-      },
-      ajax: {
-        url: 'https://api-sic-fields.netsulwel.tech/pautas',
-        dataType: 'json',
-        delay: 300,
-        cache: true,
-        data: function(params) {
-          // Se não houver termo, buscar todos para mostrar códigos aleatórios
-          const term = params.term || '';
-          return {
-            term: term
-          };
-        },
-        processResults: function(data, params) {
-          const termo = (params.term || '').toLowerCase().replace(/\./g, '');
-          
-          // Se não houver termo, mostrar 4 códigos aleatórios
-          if (!termo) {
-            const embaralhados = [...data].sort(() => Math.random() - 0.5);
-            const aleatorios = embaralhados.slice(0, 4);
-            return {
-              results: aleatorios.map(p => ({
-                id: p.codigo_sh,
-                text: `${p.codigo_sh} — ${p.descricao_mercadoria || ''}`,
-                pauta: p
-              }))
-            };
+  // ── Autocomplete para campos da adição ──────────────────────────────
+  if (typeof autocompleteSelect !== 'undefined') {
+
+    // Código Pautal — com AJAX
+    (function(adIdx) {
+      var acAjax = function(query, callback) {
+        var termo = query.replace(/\./g, '');
+        var url = termo.trim()
+          ? 'https://api-sic-fields.netsulwel.tech/pautas?term=' + encodeURIComponent(termo)
+          : 'https://api-sic-fields.netsulwel.tech/pautas';
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.onload = function() {
+          if (xhr.status !== 200) { callback([]); return; }
+          var data;
+          try { data = JSON.parse(xhr.responseText); } catch(e) { callback([]); return; }
+          var filtrados;
+          if (!termo.trim()) {
+            // Sem termo: mostrar aleatórios para dar ideia do formato
+            var shuffled = data.slice().sort(function() { return Math.random() - 0.5; });
+            filtrados = shuffled.slice(0, 5);
+          } else {
+            // Prioridade: códigos que COMEÇAM com o termo
+            var porCodigo = data.filter(function(p) {
+              return String(p.codigo_sh).replace(/\./g, '').startsWith(termo);
+            });
+            var porDescricao = data.filter(function(p) {
+              return !String(p.codigo_sh).replace(/\./g, '').startsWith(termo) &&
+                     (p.descricao_mercadoria || '').toLowerCase().indexOf(termo.toLowerCase()) !== -1;
+            });
+            filtrados = porCodigo.concat(porDescricao).slice(0, 8);
           }
-          
-          // Códigos que COMEÇAM com o termo digitado têm prioridade
-          const porCodigo   = data.filter(p => String(p.codigo_sh).replace(/\./g, '').startsWith(termo));
-          // Fallback: descrição contém o termo (quando o utilizador digita texto)
-          const porDescricao = data.filter(p =>
-            !String(p.codigo_sh).replace(/\./g, '').startsWith(termo) &&
-            (p.descricao_mercadoria || '').toLowerCase().includes(termo)
-          );
-          const filtrados = [...porCodigo, ...porDescricao].slice(0, 5);
-          return {
-            results: filtrados.map(p => ({
-              id: p.codigo_sh,
-              text: `${p.codigo_sh} — ${p.descricao_mercadoria || ''}`,
-              pauta: p
-            }))
-          };
+          var results = filtrados.map(function(p) {
+            return {
+              value: p.codigo_sh,
+              label: p.codigo_sh + ' - ' + (p.descricao_mercadoria || ''),
+              data: p
+            };
+          });
+          callback(results);
+        };
+        xhr.onerror = function() { callback([]); };
+        xhr.send();
+      };
+
+      var cpSelect = document.getElementById('codigo_pautal_' + adIdx);
+      if (cpSelect) {
+        autocompleteSelect(cpSelect, {
+          placeholder: 'Pesquisar código ou descrição...',
+          ajax: acAjax,
+          templateResult: function(o) {
+            var p = o.data;
+            if (!p) return '<span class="ac-code">' + escapeHtml(o.value) + '</span><span class="ac-desc">' + escapeHtml(o.label) + '</span>';
+            return '<span class="ac-code">' + escapeHtml(p.codigo_sh) + '</span>' +
+                   '<span class="ac-desc">' + escapeHtml(p.descricao_mercadoria || '') + '</span>' +
+                   '<span class="ac-tag">' + escapeHtml(p.unidade_medida || '') + '</span>';
+          },
+          onSelect: function(o) {
+            var p = o.data;
+            if (!p) return;
+            // Preencher campos relacionados
+            var unidadeEl = document.getElementById('unidade_' + adIdx);
+            if (unidadeEl) unidadeEl.value = p.unidade_medida || '';
+            var qtdEl = document.getElementById('quantidade_' + adIdx);
+            if (qtdEl) {
+              if ((p.unidade_medida || '') === 'KG') {
+                qtdEl.disabled = true; qtdEl.value = ''; qtdEl.placeholder = 'Não aplicável (unidade KG)';
+              } else {
+                qtdEl.disabled = false; qtdEl.placeholder = 'Quantidade em ' + (p.unidade_medida || '');
+              }
+            }
+            var descEl = document.getElementById('descricao_mercadoria_' + adIdx);
+            if (descEl && !descEl.value) descEl.value = p.descricao_mercadoria || '';
+            var hintEl = document.getElementById('pauta_desc_' + adIdx);
+            if (hintEl) hintEl.textContent = p.descricao_mercadoria || '';
+            // Guardar taxas para cálculos
+            var input = document.querySelector('[name="adicao[' + adIdx + '][codigo_pautal]"]');
+            if (input) {
+              input.dataset.direito = p.direito_importacao ?? 0;
+              input.dataset.iec = p.direito_consumo ?? 0;
+              input.dataset.iva = p.iva ?? 14;
+            }
+            if (typeof atualizarSubtituloAdicao === 'function') atualizarSubtituloAdicao(adIdx);
+          }
+        });
+      }
+    })(n);
+
+    // País de Origem — autocomplete
+    autocompleteSelect(document.getElementById('pais_origem_' + n), {
+      placeholder: 'Digite o código do país'
+    });
+
+    // Tipo de Volume — autocomplete
+    autocompleteSelect(document.getElementById('tipo_volume_' + n), {
+      placeholder: 'Digite o tipo de volume'
+    });
+
+    // Código do Procedimento — autocomplete
+    var procSelect = document.getElementById('codigo_procedimento_' + n);
+    if (procSelect) {
+      autocompleteSelect(procSelect, {
+        placeholder: 'Digite o código do procedimento',
+        onSelect: function() {
+          if (typeof atualizarCodigoIsencaoDinamico === 'function') {
+            atualizarCodigoIsencaoDinamico(n);
+          }
         }
-      },
-      templateResult: function(item) {
-        if (item.loading) return item.text;
-        if (!item.pauta) return item.text;
-        const p = item.pauta;
-        return $(`
-          <div style="padding:4px 0;">
-            <span style="font-weight:600;color:#003366;">${p.codigo_sh}</span>
-            <span style="color:#374151;margin-left:8px;font-size:13px;">${p.descricao_mercadoria || ''}</span>
-            <span style="float:right;color:#6b7280;font-size:11px;background:#f3f4f6;padding:1px 6px;border-radius:4px;">${p.unidade_medida || ''}</span>
-          </div>
-        `);
-      },
-      templateSelection: function(item) {
-        return item.id || item.text;
-      }
-    }).on('select2:select', function(e) {
-      const p = e.params.data.pauta;
-      if (!p) return;
-
-      const unidadeMedida = p.unidade_medida || '';
-
-      // Campo unidade — sempre recebe o valor da unidade_medida (readonly)
-      const unidadeEl = document.getElementById(`unidade_${n}`);
-      if (unidadeEl) unidadeEl.value = unidadeMedida;
-
-      // Campo quantidade — desabilitado se KG, ativo caso contrário
-      const qtdEl = document.getElementById(`quantidade_${n}`);
-      if (qtdEl) {
-        if (unidadeMedida === 'KG' || unidadeMedida === '') {
-          qtdEl.disabled = true;
-          qtdEl.value = '';
-          qtdEl.placeholder = 'Não aplicável (unidade KG)';
-        } else {
-          qtdEl.disabled = false;
-          qtdEl.placeholder = `Quantidade em ${unidadeMedida}`;
-        }
-      }
-
-      // Descrição da mercadoria
-      const descEl = document.getElementById(`descricao_mercadoria_${n}`);
-      const hint   = document.getElementById(`pauta_desc_${n}`);
-      if (descEl && !descEl.value) descEl.value = p.descricao_mercadoria || '';
-      if (hint) hint.textContent = p.descricao_mercadoria || '';
-
-      // Guardar taxas para cálculos
-      this.dataset.direito = p.direito_importacao ?? 0;
-      this.dataset.iec     = p.direito_consumo    ?? 0;
-      this.dataset.iva     = p.iva                ?? 14;
-
-      if (typeof atualizarSubtituloAdicao === 'function') atualizarSubtituloAdicao(n);
-    });
-
-    // Select2 para País de Origem — mostrar código (antes do " - ")
-    $(`#pais_origem_${n}`).select2({
-      placeholder: 'Pesquisar país...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhum país encontrado', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        return data.id ? data.id : data.text;
-      }
-    });
-
-    // Select2 para Tipo de Volume — mostrar código (antes do " - ")
-    $(`#tipo_volume_${n}`).select2({
-      placeholder: 'Selecione o tipo...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhum tipo encontrado', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        return data.id ? data.id : data.text;
-      }
-    });
-
-    // Select2 para Código do Procedimento — mostrar número (antes do " - ")
-    $(`#codigo_procedimento_${n}`).select2({
-      placeholder: 'Selecione...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhum procedimento encontrado', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        return data.id ? data.id : data.text;
-      }
-    }).on('change', function() {
-      atualizarCodigoIsencaoDinamico(n);
-    });
+      });
+    }
 
     // Carregar opções do procedimento via API (com cache)
     carregarCodigosProcedimento(n, dadosExistentes && dadosExistentes.codigo_procedimento ? dadosExistentes.codigo_procedimento : '');
@@ -2557,15 +2531,9 @@ function adicionarNovaAdicao(dadosExistentes) {
     // Pré-carregar isenções (cache para uso imediato ao mudar procedimento)
     atualizarCodigoIsencaoDinamico(n);
 
-    // Select2 para Código da Isenção — mostrar código (antes do " - ")
-    $(`#codigo_isencao_${n}`).select2({
-      placeholder: 'Nenhuma isenção...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhuma isenção encontrada', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        return data.id ? data.id : data.text;
-      }
+    // Código da Isenção — autocomplete
+    autocompleteSelect(document.getElementById('codigo_isencao_' + n), {
+      placeholder: 'Digite o código da isenção'
     });
 
     // Select2 para Moeda FOB/Seguro/Frete — mostrar código
@@ -2789,9 +2757,6 @@ async function carregarCodigosProcedimento(n, valorSelecionado) {
     else                                    grupos['Outros'].push(item);
   });
 
-  // Default: '0000' se não houver valor selecionado
-  const defaultProcedimento = valorSelecionado || '0000';
-
   sel.innerHTML = '<option value="">Selecione...</option>';
 
   Object.entries(grupos).forEach(([label, items]) => {
@@ -2802,26 +2767,20 @@ async function carregarCodigosProcedimento(n, valorSelecionado) {
       const opt = document.createElement('option');
       opt.value = item.codigo;
       opt.textContent = `${item.codigo} - ${item.descricao}`;
-      if (String(item.codigo) === String(defaultProcedimento)) opt.selected = true;
+      if (valorSelecionado && String(item.codigo) === String(valorSelecionado)) opt.selected = true;
       grp.appendChild(opt);
     });
     sel.appendChild(grp);
   });
 
-  // Se '0000' não existir na lista, adicionar como opção padrão
-  if (!valorSelecionado && !sel.querySelector('option[value="0000"]')) {
+  // '0000' como opção normal (sem selected) se não existir
+  if (!sel.querySelector('option[value="0000"]')) {
     const optDefault = document.createElement('option');
     optDefault.value = '0000';
     optDefault.textContent = '0000 - Sem procedimento específico';
-    optDefault.selected = true;
     sel.insertBefore(optDefault, sel.children[1] || null);
   }
 
-  // Refresh Select2 se já inicializado
-  if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
-    const $sel = $(`#codigo_procedimento_${n}`);
-    if ($sel.data('select2')) $sel.trigger('change.select2');
-  }
 }
 
 /* ----------------------------------------------------------
@@ -2848,16 +2807,15 @@ async function atualizarCodigoIsencaoDinamico(n) {
     }
   }
 
-  // Default: '000' (sem isenção) se não houver valor pré-selecionado
-  const valorAtualIsencao = isencaoSelect.dataset.valorInicial || '000';
+  const valorAtualIsencao = isencaoSelect.dataset.valorInicial || '';
 
   isencaoSelect.innerHTML = '';
 
-  // Opção 000 sempre primeiro
+  // Opção 000 sempre primeiro (sem selected a menos que haja valor prévio)
   const opt000 = document.createElement('option');
   opt000.value = '000';
   opt000.textContent = '000 - Sem isenção';
-  if (valorAtualIsencao === '000') opt000.selected = true;
+  if (valorAtualIsencao && String(valorAtualIsencao) === '000') opt000.selected = true;
   isencaoSelect.appendChild(opt000);
 
   _isencaoCache.forEach(item => {
@@ -2870,11 +2828,6 @@ async function atualizarCodigoIsencaoDinamico(n) {
     isencaoSelect.appendChild(opt);
   });
 
-  // Refresh Select2
-  if (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
-    const $sel = $(`#codigo_isencao_${n}`);
-    if ($sel.data('select2')) $sel.trigger('change.select2');
-  }
 }
 
 
@@ -3261,8 +3214,6 @@ async function carregarIncoterm() {
       <option value="DDP">DDP - Entrega com Direitos Pagos</option>
     `;
   }
-  // Refresh Select2
-  if (typeof $ !== 'undefined' && $('#incoterm').data('select2')) $('#incoterm').trigger('change.select2');
 }
 
 async function carregarNaturezaTransacao() {
@@ -3287,10 +3238,6 @@ async function carregarNaturezaTransacao() {
       <option value="2">2 - Empréstimo Sujeito a Compensação</option>
       <option value="9">9 - Outros</option>
     `;
-  }
-  // Refresh Select2
-  if (typeof $ !== 'undefined' && $('[name="natureza_transacao"]').data('select2')) {
-    $('[name="natureza_transacao"]').trigger('change.select2');
   }
 }
 
@@ -3326,13 +3273,9 @@ async function carregarModoTransporte() {
 
   if (selFronteira) {
     selFronteira.innerHTML = buildOptions('Selecione...');
-    if (typeof $ !== 'undefined' && $('#modo_transporte_fronteira').data('select2'))
-      $('#modo_transporte_fronteira').trigger('change.select2');
   }
   if (selInterior) {
     selInterior.innerHTML = buildOptions('Selecione...');
-    if (typeof $ !== 'undefined' && $('#modo_transporte_interior').data('select2'))
-      $('#modo_transporte_interior').trigger('change.select2');
   }
 }
 
@@ -3345,192 +3288,48 @@ document.addEventListener('DOMContentLoaded', function() {
   carregarNaturezaTransacao();
   carregarModoTransporte();
 
-  // Inicializar Select2 para o campo de país
+  // ── Autocomplete (dropdown só aparece ao digitar) ───────────
+  if (typeof autocompleteSelect === 'function') {
+    // Estância
+    autocompleteSelect(document.getElementById('estancia'), {
+      placeholder: 'Digite o código ou nome da estância'
+    });
+    // Regime Aduaneiro
+    autocompleteSelect(document.getElementById('regime_aduaneiro'), {
+      placeholder: 'Digite o código ou nome do regime'
+    });
+    // INCOTERM
+    autocompleteSelect(document.getElementById('incoterm'), {
+      placeholder: 'Digite o código INCOTERM'
+    });
+    // Natureza da Transação
+    autocompleteSelect(document.getElementById('natureza_transacao'), {
+      placeholder: 'Digite a natureza da transação'
+    });
+    // Modo Transporte Fronteira
+    autocompleteSelect(document.getElementById('modo_transporte_fronteira'), {
+      placeholder: 'Digite o modo de transporte'
+    });
+    // Modo Transporte Interior
+    autocompleteSelect(document.querySelector('[name="modo_transporte_interior"]'), {
+      placeholder: 'Digite o modo de transporte'
+    });
+    // Forma de Pagamento
+    autocompleteSelect(document.querySelector('[name="forma_pagamento"]'), {
+      placeholder: 'Digite a forma de pagamento'
+    });
+    console.log('Autocomplete inicializado para campos principais');
+  } else {
+    console.error('autocompleteSelect não está disponível');
+  }
+
+  // Moeda (FOB/Seguro/Frete) — Select2 sem search (poucas opções)
   if (typeof $.fn.select2 !== 'undefined') {
-    $('#pais_origem').select2({
-      placeholder: 'Selecione o país...',
-      allowClear: true,
-      width: '100%',
-      language: {
-        noResults: function() {
-          return "Nenhum país encontrado";
-        },
-        searching: function() {
-          return "Pesquisando...";
-        }
-      },
-      templateSelection: function(data) {
-        // Quando selecionado, mostrar apenas o código
-        if (data.id) {
-          // Extrair apenas o código (antes do " - ")
-          var codigo = data.text.split(' - ')[0];
-          return codigo;
-        }
-        return data.text;
-      }
-    });
-    
-    // Inicializar Select2 para Tipo de Volume
-    $('#tipo_volume').select2({
-      placeholder: 'Selecione o tipo...',
-      allowClear: true,
-      width: '100%',
-      language: {
-        noResults: function() {
-          return "Nenhum tipo encontrado";
-        },
-        searching: function() {
-          return "Pesquisando...";
-        }
-      },
-      templateSelection: function(data) {
-        // Quando selecionado, mostrar apenas o código
-        if (data.id) {
-          var codigo = data.text.split(' - ')[0];
-          return codigo;
-        }
-        return data.text;
-      }
-    });
-    
-    // Inicializar Select2 para Unidade
-    $('#unidade').select2({
-      placeholder: 'Selecione a unidade...',
-      allowClear: true,
-      width: '100%',
-      language: {
-        noResults: function() {
-          return "Nenhuma unidade encontrada";
-        },
-        searching: function() {
-          return "Pesquisando...";
-        }
-      },
-      templateSelection: function(data) {
-        // Quando selecionado, mostrar apenas o código
-        if (data.id) {
-          var codigo = data.text.split(' - ')[0];
-          return codigo;
-        }
-        return data.text;
-      }
-    });
-    
-    // Inicializar Select2 para Estância
-    $('#estancia').select2({
-      placeholder: 'Selecione a estância...',
-      allowClear: true,
-      width: '100%',
-      language: {
-        noResults: function() {
-          return "Nenhuma estância encontrada";
-        },
-        searching: function() {
-          return "Pesquisando...";
-        }
-      },
-      templateSelection: function(data) {
-        // Quando selecionado, mostrar apenas o código (cuo_cod)
-        if (data.id) {
-          return data.id; // Retorna apenas o código
-        }
-        return data.text;
-      },
-      templateResult: function(data) {
-        // No dropdown, mostrar código e nome completo (cuo_cod - cuo_nam)
-        return data.text; // Mostra "cuo_cod - cuo_nam"
-      }
-    });
-
-    // Inicializar Select2 para Regime Aduaneiro — mostrar código (antes do " - ")
-    $('#regime_aduaneiro').select2({
-      placeholder: 'Selecione o regime...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhum regime encontrado', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        return data.id ? data.id : data.text;
-      }
-    });
-
-    // Inicializar Select2 para INCOTERM — mostrar código (antes do " - ")
-    $('#incoterm').select2({
-      placeholder: 'Selecione...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhum INCOTERM encontrado', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        return data.id ? data.id : data.text;
-      }
-    });
-
-    // Inicializar Select2 para Natureza da Transação — mostrar descrição (depois do " - ")
-    $('#natureza_transacao, [name="natureza_transacao"]').select2({
-      placeholder: 'Selecione...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhuma natureza encontrada', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        if (data.id) {
-          var parts = data.text.split(' - ');
-          return parts.length > 1 ? parts.slice(1).join(' - ') : data.text;
-        }
-        return data.text;
-      }
-    });
-
-    // Inicializar Select2 para Modo de Transporte — mostrar código (antes do " - ")
-    $('#modo_transporte_fronteira, [name="modo_transporte_fronteira"]').select2({
-      placeholder: 'Selecione...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhum modo encontrado', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        if (data.id) {
-          var parts = data.text.split(' - ');
-          return parts.length > 1 ? parts.slice(1).join(' - ') : data.text;
-        }
-        return data.text;
-      }
-    });
-
-    $('[name="modo_transporte_interior"]').select2({
-      placeholder: 'Selecione...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhum modo encontrado', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        if (data.id) {
-          var parts = data.text.split(' - ');
-          return parts.length > 1 ? parts.slice(1).join(' - ') : data.text;
-        }
-        return data.text;
-      }
-    });
-
-    // Inicializar Select2 para Forma de Pagamento
-    $('[name="forma_pagamento"]').select2({
-      placeholder: 'Selecione...',
-      allowClear: true,
-      width: '100%',
-      language: { noResults: () => 'Nenhuma forma encontrada', searching: () => 'Pesquisando...' },
-      templateSelection: function(data) {
-        return data.id ? data.id : data.text;
-      }
-    });
-
-    // Inicializar Select2 para Moeda (passo 1 — FOB/Seguro/Frete)
     $('#moeda_fob, #moeda_seguro, #moeda_frete').select2({
       minimumResultsForSearch: Infinity,
       width: '100%',
-      templateSelection: function(data) {
-        return data.id ? data.id : data.text;
-      }
+      templateSelection: function(d) { return d.id ? d.id : d.text; }
     });
-    
-    console.log('Select2 inicializado para país de origem, tipo de volume, unidade e estância');
-  } else {
-    console.error('Select2 não está carregado');
   }
   
   // Adicionar máscara automática para Código Pautal
@@ -3615,6 +3414,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var el = document.querySelector('[name="' + nome + '"]');
     if (!el) return;
     el.value = valor;
+    // Se tem autocomplete, actualizar input visível
+    if (el.nextElementSibling && el.nextElementSibling._ac) {
+      el.nextElementSibling._ac.setValue(valor, valor);
+    }
     // Disparar evento para Select2 e outros listeners
     el.dispatchEvent(new Event('change', { bubbles: true }));
     el.dispatchEvent(new Event('input',  { bubbles: true }));
@@ -3622,6 +3425,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function preencherSelect2(nome, valor) {
     if (!valor) return;
+    // Tentar autocomplete primeiro
+    var el = document.querySelector('[name="' + nome + '"]');
+    if (el && el.nextElementSibling && el.nextElementSibling._ac) {
+      el.nextElementSibling._ac.setValue(valor, valor);
+      return;
+    }
     if (typeof $ !== 'undefined') {
       var $el = $('[name="' + nome + '"]');
       if ($el.length && $el.data('select2')) {

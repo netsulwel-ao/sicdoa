@@ -5,6 +5,18 @@
 {% csrf_token %}
 <main class="p-4 md:p-6 lg:p-8 space-y-6">
 
+  <!-- Messages -->
+  {% if messages %}
+  <div class="max-w-5xl mx-auto">
+    {% for msg in messages %}
+    <div class="p-4 rounded-xl text-sm flex items-center gap-2 mb-4 {% if msg.tags == 'error' %}bg-red-50 border border-red-200 text-red-700{% else %}bg-green-50 border border-green-200 text-green-700{% endif %}">
+      <i class="fas {% if msg.tags == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}"></i>
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <!-- Header -->
   <div class="max-w-5xl mx-auto">
     <div class="flex items-center justify-between mb-4">
@@ -213,6 +225,7 @@
       </div>
 
       <input type="hidden" id="input-tipo-nome" value="">
+      <input type="hidden" id="config-id-hidden" value="">
 
       <!-- Buttons -->
       <div class="flex flex-wrap items-center gap-3 pt-2">
@@ -233,6 +246,56 @@
   </div>
 </main>
 </div>
+
+<!-- Modal: Selecão de Despachantes -->
+<div id="modal-despachantes" class="fixed inset-0 z-[400] hidden flex items-center justify-center bg-black/50 p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col transform transition-all">
+    <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
+      <div>
+        <h3 class="text-base font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+          <i class="fas fa-users text-primary"></i> Selecionar Despachantes
+        </h3>
+        <p class="text-sm text-gray-500 mt-0.5">
+          <span id="selected-count" class="font-semibold text-primary">0</span> de <span id="total-despachantes">0</span> selecionados — desmarque os que pretende <strong>excluir</strong> da publicação
+        </p>
+      </div>
+      <button type="button" onclick="fecharModalDespachantes()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer">
+        <i class="fas fa-times text-xl"></i>
+      </button>
+    </div>
+    <div class="overflow-y-auto flex-1 p-0">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30 sticky top-0">
+            <th class="py-3 px-3 w-10">
+              <input type="checkbox" id="check-all-despachantes" checked
+                     class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer">
+            </th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Nome</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">NIF</th>
+            <th class="text-left py-3 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Categoria</th>
+          </tr>
+        </thead>
+        <tbody id="despachantes-tbody" class="divide-y divide-gray-100 dark:divide-gray-800"></tbody>
+      </table>
+    </div>
+    <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0 bg-gray-50 dark:bg-gray-800/20">
+      <p class="text-xs text-gray-400">As quotas serão geradas apenas para os despachantes assinalados.</p>
+      <div class="flex gap-2">
+        <button type="button" onclick="fecharModalDespachantes()"
+                class="px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer">
+          Cancelar
+        </button>
+        <button type="button" id="btn-confirmar-publicacao"
+                class="px-5 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 transition-all shadow-sm cursor-pointer">
+          <i class="fas fa-upload"></i> Publicar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   var hoje = new Date();
@@ -276,16 +339,64 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('btn-publicar').addEventListener('click', function() {
-    showConfirm('Publicar Configuração',
-      'Ao publicar, as quotas serão geradas para todos os despachantes ativos e serão enviadas notificações com os detalhes de pagamento. Confirma?'
-    ).then(function(ok) {
-      if (ok) enviarConfig(true);
+    if (!validarFormulario()) return;
+    enviarConfigListar();
+  });
+
+  document.getElementById('check-all-despachantes').addEventListener('change', function() {
+    var checks = document.querySelectorAll('.despachante-check');
+    checks.forEach(function(c) { c.checked = this.checked; }, this);
+    atualizarContadorSelecionados();
+  });
+
+  document.getElementById('despachantes-tbody').addEventListener('change', function(e) {
+    if (e.target.classList.contains('despachante-check')) {
+      atualizarContadorSelecionados();
+      var allChecked = document.querySelectorAll('.despachante-check:checked').length;
+      var total = document.querySelectorAll('.despachante-check').length;
+      document.getElementById('check-all-despachantes').checked = allChecked === total;
+    }
+  });
+
+  document.getElementById('btn-confirmar-publicacao').addEventListener('click', function() {
+    var btn = this;
+    var excluidos = [];
+    document.querySelectorAll('.despachante-check').forEach(function(c) {
+      if (!c.checked) excluidos.push(c.value);
+    });
+    var configId = document.getElementById('config-id-hidden').value;
+    var fd = new FormData(document.getElementById('form-config'));
+    fd.set('config_id', configId);
+    fd.set('publicar', '1');
+    excluidos.forEach(function(id) {
+      fd.append('excluidos[]', id);
+    });
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A publicar...';
+    fetch('{% url "governanca_api_quotas_publicar" %}', {
+      method: 'POST', body: fd,
+      headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.erro) {
+        mostrarMsg(d.erro, 'erro');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload"></i> Publicar';
+      } else {
+        fecharModalDespachantes();
+        location.reload();
+      }
+    })
+    .catch(function() {
+      mostrarMsg('Erro de conexão. Tente novamente.', 'erro');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-upload"></i> Publicar';
     });
   });
 });
 
-function enviarConfig(publicar) {
-  var btn = publicar ? document.getElementById('btn-publicar') : document.getElementById('btn-salvar');
+function validarFormulario() {
   var ano = parseInt(document.getElementById('input-ano').value);
   var valor = parseFloat(document.getElementById('input-valor').value);
   var tipoEl = document.getElementById('input-tipo');
@@ -294,13 +405,22 @@ function enviarConfig(publicar) {
   var mes = isRecorrente ? parseInt(document.getElementById('input-mes').value) : '';
   if (!ano || !valor || valor <= 0 || (isRecorrente && !mes)) {
     mostrarMsg('Preencha todos os campos obrigatórios corretamente.', 'erro');
-    return;
+    return false;
   }
+  return true;
+}
+
+function enviarConfig(publicar) {
+  if (publicar) return;
+  var btn = document.getElementById('btn-salvar');
+  var fd = new FormData(document.getElementById('form-config'));
+  fd.set('publicar', '0');
+  var tipoEl = document.getElementById('input-tipo');
+  var tipoSel = tipoEl.options[tipoEl.selectedIndex];
+  var isRecorrente = tipoSel && (tipoSel.dataset.recorrente === 'true' || !tipoSel.value);
+  if (!isRecorrente) fd.set('mes', '');
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A processar...';
-  var fd = new FormData(document.getElementById('form-config'));
-  fd.set('publicar', publicar ? '1' : '0');
-  if (!isRecorrente) fd.set('mes', '');
   fetch('{% url "governanca_api_quotas_salvar_config" %}', {
     method: 'POST', body: fd,
     headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
@@ -309,18 +429,85 @@ function enviarConfig(publicar) {
   .then(function(d) {
     if (d.erro) {
       mostrarMsg(d.erro, 'erro');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save"></i> Salvar';
     } else {
-      mostrarMsg(d.mensagem, 'sucesso');
-      setTimeout(function() { location.reload(); }, 2000);
+      location.reload();
     }
-    btn.disabled = false;
-    btn.innerHTML = publicar ? '<i class="fas fa-upload"></i> Publicar e Notificar' : '<i class="fas fa-save"></i> Salvar';
   })
   .catch(function() {
     mostrarMsg('Erro de conexão. Tente novamente.', 'erro');
     btn.disabled = false;
-    btn.innerHTML = publicar ? '<i class="fas fa-upload"></i> Publicar e Notificar' : '<i class="fas fa-save"></i> Salvar';
+    btn.innerHTML = '<i class="fas fa-save"></i> Salvar';
   });
+}
+
+function enviarConfigListar() {
+  var btn = document.getElementById('btn-publicar');
+  var fd = new FormData(document.getElementById('form-config'));
+  fd.set('publicar', '1');
+  var tipoEl = document.getElementById('input-tipo');
+  var tipoSel = tipoEl.options[tipoEl.selectedIndex];
+  var isRecorrente = tipoSel && (tipoSel.dataset.recorrente === 'true' || !tipoSel.value);
+  if (!isRecorrente) fd.set('mes', '');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A processar...';
+  fetch('{% url "governanca_api_quotas_salvar_config" %}', {
+    method: 'POST', body: fd,
+    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-upload"></i> Publicar e Notificar';
+    if (d.erro) {
+      mostrarMsg(d.erro, 'erro');
+    } else if (d.status === 'listar_despachantes') {
+      abrirModalDespachantes(d);
+    } else {
+      location.reload();
+    }
+  })
+  .catch(function() {
+    mostrarMsg('Erro de conexão. Tente novamente.', 'erro');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-upload"></i> Publicar e Notificar';
+  });
+}
+
+function abrirModalDespachantes(data) {
+  var tbody = document.getElementById('despachantes-tbody');
+  tbody.innerHTML = '';
+  var checkAll = document.getElementById('check-all-despachantes');
+  data.despachantes.forEach(function(d) {
+    var tr = document.createElement('tr');
+    tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors';
+    tr.innerHTML =
+      '<td class="py-2 px-3">' +
+        '<input type="checkbox" class="despachante-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30 cursor-pointer" value="' + d.id + '" checked>' +
+      '</td>' +
+      '<td class="py-2 px-3 text-sm font-medium text-[#111418] dark:text-gray-200">' + escapeHtml(d.nome) + '</td>' +
+      '<td class="py-2 px-3 text-sm text-gray-500">' + escapeHtml(d.email) + '</td>' +
+      '<td class="py-2 px-3 text-sm text-gray-500">' + escapeHtml(d.nif) + '</td>' +
+      '<td class="py-2 px-3 text-sm text-gray-500">' + escapeHtml(d.categoria) + '</td>';
+    tbody.appendChild(tr);
+  });
+  checkAll.checked = true;
+  document.getElementById('total-despachantes').textContent = data.total;
+  atualizarContadorSelecionados();
+  document.getElementById('config-id-hidden').value = data.config_id;
+  document.getElementById('modal-despachantes').classList.remove('hidden');
+}
+
+function atualizarContadorSelecionados() {
+  var total = document.querySelectorAll('.despachante-check:checked').length;
+  document.getElementById('selected-count').textContent = total;
+}
+
+function escapeHtml(text) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
 }
 
 function atualizarPreview() {
@@ -370,6 +557,10 @@ function mostrarMsg(texto, tipo) {
 function resetForm() {
   document.getElementById('msg-config').classList.add('hidden');
   document.getElementById('preview-config').classList.add('hidden');
+}
+
+function fecharModalDespachantes() {
+  document.getElementById('modal-despachantes').classList.add('hidden');
 }
 </script>
 {% include 'includes/confirm-modal.html' %}

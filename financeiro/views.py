@@ -30,22 +30,15 @@ from .forms import FluxoAprovacaoForm, NivelAprovacaoForm
 
 def _user_tem_acesso_total(request):
     """True se user tem bypass de scoping (Admin ou permissão admin/financeiro)."""
-    from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
+    from users.permissoes import _is_admin_ou_acesso_total
     papel = request.session.get('usuario', {}).get('papel', '')
     if papel == 'Administrador':
         return True
     if _is_admin_ou_acesso_total(request):
         return True
+    from users.permissoes import get_usuario_permissoes
     permissoes = get_usuario_permissoes(request)
     if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes:
-        return True
-    perms_granulares = [
-        'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
-        'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros',
-    ]
-    if any(p in permissoes for p in perms_granulares):
-        return True
-    if 'acesso_auditoria' in permissoes:
         return True
     return False
 
@@ -158,7 +151,11 @@ class FacturasHomeView(BaseContextMixin, TemplateView):
 
 @requer_sessao_ativa
 def du_custos_json(request, pk):
-    du = get_object_or_404(DeclaracaoUnica, pk=pk)
+    if _user_tem_acesso_total(request):
+        du = get_object_or_404(DeclaracaoUnica, pk=pk)
+    else:
+        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+        du = get_object_or_404(DeclaracaoUnica, pk=pk, despachante_id=usuario_id)
     taxas = float((du.total_impostos or 0))
     emolumentos = float(du.total_emgead or 0)
     iva_val = float(du.iva or 0)
@@ -181,7 +178,7 @@ def du_custos_json(request, pk):
 def _get_object_or_404_com_scope(request, model, pk, scope_field='cliente__usuario_id'):
     if _user_tem_acesso_total(request):
         return get_object_or_404(model, pk=pk)
-    usuario_id = request.session.get('usuario_id')
+    usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
     if not usuario_id:
         return get_object_or_404(model, pk=pk)
     return get_object_or_404(model, **{scope_field: usuario_id, 'pk': pk})
@@ -302,7 +299,14 @@ def aprovar_requisicao(request, pk):
         messages.error(request, 'Não tem permissão para aprovar requisições.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
 
-    requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    if _user_tem_acesso_total(request):
+        requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    else:
+        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+        requisicao = get_object_or_404(
+            RequisicaoFundo, pk=pk,
+            cliente__usuario_id=usuario_id,
+        )
     if request.method == 'POST':
 
         # ── Fluxo hierárquico ──────────────────────────────────────
@@ -368,7 +372,14 @@ def rejeitar_requisicao(request, pk):
         messages.error(request, 'Não tem permissão para rejeitar requisições.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
 
-    requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    if _user_tem_acesso_total(request):
+        requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    else:
+        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+        requisicao = get_object_or_404(
+            RequisicaoFundo, pk=pk,
+            cliente__usuario_id=usuario_id,
+        )
     if request.method == 'POST':
         motivo = request.POST.get('motivo_rejeicao', '').strip()
         if not motivo:
@@ -463,7 +474,14 @@ def eliminar_requisicao(request, pk):
 @requer_sessao_ativa
 def editar_requisicao(request, pk):
     from .forms import RequisicaoFundoUpdateForm
-    requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    if _user_tem_acesso_total(request):
+        requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    else:
+        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+        requisicao = get_object_or_404(
+            RequisicaoFundo, pk=pk,
+            cliente__usuario_id=usuario_id,
+        )
     if not requisicao.editavel:
         messages.error(request, 'Esta requisição não pode ser editada no estado atual.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)

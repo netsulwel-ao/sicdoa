@@ -878,7 +878,7 @@ def conta_corrente_periodica_json(request):
         rec = agg['recebimentos']
         cr = agg['creditos']
         db = agg['debitos']
-        saldo = rec - fat + cr - db
+        saldo = rec - fat
         data.append({
             'label': label,
             'faturacao': round(fat, 2),
@@ -951,7 +951,7 @@ def conta_corrente_periodica_excel(request):
         rec = agg['recebimentos']
         cr = agg['creditos']
         db = agg['debitos']
-        saldo = rec - fat + cr - db
+        saldo = rec - fat
 
         vals = [label, fat, rec, cr, db, saldo]
         for col, v in enumerate(vals, 1):
@@ -1042,7 +1042,7 @@ def conta_corrente_periodica_pdf(request):
         rec = agg['recebimentos']
         cr = agg['creditos']
         db = agg['debitos']
-        saldo = rec - fat + cr - db
+        saldo = rec - fat
         row_data = [
             Paragraph(label, s_normal),
             Paragraph(f'{fat:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),

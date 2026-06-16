@@ -16,7 +16,7 @@
     {% endif %}
   </div>
 
-  {% if estado_financeiro %}
+  {% if estado_financeiro and papel == 'Despachante Oficial' %}
   <div class="mb-6 p-4 rounded-xl flex items-center gap-3 {% if estado_financeiro.estado == 'Regular' %}bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800{% else %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800{% endif %}">
     <i class="fas {% if estado_financeiro.estado == 'Regular' %}fa-check-circle text-green-600{% else %}fa-exclamation-triangle text-red-600{% endif %} text-xl"></i>
     <div>

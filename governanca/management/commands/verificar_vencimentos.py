@@ -9,17 +9,15 @@ Para cada QuotaGerada com status=Pendente e data_vencimento + dias_carencia < ho
   → notifica o membro
 
 Para quotas já ATRASADA, recalcula a multa (cresce diariamente).
-Notifica apenas no 1º dia e semanalmente (7 em 7 dias).
 """
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.db.models import Q
 
 from governanca.models import QuotaGerada, QuotaConfig, HistoricoQuota, Notificacao
-from users.models import Usuario
+from governanca.views import _atualizar_estado_financeiro
 from utils.email_utils import _enviar
 
 
@@ -59,7 +57,6 @@ class Command(BaseCommand):
             )
             processadas += 1
 
-            from governanca.views import _atualizar_estado_financeiro
             _atualizar_estado_financeiro(q.despachante_id)
             irregulares += 1
 

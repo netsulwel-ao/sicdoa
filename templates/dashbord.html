@@ -70,6 +70,7 @@
         <a href="{% url 'financeiro:requisicao_lista' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver todas <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
       </div>
 
+      {% if papel == 'Administrador' %}
       <a href="{% url 'governanca_gerir_utilizadores' %}" class="group block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/30 transition-all no-underline">
         <div class="flex items-center gap-3 mb-3">
           <div class="p-2 bg-primary/10 dark:bg-primary/20 rounded-lg">
@@ -82,6 +83,7 @@
         <p class="text-xs text-gray-500 mt-1">{{ stats_utilizadores_ativos }} activo{{ stats_utilizadores_ativos|pluralize:"s" }}</p>
         <span class="mt-2 inline-block text-primary text-xs font-semibold group-hover:underline">Gerir <i class="fas fa-arrow-right text-xs ml-0.5"></i></span>
       </a>
+      {% endif %}
 
       <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex items-center gap-3 mb-3">
@@ -280,7 +282,7 @@
       <div class="space-y-6">
 
         <!-- Pendentes de Aprovação -->
-        {% if papel == 'Administrador' %}
+        {% if papel == 'Administrador' or papel == 'Despachante Oficial' %}
         <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm">
           <h3 class="text-base font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2">
             <i class="fas fa-hourglass-half text-amber-500"></i> Pendentes de Aprovação

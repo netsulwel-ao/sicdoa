@@ -472,6 +472,10 @@ def dashboard_view(request):
     from django.db.models import Sum, Q
     from .permissoes import get_usuario_permissoes, _is_admin_ou_acesso_total
 
+    # ── Mês actual (range UTC para evitar CONVERT_TZ com MySQL) ──────────
+    _ms = tz.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    _me = _ms.replace(year=_ms.year + 1, month=1) if _ms.month == 12 else _ms.replace(month=_ms.month + 1)
+
     # ── Filtro base por papel ──────────────────────────────────────────────
     e_admin = _is_admin_ou_acesso_total(request)
     e_gestor = e_admin or papel in ("Gestor Financeiro",)
@@ -485,7 +489,7 @@ def dashboard_view(request):
     stats_dus_total = dus_qs.count()
     stats_dus_ativos = dus_qs.filter(status__in=["Rascunho", "Submetida", "Em Análise"]).count()
     stats_dus_mes = dus_qs.filter(
-        created_at__month=tz.now().month, created_at__year=tz.now().year,
+        created_at__gte=_ms, created_at__lt=_me
     ).aggregate(total=Sum('total_geral'))['total'] or 0
 
     # ── 2. Clientes ────────────────────────────────────────────────────────
@@ -501,11 +505,11 @@ def dashboard_view(request):
     else:
         fact_mes_qs = FacturaCliente.objects.filter(cliente__usuario_id=uid)
     fact_mes = fact_mes_qs.filter(
-        data_emissao__month=tz.now().month, data_emissao__year=tz.now().year,
-    ).aggregate(total=Sum('valor_total'), qtd=Sum(1))  # Sum(1) won't work for count, use count
-    stats_fact_valor = fact_mes['total'] or 0
+        data_emissao__gte=_ms, data_emissao__lt=_me
+    ).aggregate(total=Sum('valor_total'))['total'] or 0
+    stats_fact_valor = fact_mes
     stats_fact_qtd = fact_mes_qs.filter(
-        data_emissao__month=tz.now().month, data_emissao__year=tz.now().year,
+        data_emissao__gte=_ms, data_emissao__lt=_me
     ).count()
 
     # ── 4. Requisições Pendentes ───────────────────────────────────────────
@@ -551,9 +555,9 @@ def dashboard_view(request):
     stats_nc_pendentes = nc_pend
     stats_nd_pendentes = nd_pend
 
-    # ── Top devedores (clientes com maior saldo_conta_corrente) ────────────
-    top_devedores = clientes_qs.filter(ativo=True, saldo_conta_corrente__gt=0
-    ).order_by('-saldo_conta_corrente')[:5]
+    # ── Top devedores (clientes com saldo negativo — devem dinheiro) ──────
+    top_devedores = clientes_qs.filter(ativo=True, saldo_conta_corrente__lt=0
+    ).order_by('saldo_conta_corrente')[:5]
 
     # ── Actividade recente (últimos históricos financeiros) ─────────────────
     from financeiro.models import HistoricoFinanceiro
@@ -631,6 +635,9 @@ def dashboard_colaborador_view(request):
         from django.utils import timezone as tz
         from django.db.models import Sum, Q
 
+        _ms = tz.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        _me = _ms.replace(year=_ms.year + 1, month=1) if _ms.month == 12 else _ms.replace(month=_ms.month + 1)
+
         dono_id = request.session.get('usuario_id')
         col_obj = Colaborador.objects.select_related('banca').filter(
             pk=colaborador_id, estado='Ativo'
@@ -650,14 +657,14 @@ def dashboard_colaborador_view(request):
         dus_total = dus_qs.count()
         dus_status = dus_qs.filter(status__in=["Rascunho", "Submetida", "Em Análise"]).count()
         dus_mes = dus_qs.filter(
-            created_at__month=tz.now().month, created_at__year=tz.now().year,
+            created_at__gte=_ms, created_at__lt=_me
         ).aggregate(total=Sum('total_geral'))['total'] or 0
 
         fact_mes = fact_mes_qs.filter(
-            data_emissao__month=tz.now().month, data_emissao__year=tz.now().year,
+            data_emissao__gte=_ms, data_emissao__lt=_me
         ).aggregate(total=Sum('valor_total'))['total'] or 0
         fact_qtd = fact_mes_qs.filter(
-            data_emissao__month=tz.now().month, data_emissao__year=tz.now().year,
+            data_emissao__gte=_ms, data_emissao__lt=_me
         ).count()
 
         col_dash = Colaborador.objects.select_related('cargo_banca', 'banca').get(id=colaborador_id)
@@ -707,6 +714,7 @@ def dashboard_colaborador_view(request):
 
 # ─── Utilitário de teste de email ─────────────────────────────────────────────
 
+@requer_sessao_ativa
 def testar_email_view(_request):
     """Testa a ligação SMTP e envia email de diagnóstico."""
     import smtplib
@@ -1186,10 +1194,11 @@ def meu_perfil_view(request):
 
     from aduaneiro.models import DeclaracaoUnica
     total_dus   = DeclaracaoUnica.objects.filter(usuario_id=usuario.id).count()
-    dus_mes     = DeclaracaoUnica.objects.filter(
+    _ms = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    _me = _ms.replace(year=_ms.year + 1, month=1) if _ms.month == 12 else _ms.replace(month=_ms.month + 1)
+    dus_mes = DeclaracaoUnica.objects.filter(
         usuario_id=usuario.id,
-        created_at__month=timezone.now().month,
-        created_at__year=timezone.now().year,
+        created_at__gte=_ms, created_at__lt=_me
     ).count()
 
     from .permissoes import usuario_tem_permissao

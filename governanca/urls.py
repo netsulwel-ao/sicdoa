@@ -140,6 +140,8 @@ urlpatterns = [
 
     # API: Config
     path('quotas/api/salvar-config/', views.api_quotas_salvar_config, name='governanca_api_quotas_salvar_config'),
+    path('quotas/api/listar-despachantes/', views.api_quotas_listar_despachantes, name='governanca_api_quotas_listar_despachantes'),
+    path('quotas/api/publicar/', views.api_quotas_publicar, name='governanca_api_quotas_publicar'),
 
     # API: Carteira
     path('quotas/api/renovar-carteira/', views.api_quotas_renovar_carteira, name='governanca_api_quotas_renovar_carteira'),

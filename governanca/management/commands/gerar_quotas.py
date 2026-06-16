@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from users.models import Usuario
-from governanca.models import TipoQuota, QuotaConfig, QuotaGerada, IsencaoMembro, HistoricoQuota, Notificacao
+from governanca.models import TipoQuota, QuotaConfig, QuotaGerada, HistoricoQuota, Notificacao
 from utils.email_utils import _enviar
 
 
@@ -70,13 +70,6 @@ class Command(BaseCommand):
         slug_tipo = tipo.slug.upper()
 
         for d in despachantes:
-            if d.categoria and d.categoria.isento:
-                continue
-            if IsencaoMembro.objects.filter(
-                despachante=d, tipo_quota=tipo,
-                data_inicio__lte=date(ano, mes, 1),
-            ).exclude(data_fim__lt=date(ano, mes, 1)).exists():
-                continue
             filtro = {'despachante': d, 'tipo': tipo}
             if slug == 'mensal':
                 filtro['ano'] = ano

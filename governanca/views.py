@@ -2099,12 +2099,12 @@ def _atualizar_estado_financeiro(despachante_id, registar_historico=False, reque
 @_requer_login
 def quotas_dashboard(request):
     from users.permissoes import usuario_tem_permissao
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = request.session['usuario']['papel']
     if papel not in ('Administrador', 'Despachante Oficial') and not (usuario_tem_permissao(request, 'gerir_quotas') or usuario_tem_permissao(request, 'ver_quotas')):
         return redirect('governanca_index')
     ef = _get_estado_financeiro(usuario_id)
-    quotas_pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada']).count()
+    quotas_pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada','Pendente Confirmacao']).count()
     total_quotas = QuotaGerada.objects.filter(despachante_id=usuario_id).count()
     ultimas_quotas_qs = QuotaGerada.objects.filter(despachante_id=usuario_id).order_by('-ano','-mes')
     paginator = Paginator(ultimas_quotas_qs, 8)
@@ -2122,7 +2122,7 @@ def quotas_dashboard(request):
 
 @_requer_login
 def quotas_faturas(request):
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = request.session['usuario']['papel']
     from users.permissoes import _is_admin_ou_acesso_total
     if _is_admin_ou_acesso_total(request):
@@ -2142,7 +2142,11 @@ def quotas_faturas(request):
 
 @_requer_login
 def quotas_fatura_detalhe(request, fatura_uuid):
+    from users.permissoes import _is_admin_ou_acesso_total
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
+    uid = request.session.get('banca_usuario_id') or request.session['usuario_id']
+    if quota.despachante_id != uid and not _is_admin_ou_acesso_total(request):
+        return redirect('governanca_quotas_dashboard')
     pagamentos_qs = PagamentoQuota.objects.filter(quota=quota).order_by('-data_pagamento')
     paginator = Paginator(pagamentos_qs, 8)
     page_number = request.GET.get('page')
@@ -2163,7 +2167,7 @@ def quotas_fatura_detalhe(request, fatura_uuid):
 
 @_requer_login
 def quotas_certidao(request):
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     ef = _get_estado_financeiro(usuario_id)
     certidoes_qs = CertidaoRegularidade.objects.filter(despachante_id=usuario_id).order_by('-data_emissao')
     paginator = Paginator(certidoes_qs, 8)
@@ -2180,7 +2184,7 @@ def quotas_certidao(request):
 
 @_requer_login
 def quotas_carteira(request):
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     carteira = CarteiraProfissional.objects.filter(despachante_id=usuario_id).first()
     ef = _get_estado_financeiro(usuario_id)
     context = {
@@ -2202,7 +2206,7 @@ def quotas_admin_dashboard(request):
     from django.db.models import Count, Q
     stats = QuotaGerada.objects.aggregate(
         total=Count('id'),
-        pendentes=Count('id', filter=Q(status__in=['Pendente','Atrasada'])),
+        pendentes=Count('id', filter=Q(status__in=['Pendente','Atrasada','Pendente Confirmacao'])),
         pagas=Count('id', filter=Q(status='Paga')),
     )
     context = {
@@ -2260,7 +2264,7 @@ def quotas_admin_config(request):
         'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'configs': page_obj, 'page_obj': page_obj,
-        'categorias': CategoriaMembro.objects.all(),
+        'categorias': CategoriaMembro.objects.filter(usuario__papel='Despachante Oficial', usuario__status='Ativo').distinct(),
         'tipos_quota': TipoQuota.objects.all(),
     }
     return render(request, 'governanca/quotas/admin_config.html', context)
@@ -2272,9 +2276,9 @@ def quotas_admin_relatorios(request):
         return redirect('governanca_quotas_dashboard')
 
     from django.db.models import Sum, Count, Q
-    total_arrecadado = PagamentoQuota.objects.filter(
-        status='Confirmado'
-    ).aggregate(total=Sum('valor_pago'))['total'] or 0
+    total_arrecadado = QuotaGerada.objects.filter(
+        status='Paga'
+    ).aggregate(total=Sum('valor'))['total'] or 0
     stats = QuotaGerada.objects.aggregate(
         atrasadas=Count('id', filter=Q(status='Atrasada')),
         pendentes=Count('id', filter=Q(status='Pendente')),
@@ -2304,7 +2308,7 @@ def quotas_admin_relatorios(request):
             isentas=Count('id', filter=Q(status='Isenta')),
             canceladas=Count('id', filter=Q(status='Cancelada')),
             valor_total=Sum('valor'),
-            arrecadado=Sum('valor', filter=Q(status='Paga'), distinct=True),
+            arrecadado=Sum('valor', filter=Q(status='Paga')),
         )
         .order_by('-ano', '-mes')[:12]
     )
@@ -2356,6 +2360,15 @@ def quotas_admin_gerar_retroativo(request):
 @_requer_login
 def api_quotas_pagar(request, fatura_uuid):
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
+    pode_pagar = (
+        quota.despachante_id == request.session['usuario_id']
+        or (
+            request.session.get('tipo_usuario') == 'colaborador'
+            and request.session.get('banca_usuario_id') == quota.despachante_id
+        )
+    )
+    if not pode_pagar:
+        return JsonResponse({'erro': 'Esta quota não lhe pertence'}, status=403)
     if quota.status in ('Paga', 'Cancelada', 'Isenta'):
         return JsonResponse({'erro': 'Quota não pode ser paga'}, status=400)
     if quota.status == 'Pendente Confirmacao':
@@ -2369,7 +2382,7 @@ def api_quotas_pagar(request, fatura_uuid):
     multa_info = _calcular_multa_quota(quota)
     valor_pago = multa_info['total_sugerido']
     pag = PagamentoQuota(
-        quota=quota, despachante_id=request.session['usuario_id'],
+        quota=quota, despachante_id=quota.despachante_id,
         metodo=metodo, valor_pago=valor_pago,
         status_anterior_quota=quota.status,
     )
@@ -2393,6 +2406,7 @@ def api_quotas_pagar(request, fatura_uuid):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_confirmar_pagamento(request, pk):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     pag = get_object_or_404(PagamentoQuota, pk=pk)
@@ -2441,6 +2455,7 @@ def api_quotas_confirmar_pagamento(request, pk):
         estado_anterior = pag.status_anterior_quota or 'Pendente'
         quota.status = estado_anterior
         quota.save(update_fields=['status'])
+        _atualizar_estado_financeiro(pag.despachante_id)
         _registrar_historico(
             membro=pag.despachante, quota=quota, pagamento=pag,
             acao='PAGAMENTO_REJEITADO',
@@ -2463,21 +2478,23 @@ def api_quotas_confirmar_pagamento(request, pk):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_emitir_certidao(request):
-    usuario_id = request.session['usuario_id']
-    ef = _get_estado_financeiro(usuario_id)
+    despachante_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
+    ef = _get_estado_financeiro(despachante_id)
     if ef.estado != 'Regular':
         return JsonResponse({'erro': 'Estado financeiro irregular. Regularize as suas quotas primeiro.'}, status=400)
-    despachante = Usuario.objects.get(id=usuario_id)
+    despachante = Usuario.objects.filter(id=despachante_id).first()
+    if not despachante:
+        return JsonResponse({'erro': 'Utilizador não encontrado'}, status=404)
     from utils.pdf_quotas import gerar_certidao_pdf
     result = gerar_certidao_pdf(despachante, request.session['usuario']['nome'])
     validade = timezone.now().date() + _dt.timedelta(days=90)
     cert = CertidaoRegularidade.objects.create(
-        despachante_id=usuario_id, codigo_certidao=result['codigo'],
+        despachante_id=despachante_id, codigo_certidao=result['codigo'],
         data_validade=validade, arquivo_pdf=result['pdf_path'],
-        assinatura_hash=result['hash'], emitido_por_id=usuario_id,
+        assinatura_hash=result['hash'], emitido_por_id=request.session['usuario_id'],
     )
     Notificacao.objects.create(
-        usuario_id=usuario_id, tipo='certidao_emitida',
+        usuario_id=despachante_id, tipo='certidao_emitida',
         titulo='Certidão de Regularidade Emitida',
         mensagem='A sua certidão de regularidade foi emitida com sucesso.',
         link='/governanca/quotas/certidao/',
@@ -2529,9 +2546,9 @@ def api_quotas_buscar_membros(request):
 
 @_requer_login
 def api_quotas_verificar_estado(request):
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     ef = _get_estado_financeiro(usuario_id)
-    pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada']).count()
+    pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada','Pendente Confirmacao']).count()
     return JsonResponse({
         'estado': ef.estado, 'quotas_pendentes': pendentes,
         'pode_votar': ef.estado == 'Regular',
@@ -2541,7 +2558,7 @@ def api_quotas_verificar_estado(request):
 
 @_requer_login
 def api_quotas_listar(request):
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = request.session['usuario']['papel']
     from users.permissoes import _is_admin_ou_acesso_total
     e_admin = _is_admin_ou_acesso_total(request)
@@ -2561,10 +2578,10 @@ def api_quotas_listar(request):
 
 @_requer_login
 def api_quotas_dashboard(request):
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = request.session['usuario']['papel']
     ef = _get_estado_financeiro(usuario_id)
-    pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada']).count()
+    pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada','Pendente Confirmacao']).count()
     pagas = QuotaGerada.objects.filter(despachante_id=usuario_id, status='Paga').count()
     return JsonResponse({
         'estado': ef.estado, 'quotas_pendentes': pendentes, 'quotas_pagas': pagas,
@@ -2577,12 +2594,17 @@ def api_quotas_dashboard(request):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_renovar_carteira(request):
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     ef = _get_estado_financeiro(usuario_id)
     if ef.estado != 'Regular':
         return JsonResponse({'erro': 'Estado financeiro irregular. Regularize as suas quotas primeiro.'}, status=400)
     carteira = CarteiraProfissional.objects.filter(despachante_id=usuario_id).first()
-    despachante = carteira.despachante if carteira else Usuario.objects.get(id=usuario_id)
+    if carteira:
+        despachante = carteira.despachante
+    else:
+        despachante = Usuario.objects.filter(id=usuario_id).first()
+    if not despachante:
+        return JsonResponse({'erro': 'Utilizador não encontrado'}, status=404)
     if not carteira:
         from datetime import date as _ddate
         hoje = _ddate.today()
@@ -2605,7 +2627,7 @@ def api_quotas_renovar_carteira(request):
 
 @_requer_login
 def api_quotas_carteira(request):
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     carteira = CarteiraProfissional.objects.filter(despachante_id=usuario_id).first()
     if not carteira:
         return JsonResponse({'carteira': None})
@@ -2617,10 +2639,30 @@ def api_quotas_carteira(request):
     })
 
 
+@_requer_login
+def api_quotas_listar_despachantes(request):
+    """Lista todos os Despachante Oficial ativos para seleção pré-publicação."""
+    from users.permissoes import usuario_tem_permissao
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    despachantes = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo').order_by('nome')
+    data = []
+    for d in despachantes:
+        data.append({
+            'id': d.id,
+            'nome': d.nome,
+            'email': d.email or '',
+            'nif': d.nif or '',
+            'categoria': d.categoria.nome if d.categoria else '',
+        })
+    return JsonResponse({'despachantes': data, 'total': len(data)})
+
+
 @csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_salvar_config(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
@@ -2664,80 +2706,144 @@ def api_quotas_salvar_config(request):
     elif not QuotaConfig.objects.filter(ano=ano, mes=mes).exists():
         return JsonResponse({'erro': 'Data de vencimento é obrigatória na primeira configuração'}, status=400)
 
-    lookup = {'ano': ano}
-    if mes is not None:
-        lookup['mes'] = mes
+    lookup = {'ano': ano, 'mes': mes}
+    if tipo_id:
+        lookup['tipo_id'] = int(tipo_id)
+    else:
+        lookup['tipo_id'] = None
     config, created = QuotaConfig.objects.update_or_create(**lookup, defaults=defaults)
 
     if publicar and ativa:
-        despachantes = Usuario.objects.filter(papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
+        despachantes = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo').order_by('nome')
         tipo = TipoQuota.objects.filter(id=tipo_id).first() if tipo_id else None
         if not tipo:
             tipo = TipoQuota.objects.filter(slug='mensal').first()
-        slug_tipo = tipo.slug.upper() if tipo else 'QUOTA'
-        descricao = f'{tipo.nome} {mes:02d}/{ano}' if mes else f'{tipo.nome} {ano}'
-        geradas = 0
-        hoje = timezone.now().date()
-        seq = QuotaGerada.objects.filter(ano=ano, mes=mes, tipo=tipo).count() + 1
+        lista = []
         for d in despachantes:
-            if d.categoria and d.categoria.isento:
-                continue
-            if tipo.recorrente and mes:
-                if QuotaGerada.objects.filter(despachante=d, tipo=tipo, ano=ano, mes=mes).exists():
-                    continue
-            elif not tipo.recorrente:
-                if QuotaGerada.objects.filter(despachante=d, tipo=tipo, ano=ano).exists():
-                    continue
-            if IsencaoMembro.objects.filter(
-                despachante=d, tipo_quota=tipo,
-                data_inicio__lte=_dt.date(ano, mes, 1),
-            ).exclude(data_fim__lt=_dt.date(ano, mes, 1)).exists():
-                continue
-            pi = _dt.date(ano, mes, 1) if mes else None
-            pf = None
-            if pi and tipo.dias_intervalo:
-                from dateutil.relativedelta import relativedelta
-                pf = pi + relativedelta(months=(tipo.dias_intervalo // 30)) - _dt.timedelta(days=1)
-            referencia = f'QUOTA-{slug_tipo}-{mes:02d}-{ano}-{seq:05d}'
-            seq += 1
-            q = QuotaGerada.objects.create(
-                despachante=d, tipo=tipo, ano=ano, mes=mes,
-                periodo_inicio=pi, periodo_fim=pf,
-                descricao=descricao,
-                valor=config.valor, valor_original=config.valor, valor_total=config.valor,
-                data_vencimento=config.data_vencimento,
-                data_envio=hoje,
-                referencia=referencia,
-            )
-            _registrar_historico(
-                membro=d, quota=q, pagamento=None,
-                acao='QUOTA_GERADA',
-                descricao=f'Quota gerada via publicação. Config: {descricao}. Referência: {referencia}',
-                request=request,
-            )
-            multa_str = f' Multa de {config.multa_percentual}%/dia após o vencimento.' if config.multa_percentual else ''
-            carencia_str = f' Período de carência: {config.dias_carencia} dias.' if config.dias_carencia else ''
-            Notificacao.objects.create(
-                usuario=d, tipo='quota_gerada',
-                titulo=descricao + ' — Pagamento Disponível',
-                mensagem=f'Foi publicada a sua {descricao} no valor de Kz {config.valor}. Vencimento: {config.data_vencimento}.{multa_str}{carencia_str}',
-                link='/governanca/quotas/',
-            )
-            if d.email:
-                texto_multa = f"Multa de {config.multa_percentual}%/dia após o vencimento.\n" if config.multa_percentual else ""
-                _enviar(
-                    'Quota Associativa — Pagamento Disponível',
-                    f'Olá {d.nome},\n\nA sua {descricao} no valor de Kz {config.valor} foi publicada.\n'
-                    f'Data de vencimento: {config.data_vencimento}\n{texto_multa}'
-                    f'\nAceda ao sistema para efetuar o pagamento dentro do prazo.\n\nCDOA Angola',
-                    None, [d.email],
-                )
-            geradas += 1
-        msg = f'Configuração de {descricao} publicada. {geradas} quotas geradas.'
-    else:
-        label = f'{mes:02d}/{ano}' if mes else f'{ano}'
-        msg = f'Configuração de {label} salva: Kz {valor:.2f}'
+            lista.append({
+                'id': d.id,
+                'nome': d.nome,
+                'email': d.email or '',
+                'nif': d.nif or '',
+                'categoria': d.categoria.nome if d.categoria else '',
+            })
+        return JsonResponse({
+            'status': 'listar_despachantes',
+            'despachantes': lista,
+            'config_id': config.id,
+            'total': len(lista),
+        })
+    label = f'{mes:02d}/{ano}' if mes else f'{ano}'
+    msg = f'Configuração de {label} salva: Kz {valor:.2f}'
+    messages.success(request, msg)
     return JsonResponse({'status': 'ok', 'mensagem': msg})
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+@_requer_login
+def api_quotas_publicar(request):
+    """
+    Gera quotas para todos os Despachante Oficial ativos,
+    exceto os listados em 'excluidos[]'.
+    """
+    from users.permissoes import usuario_tem_permissao
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    try:
+        config_id = int(request.POST.get('config_id', 0))
+        ano = int(request.POST.get('ano', 0))
+        mes_s = request.POST.get('mes', '')
+        mes = int(mes_s) if mes_s else None
+        tipo_id = request.POST.get('tipo_id', '') or None
+        valor = _Decimal(request.POST.get('valor', '0'))
+        vencimento = request.POST.get('data_vencimento', '')
+        multa_percentual = _Decimal(request.POST.get('multa_percentual', '0.50'))
+        dias_carencia = int(request.POST.get('dias_carencia', 5))
+        excluidos_str = request.POST.getlist('excluidos[]')
+    except (ValueError, TypeError):
+        return JsonResponse({'erro': 'Dados inválidos'}, status=400)
+
+    excluidos = set()
+    for e in excluidos_str:
+        try:
+            excluidos.add(int(e))
+        except ValueError:
+            pass
+
+    config = QuotaConfig.objects.filter(id=config_id, ano=ano).first()
+    if not config:
+        return JsonResponse({'erro': 'Configuração não encontrada'}, status=404)
+
+    if mes is not None:
+        config.mes = mes
+        config.save(update_fields=['mes'])
+
+    tipo = TipoQuota.objects.filter(id=tipo_id).first() if tipo_id else TipoQuota.objects.filter(slug='mensal').first()
+    if not tipo:
+        return JsonResponse({'erro': 'Tipo de quota não encontrado'}, status=404)
+
+    slug_tipo = tipo.slug.upper()
+    descricao = f'{tipo.nome} {mes:02d}/{ano}' if mes else f'{tipo.nome} {ano}'
+
+    despachantes = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo').order_by('nome')
+    geradas = 0
+    hoje = timezone.now().date()
+    seq = QuotaGerada.objects.filter(ano=ano, mes=mes, tipo=tipo).count() + 1
+
+    for d in despachantes:
+        if d.id in excluidos:
+            continue
+        if tipo.recorrente and mes:
+            if QuotaGerada.objects.filter(despachante=d, tipo=tipo, ano=ano, mes=mes).exists():
+                continue
+        elif not tipo.recorrente:
+            if QuotaGerada.objects.filter(despachante=d, tipo=tipo, ano=ano).exists():
+                continue
+        pi = _dt.date(ano, mes, 1) if mes else None
+        pf = None
+        if pi and tipo.dias_intervalo:
+            from dateutil.relativedelta import relativedelta
+            pf = pi + relativedelta(months=(tipo.dias_intervalo // 30)) - _dt.timedelta(days=1)
+        referencia = f'QUOTA-{slug_tipo}-{mes:02d}-{ano}-{seq:05d}' if mes else f'QUOTA-{slug_tipo}-{ano}-{seq:05d}'
+        seq += 1
+        q = QuotaGerada.objects.create(
+            despachante=d, tipo=tipo, ano=ano, mes=mes,
+            periodo_inicio=pi, periodo_fim=pf,
+            descricao=descricao,
+            valor=config.valor, valor_original=config.valor, valor_total=config.valor,
+            data_vencimento=config.data_vencimento,
+            data_envio=hoje,
+            referencia=referencia,
+        )
+        _registrar_historico(
+            membro=d, quota=q, pagamento=None,
+            acao='QUOTA_GERADA',
+            descricao=f'Quota gerada via publicação. Config: {descricao}. Referência: {referencia}',
+            request=request,
+        )
+        multa_str = f' Multa de {config.multa_percentual}%/dia após o vencimento.' if config.multa_percentual else ''
+        carencia_str = f' Período de carência: {config.dias_carencia} dias.' if config.dias_carencia else ''
+        Notificacao.objects.create(
+            usuario=d, tipo='quota_gerada',
+            titulo=descricao + ' — Pagamento Disponível',
+            mensagem=f'Foi publicada a sua {descricao} no valor de Kz {config.valor}. Vencimento: {config.data_vencimento}.{multa_str}{carencia_str}',
+            link='/governanca/quotas/',
+        )
+        if d.email:
+            texto_multa = f"Multa de {config.multa_percentual}%/dia após o vencimento.\n" if config.multa_percentual else ""
+            _enviar(
+                'Quota Associativa — Pagamento Disponível',
+                f'Olá {d.nome},\n\nA sua {descricao} no valor de Kz {config.valor} foi publicada.\n'
+                f'Data de vencimento: {config.data_vencimento}\n{texto_multa}'
+                f'\nAceda ao sistema para efetuar o pagamento dentro do prazo.\n\nCDOA Angola',
+                None, [d.email],
+            )
+        geradas += 1
+
+    msg = f'Configuração de {descricao} publicada. {geradas} quotas geradas.'
+    messages.success(request, msg)
+    return JsonResponse({'status': 'ok', 'mensagem': msg, 'geradas': geradas})
 
 
 @csrf_exempt
@@ -2817,13 +2923,6 @@ def api_quotas_gerar_retroativo(request):
             continue
         seq = QuotaGerada.objects.filter(ano=aa, mes=mm, tipo=tipo).count() + 1
         for d in despachantes:
-            if d.categoria and d.categoria.isento:
-                continue
-            if IsencaoMembro.objects.filter(
-                despachante=d, tipo_quota=tipo,
-                data_inicio__lte=_dt.date(aa, mm, 1),
-            ).exclude(data_fim__lt=_dt.date(aa, mm, 1)).exists():
-                continue
             existente = QuotaGerada.objects.filter(despachante=d, tipo=tipo, ano=aa, mes=mm).first()
             if existente:
                 if force:
@@ -2883,7 +2982,7 @@ def api_quotas_marcar_paga(request, fatura_uuid):
         return JsonResponse({'erro': 'Esta quota já está paga'}, status=400)
     quota.status = 'Paga'
     quota.data_pagamento = timezone.now()
-    quota.save()
+    quota.save(update_fields=['status', 'data_pagamento'])
     _registrar_historico(
         membro=quota.despachante, quota=quota, pagamento=None,
         acao='PAGAMENTO_APROVADO',
@@ -2951,6 +3050,7 @@ def api_quotas_cancelar(request, fatura_uuid):
 
 @_requer_login
 def api_quotas_listar_isencoes(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     isencoes = IsencaoMembro.objects.all().select_related('despachante', 'tipo_quota', 'aprovado_por').order_by('-created_at')
@@ -2974,6 +3074,7 @@ def api_quotas_listar_isencoes(request):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_criar_isencao(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
@@ -3043,7 +3144,7 @@ def api_quotas_criar_isencao(request):
 def api_quotas_historico(request, fatura_uuid):
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
     papel = request.session['usuario']['papel']
-    usuario_id = request.session['usuario_id']
+    usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     if papel != 'Administrador' and quota.despachante_id != usuario_id:
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     historico = HistoricoQuota.objects.filter(quota=quota).select_related('utilizador').order_by('-created_at')
@@ -3065,6 +3166,7 @@ def api_quotas_historico(request, fatura_uuid):
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_verificar_vencimentos(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     from governanca.management.commands.verificar_vencimentos import Command as VencCmd
