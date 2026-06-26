@@ -82,6 +82,31 @@ class SessionExpirationMiddleware:
                         return redirect('login')
                 except Usuario.DoesNotExist:
                     pass
+            elif request.session.get('tipo_usuario') == 'colaborador':
+                colaborador_id = request.session.get('colaborador_id')
+                if colaborador_id:
+                    from rh.models import Colaborador
+                    try:
+                        c = Colaborador.objects.get(pk=colaborador_id)
+                        if c.estado != 'Ativo':
+                            from .models import registrar_log
+                            registrar_log(request, 'LOGOUT', 'users',
+                                          f"Sessão terminada — colaborador {c.estado.lower()}: {c.email}")
+                            limpar_sessao(request)
+                            from django.contrib import messages
+                            messages.error(
+                                request,
+                                "A sua conta de colaborador encontra-se " + c.estado.lower() + ". Entre em contacto com o seu responsável."
+                            )
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                from django.http import JsonResponse
+                                return JsonResponse({
+                                    'error': 'Conta de colaborador ' + c.estado.lower(),
+                                    'redirect': '/login/'
+                                }, status=401)
+                            return redirect('login')
+                    except Colaborador.DoesNotExist:
+                        pass
         
         response = self.get_response(request)
         return response
@@ -100,6 +125,119 @@ _URL_MODULO_MAP = {
     '/users/': 'users',
     '/login': 'users',
     '/logout': 'users',
+}
+
+# Descrições legíveis para visualizações de páginas (GET)
+_DESCOES_VIEW = {
+    '/dashboard/': 'Visualizou o dashboard principal',
+    '/rh/presencas/': 'Visualizou o controlo de presenças e férias',
+    '/rh/ferias/': 'Visualizou o mapa de férias',
+    '/rh/colaboradores/': 'Visualizou a lista de colaboradores',
+    '/rh/vagas/': 'Visualizou as vagas de emprego',
+    '/rh/recrutamento/': 'Visualizou o recrutamento',
+    '/rh/avaliacoes/': 'Visualizou as avaliações de desempenho',
+    '/rh/salarios/': 'Visualizou o processamento salarial',
+    '/rh/subsidios/': 'Visualizou os subsídios',
+    '/financeiro/facturas/': 'Visualizou as facturas',
+    '/financeiro/recibos/': 'Visualizou os recibos',
+    '/financeiro/notas-credito/': 'Visualizou as notas de crédito',
+    '/financeiro/notas-debito/': 'Visualizou as notas de débito',
+    '/financeiro/requisicoes-fundo/': 'Visualizou as requisições de fundo',
+    '/governanca/': 'Visualizou o módulo de governança',
+    '/aduaneiro/declaracoes/': 'Visualizou as declarações únicas',
+    '/logs/': 'Visualizou os logs de actividade',
+    '/relatorios/': 'Visualizou os relatórios',
+}
+
+# Padrões regex para páginas com ID específico (GET)
+_DESCOES_VIEW_REGEX = [
+    (r'^/rh/colaboradores/\d+/editar/$', 'Visualizou formulário de edição do colaborador'),
+    (r'^/rh/colaboradores/\d+/$', 'Visualizou detalhes do colaborador'),
+    (r'^/rh/vagas/\d+/$', 'Visualizou detalhes da vaga'),
+    (r'^/rh/recrutamento/\d+/$', 'Visualizou detalhe do recrutamento'),
+    (r'^/rh/avaliacoes/\d+/$', 'Visualizou detalhes da avaliação'),
+    (r'^/clientes/\d+/editar/$', 'Visualizou formulário de edição do cliente'),
+    (r'^/clientes/\d+/$', 'Visualizou detalhes do cliente'),
+    (r'^/financeiro/facturas/\d+/$', 'Visualizou detalhes da factura'),
+    (r'^/financeiro/recibos/\d+/$', 'Visualizou detalhes do recibo'),
+    (r'^/financeiro/requisicoes-fundo/\d+/$', 'Visualizou detalhes da requisição de fundo'),
+    (r'^/aduaneiro/declaracoes/\d+/$', 'Visualizou detalhes da declaração única'),
+]
+
+# Mapeamento de padrões de URL para descrições de acções POST
+# Ordem: (padrão_regex, acção, descrição)
+# A descrição pode conter {modulo} que será substituído pelo nome do módulo
+_POST_DESCOES = [
+    # RH — Presenças e Férias
+    (r'/rh/presencas/registar/', 'CREATE', 'Registou uma presença'),
+    (r'/rh/presencas/\d+/aprovar/', 'APPROVE', 'Aprovou um registo de presença'),
+    (r'/rh/presencas/\d+/rejeitar/', 'REJECT', 'Rejeitou um registo de presença'),
+    (r'/rh/presencas/\d+/apagar/', 'DELETE', 'Removeu um registo de presença'),
+    (r'/rh/ferias/pedir/', 'CREATE', 'Submeteu um pedido de férias'),
+    (r'/rh/ferias/\d+/aprovar/', 'APPROVE', 'Aprovou um pedido de férias'),
+    (r'/rh/ferias/\d+/rejeitar/', 'REJECT', 'Rejeitou um pedido de férias'),
+    (r'/rh/ferias/\d+/apagar/', 'DELETE', 'Removeu um pedido de férias'),
+
+    # RH — Colaboradores
+    (r'/rh/colaboradores/criar/', 'CREATE', 'Cadastrou um novo colaborador'),
+    (r'/rh/colaboradores/\d+/editar/', 'EDIT', 'Editou dados do colaborador'),
+    (r'/rh/colaboradores/\d+/eliminar/', 'DELETE', 'Removeu um colaborador'),
+    (r'/rh/colaboradores/\d+/reativar/', 'EDIT', 'Reativou um colaborador'),
+
+    # RH — Vagas
+    (r'/rh/vagas/criar/', 'CREATE', 'Criou uma nova vaga de emprego'),
+    (r'/rh/vagas/\d+/editar/', 'EDIT', 'Editou uma vaga de emprego'),
+    (r'/rh/vagas/\d+/eliminar/', 'DELETE', 'Removeu uma vaga'),
+    (r'/rh/vagas/\d+/estado/', 'EDIT', 'Alterou o estado de uma vaga'),
+
+    # RH — Avaliações
+    (r'/rh/avaliacoes/\d+/editar/', 'EDIT', 'Editou uma avaliação de desempenho'),
+
+    # Clientes
+    (r'/clientes/criar/', 'CREATE', 'Cadastrou um novo cliente'),
+    (r'/clientes/\d+/editar/', 'EDIT', 'Editou dados do cliente'),
+    (r'/clientes/\d+/eliminar/', 'DELETE', 'Removeu um cliente'),
+
+    # Financeiro — Facturas
+    (r'/financeiro/facturas/criar/', 'CREATE', 'Emitiu uma nova factura'),
+    (r'/financeiro/facturas/\d+/editar/', 'EDIT', 'Editou uma factura'),
+    (r'/financeiro/facturas/\d+/eliminar/', 'DELETE', 'Removeu uma factura'),
+    (r'/financeiro/facturas/\d+/cancelar/', 'CANCEL', 'Cancelou uma factura'),
+    (r'/financeiro/facturas/\d+/enviar-email/', 'SEND_EMAIL', 'Reenviou factura por email'),
+    (r'/financeiro/facturas/\d+/pdf/', 'EXPORT', 'Exportou factura em PDF'),
+
+    # Financeiro — Recibos
+    (r'/financeiro/recibos/criar/', 'CREATE', 'Emitiu um novo recibo'),
+    (r'/financeiro/recibos/\d+/editar/', 'EDIT', 'Editou um recibo'),
+    (r'/financeiro/recibos/\d+/cancelar/', 'CANCEL', 'Cancelou um recibo'),
+
+    # Financeiro — Requisições de Fundo
+    (r'/financeiro/requisicoes-fundo/criar/', 'CREATE', 'Criou uma requisição de fundo'),
+    (r'/financeiro/requisicoes-fundo/\d+/editar/', 'EDIT', 'Editou uma requisição de fundo'),
+    (r'/financeiro/requisicoes-fundo/\d+/aprovar/', 'APPROVE', 'Aprovou uma requisição de fundo'),
+    (r'/financeiro/requisicoes-fundo/\d+/rejeitar/', 'REJECT', 'Rejeitou uma requisição de fundo'),
+
+    # Aduaneiro
+    (r'/aduaneiro/declaracoes/criar/', 'CREATE', 'Criou uma declaração única'),
+    (r'/aduaneiro/declaracoes/\d+/editar/', 'EDIT', 'Editou uma declaração única'),
+    (r'/aduaneiro/declaracoes/\d+/eliminar/', 'DELETE', 'Removeu uma declaração única'),
+
+    # Utilizadores / Sistema
+    (r'/users/criar/', 'CREATE', 'Criou um novo utilizador'),
+    (r'/users/\d+/editar/', 'EDIT', 'Editou dados do utilizador'),
+    (r'/users/\d+/estado/', 'EDIT', 'Alterou estado do utilizador'),
+]
+
+# Descrição genérica para POST sem pattern específico
+_POST_FALLBACK = {
+    'CREATE': 'Criou um registo',
+    'EDIT': 'Editou um registo',
+    'DELETE': 'Removeu um registo',
+    'APPROVE': 'Aprovou um registo',
+    'REJECT': 'Rejeitou um registo',
+    'CANCEL': 'Cancelou um registo',
+    'SEND_EMAIL': 'Enviou um email',
+    'EXPORT': 'Exportou dados',
 }
 
 
@@ -149,7 +287,7 @@ class ActivityLogMiddleware:
             self._log_post(request)
 
     def _log_view(self, request):
-        """Regista visualização de página."""
+        """Regista visualização de página com descrição legível."""
         path = request.path
         # Ignorar AJAX e requisições internas
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -158,37 +296,63 @@ class ActivityLogMiddleware:
             return
 
         from .models import registrar_log
-        # Descrição amigável
-        descricao = f"Acedeu a {path}"
         modulo = getattr(request, '_log_modulo', 'sistema')
+
+        # Procurar descrição legível
+        descricao = _DESCOES_VIEW.get(path)
+        if not descricao:
+            for pattern, d in _DESCOES_VIEW_REGEX:
+                if re.search(pattern, path):
+                    descricao = d
+                    break
+
+        if not descricao:
+            # Fallback: extrair nome do módulo e últimos segmentos do path
+                nome_modulo = {
+                    'financeiro': 'Financeiro', 'clientes': 'Clientes',
+                    'rh': 'RH', 'governanca': 'Governança',
+                    'aduaneiro': 'Aduaneiro', 'users': 'Utilizadores',
+                }.get(modulo, 'Sistema')
+                descricao = f'Visualizou página de {nome_modulo}'
+
         registrar_log(request, 'VIEW', modulo, descricao)
 
     def _log_post(self, request):
-        """Regista acções POST específicas."""
+        """Regista acções POST com descrição legível."""
         path = request.path
         from .models import registrar_log
         modulo = getattr(request, '_log_modulo', 'sistema')
 
-        # Detetar acção com base no path
-        if '/cancelar' in path or '/cancel' in path:
-            accao = 'CANCEL'
-        elif '/aprovar' in path or '/approve' in path:
-            accao = 'APPROVE'
-        elif '/rejeitar' in path or '/reject' in path:
-            accao = 'REJECT'
-        elif '/eliminar' in path or '/delete' in path:
-            accao = 'DELETE'
-        elif '/enviar-email' in path or '/send-email' in path:
-            accao = 'SEND_EMAIL'
-        elif '/criar' in path or '/create' in path or '/novo' in path or '/new' in path:
-            accao = 'CREATE'
-        elif '/editar' in path or '/edit' in path or '/actualizar' in path:
-            accao = 'EDIT'
-        elif '/exportar' in path or '/export' in path or '/excel' in path or '/pdf' in path:
-            accao = 'EXPORT'
-        else:
-            # Se for POST noutro endpoint, regista como EDIT genérico
-            accao = 'EDIT'
+        # Procurar pattern específico
+        accao = None
+        descricao = None
+        for pattern, accao_pt, desc in _POST_DESCOES:
+            if re.search(pattern, path):
+                accao = accao_pt
+                descricao = desc
+                break
 
-        descricao = f"{accao} — {path}"
+        if not accao:
+            # Fallback: detetar acção por palavras-chave no path
+            if '/cancelar' in path or '/cancel' in path:
+                accao = 'CANCEL'
+            elif '/aprovar' in path or '/approve' in path:
+                accao = 'APPROVE'
+            elif '/rejeitar' in path or '/reject' in path:
+                accao = 'REJECT'
+            elif '/eliminar' in path or '/delete' in path or '/apagar' in path:
+                accao = 'DELETE'
+            elif '/enviar-email' in path or '/send-email' in path:
+                accao = 'SEND_EMAIL'
+            elif '/criar' in path or '/create' in path or '/novo' in path or '/new' in path or '/registar' in path:
+                accao = 'CREATE'
+            elif '/editar' in path or '/edit' in path or '/actualizar' in path:
+                accao = 'EDIT'
+            elif '/exportar' in path or '/export' in path or '/excel' in path or '/pdf' in path:
+                accao = 'EXPORT'
+            else:
+                accao = 'EDIT'
+
+            descricao = _POST_FALLBACK.get(accao, f'{accao} — {path}')
+
         registrar_log(request, accao, modulo, descricao)

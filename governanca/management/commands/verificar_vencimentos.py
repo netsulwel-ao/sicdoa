@@ -19,6 +19,7 @@ from django.utils import timezone
 from governanca.models import QuotaGerada, QuotaConfig, HistoricoQuota, Notificacao
 from governanca.views import _atualizar_estado_financeiro
 from utils.email_utils import _enviar
+from utils.format_kz import fmt_kz
 
 
 class Command(BaseCommand):
@@ -53,7 +54,7 @@ class Command(BaseCommand):
             HistoricoQuota.objects.create(
                 membro=q.despachante, quota=q, pagamento=None,
                 acao='QUOTA_VENCIDA',
-                descricao=f'Quota vencida há {dias_atraso} dias. Multa: Kz {multa_valor:.2f} ({config.multa_percentual}%/dia, carência {carencia}d)',
+                descricao=f'Quota vencida há {dias_atraso} dias. Multa: Kz {fmt_kz(multa_valor)} ({config.multa_percentual}%/dia, carência {carencia}d)',
             )
             processadas += 1
 
@@ -64,7 +65,7 @@ class Command(BaseCommand):
                 usuario=q.despachante, tipo='quota_vencida',
                 titulo=f'Quota {q.mes:02d}/{q.ano} — Vencida',
                 mensagem=f'A sua quota {q.referencia or f"{q.mes:02d}/{q.ano}"} venceu há {dias_atraso} dias. '
-                         f'Multa acumulada: Kz {multa_valor:.2f}. Total devido: Kz {q.valor_total:.2f}.',
+                         f'Multa acumulada: Kz {fmt_kz(multa_valor)}. Total devido: Kz {fmt_kz(q.valor_total)}.',
                 link='/governanca/quotas/',
             )
             if q.despachante.email:
@@ -72,9 +73,9 @@ class Command(BaseCommand):
                     'Quota Associativa — Aviso de Vencimento',
                     f'Olá {q.despachante.nome},\n\n'
                     f'A sua quota {q.referencia or f"{q.mes:02d}/{q.ano}"} venceu há {dias_atraso} dias.\n'
-                    f'Valor original: Kz {valor_original:.2f}\n'
-                    f'Multa ({config.multa_percentual}%/dia): Kz {multa_valor:.2f}\n'
-                    f'Total devido: Kz {q.valor_total:.2f}\n\n'
+                    f'Valor original: Kz {fmt_kz(valor_original)}\n'
+                    f'Multa ({config.multa_percentual}%/dia): Kz {fmt_kz(multa_valor)}\n'
+                    f'Total devido: Kz {fmt_kz(q.valor_total)}\n\n'
                     f'Regularize o pagamento para evitar restrições.\n\n'
                     f'CDOA Angola',
                     None, [q.despachante.email],

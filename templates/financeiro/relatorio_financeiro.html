@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
           plugins: { legend: { labels: { color: textColor, font: { size: 11 } } } },
           scales: {
             x: { ticks: { color: textColor }, grid: { color: gridColor } },
-            y: { ticks: { color: textColor, callback: v => v.toLocaleString() }, grid: { color: gridColor } }
+            y: { ticks: { color: textColor, callback: function(v) { var p = Number(v).toFixed(2).split('.'), i = p[0], d = p[1], g = []; while (i.length > 3) { g.unshift(i.slice(-3)); i = i.slice(0, -3); } if (i.length > 0) g.unshift(i); return (g.join(' ') || '0') + ',' + d; } }, grid: { color: gridColor } }
           }
         }
       });

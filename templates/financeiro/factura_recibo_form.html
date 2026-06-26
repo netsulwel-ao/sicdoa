@@ -102,7 +102,11 @@ function filtrarFacturas(clienteId) {
       var pendente = f.valor_total - f.valor_pago;
       var opt = document.createElement('option');
       opt.value = f.id;
-      opt.text = f.numero_factura + ' — Pendente: ' + pendente.toFixed(2) + ' Kz';
+      var pStr = pendente.toFixed(2).split('.');
+      var pInt = pStr[0], pDec = pStr[1], pGrp = [];
+      while (pInt.length > 3) { pGrp.unshift(pInt.slice(-3)); pInt = pInt.slice(0, -3); }
+      if (pInt.length > 0) pGrp.unshift(pInt);
+      opt.text = f.numero_factura + ' — Pendente: ' + (pGrp.join(' ') || '0') + ',' + pDec + ' Kz';
       if (f.id == currentVal) opt.selected = true;
       sel.appendChild(opt);
     }

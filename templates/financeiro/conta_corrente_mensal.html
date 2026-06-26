@@ -105,12 +105,12 @@
           <div class="font-medium text-gray-900 dark:text-white">
             {% if mes_num == 1 %}Janeiro{% elif mes_num == 2 %}Fevereiro{% elif mes_num == 3 %}Março{% elif mes_num == 4 %}Abril{% elif mes_num == 5 %}Maio{% elif mes_num == 6 %}Junho{% elif mes_num == 7 %}Julho{% elif mes_num == 8 %}Agosto{% elif mes_num == 9 %}Setembro{% elif mes_num == 10 %}Outubro{% elif mes_num == 11 %}Novembro{% elif mes_num == 12 %}Dezembro{% endif %}
           </div>
-          <div class="text-right font-medium text-indigo-600 dark:text-indigo-400">{{ dados.faturacao|floatformat:2 }}</div>
-          <div class="text-right font-medium text-green-600 dark:text-green-400">{{ dados.recebimentos|floatformat:2 }}</div>
-          <div class="text-right font-medium text-yellow-600 dark:text-yellow-400">{{ dados.creditos_emitidos|floatformat:2 }}</div>
-          <div class="text-right font-medium text-orange-600 dark:text-orange-400">{{ dados.debitos_emitidos|floatformat:2 }}</div>
+          <div class="text-right font-medium text-indigo-600 dark:text-indigo-400">{{ dados.faturacao|fmtkz }}</div>
+          <div class="text-right font-medium text-green-600 dark:text-green-400">{{ dados.recebimentos|fmtkz }}</div>
+          <div class="text-right font-medium text-yellow-600 dark:text-yellow-400">{{ dados.creditos_emitidos|fmtkz }}</div>
+          <div class="text-right font-medium text-orange-600 dark:text-orange-400">{{ dados.debitos_emitidos|fmtkz }}</div>
           <div class="text-right font-bold {% if dados.saldo >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
-            {{ dados.saldo|floatformat:2 }}
+            {{ dados.saldo|fmtkz }}
           </div>
         </div>
         {% endfor %}

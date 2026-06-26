@@ -31,7 +31,7 @@
           <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Salário Base</span>
         </div>
         <p class="text-2xl font-bold text-gray-800 dark:text-gray-200">
-          {% if salario_base %}{{ salario_base|floatformat:2 }} Kz
+          {% if salario_base %}{{ salario_base|fmtkz }} Kz
           {% else %}<span class="text-gray-400 dark:text-gray-600">—</span>{% endif %}
         </p>
       </div>
@@ -44,7 +44,7 @@
           <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Último Líquido</span>
         </div>
         <p class="text-2xl font-bold text-gray-800 dark:text-gray-200">
-          {% if recibo_mais_recente %}{{ recibo_mais_recente.liquido|floatformat:2 }} Kz
+          {% if recibo_mais_recente %}{{ recibo_mais_recente.liquido|fmtkz }} Kz
           {% else %}<span class="text-gray-400 dark:text-gray-600">—</span>{% endif %}
         </p>
       </div>
@@ -94,15 +94,15 @@
             <div class="space-y-2">
               <div class="flex justify-between text-sm">
                 <span class="text-gray-600 dark:text-gray-400">Salário Base</span>
-                <span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.salario_base|floatformat:2 }} Kz</span>
+                <span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.salario_base|fmtkz }} Kz</span>
               </div>
-              {% if recibo_mais_recente.subsidio_alimentacao %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Subsídio Alimentação</span><span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.subsidio_alimentacao|floatformat:2 }} Kz</span></div>{% endif %}
-              {% if recibo_mais_recente.subsidio_transporte %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Subsídio Transporte</span><span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.subsidio_transporte|floatformat:2 }} Kz</span></div>{% endif %}
-              {% if recibo_mais_recente.outros_subsidios %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Outros Subsídios</span><span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.outros_subsidios|floatformat:2 }} Kz</span></div>{% endif %}
-              {% if recibo_mais_recente.horas_extras_valor %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Horas Extras</span><span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.horas_extras_valor|floatformat:2 }} Kz</span></div>{% endif %}
+              {% if recibo_mais_recente.subsidio_alimentacao %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Subsídio Alimentação</span><span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.subsidio_alimentacao|fmtkz }} Kz</span></div>{% endif %}
+              {% if recibo_mais_recente.subsidio_transporte %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Subsídio Transporte</span><span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.subsidio_transporte|fmtkz }} Kz</span></div>{% endif %}
+              {% if recibo_mais_recente.outros_subsidios %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Outros Subsídios</span><span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.outros_subsidios|fmtkz }} Kz</span></div>{% endif %}
+              {% if recibo_mais_recente.horas_extras_valor %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Horas Extras</span><span class="font-medium text-gray-800 dark:text-gray-200">{{ recibo_mais_recente.horas_extras_valor|fmtkz }} Kz</span></div>{% endif %}
               <div class="flex justify-between text-sm font-semibold pt-2 border-t border-gray-100 dark:border-gray-800">
                 <span class="text-gray-700 dark:text-gray-300">Total Bruto</span>
-                <span class="text-green-600 dark:text-green-400">{{ recibo_mais_recente.bruto|floatformat:2 }} Kz</span>
+                <span class="text-green-600 dark:text-green-400">{{ recibo_mais_recente.bruto|fmtkz }} Kz</span>
               </div>
             </div>
           </div>
@@ -112,12 +112,12 @@
               Descontos
             </h3>
             <div class="space-y-2">
-              {% if recibo_mais_recente.irt %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">IRT</span><span class="font-medium text-red-600 dark:text-red-400">- {{ recibo_mais_recente.irt|floatformat:2 }} Kz</span></div>{% endif %}
-              {% if recibo_mais_recente.inss_trabalhador %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">INSS (Trabalhador)</span><span class="font-medium text-red-600 dark:text-red-400">- {{ recibo_mais_recente.inss_trabalhador|floatformat:2 }} Kz</span></div>{% endif %}
-              {% if recibo_mais_recente.outros_descontos %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Outros Descontos</span><span class="font-medium text-red-600 dark:text-red-400">- {{ recibo_mais_recente.outros_descontos|floatformat:2 }} Kz</span></div>{% endif %}
+              {% if recibo_mais_recente.irt %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">IRT</span><span class="font-medium text-red-600 dark:text-red-400">- {{ recibo_mais_recente.irt|fmtkz }} Kz</span></div>{% endif %}
+              {% if recibo_mais_recente.inss_trabalhador %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">INSS (Trabalhador)</span><span class="font-medium text-red-600 dark:text-red-400">- {{ recibo_mais_recente.inss_trabalhador|fmtkz }} Kz</span></div>{% endif %}
+              {% if recibo_mais_recente.outros_descontos %}<div class="flex justify-between text-sm"><span class="text-gray-600 dark:text-gray-400">Outros Descontos</span><span class="font-medium text-red-600 dark:text-red-400">- {{ recibo_mais_recente.outros_descontos|fmtkz }} Kz</span></div>{% endif %}
               <div class="flex justify-between text-sm font-semibold pt-2 border-t border-gray-100 dark:border-gray-800">
                 <span class="text-gray-700 dark:text-gray-300">Total Descontos</span>
-                <span class="text-red-600 dark:text-red-400">- {{ recibo_mais_recente.total_descontos|floatformat:2 }} Kz</span>
+                <span class="text-red-600 dark:text-red-400">- {{ recibo_mais_recente.total_descontos|fmtkz }} Kz</span>
               </div>
             </div>
           </div>
@@ -125,7 +125,7 @@
         <div class="mt-5 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800 flex items-center justify-between">
           <div>
             <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Salário Líquido a Receber</p>
-            <p class="text-3xl font-bold text-green-700 dark:text-green-400 mt-1">{{ recibo_mais_recente.liquido|floatformat:2 }} Kz</p>
+            <p class="text-3xl font-bold text-green-700 dark:text-green-400 mt-1">{{ recibo_mais_recente.liquido|fmtkz }} Kz</p>
           </div>
           <i class="fas fa-credit-card text-green-400 dark:text-green-600 text-5xl"></i>
         </div>
@@ -185,15 +185,15 @@
               <div class="p-4 space-y-3">
                 <div class="flex justify-between items-center">
                   <span class="text-xs text-gray-500 dark:text-gray-400">Salário Bruto</span>
-                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ recibo.bruto|floatformat:2 }} Kz</span>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ recibo.bruto|fmtkz }} Kz</span>
                 </div>
                 <div class="flex justify-between items-center">
                   <span class="text-xs text-gray-500 dark:text-gray-400">Descontos</span>
-                  <span class="text-sm font-medium text-red-600 dark:text-red-400">- {{ recibo.total_descontos|floatformat:2 }} Kz</span>
+                  <span class="text-sm font-medium text-red-600 dark:text-red-400">- {{ recibo.total_descontos|fmtkz }} Kz</span>
                 </div>
                 <div class="pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center">
                   <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Líquido</span>
-                  <span class="text-lg font-bold text-green-600 dark:text-green-400">{{ recibo.liquido|floatformat:2 }} Kz</span>
+                  <span class="text-lg font-bold text-green-600 dark:text-green-400">{{ recibo.liquido|fmtkz }} Kz</span>
                 </div>
               </div>
             </div>
@@ -224,9 +224,9 @@
                     {% elif p.mes == 10 %}Outubro{% elif p.mes == 11 %}Novembro{% else %}Dezembro{% endif %}
                     {{ p.ano }}
                   </td>
-                  <td class="px-5 py-3.5 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ recibo.bruto|floatformat:2 }} Kz</td>
-                  <td class="px-5 py-3.5 text-right text-red-600 dark:text-red-400 whitespace-nowrap">- {{ recibo.total_descontos|floatformat:2 }} Kz</td>
-                  <td class="px-5 py-3.5 text-right font-bold text-green-600 dark:text-green-400 whitespace-nowrap">{{ recibo.liquido|floatformat:2 }} Kz</td>
+                  <td class="px-5 py-3.5 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ recibo.bruto|fmtkz }} Kz</td>
+                  <td class="px-5 py-3.5 text-right text-red-600 dark:text-red-400 whitespace-nowrap">- {{ recibo.total_descontos|fmtkz }} Kz</td>
+                  <td class="px-5 py-3.5 text-right font-bold text-green-600 dark:text-green-400 whitespace-nowrap">{{ recibo.liquido|fmtkz }} Kz</td>
                   <td class="px-5 py-3.5 text-center">
                     <span class="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap
                       {% if p.estado == 'Pago' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400

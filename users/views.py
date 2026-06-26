@@ -7,10 +7,7 @@ from datetime import date
 
 import bcrypt
 import requests
-import urllib3
 from utils.ssl_utils import requests_kwargs_ssl
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import EmailMultiAlternatives
@@ -180,6 +177,7 @@ def login_view(request):
                         self.is_vice_secretario = False
                         self.funcao = None
                         self.banca_usuario_id = c.banca.usuario_id
+                        self.banca_id = c.banca_id
                         # cargo_banca
                         if c.cargo_banca_id:
                             self.cargo_banca_id = c.cargo_banca_id
@@ -693,6 +691,11 @@ def dashboard_colaborador_view(request):
     # ── Dashboard simples de colaborador da banca ─────────────────────────
     colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
     papel = colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador"
+    e_gestor = colaborador.e_gestor_filial
+    try:
+        filial_gestor = colaborador.gestor_filial.filial if e_gestor else None
+    except Exception:
+        filial_gestor = None
 
     contexto = {
         "usuario": request.session["usuario"],
@@ -701,7 +704,11 @@ def dashboard_colaborador_view(request):
         "active_menu": "Dashboard",
         "tempo_restante_sessao": tempo_restante_sessao(request),
         "colaborador": colaborador,
-        "e_responsavel": colaborador.e_gestor_filial,
+        "colaborador_logado": colaborador,
+        "e_responsavel": e_gestor,
+        "e_gestor_filial": e_gestor,
+        "filial_gestor": filial_gestor,
+        "user_permissoes": permissoes,
     }
 
     template = (
@@ -1217,7 +1224,6 @@ def meu_perfil_view(request):
             "foto": usuario.foto or "",
             "status": usuario.status,
             "ultimo_acesso": usuario.ultimo_acesso,
-            "password": usuario.password,
         },
         "cargo_info": cargo_info,
         "tem_senha": bool(usuario.password),
@@ -1537,7 +1543,6 @@ def funcao_eliminar_view(request, pk):
     return render(request, 'users/funcao_confirmar_eliminar.html', ctx)
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_admin_ou_perm_funcoes
 def api_funcao_permissoes(request):
@@ -1622,18 +1627,8 @@ def logs_atividade_view(request):
     logs = LogAtividade.objects.all()
 
     # Filtrar por banca se for despachante ou colaborador com ver_logs_banca
-    if is_despachante and banca:
-        logs = logs.filter(
-            Q(detalhes__banca_id=banca.pk) |
-            Q(descricao__icontains=banca.nome) |
-            Q(email__in=list(banca.colaboradores.values_list('email', flat=True)))
-        )
-    elif is_colab_logs and banca:
-        logs = logs.filter(
-            Q(detalhes__banca_id=banca.pk) |
-            Q(descricao__icontains=banca.nome) |
-            Q(email__in=list(banca.colaboradores.values_list('email', flat=True)))
-        )
+    if (is_despachante or is_colab_logs) and banca:
+        logs = logs.filter(banca_id=banca.pk)
 
     if accao_filter:
         logs = logs.filter(accao=accao_filter)

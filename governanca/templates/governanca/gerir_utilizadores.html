@@ -24,8 +24,8 @@
       </a>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div class="bg-gradient-to-br from-primary/5 to-primary/[0.02] dark:from-primary/10 dark:to-transparent rounded-xl border border-primary/10 dark:border-primary/20 shadow-sm p-5">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="status-stats">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <i class="fas fa-users text-primary text-xl"></i>
@@ -35,11 +35,8 @@
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</p>
           </div>
         </div>
-        <div class="mt-3 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-          <div class="h-full bg-primary rounded-full" style="width: 100%"></div>
-        </div>
       </div>
-      <div class="bg-gradient-to-br from-green-50 to-green-50/30 dark:from-green-900/15 dark:to-transparent rounded-xl border border-green-100 dark:border-green-900/30 shadow-sm p-5">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
             <i class="fas fa-user-check text-green-600 dark:text-green-400 text-xl"></i>
@@ -49,13 +46,8 @@
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Activos</p>
           </div>
         </div>
-        {% if stats_total > 0 %}
-        <div class="mt-3 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-          <div class="h-full bg-green-500 rounded-full" style="width: {% widthratio stats_ativos stats_total 100 %}%"></div>
-        </div>
-        {% endif %}
       </div>
-      <div class="bg-gradient-to-br from-red-50 to-red-50/30 dark:from-red-900/15 dark:to-transparent rounded-xl border border-red-100 dark:border-red-900/30 shadow-sm p-5">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
             <i class="fas fa-user-times text-red-500 dark:text-red-400 text-xl"></i>
@@ -65,11 +57,6 @@
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Inactivos/Suspensos</p>
           </div>
         </div>
-        {% if stats_total > 0 %}
-        <div class="mt-3 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-          <div class="h-full bg-red-500 rounded-full" style="width: {% widthratio stats_inativos stats_total 100 %}%"></div>
-        </div>
-        {% endif %}
       </div>
     </div>
 
@@ -114,69 +101,75 @@
     <div data-view-container>
     <div id="utilizadores-grid" data-grid-view class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {% for u in utilizadores %}
-      <div class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 p-4">
-        <div class="flex items-start justify-between gap-3 mb-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-11 h-11 rounded-xl {% if u.status == 'Ativo' %}
-              {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20
-              {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20
-              {% elif u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20
-              {% else %}bg-indigo-50 dark:bg-indigo-900/20{% endif %}
-            {% else %}bg-gray-100 dark:bg-gray-800{% endif %} flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 duration-200">
-              {% if u.papel == 'Despachante Oficial' %}
-                <i class="fas fa-briefcase {% if u.status == 'Ativo' %}text-blue-600 dark:text-blue-400{% else %}text-gray-400{% endif %} text-lg"></i>
-              {% elif u.papel == 'Colaborador Institucional' %}
-                <i class="fas fa-building {% if u.status == 'Ativo' %}text-green-600 dark:text-green-400{% else %}text-gray-400{% endif %} text-lg"></i>
-              {% elif u.papel == 'Administrador' %}
-                <i class="fas fa-crown {% if u.status == 'Ativo' %}text-purple-600 dark:text-purple-400{% else %}text-gray-400{% endif %} text-lg"></i>
+      <div class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 p-5">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="w-12 h-12 rounded-xl shrink-0 flex items-center justify-center transition-transform group-hover:scale-110 duration-200
+            {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20
+            {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20
+            {% elif u.papel == 'Administrador' %}text-purple-600
+            {% else %}bg-indigo-50 dark:bg-indigo-900/20{% endif %}">
+            {% if u.papel == 'Despachante Oficial' %}
+              <i class="fas fa-briefcase text-blue-600 dark:text-blue-400 text-xl"></i>
+            {% elif u.papel == 'Colaborador Institucional' %}
+              <i class="fas fa-building text-green-600 dark:text-green-400 text-xl"></i>
+            {% elif u.papel == 'Administrador' %}
+              <i class="fas fa-crown text-purple-600 dark:text-purple-400 text-xl"></i>
+            {% else %}
+              <i class="fas fa-eye text-indigo-600 dark:text-indigo-400 text-xl"></i>
+            {% endif %}
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 mb-0.5">
+              <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate">{{ u.nome }}</h3>
+              {% if u.status == 'Ativo' %}
+              <span class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Activo"></span>
               {% else %}
-                <i class="fas fa-eye {% if u.status == 'Ativo' %}text-indigo-600 dark:text-indigo-400{% else %}text-gray-400{% endif %} text-lg"></i>
+              <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" title="{{ u.status }}"></span>
               {% endif %}
             </div>
-            <div class="min-w-0">
-              <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate flex items-center gap-1.5">
-                {{ u.nome }}
-                {% if u.status == 'Ativo' %}
-                <span class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Activo"></span>
-                {% else %}
-                <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" title="{{ u.status }}"></span>
-                {% endif %}
-              </h3>
-              <span class="text-xs font-medium
-                {% if u.papel == 'Administrador' %}text-purple-500
-                {% elif u.papel == 'Despachante Oficial' %}text-blue-500
-                {% elif u.papel == 'Colaborador Institucional' %}text-green-600 dark:text-green-400
-                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}text-indigo-500
-                {% else %}text-gray-400{% endif %}">
-                {% if u.papel == 'Visualizador' and u.cargo_personalizado %}
-                  {{ u.cargo_personalizado }}
-                {% else %}
-                  {{ u.papel }}
-                {% endif %}
-              </span>
-            </div>
+            <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full
+              {% if u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300
+              {% elif u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300
+              {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300
+              {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300
+              {% else %}bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400{% endif %}">
+              {% if u.papel == 'Visualizador' and u.cargo_personalizado %}
+                {{ u.cargo_personalizado }}
+              {% else %}
+                {{ u.papel }}
+              {% endif %}
+            </span>
+            {% if u.papel == 'Despachante Oficial' and u.cedula %}
+            <span class="text-xs text-gray-400 dark:text-gray-500 ml-1">· Cédula {{ u.cedula }}</span>
+            {% endif %}
           </div>
         </div>
 
-        <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1 mb-3">
-          <div class="flex items-center gap-2">
-            <i class="fas fa-envelope w-3.5 text-center text-gray-400"></i>
+        <div class="grid grid-cols-2 gap-y-1.5 text-xs text-gray-500 dark:text-gray-400 mb-4">
+          <div class="flex items-center gap-2 col-span-2 min-w-0">
+            <i class="fas fa-envelope w-3.5 text-center text-gray-400 shrink-0"></i>
             <span class="truncate">{{ u.email }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <i class="fas fa-phone w-3.5 text-center text-gray-400"></i>
+            <i class="fas fa-phone w-3.5 text-center text-gray-400 shrink-0"></i>
             <span>{{ u.telefone|default:'—' }}</span>
           </div>
+          {% if u.nif %}
+          <div class="flex items-center gap-2">
+            <i class="fas fa-id-card w-3.5 text-center text-gray-400 shrink-0"></i>
+            <span>NIF {{ u.nif }}</span>
+          </div>
+          {% endif %}
         </div>
 
         {% if u.papel == 'Despachante Oficial' %}
-        <div class="mb-3 space-y-1">
+        <div class="mb-4">
           {% if u.bancas_total > 0 %}
-            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <i class="fas fa-store text-primary/60 text-[10px]"></i>
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+              <i class="fas fa-store text-primary/60 shrink-0"></i>
               <span>{{ u.bancas_total }} banca{{ u.bancas_total|pluralize:"s" }}</span>
             </div>
-            <div class="flex flex-wrap gap-1.5 mt-1">
+            <div class="flex flex-wrap gap-1.5">
               {% for b in u.bancas_list|slice:":3" %}
               <a href="{% url 'admin_banca_detalhe' b.id %}"
                  class="text-xs px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
@@ -188,16 +181,16 @@
               {% endif %}
             </div>
           {% else %}
-            <span class="text-xs text-gray-400 dark:text-gray-500 italic">
-              <i class="fas fa-store text-[10px] mr-1"></i>Sem banca associada
+            <span class="text-xs text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5">
+              <i class="fas fa-store text-gray-300 dark:text-gray-600"></i>Sem banca associada
             </span>
           {% endif %}
         </div>
         {% endif %}
 
         {% if u.papel == 'Colaborador Institucional' %}
-        <div class="mb-3">
-          <select class="select-atribuir-funcao w-full px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer
+        <div class="mb-4">
+          <select class="select-atribuir-funcao w-full px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer
                     {% if u.funcao %}
                       bg-primary/5 border-primary/20 text-primary
                     {% else %}
@@ -214,26 +207,29 @@
         </div>
         {% endif %}
 
-        <div class="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3">
-          <span class="text-xs text-gray-400 dark:text-gray-500">
-            <i class="far fa-clock mr-1"></i>
-            {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y" }}{% else %}Nunca acedeu{% endif %}
+        <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
+          <span class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+            <i class="far fa-clock"></i>
+            {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y" }}{% else %}<span class="text-gray-300 dark:text-gray-600">Nunca acedeu</span>{% endif %}
           </span>
           <div class="flex items-center gap-1">
             <a href="{% url 'governanca_utilizador_editar' u.id %}"
-               class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-all hover:scale-110"
+               class="w-8 h-8 flex items-center justify-center rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all hover:scale-110"
                title="Editar">
               <i class="fas fa-pen text-xs"></i>
             </a>
-            <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:scale-110"
+            <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent border-none hover:scale-110"
                     data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
               <i class="fas fa-paper-plane text-xs"></i>
             </button>
-            <button class="btn-toggle-status w-8 h-8 flex items-center justify-center {% if u.status == 'Ativo' %}text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30{% else %}text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30{% endif %} rounded-lg transition-all cursor-pointer border-none hover:scale-110"
-                    data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
+            <button class="btn-toggle-status w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer border-none hover:scale-110
+                    {% if u.status == 'Ativo' %}text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30
+                    {% else %}text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30{% endif %}"
+                    data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}"
+                    title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
               <i class="fas {% if u.status == 'Ativo' %}fa-user-lock{% else %}fa-unlock{% endif %} text-xs"></i>
             </button>
-            <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:scale-110"
+            <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer bg-transparent border-none hover:scale-110"
                     data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" title="Eliminar">
               <i class="fas fa-trash-alt text-xs"></i>
             </button>

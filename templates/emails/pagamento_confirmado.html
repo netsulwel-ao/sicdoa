@@ -18,9 +18,9 @@
             <table cellpadding="0" cellspacing="0">
               <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;width:140px;">Referência</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">{{ referencia }}</td></tr>
               <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Período</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">{{ periodo }}</td></tr>
-              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Valor Pago</td><td style="padding:4px 0;font-size:14px;color:#16a34a;font-weight:600;">Kz {{ valor_pago }}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Valor Pago</td><td style="padding:4px 0;font-size:14px;color:#16a34a;font-weight:600;">Kz {{ valor_pago|fmtkz }}</td></tr>
               {% if multa %}
-              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Multa</td><td style="padding:4px 0;font-size:14px;color:#dc2626;">Kz {{ multa }}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Multa</td><td style="padding:4px 0;font-size:14px;color:#dc2626;">Kz {{ multa|fmtkz }}</td></tr>
               {% endif %}
               <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">Método</td><td style="padding:4px 0;font-size:14px;color:#111827;">{{ metodo }}</td></tr>
             </table>

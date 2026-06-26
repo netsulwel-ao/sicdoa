@@ -8,8 +8,7 @@ from django.utils import timezone
 from .auth_decorators import criar_sessao_usuario, tempo_restante_sessao
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(['POST'])
 def extend_session_view(request):
     """
     View para estender a sessão do usuário por mais 1 hora.

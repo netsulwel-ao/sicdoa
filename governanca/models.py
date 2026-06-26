@@ -6,8 +6,10 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 
 from .utils import (
     validate_date_not_past,
@@ -69,12 +71,25 @@ class Assembleia(models.Model):
             validate_date_range(self.data_hora, self.data_encerramento, "Data e Hora", "Data de Encerramento")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
     @property
     def presentes_count(self):
-        return self.presencas.filter( presente_em__isnull=False ).count()
+        membros_mesa_ids = list(self.mesa.values_list('usuario_id', flat=True))
+        return self.presencas.filter(
+            presente_em__isnull=False
+        ).filter(
+            Q(usuario__papel__in=['Administrador', 'Despachante Oficial']) |
+            (
+                Q(usuario__papel='Colaborador Institucional') & (
+                    Q(usuario__permissoes_diretas__codigo='gerir_assembleia') |
+                    Q(usuario__funcao__permissoes__codigo='gerir_assembleia') |
+                    Q(usuario_id__in=membros_mesa_ids)
+                )
+            )
+        ).distinct().count()
 
     @property
     def quorum_atingido(self):
@@ -134,7 +149,7 @@ class PautaVotacao(models.Model):
     assembleia = models.ForeignKey(Assembleia, on_delete=models.CASCADE, related_name='pautas')
     titulo = models.CharField(max_length=300)
     descricao = models.TextField(blank=True, default='')
-    ordem = models.IntegerField(default=0)
+    ordem = models.IntegerField(default=0, db_index=True)
     tipo_votacao = models.CharField(max_length=20, choices=[
         ('Aberta', 'Aberta'),
         ('Secreta', 'Secreta'),
@@ -167,7 +182,8 @@ class PautaVotacao(models.Model):
             validate_date_range(self.iniciado_em, self.encerrado_em, "Iniciado em", "Encerrado em")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
     @property
@@ -286,16 +302,36 @@ class Voto(models.Model):
             return f'Voto # {self.id} (secreto)'
         return f'{self.usuario.nome} - {self.opcao}'
 
+    def clean(self):
+        if self.delegado_de_id is None:
+            dupes = Voto.objects.filter(
+                pauta=self.pauta, usuario=self.usuario,
+                em_delegacao=self.em_delegacao, delegado_de__isnull=True
+            )
+        else:
+            dupes = Voto.objects.filter(
+                pauta=self.pauta, usuario=self.usuario,
+                em_delegacao=self.em_delegacao, delegado_de=self.delegado_de
+            )
+        if self.pk:
+            dupes = dupes.exclude(pk=self.pk)
+        if dupes.exists():
+            raise ValidationError('Já existe um voto registado com esta configuração.')
+
     def save(self, *args, **kwargs):
         ts = timezone.now().isoformat()
         raw = f'{self.pauta_id}-{self.usuario_id}-{self.opcao}-{self.em_delegacao}-{ts}'
         self.hash_auditoria = hashlib.sha256(raw.encode()).hexdigest()
         recibo_raw = f'{self.pauta_id}-{self.usuario_id}-{ts}-{os.urandom(8).hex()}'
         self.recibo_hash = hashlib.sha256(recibo_raw.encode()).hexdigest()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         if self.pauta.tipo_votacao == 'Secreta':
             salt = os.urandom(16).hex()
             self.opcao_encriptada = hashlib.sha256(f'{self.opcao}-{salt}'.encode()).hexdigest()
         super().save(*args, **kwargs)
+        if self.pauta.tipo_votacao == 'Secreta':
+            self.opcao = ''  # só limpa após save bem-sucedido
 
 
 class ReciboVoto(models.Model):
@@ -347,7 +383,7 @@ class AtaDigital(models.Model):
     status_assinatura = models.CharField(max_length=25, choices=STATUS_ASSINATURA, default='Pendente', db_index=True)
     publicado_em = models.DateTimeField(null=True, blank=True)
     arquivo_pdf = models.CharField(max_length=500, blank=True, default='')
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'governanca_atas'
@@ -419,11 +455,11 @@ class DocumentoAssembleia(models.Model):
     titulo = models.CharField(max_length=300)
     descricao = models.TextField(blank=True, default='')
     conteudo = models.TextField(blank=True, default='')
-    arquivo = models.FileField(upload_to='documentos_assembleia/%Y/%m/', max_length=500, blank=True, null=True)
+    arquivo = models.FileField(upload_to='documentos_assembleia/%Y/%m/', max_length=500, blank=True, null=True, validators=[FileExtensionValidator(['pdf', 'doc', 'docx', 'jpg', 'png'])])
     publicado = models.BooleanField(default=False, db_index=True)
     publicado_em = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'governanca_documentos'
@@ -447,7 +483,7 @@ class MembroMesa(models.Model):
     assembleia = models.ForeignKey(Assembleia, on_delete=models.CASCADE, related_name='mesa')
     usuario = models.ForeignKey('users.Usuario', on_delete=models.CASCADE)
     funcao = models.CharField(max_length=30, choices=FUNCOES)
-    ordem = models.IntegerField(default=0)
+    ordem = models.IntegerField(default=0, db_index=True)
 
     class Meta:
         db_table = 'governanca_mesa'
@@ -501,12 +537,12 @@ class ConsultaPublica(models.Model):
     ]
     titulo = models.CharField(max_length=300)
     descricao = models.TextField(blank=True, default='')
-    documento = models.FileField(upload_to='consultas_publicas/%Y/%m/', max_length=500, blank=True, default='')
+    documento = models.FileField(upload_to='consultas_publicas/%Y/%m/', max_length=500, blank=True, default='', validators=[FileExtensionValidator(['pdf', 'doc', 'docx', 'jpg', 'png'])])
     prazo_fim = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS, default='Rascunho', db_index=True)
     criado_por = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='consultas_criadas')
     publicado_em = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -525,7 +561,8 @@ class ConsultaPublica(models.Model):
             validate_date_not_future(self.publicado_em, field_name="Data de Publicação")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -534,7 +571,7 @@ class ArtigoDocumento(models.Model):
     numero = models.IntegerField()
     titulo = models.CharField(max_length=300, blank=True, default='')
     conteudo = models.TextField(blank=True, default='')
-    ordem = models.IntegerField(default=0)
+    ordem = models.IntegerField(default=0, db_index=True)
 
     class Meta:
         db_table = 'governanca_artigos_documento'
@@ -552,7 +589,7 @@ class Comentario(models.Model):
     autor = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='comentarios_consulta')
     texto = models.TextField()
     resposta_a = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='respostas')
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'governanca_comentarios_consulta'
@@ -566,7 +603,7 @@ class Comentario(models.Model):
 
 class VotacaoConsulta(models.Model):
     consulta = models.ForeignKey(ConsultaPublica, on_delete=models.CASCADE, related_name='votacoes')
-    data_inicio = models.DateTimeField(auto_now_add=True)
+    data_inicio = models.DateTimeField(auto_now_add=True, db_index=True)
     data_fim = models.DateTimeField(null=True, blank=True)
     ativa = models.BooleanField(default=True)
 
@@ -623,10 +660,10 @@ class RelatorioConsulta(models.Model):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class CategoriaMembro(models.Model):
-    nome = models.CharField(max_length=100)
+    nome = models.CharField(max_length=100, db_index=True)
     slug = models.SlugField(max_length=100, unique=True)
     isento = models.BooleanField(default=False)
-    ordem = models.IntegerField(default=0)
+    ordem = models.IntegerField(default=0, db_index=True)
     class Meta:
         db_table = 'governanca_categorias_membro'
         ordering = ['ordem', 'nome']
@@ -653,19 +690,20 @@ class TipoQuota(models.Model):
 class QuotaConfig(models.Model):
     categoria = models.ForeignKey(CategoriaMembro, on_delete=models.SET_NULL, null=True, blank=True)
     tipo = models.ForeignKey(TipoQuota, on_delete=models.SET_NULL, null=True, blank=True)
-    ano = models.IntegerField()
-    mes = models.IntegerField(null=True, blank=True)
+    ano = models.IntegerField(db_index=True)
+    mes = models.IntegerField(null=True, blank=True, db_index=True)
     valor = models.DecimalField(max_digits=12, decimal_places=2)
     data_vencimento = models.DateField()
     multa_percentual = models.DecimalField(max_digits=5, decimal_places=2, default=0.50, help_text='Percentagem de multa ao dia sobre o valor da quota (ex: 0.50 = 0.5%)')
     dias_carencia = models.PositiveSmallIntegerField(default=5, help_text='Dias de tolerância após vencimento antes de aplicar multa')
-    ativa = models.BooleanField(default=True, help_text='Se ativa, a configuração está disponível para geração de quotas')
+    ativa = models.BooleanField(default=True, help_text='Se ativa, a configuração está disponível para geração de quotas', db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     class Meta:
         db_table = 'governanca_quota_config'
         verbose_name = 'Configuração de Quota'
         verbose_name_plural = 'Configurações de Quotas'
+        unique_together = ('categoria', 'tipo', 'ano', 'mes')
     def __str__(self):
         label = f'{self.tipo}' if self.tipo else 'Mensal'
         cat = f' [{self.categoria}]' if self.categoria else ''
@@ -695,7 +733,7 @@ class QuotaGerada(models.Model):
     data_vencimento = models.DateField()
     data_envio = models.DateField(null=True, blank=True, help_text='Data em que a quota foi enviada ao membro')
     data_pagamento = models.DateTimeField(null=True, blank=True)
-    referencia = models.CharField(max_length=100, unique=True, null=True, blank=True, help_text='Referência amigável (ex: QUOTA-MENSAL-06-2026-00001)')
+    referencia = models.CharField(max_length=100, unique=True, blank=True, default='', help_text='Referência amigável (ex: QUOTA-MENSAL-06-2026-00001)')
     status = models.CharField(max_length=20, choices=STATUS, default='Pendente', db_index=True)
     fatura_uuid = models.CharField(max_length=36, unique=True, default=uuid.uuid4)
     observacoes = models.TextField(blank=True, default='')
@@ -720,7 +758,8 @@ class QuotaGerada(models.Model):
             validate_date_not_future(self.data_pagamento, field_name="Data de Pagamento")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -742,7 +781,7 @@ class PagamentoQuota(models.Model):
     valor_pago = models.DecimalField(max_digits=12, decimal_places=2)
     codigo_transferencia = models.CharField(max_length=100, blank=True, default='')
     iban_origem = models.CharField(max_length=50, blank=True, default='')
-    data_pagamento = models.DateTimeField(auto_now_add=True)
+    data_pagamento = models.DateTimeField(auto_now_add=True, db_index=True)
     status = models.CharField(max_length=25, choices=STATUS, default='Pendente Confirmacao', db_index=True)
     status_anterior_quota = models.CharField(max_length=20, blank=True, default='', help_text='Estado da quota antes da submissão do pagamento (para reverter se rejeitado)')
     confirmado_por = models.ForeignKey('users.Usuario', on_delete=models.SET_NULL, null=True, blank=True, related_name='pagamentos_confirmados')
@@ -763,7 +802,8 @@ class PagamentoQuota(models.Model):
             validate_date_not_future(self.confirmado_em, field_name="Data de Confirmação")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -802,7 +842,8 @@ class IsencaoMembro(models.Model):
             validate_date_range(self.data_inicio, self.data_fim, "Data de Início", "Data de Fim")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -843,7 +884,7 @@ class HistoricoQuota(models.Model):
 class CertidaoRegularidade(models.Model):
     despachante = models.ForeignKey('users.Usuario', on_delete=models.CASCADE, related_name='certidoes')
     codigo_certidao = models.CharField(max_length=36, unique=True, default=uuid.uuid4)
-    data_emissao = models.DateTimeField(auto_now_add=True)
+    data_emissao = models.DateTimeField(auto_now_add=True, db_index=True)
     data_validade = models.DateField()
     arquivo_pdf = models.CharField(max_length=500, blank=True, default='')
     assinatura_hash = models.CharField(max_length=64, blank=True, default='')
@@ -879,7 +920,8 @@ class CarteiraProfissional(models.Model):
             validate_date_not_future(self.data_renovacao, field_name="Data de Renovação")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -892,7 +934,7 @@ class Convocatoria(models.Model):
     titulo = models.CharField(max_length=300)
     descricao = models.TextField(blank=True, default='')
     documento = models.FileField(upload_to='convocatorias/%Y/%m/', max_length=500, blank=True, default='')
-    data_envio = models.DateTimeField(auto_now_add=True)
+    data_envio = models.DateTimeField(auto_now_add=True, db_index=True)
     prazo_confirmacao = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS, default='Rascunho', db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)

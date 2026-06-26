@@ -90,8 +90,8 @@
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Limite Financeiro (Kz)</label>
-            <input type="number" step="0.01" min="0" id="limite_financeiro" name="limite_financeiro"
-                   value="{% if form_data.limite_financeiro %}{{ form_data.limite_financeiro }}{% elif cliente %}{{ cliente.limite_financeiro }}{% else %}0.00{% endif %}"
+             <input type="text" inputmode="decimal" class="moeda" id="limite_financeiro" name="limite_financeiro"
+                   value="{% if form_data.limite_financeiro %}{{ form_data.limite_financeiro|fmtkz }}{% elif cliente %}{{ cliente.limite_financeiro|fmtkz }}{% else %}0.00{% endif %}"
                    placeholder="0.00"
                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
             <p class="mt-1 text-xs text-gray-500">Teto de crédito disponível para este cliente.</p>

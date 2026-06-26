@@ -22,7 +22,7 @@ class Usuario(models.Model):
     nome = models.CharField(max_length=100, db_index=True)
     email = models.EmailField(max_length=100, unique=True)
     foto = models.CharField(max_length=255, null=True, blank=True)
-    telefone = models.CharField(max_length=20, null=True, blank=True)
+    telefone = models.CharField(max_length=20, null=True, blank=True, db_index=True)
     cedula = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     papel = models.CharField(max_length=50, choices=PAPEIS, default='Despachante Oficial', db_index=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Ativo', db_index=True)
@@ -123,7 +123,7 @@ class Permissao(models.Model):
         help_text='Identificador único (ex: ver_secretaria, gerir_quotas)')
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True, default='')
-    grupo = models.CharField(max_length=100, blank=True, default='',
+    grupo = models.CharField(max_length=100, blank=True, default='', db_index=True,
         help_text='Agrupamento visual (ex: Secretaria, Financeiro)')
     icone = models.CharField(max_length=50, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -182,6 +182,10 @@ class LogAtividade(models.Model):
     ip = models.GenericIPAddressField(null=True, blank=True, verbose_name='Endereço IP')
     user_agent = models.TextField(blank=True, default='', verbose_name='User-Agent')
     url = models.TextField(blank=True, default='', verbose_name='URL Acedido')
+    banca = models.ForeignKey('rh.Banca', null=True, blank=True, on_delete=models.SET_NULL,
+                               related_name='logs_atividade', verbose_name='Banca')
+    filial = models.ForeignKey('rh.FilialBanca', null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name='logs_atividade', verbose_name='Filial')
     created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Data/Hora')
 
     class Meta:
@@ -189,6 +193,10 @@ class LogAtividade(models.Model):
         verbose_name = 'Log de Atividade'
         verbose_name_plural = 'Logs de Atividade'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['usuario', '-created_at'], name='idx_log_usuario_data'),
+            models.Index(fields=['modulo', '-created_at'], name='idx_log_modulo'),
+        ]
 
     def __str__(self):
         return f"[{self.created_at:%d/%m/%Y %H:%M}] {self.usuario_nome} — {self.accao} ({self.modulo})"
@@ -211,6 +219,8 @@ def registrar_log(request, accao, modulo='sistema', descricao='',
         modelo_alvo=modelo_alvo,
         id_alvo=id_alvo,
         detalhes=detalhes,
+        banca_id=request.session.get('banca_id') if request else None,
+        filial_id=request.session.get('colaborador_filial_id') if request else None,
         ip=request.META.get('REMOTE_ADDR', '') if request else '',
         user_agent=request.META.get('HTTP_USER_AGENT', '')[:500] if request else '',
         url=request.build_absolute_uri() if request else '',
@@ -240,15 +250,15 @@ class ColaboradorInstitucional(models.Model):
 
     usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, related_name='colaborador_institucional')
     nome = models.CharField(max_length=255, db_index=True)
-    email = models.EmailField(blank=True, default='')
-    telefone = models.CharField(max_length=30, blank=True, default='')
+    email = models.EmailField(blank=True, default='', db_index=True)
+    telefone = models.CharField(max_length=30, blank=True, default='', db_index=True)
     area_actuacao = models.CharField(max_length=100, blank=True, default='', db_index=True)
     data_admissao = models.DateField(null=True, blank=True)
     salario_base = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     estado = models.CharField(max_length=10, choices=ESTADOS, default='Ativo', db_index=True)
     foto = models.ImageField(upload_to='colaboradores_institucionais/fotos/', null=True, blank=True)
     observacoes = models.TextField(blank=True, default='')
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_index=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -277,7 +287,7 @@ class PresencaInstitucional(models.Model):
         ('Rejeitado', 'Rejeitado'),
     ]
     colaborador = models.ForeignKey(ColaboradorInstitucional, on_delete=models.CASCADE, related_name='presencas')
-    data = models.DateField()
+    data = models.DateField(db_index=True)
     tipo = models.CharField(max_length=20, choices=TIPOS, default='Entrada')
     hora_entrada = models.TimeField(null=True, blank=True)
     hora_saida = models.TimeField(null=True, blank=True)
@@ -305,7 +315,7 @@ class FeriasInstitucional(models.Model):
     data_fim = models.DateField()
     motivo = models.TextField(blank=True, default='')
     estado = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'ferias_institucionais'
@@ -325,7 +335,7 @@ class CicloAvaliacaoInstitucional(models.Model):
         ('Encerrado', 'Encerrado'),
     ]
     nome = models.CharField(max_length=200)
-    periodo_inicio = models.DateField()
+    periodo_inicio = models.DateField(db_index=True)
     periodo_fim = models.DateField()
     estado = models.CharField(max_length=10, choices=ESTADOS, default='Aberto', db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -363,8 +373,8 @@ class ProcessamentoSalarialInstitucional(models.Model):
         ('Processado', 'Processado'),
         ('Pago', 'Pago'),
     ]
-    mes = models.PositiveSmallIntegerField()
-    ano = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField(db_index=True)
+    ano = models.PositiveSmallIntegerField(db_index=True)
     estado = models.CharField(max_length=15, choices=ESTADOS, default='Rascunho', db_index=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     processado_em = models.DateTimeField(null=True, blank=True)
@@ -427,6 +437,12 @@ class ReciboSalarialInstitucional(models.Model):
     def base_calculo_impostos(self):
         return max(Decimal('0'), self.salario_base - self.outros_descontos)
 
+    @property
+    def faltas_count(self):
+        if self.outros_descontos and self.salario_base:
+            return round(float(self.outros_descontos) / float(self.salario_base) * 22)
+        return 0
+
 
 # ─── Subsídios Institucionais ────────────────────────────────────────────
 
@@ -438,11 +454,11 @@ class SubsidioInstitucional(models.Model):
         ('DEPENDENTES', 'Por Número de Dependentes'),
     ]
     nome = models.CharField(max_length=100, verbose_name='Nome do Subsídio')
-    codigo = models.CharField(max_length=20, verbose_name='Código Interno')
+    codigo = models.CharField(max_length=20, unique=True, verbose_name='Código Interno')
     tipo_calculo = models.CharField(max_length=20, choices=TIPOS_CALCULO, default='FIXO')
     valor_padrao = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='Valor Padrão')
     percentual = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Percentual (%)')
-    ativo = models.BooleanField(default=True)
+    ativo = models.BooleanField(default=True, db_index=True)
     obrigatorio = models.BooleanField(default=False, verbose_name='Obrigatório para Todos')
     apenas_especificos = models.BooleanField(default=False, verbose_name='Apenas para colaboradores específicos')
     colaboradores_especificos = models.ManyToManyField('ColaboradorInstitucional', blank=True, related_name='subsidios_especificos')
@@ -454,7 +470,6 @@ class SubsidioInstitucional(models.Model):
         db_table = 'subsidios_institucionais'
         verbose_name = 'Subsídio Institucional'
         verbose_name_plural = 'Subsídios Institucionais'
-        unique_together = ('codigo',)
         ordering = ['codigo']
 
     def __str__(self):
@@ -489,7 +504,7 @@ class VagaInstitucional(models.Model):
         ('Encerrada', 'Encerrada'),
         ('Cancelada', 'Cancelada'),
     ]
-    titulo = models.CharField(max_length=200)
+    titulo = models.CharField(max_length=200, db_index=True)
     departamento = models.CharField(max_length=100, blank=True, default='')
     descricao = models.TextField(blank=True, default='')
     requisitos = models.TextField(blank=True, default='')
@@ -499,7 +514,7 @@ class VagaInstitucional(models.Model):
     salario_min = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     salario_max = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     data_encerramento = models.DateField(null=True, blank=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_index=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -526,13 +541,13 @@ class CandidaturaInstitucional(models.Model):
         ('Rejeitado', 'Rejeitado'),
     ]
     vaga = models.ForeignKey(VagaInstitucional, on_delete=models.CASCADE, related_name='candidaturas')
-    nome = models.CharField(max_length=200)
-    email = models.EmailField(blank=True, default='')
+    nome = models.CharField(max_length=200, db_index=True)
+    email = models.EmailField(blank=True, default='', db_index=True)
     telefone = models.CharField(max_length=30, blank=True, default='')
     cv = models.FileField(upload_to='candidaturas_institucionais/cv/', null=True, blank=True)
     estado = models.CharField(max_length=20, choices=ESTADOS, default='Recebida', db_index=True)
     notas = models.TextField(blank=True, default='')
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'candidaturas_institucionais'
@@ -556,7 +571,7 @@ class EntrevistaInstitucional(models.Model):
         ('Reprovado', 'Reprovado'),
     ]
     candidatura = models.ForeignKey(CandidaturaInstitucional, on_delete=models.CASCADE, related_name='entrevistas')
-    data_hora = models.DateTimeField()
+    data_hora = models.DateTimeField(db_index=True)
     tipo = models.CharField(max_length=20, choices=TIPOS, default='Presencial')
     local_link = models.CharField(max_length=300, blank=True, default='')
     entrevistador = models.CharField(max_length=200, blank=True, default='')
@@ -585,7 +600,7 @@ class PlanoIntegracaoInstitucional(models.Model):
     colaborador = models.ForeignKey('ColaboradorInstitucional', null=True, blank=True, on_delete=models.SET_NULL, related_name='planos_integracao')
     data_inicio = models.DateField(null=True, blank=True)
     data_fim_prevista = models.DateField(null=True, blank=True)
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', db_index=True)
     responsavel = models.CharField(max_length=200, blank=True, default='')
     notas = models.TextField(blank=True, default='')
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -597,6 +612,17 @@ class PlanoIntegracaoInstitucional(models.Model):
 
     def __str__(self):
         return f"Integração - {self.candidatura.nome}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.data_inicio and self.data_fim_prevista:
+            if self.data_inicio > self.data_fim_prevista:
+                raise ValidationError('Data de fim prevista deve ser posterior à data de início.')
+
+    def save(self, *args, **kwargs):
+        if not kwargs.get('update_fields'):
+            self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def tarefas_concluidas(self):
@@ -619,7 +645,7 @@ class TarefaIntegracaoInstitucional(models.Model):
     concluida = models.BooleanField(default=False)
     responsavel = models.CharField(max_length=200, blank=True, default='')
     prazo = models.DateField(null=True, blank=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'tarefas_integracao_institucionais'
@@ -637,7 +663,7 @@ class MetricaAvaliacaoInstitucional(models.Model):
     ciclo = models.ForeignKey(CicloAvaliacaoInstitucional, on_delete=models.CASCADE, related_name='metricas')
     nome = models.CharField(max_length=200)
     descricao = models.TextField(blank=True, default='')
-    ordem = models.PositiveIntegerField(default=0)
+    ordem = models.PositiveIntegerField(default=0, db_index=True)
 
     class Meta:
         db_table = 'metricas_avaliacao_institucionais'

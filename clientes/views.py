@@ -2,7 +2,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
+from decimal import Decimal
 from .models import Cliente
+from utils.format_kz import parse_kz
+from .acesso import escopo_cliente
 from utils.validators import email_ja_existe
 from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
 
@@ -35,8 +38,10 @@ def _requer_sessao(fn):
 def _ctx(request, sub='', extra=None):
     """Contexto base para templates"""
     u = request.session['usuario']
+    from rh.acesso import contexto_colaborador
     ctx = {'usuario': u, 'nome': u['nome'], 'papel': u['papel'],
            'active_menu': 'Gestão Aduaneira', 'active_sub': 'clientes'}
+    ctx.update(contexto_colaborador(request))
     if extra:
         ctx.update(extra)
     return ctx
@@ -50,7 +55,7 @@ def _tem_perm_clientes(request):
     if _is_admin_ou_acesso_total(request):
         return True
     permissoes = get_usuario_permissoes(request)
-    return 'gerir_clientes' in permissoes or 'gerir_clientes_filial' in permissoes
+    return 'gerir_clientes' in permissoes
 
 
 @_requer_sessao
@@ -60,12 +65,7 @@ def lista_clientes(request):
         messages.error(request, 'Não tem permissão para aceder aos Clientes.')
         return redirect('dashboard')
     busca = request.GET.get('busca', '')
-    usuario_id = _usuario_dono(request)
-    clientes_query = Cliente.objects.filter(ativo=True)
-    
-    # Filtrar clientes por usuário dono (banca owner para colaboradores)
-    if usuario_id:
-        clientes_query = clientes_query.filter(usuario_id=usuario_id)
+    clientes_query = escopo_cliente(request, Cliente.objects.filter(ativo=True))
     
     if busca:
         clientes_query = clientes_query.filter(
@@ -74,6 +74,7 @@ def lista_clientes(request):
             Q(localizacao__icontains=busca)
         )
     
+    clientes_query = clientes_query.order_by('nome')
     paginator = Paginator(clientes_query, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -111,9 +112,9 @@ def criar_cliente(request):
                 return render(request, 'clientes/form.html', context)
             
             try:
-                limite_financeiro = float(limite_financeiro) if limite_financeiro else 0
-            except ValueError:
-                limite_financeiro = 0
+                limite_financeiro = Decimal(parse_kz(limite_financeiro) or '0')
+            except Exception:
+                limite_financeiro = Decimal('0')
 
             # Verificar se NIF já existe
             if Cliente.objects.filter(nif=nif).exists():
@@ -131,6 +132,12 @@ def criar_cliente(request):
                 })
                 return render(request, 'clientes/form.html', context)
             
+            banca_id = request.session.get('banca_id')
+            if not banca_id:
+                from rh.models import Banca
+                banca_obj = Banca.objects.filter(usuario_id=_usuario_dono(request)).first()
+                banca_id = banca_obj.id if banca_obj else None
+            filial_id = request.session.get('colaborador_filial_id') if request.session.get('tipo_usuario') == 'colaborador' else None
             cliente = Cliente.objects.create(
                 nome=nome,
                 nif=nif,
@@ -139,7 +146,9 @@ def criar_cliente(request):
                 email=email,
                 observacoes=observacoes,
                 limite_financeiro=limite_financeiro,
-                usuario_id=_usuario_dono(request)
+                usuario_id=_usuario_dono(request),
+                banca_id=banca_id,
+                filial_id=filial_id,
             )
             
             messages.success(request, f'Cliente "{cliente.nome}" cadastrado com sucesso!')
@@ -162,7 +171,7 @@ def editar_cliente(request, pk):
     if not _tem_perm_clientes(request):
         messages.error(request, 'Não tem permissão para editar clientes.')
         return redirect('clientes:lista')
-    cliente = get_object_or_404(Cliente, pk=pk, ativo=True)
+    cliente = get_object_or_404(escopo_cliente(request, Cliente.objects.filter(ativo=True)), pk=pk)
     
     if request.method == 'POST':
         try:
@@ -183,9 +192,9 @@ def editar_cliente(request, pk):
                 return render(request, 'clientes/form.html', context)
             
             try:
-                limite_financeiro = float(limite_financeiro) if limite_financeiro else 0
-            except ValueError:
-                limite_financeiro = 0
+                limite_financeiro = Decimal(parse_kz(limite_financeiro) or '0')
+            except Exception:
+                limite_financeiro = Decimal('0')
 
             # Verificar se NIF já existe (exceto para este cliente)
             if Cliente.objects.filter(nif=nif).exclude(pk=pk).exists():
@@ -236,7 +245,7 @@ def detalhar_cliente(request, pk):
     if not _tem_perm_clientes(request):
         messages.error(request, 'Não tem permissão para aceder aos Clientes.')
         return redirect('dashboard')
-    cliente = get_object_or_404(Cliente, pk=pk, ativo=True)
+    cliente = get_object_or_404(escopo_cliente(request, Cliente.objects.filter(ativo=True)), pk=pk)
     
     context = _ctx(request, 'detalhes', {'cliente': cliente})
     return render(request, 'clientes/detalhes.html', context)
@@ -248,7 +257,7 @@ def excluir_cliente(request, pk):
     if not _tem_perm_clientes(request):
         messages.error(request, 'Não tem permissão para excluir clientes.')
         return redirect('clientes:lista')
-    cliente = get_object_or_404(Cliente, pk=pk)
+    cliente = get_object_or_404(escopo_cliente(request, Cliente.objects.all()), pk=pk)
     
     if request.method == 'POST':
         try:

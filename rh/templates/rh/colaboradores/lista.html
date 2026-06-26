@@ -68,43 +68,65 @@
           <input type="text" id="searchFunc" placeholder="Pesquisar colaborador..."
                  class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
         </div>
+        <select id="filialFilter" onchange="filtrarFilial(this.value)"
+                class="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
+          <option value="">Todas as Filiais</option>
+          <option value="0" {% if filial_selected == 0 %}selected{% endif %}>Sede</option>
+          {% for filial in filiais %}
+          <option value="{{ filial.pk }}" {% if filial_selected == filial.pk %}selected{% endif %}>{{ filial.provincia }}</option>
+          {% endfor %}
+        </select>
         <span class="text-sm text-gray-500">{{ colaboradores|length }} colaborador{{ colaboradores|length|pluralize:"es" }}</span>
         {% include 'includes/view-toggle.html' %}
       </div>
 
+      <!-- ═══ GRID VIEW ═══ -->
       <div data-grid-view class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-5">
         {% for f in colaboradores %}
-        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden col-card" data-col-id="{{ f.pk }}">
           <div class="p-5">
             <div class="flex items-center gap-3 mb-4">
               <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                {% if f.foto %}
+                <img src="{{ f.foto.url }}" alt="" class="w-12 h-12 rounded-full object-cover">
+                {% else %}
                 <i class="fas fa-user text-primary text-xl"></i>
+                {% endif %}
               </div>
               <div class="min-w-0 flex-1">
-                <p class="font-semibold text-gray-900 dark:text-white truncate">{{ f.nome }}</p>
+                <p class="font-semibold text-gray-900 dark:text-white truncate col-nome">{{ f.nome }}</p>
                 {% if f.bi %}<p class="text-xs text-gray-500">BI: {{ f.bi }}</p>{% endif %}
               </div>
             </div>
-              <div class="space-y-2 text-sm">
+
+            <div class="space-y-2 text-sm">
+              <!-- Cargo funcional -->
               <div class="flex justify-between">
                 <span class="text-gray-500">Cargo</span>
                 <span class="font-medium text-gray-900 dark:text-white">{{ f.cargo_label }}</span>
               </div>
-              {% if banca and banca.cargos.exists %}
-              <div class="flex justify-between items-center pt-1">
-                <span class="text-xs text-gray-400">Cargo (Permissões)</span>
-                <form method="POST" action="{% url 'rh_colaborador_cargo' f.pk %}" class="inline-flex items-center gap-1">
-                  {% csrf_token %}
-                  <select name="cargo_banca" onchange="this.form.submit()"
-                          class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-primary max-w-[130px]">
-                    <option value="">—</option>
-                    {% for cb in banca.cargos.all %}
-                    <option value="{{ cb.pk }}" {% if f.cargo_banca_id == cb.pk %}selected{% endif %}>{{ cb.nome }}</option>
-                    {% endfor %}
-                  </select>
-                </form>
+
+              <!-- Cargo de permissões (badges) -->
+              {% if banca and banca.cargos.exists %}{% if not e_gestor_filial or f.pk != colaborador_logado.pk %}
+              <div class="pt-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-400 flex items-center gap-1">
+                    <i class="fas fa-shield-alt text-[10px]"></i>Permissões
+                  </span>
+                  <button type="button" onclick="abrirModalCargo({{ f.pk }}, '{{ f.nome|escapejs }}', {{ f.cargo_banca_id|default:'null' }}, '{{ f.cargo_banca.nome|default:''|escapejs }}')"
+                          class="cargo-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer
+                                 {% if f.cargo_banca %}bg-primary/10 text-primary hover:bg-primary/20{% else %}bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700{% endif %}"
+                          title="Atribuir cargo de permissões">
+                    {% if f.cargo_banca %}
+                    <i class="fas fa-shield-alt text-[10px]"></i>{{ f.cargo_banca.nome }}
+                    {% else %}
+                    <i class="fas fa-plus text-[10px]"></i>Atribuir
+                    {% endif %}
+                  </button>
+                </div>
               </div>
-              {% endif %}
+              {% endif %}{% endif %}
+
               {% if f.departamento %}
               <div class="flex justify-between">
                 <span class="text-gray-500">Depart.</span>
@@ -114,6 +136,10 @@
               <div class="flex justify-between">
                 <span class="text-gray-500">Contacto</span>
                 <span class="font-medium text-gray-900 dark:text-white">{{ f.telefone|default:"—" }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-500">Filial</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ f.filial.provincia|default:"—" }}</span>
               </div>
               {% if f.email %}<div class="flex justify-between"><span class="text-gray-500">Email</span><span class="font-medium text-gray-900 dark:text-white truncate">{{ f.email }}</span></div>{% endif %}
               <div class="flex justify-between">
@@ -125,6 +151,7 @@
                 <span class="font-semibold text-gray-900 dark:text-white">{% if f.salario_efetivo %}{{ f.salario_efetivo|fmtkz }} KZ{% else %}—{% endif %}</span>
               </div>
             </div>
+
             <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
               <div>
                 {% if f.estado == 'Ativo' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> Ativo</span>
@@ -141,6 +168,7 @@
         {% endfor %}
       </div>
 
+      <!-- ═══ LIST VIEW ═══ -->
       <div data-list-view>
         <div class="overflow-x-auto">
         <table class="w-full">
@@ -148,7 +176,9 @@
             <tr>
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Colaborador</th>
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cargo / Dept.</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Permissões</th>
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contacto</th>
+              {% if filiais %}<th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Filial</th>{% endif %}
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Admissão</th>
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Salário Base</th>
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
@@ -157,11 +187,15 @@
           </thead>
           <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
             {% for f in colaboradores %}
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors col-row">
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors col-row" data-col-id="{{ f.pk }}">
               <td class="px-5 py-4">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    {% if f.foto %}
+                    <img src="{{ f.foto.url }}" alt="" class="w-10 h-10 rounded-full object-cover">
+                    {% else %}
                     <i class="fas fa-user text-primary text-lg"></i>
+                    {% endif %}
                   </div>
                   <div>
                     <p class="font-semibold text-gray-900 dark:text-white text-sm col-nome">{{ f.nome }}</p>
@@ -172,23 +206,31 @@
               <td class="px-5 py-4">
                 <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ f.cargo_label }}</span>
                 {% if f.departamento %}<p class="text-xs text-gray-500 mt-1">{{ f.departamento }}</p>{% endif %}
-                {% if banca and banca.cargos.exists %}
-                <form method="POST" action="{% url 'rh_colaborador_cargo' f.pk %}" class="inline-flex items-center gap-1 mt-1.5">
-                  {% csrf_token %}
-                  <select name="cargo_banca" onchange="this.form.submit()"
-                          class="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-0.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:border-primary max-w-[140px]">
-                    <option value="">Sem cargo</option>
-                    {% for cb in banca.cargos.all %}
-                    <option value="{{ cb.pk }}" {% if f.cargo_banca_id == cb.pk %}selected{% endif %}>{{ cb.nome }}</option>
-                    {% endfor %}
-                  </select>
-                </form>
+              </td>
+              <td class="px-5 py-4">
+                {% if banca and banca.cargos.exists %}{% if not e_gestor_filial or f.pk != colaborador_logado.pk %}
+                <button type="button" onclick="abrirModalCargo({{ f.pk }}, '{{ f.nome|escapejs }}', {{ f.cargo_banca_id|default:'null' }}, '{{ f.cargo_banca.nome|default:''|escapejs }}')"
+                        class="cargo-badge inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer
+                               {% if f.cargo_banca %}bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20{% else %}bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}"
+                        title="Atribuir cargo de permissões">
+                  {% if f.cargo_banca %}
+                  <i class="fas fa-shield-alt text-[10px]"></i>{{ f.cargo_banca.nome }}
+                  {% else %}
+                  <i class="fas fa-plus text-[10px]"></i>Atribuir cargo
+                  {% endif %}
+                </button>
+                {% else %}
+                <span class="text-xs text-gray-400">—</span>
+                {% endif %}
+                {% else %}
+                <span class="text-xs text-gray-400">—</span>
                 {% endif %}
               </td>
               <td class="px-5 py-4">
                 <p class="text-sm text-gray-700 dark:text-gray-300">{{ f.telefone|default:"—" }}</p>
                 {% if f.email %}<p class="text-xs text-gray-500">{{ f.email }}</p>{% endif %}
               </td>
+              {% if filiais %}<td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{{ f.filial.provincia|default:"—" }}</td>{% endif %}
               <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{{ f.data_admissao|date:"d/m/Y"|default:"—" }}</td>
               <td class="px-5 py-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
                 {% if f.salario_efetivo %}{{ f.salario_efetivo|fmtkz }} KZ{% else %}—{% endif %}
@@ -251,12 +293,304 @@
     {% endif %}
   </main>
 </div>
+
+<!-- ═══ MODAL DE ATRIBUIÇÃO DE CARGO ═══ -->
+<div id="modalCargo" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog">
+  <!-- Overlay -->
+  <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onclick="fecharModalCargo()"></div>
+
+  <!-- Modal content -->
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden transform transition-all">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <i class="fas fa-shield-alt text-primary text-lg"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-gray-900 dark:text-white">Atribuir Cargo</h3>
+            <p id="modalCargoNome" class="text-sm text-gray-500 dark:text-gray-400"></p>
+          </div>
+        </div>
+        <button type="button" onclick="fecharModalCargo()"
+                class="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <!-- Cargo atual -->
+        <div id="modalCargoAtual" class="mb-5 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <span class="text-xs text-gray-500 dark:text-gray-400">Cargo atual</span>
+          <p id="modalCargoAtualNome" class="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">Sem cargo atribuído</p>
+        </div>
+
+        <!-- Lista de cargos -->
+        <div class="space-y-2" id="modalCargosLista">
+          {% for cb in cargos_banca %}
+          <button type="button" data-cargo-id="{{ cb.pk }}" data-cargo-nome="{{ cb.nome }}"
+                  onclick="selecionarCargo(this)"
+                  class="cargo-opcao w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer
+                         border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-shield-alt text-primary text-sm"></i>
+                </div>
+                <div>
+                  <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ cb.nome }}</p>
+                  {% if cb.descricao %}<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ cb.descricao|truncatechars:60 }}</p>{% endif %}
+                </div>
+              </div>
+              <div class="cargo-check hidden flex-shrink-0 w-5 h-5 rounded-full bg-primary items-center justify-center">
+                <i class="fas fa-check text-white text-xs"></i>
+              </div>
+            </div>
+            {% if cb.permissoes.exists %}
+            <div class="flex flex-wrap gap-1 mt-2 ml-12">
+              {% for perm in cb.permissoes.all|slice:":5" %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300">{{ perm.nome }}</span>
+              {% endfor %}
+              {% if cb.permissoes.count > 5 %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500">+{{ cb.permissoes.count|add:"-5" }}</span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </button>
+          {% endfor %}
+        </div>
+
+        <!-- Remover cargo -->
+        <button type="button" id="btnRemoverCargo" onclick="removerCargoSelecionado()"
+                class="hidden w-full mt-3 p-3 rounded-xl border-2 border-dashed border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+          <i class="fas fa-user-slash mr-1.5"></i>Remover cargo atual
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-between">
+        <button type="button" onclick="fecharModalCargo()"
+                class="px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-all text-sm">
+          Cancelar
+        </button>
+        <button type="button" id="btnConfirmarCargo" onclick="confirmarAtribuicaoCargo()" disabled
+                class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+          <i class="fas fa-shield-alt"></i>
+          <span id="btnConfirmarTexto">Confirmar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+// CSRF token
+const CSRF_TOKEN = '{{ csrf_token|escapejs }}';
+
+// ═══ Estado do modal ═══
+let modalState = {
+  colaboradorId: null,
+  cargoAtualId: null,
+  cargoSelecionadoId: null,
+};
+
+const CARGOS_DATA = {
+  {% for cb in cargos_banca %}{{ cb.pk }}: { nome: '{{ cb.nome|escapejs }}', permissoes: {{ cb.permissoes.count }} }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+};
+
+// ═══ Funções do modal ═══
+function abrirModalCargo(colId, colNome, cargoAtualId, cargoAtualNome) {
+  modalState = { colaboradorId: colId, cargoAtualId: cargoAtualId, cargoSelecionadoId: null };
+
+  // Atualizar nome do colaborador
+  document.getElementById('modalCargoNome').textContent = colNome;
+
+  // Atualizar cargo atual
+  const atualEl = document.getElementById('modalCargoAtualNome');
+  if (cargoAtualId && cargoAtualNome) {
+    atualEl.textContent = cargoAtualNome;
+    document.getElementById('modalCargoAtual').className = 'mb-5 p-3 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30';
+    document.getElementById('btnRemoverCargo').classList.remove('hidden');
+  } else {
+    atualEl.textContent = 'Sem cargo atribuído';
+    document.getElementById('modalCargoAtual').className = 'mb-5 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700';
+    document.getElementById('btnRemoverCargo').classList.add('hidden');
+  }
+
+  // Resetar seleção
+  document.querySelectorAll('.cargo-opcao').forEach(el => {
+    el.classList.remove('border-primary', 'bg-primary/5', 'dark:bg-primary/10', 'dark:border-primary');
+    el.classList.add('border-gray-200', 'dark:border-gray-700');
+    el.querySelector('.cargo-check').classList.add('hidden');
+    el.querySelector('.cargo-check').classList.remove('flex');
+
+    // Marcar cargo atual
+    if (cargoAtualId && el.dataset.cargoId == cargoAtualId) {
+      el.classList.remove('border-gray-200', 'dark:border-gray-700');
+      el.classList.add('border-primary', 'bg-primary/5', 'dark:bg-primary/10', 'dark:border-primary');
+      el.querySelector('.cargo-check').classList.remove('hidden');
+      el.querySelector('.cargo-check').classList.add('flex');
+    }
+  });
+
+  document.getElementById('btnConfirmarCargo').disabled = true;
+  document.getElementById('btnConfirmarTexto').textContent = 'Confirmar';
+
+  // Mostrar modal
+  const modal = document.getElementById('modalCargo');
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function fecharModalCargo() {
+  document.getElementById('modalCargo').classList.add('hidden');
+  document.body.style.overflow = '';
+  modalState.cargoSelecionadoId = null;
+}
+
+function selecionarCargo(btn) {
+  const cargoId = btn.dataset.cargoId;
+
+  // Se clicou no cargo que já está selecionado, desselecionar
+  if (modalState.cargoSelecionadoId == cargoId) {
+    modalState.cargoSelecionadoId = null;
+    btn.classList.remove('border-primary', 'bg-primary/5', 'dark:bg-primary/10', 'dark:border-primary');
+    btn.classList.add('border-gray-200', 'dark:border-gray-700');
+    btn.querySelector('.cargo-check').classList.add('hidden');
+    btn.querySelector('.cargo-check').classList.remove('flex');
+    document.getElementById('btnConfirmarCargo').disabled = true;
+    return;
+  }
+
+  // Desselecionar todos
+  document.querySelectorAll('.cargo-opcao').forEach(el => {
+    el.classList.remove('border-primary', 'bg-primary/5', 'dark:bg-primary/10', 'dark:border-primary');
+    el.classList.add('border-gray-200', 'dark:border-gray-700');
+    el.querySelector('.cargo-check').classList.add('hidden');
+    el.querySelector('.cargo-check').classList.remove('flex');
+  });
+
+  // Selecionar o clicado
+  modalState.cargoSelecionadoId = cargoId;
+  btn.classList.remove('border-gray-200', 'dark:border-gray-700');
+  btn.classList.add('border-primary', 'bg-primary/5', 'dark:bg-primary/10', 'dark:border-primary');
+  btn.querySelector('.cargo-check').classList.remove('hidden');
+  btn.querySelector('.cargo-check').classList.add('flex');
+
+  // Atualizar botão de confirmar
+  const isSame = cargoId == modalState.cargoAtualId;
+  document.getElementById('btnConfirmarCargo').disabled = isSame;
+  document.getElementById('btnConfirmarTexto').textContent = isSame ? 'Cargo atual' : 'Atribuir ' + (CARGOS_DATA[cargoId]?.nome || '');
+}
+
+function removerCargoSelecionado() {
+  if (!modalState.colaboradorId) return;
+  modalState.cargoSelecionadoId = 'remover';
+  document.getElementById('btnConfirmarCargo').disabled = false;
+  document.getElementById('btnConfirmarTexto').textContent = 'Remover cargo';
+}
+
+function confirmarAtribuicaoCargo() {
+  if (!modalState.colaboradorId || !modalState.cargoSelecionadoId) return;
+
+  const btn = document.getElementById('btnConfirmarCargo');
+  const textoEl = document.getElementById('btnConfirmarTexto');
+  const originalText = textoEl.textContent;
+
+  // Loading state
+  btn.disabled = true;
+  textoEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i>A guardar...';
+
+  const cargoPk = modalState.cargoSelecionadoId === 'remover' ? '' : modalState.cargoSelecionadoId;
+
+  fetch('/rh/colaboradores/' + modalState.colaboradorId + '/cargo/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRFToken': CSRF_TOKEN,
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: 'cargo_banca=' + encodeURIComponent(cargoPk),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      fecharModalCargo();
+      atualizarBadgesCargo(modalState.colaboradorId, cargoPk, data.cargo_nome);
+      if (window.toast) {
+        window.toast.success(data.mensagem || 'Cargo atribuído com sucesso.');
+      }
+    } else {
+      if (window.toast) {
+        window.toast.error(data.erro || 'Erro ao atribuir cargo.');
+      }
+      btn.disabled = false;
+      textoEl.textContent = originalText;
+    }
+  })
+  .catch(err => {
+    if (window.toast) {
+      window.toast.error('Erro de conexão. Tente novamente.');
+    }
+    btn.disabled = false;
+    textoEl.textContent = originalText;
+  });
+}
+
+function atualizarBadgesCargo(colId, cargoPk, cargoNome) {
+  // Atualizar todos os badges para este colaborador (grid + list)
+  document.querySelectorAll('[data-col-id="' + colId + '"] .cargo-badge').forEach(badge => {
+    if (cargoPk && cargoNome) {
+      badge.className = 'cargo-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-primary/10 text-primary hover:bg-primary/20';
+      if (badge.closest('td')) {
+        badge.className = 'cargo-badge inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20';
+      }
+      badge.innerHTML = '<i class="fas fa-shield-alt text-[10px]"></i>' + cargoNome;
+      badge.setAttribute('onclick', 'abrirModalCargo(' + colId + ', \'' + (badge.closest('.col-card, .col-row')?.querySelector('.col-nome')?.textContent || '') + '\', ' + cargoPk + ', \'' + cargoNome.replace(/'/g, "\\'") + '\')');
+    } else {
+      badge.className = 'cargo-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700';
+      if (badge.closest('td')) {
+        badge.className = 'cargo-badge inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700';
+      }
+      badge.innerHTML = badge.closest('td') ? '<i class="fas fa-plus text-[10px]"></i>Atribuir cargo' : '<i class="fas fa-plus text-[10px]"></i>Atribuir';
+      badge.setAttribute('onclick', 'abrirModalCargo(' + colId + ', \'' + (badge.closest('.col-card, .col-row')?.querySelector('.col-nome')?.textContent || '') + '\', null, \'\')');
+    }
+    // Flash animation
+    badge.classList.add('animate-pulse');
+    setTimeout(() => badge.classList.remove('animate-pulse'), 600);
+  });
+}
+
+// ═══ Filial filter ═══
+function filtrarFilial(filialId) {
+  const params = new URLSearchParams(window.location.search);
+  if (filialId) {
+    params.set('filial', filialId);
+  } else {
+    params.delete('filial');
+  }
+  params.delete('page');
+  window.location.search = params.toString();
+}
+
+// ═══ Search ═══
 document.getElementById('searchFunc')?.addEventListener('input', function() {
   const q = this.value.toLowerCase();
+  // Search in both grid cards and table rows
+  document.querySelectorAll('.col-card').forEach(c => {
+    c.style.display = (c.querySelector('.col-nome')?.textContent.toLowerCase().includes(q)) ? '' : 'none';
+  });
   document.querySelectorAll('.col-row').forEach(r => {
     r.style.display = (r.querySelector('.col-nome')?.textContent.toLowerCase().includes(q)) ? '' : 'none';
   });
+});
+
+// Close modal on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') fecharModalCargo();
 });
 </script>
 </div>

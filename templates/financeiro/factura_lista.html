@@ -98,11 +98,11 @@
               <div class="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p class="text-xs text-gray-400">Valor Total</p>
-                  <p class="font-medium text-gray-900 dark:text-white">{{ fac.valor_total|floatformat:2 }} Kz</p>
+                  <p class="font-medium text-gray-900 dark:text-white">{{ fac.valor_total|fmtkz }} Kz</p>
                 </div>
                 <div>
                   <p class="text-xs text-gray-400">Valor Pago</p>
-                  <p class="font-medium text-green-600 dark:text-green-400">{{ fac.valor_pago|floatformat:2 }} Kz</p>
+                  <p class="font-medium text-green-600 dark:text-green-400">{{ fac.valor_pago|fmtkz }} Kz</p>
                 </div>
                 <div>
                   <p class="text-xs text-gray-400">Vencimento</p>
@@ -170,10 +170,10 @@
                 </div>
               </div>
               <div class="text-right font-medium text-gray-900 dark:text-white">
-                {{ fac.valor_total|floatformat:2 }} Kz
+                {{ fac.valor_total|fmtkz }} Kz
               </div>
               <div class="text-right font-medium text-green-600 dark:text-green-400">
-                {{ fac.valor_pago|floatformat:2 }} Kz
+                {{ fac.valor_pago|fmtkz }} Kz
               </div>
               <div class="text-center text-xs text-gray-500 dark:text-gray-400">
                 {{ fac.data_vencimento|date:"d/m/Y" }}

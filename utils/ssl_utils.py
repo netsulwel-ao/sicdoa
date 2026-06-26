@@ -1,25 +1,25 @@
 """
 Utilitários SSL para o sistema SICDOA.
 
-O ambiente de alojamento (Render) tem certificados de CA com Basic Constraints
-não marcados como críticos, causando CERTIFICATE_VERIFY_FAILED em todas as
-chamadas HTTPS externas feitas pelo Python.
+ATENÇÃO: Este módulo desativa a verificação SSL como workaround para o
+ambiente Render onde os certificados CA têm Basic Constraints não marcados
+como críticos. Isto é um risco de segurança (MITM). As funções devem ser
+usadas APENAS para chamadas ao portal de autenticação externo.
 
-Este módulo centraliza a criação de contextos SSL relaxados para uso em:
-  - urllib.request.urlopen()
-  - requests (via verify=False + supressão de warnings)
+TODO: Resolver a causa raiz (instalar CA bundle correcto no Render) e
+remover este módulo.
 """
 import ssl
 import urllib3
 
-# Suprimir InsecureRequestWarning do requests/urllib3 globalmente
+# Suprimir InsecureRequestWarning — necessário para verify=False
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def ssl_context_relaxado() -> ssl.SSLContext:
     """
     Retorna um SSLContext que não verifica certificados.
-    Usar em: urllib.request.urlopen(req, context=ssl_context_relaxado())
+    APENAS para uso no portal de autenticação externo.
     """
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
@@ -30,6 +30,6 @@ def ssl_context_relaxado() -> ssl.SSLContext:
 def requests_kwargs_ssl() -> dict:
     """
     Retorna kwargs para requests que desactivam verificação SSL.
-    Usar em: requests.post(url, **requests_kwargs_ssl(), ...)
+    APENAS para uso no portal de autenticação externo.
     """
     return {'verify': False}

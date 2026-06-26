@@ -38,13 +38,21 @@
           <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome do Cargo <span class="text-red-500">*</span></label>
             <input type="text" name="nome" required value="{{ cargo.nome|default:'' }}" placeholder="Ex: Gestor Operacional"
-                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                   {% if cargo.locked %}readonly disabled{% endif %} />
           </div>
           <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Descrição (opcional)</label>
             <textarea name="descricao" rows="3" placeholder="Descreva as responsabilidades deste cargo..."
-                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">{{ cargo.descricao|default:'' }}</textarea>
+                      class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      {% if cargo.locked %}readonly disabled{% endif %}>{{ cargo.descricao|default:'' }}</textarea>
           </div>
+          {% if cargo and cargo.locked %}
+          <div class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800">
+            <i class="fas fa-lock text-blue-600"></i>
+            <span class="text-sm text-blue-700 dark:text-blue-300">Este cargo é controlado pelo sistema e as suas permissões não podem ser alteradas manualmente.</span>
+          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -53,6 +61,12 @@
         <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <i class="fas fa-lock text-primary"></i>
           <h2 class="font-semibold text-gray-900 dark:text-white">Permissões</h2>
+        </div>
+        <div class="p-4 px-6 bg-blue-50 dark:bg-blue-900/10 border-b border-blue-200 dark:border-blue-800">
+          <p class="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
+            <i class="fas fa-info-circle mt-0.5"></i>
+            <span>O âmbito de cada permissão é determinado pela filial onde o colaborador estiver alocado: se tiver filial definida, aplica-se apenas à filial; caso contrário (Sede), aplica-se à banca toda.</span>
+          </p>
         </div>
         <div class="p-6">
           {% if grupos %}
@@ -66,6 +80,7 @@
                   <input type="checkbox" name="permissoes" value="admin_banca"
                          class="mt-0.5 size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500/30"
                          id="chk-admin-banca"
+                         {% if cargo and cargo.locked %}disabled{% endif %}
                          {% if cargo and grupo.header.pk in permissoes_ids %}checked{% endif %}>
                   <div>
                     <span class="text-sm font-bold text-gray-900 dark:text-gray-100">Administrador da Banca</span>
@@ -78,23 +93,25 @@
               <!-- Single permission group (Colaborador, Administração) -->
               <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
                 <label class="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors">
-                  <input type="checkbox" name="permissoes" value="{{ grupo.header.codigo }}"
-                         class="mt-0.5 size-4 rounded border-gray-300 text-primary focus:ring-primary/30"
-                         {% if cargo and grupo.header.pk in permissoes_ids %}checked{% endif %}>
-                  <div>
-                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ grupo.nome }}</span>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ grupo.header.nome }}</p>
-                  </div>
-                </label>
-              </div>
+                   <input type="checkbox" name="permissoes" value="{{ grupo.header.codigo }}"
+                          class="mt-0.5 size-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                          {% if cargo and cargo.locked %}disabled{% endif %}
+                          {% if cargo and grupo.header.pk in permissoes_ids %}checked{% endif %}>
+                   <div>
+                     <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ grupo.nome }}</span>
+                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ grupo.header.nome }}</p>
+                   </div>
+                 </label>
+               </div>
 
-              {% else %}
-              <!-- Group with sub-items (Gestão Aduaneira, RH, Financeiro) -->
+               {% else %}
+               <!-- Group with sub-items (Gestão Aduaneira, RH, Financeiro) -->
               <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
                 <label class="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors mb-1 border-b border-gray-200 dark:border-gray-700 pb-2">
                   <input type="checkbox" name="permissoes" value="{{ grupo.header.codigo }}"
                          class="mt-0.5 size-4 rounded border-gray-300 text-primary focus:ring-primary/30"
                          data-header="{{ grupo.header.codigo }}"
+                         {% if cargo and cargo.locked %}disabled{% endif %}
                          {% if cargo and grupo.header.pk in permissoes_ids %}checked{% endif %}>
                   <div>
                     <span class="text-sm font-bold text-gray-900 dark:text-gray-100">{{ grupo.nome }}</span>
@@ -109,6 +126,7 @@
                     <input type="checkbox" name="permissoes" value="{{ perm.codigo }}"
                            class="mt-0.5 size-3.5 rounded border-gray-300 text-primary focus:ring-primary/30"
                            data-sub="{{ grupo.header.codigo }}"
+                           {% if cargo and cargo.locked %}disabled{% endif %}
                            {% if cargo and perm.pk in permissoes_ids %}checked{% endif %}>
                     <span class="text-sm text-gray-700 dark:text-gray-300">{{ perm.nome }}</span>
                   </label>
@@ -126,10 +144,12 @@
       </div>
 
       <div class="flex items-center gap-3">
+        {% if not cargo.locked %}
         <button type="submit"
                 class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm">
           <i class="fas fa-save"></i>{% if cargo %}Guardar Alterações{% else %}Criar Cargo{% endif %}
         </button>
+        {% endif %}
         <a href="{% url 'rh_cargos_lista' %}"
            class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
           Cancelar
@@ -142,6 +162,10 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Skip toggling if cargo is locked
+  var chkAdmin = document.getElementById('chk-admin-banca');
+  if (chkAdmin && chkAdmin.disabled) return;
+
   // Toggle sub-items when header checkbox changes
   document.querySelectorAll('input[data-header]').forEach(function(chk) {
     chk.addEventListener('change', function() {
@@ -150,12 +174,22 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  // When any sub-item is unchecked, uncheck the header
+  document.querySelectorAll('input[data-sub]').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      var header = document.querySelector('input[data-header="' + cb.dataset.sub + '"]');
+      if (!header) return;
+      var subs = document.querySelectorAll('input[data-sub="' + header.value + '"]');
+      var allChecked = Array.from(subs).every(function(s) { return s.checked; });
+      header.checked = allChecked;
+    });
+  });
+
   // admin_banca = select all
-  var chkAdminBanca = document.getElementById('chk-admin-banca');
-  if (chkAdminBanca) {
-    chkAdminBanca.addEventListener('change', function() {
+  if (chkAdmin) {
+    chkAdmin.addEventListener('change', function() {
       document.querySelectorAll('input[name="permissoes"]').forEach(function(cb) {
-        if (cb !== chkAdminBanca) cb.checked = chkAdminBanca.checked;
+        if (cb !== chkAdmin) cb.checked = chkAdmin.checked;
       });
     });
   }

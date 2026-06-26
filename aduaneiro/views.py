@@ -17,7 +17,9 @@ from utils.validators import email_ja_existe
 from django.core.paginator import Paginator
 from rh.models import Colaborador, Banca
 from .models import DeclaracaoUnica
+from .acesso import escopo_du
 import logging
+from utils.format_kz import fmt_kz
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -117,21 +119,21 @@ def du_view(request, du_uuid=None):
             is_colaborador_operando = True
 
     if du_uuid:
-        du = get_object_or_404(DeclaracaoUnica, du_uuid=du_uuid)
-        papel_atual = _papel(request)
+        du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
 
         # Se for colaborador, comparar com o dono da banca
         _, uid_efetivo = _banca_owner(request)
         uid_atual = uid_efetivo if request.session.get('tipo_usuario') == 'colaborador' else _usuario_id(request)
 
         # Só o dono ou Administrador pode editar
-        if du.usuario_id != uid_atual and papel_atual != 'Administrador':
+        e_admin = _is_admin_ou_acesso_total(request)
+        if du.usuario_id != uid_atual and not e_admin:
             return redirect('du_lista')
 
         dados_iniciais = du.dados_json
 
         # Se é admin a editar uma DU de outro utilizador, buscar dados do dono
-        if papel_atual == 'Administrador' and du.usuario_id != uid_atual:
+        if e_admin and du.usuario_id != uid_atual:
             is_admin_editando = True
             try:
                 dono = Usuario.objects.get(id=du.usuario_id)
@@ -312,13 +314,13 @@ def _du_guardar_impl(request):
         logger.info(f"  Seguro Step1: {seguro_step1:.2f} | Adições: {seguro_total:.2f} | Diff: {abs(seguro_step1 - seguro_total):.2f}")
 
         if fob_step1 > 0 and fob_total > 0 and abs(fob_step1 - fob_total) > margem:
-            erros.append(f'FOB do Step 1 ({fob_step1:.2f} KZ) não corresponde ao total das adições ({fob_total:.2f} KZ). Diferença: {abs(fob_step1 - fob_total):.2f} KZ')
+            erros.append(f'FOB do Step 1 ({fmt_kz(fob_step1)}) não corresponde ao total das adições ({fmt_kz(fob_total)}). Diferença: {fmt_kz(abs(fob_step1 - fob_total))}')
 
         if frete_step1 > 0 and frete_total > 0 and abs(frete_step1 - frete_total) > margem:
-            erros.append(f'Frete do Step 1 ({frete_step1:.2f} KZ) não corresponde ao total das adições ({frete_total:.2f} KZ). Diferença: {abs(frete_step1 - frete_total):.2f} KZ')
+            erros.append(f'Frete do Step 1 ({fmt_kz(frete_step1)}) não corresponde ao total das adições ({fmt_kz(frete_total)}). Diferença: {fmt_kz(abs(frete_step1 - frete_total))}')
 
         if seguro_step1 > 0 and seguro_total > 0 and abs(seguro_step1 - seguro_total) > margem:
-            erros.append(f'Seguro do Step 1 ({seguro_step1:.2f} KZ) não corresponde ao total das adições ({seguro_total:.2f} KZ). Diferença: {abs(seguro_step1 - seguro_total):.2f} KZ')
+            erros.append(f'Seguro do Step 1 ({fmt_kz(seguro_step1)}) não corresponde ao total das adições ({fmt_kz(seguro_total)}). Diferença: {fmt_kz(abs(seguro_step1 - seguro_total))}')
     else:
         logger.info("Rascunho: validação de totais ignorada")
 
@@ -326,15 +328,25 @@ def _du_guardar_impl(request):
         logger.warning(f"Erros de validação: {erros}")
         return JsonResponse({'erro': ' | '.join(erros), 'erros': erros}, status=400)
 
+    banca_id = request.session.get('banca_id')
+    if not banca_id:
+        # Fallback: lookup banca by usuario_id
+        banca_obj = Banca.objects.filter(usuario_id=uid).first()
+        banca_id = banca_obj.id if banca_obj else None
+
+    filial_id = request.session.get('colaborador_filial_id') if request.session.get('tipo_usuario') == 'colaborador' else None
+
     if du_uuid:
         try:
             du = DeclaracaoUnica.objects.get(du_uuid=du_uuid)
-            if du.usuario_id != uid and _papel(request) != 'Administrador':
+            if du.usuario_id != uid and not _is_admin_ou_acesso_total(request):
+                return JsonResponse({'erro': 'Sem permissão'}, status=403)
+            if not escopo_du(request, DeclaracaoUnica.objects.filter(pk=du.pk)).exists():
                 return JsonResponse({'erro': 'Sem permissão'}, status=403)
         except DeclaracaoUnica.DoesNotExist:
-            du = DeclaracaoUnica(usuario_id=uid, processo_id=None)
+            du = DeclaracaoUnica(usuario_id=uid, processo_id=None, banca_id=banca_id, filial_id=filial_id)
     else:
-        du = DeclaracaoUnica(usuario_id=uid, processo_id=None)
+        du = DeclaracaoUnica(usuario_id=uid, processo_id=None, banca_id=banca_id, filial_id=filial_id)
 
     # Preencher campos desnormalizados
     du.regime_aduaneiro   = (dados.get('regime_aduaneiro', '') or '')[:100]
@@ -428,14 +440,7 @@ def du_lista(request):
     papel = _papel(request)
     _, uid = _banca_owner(request)
 
-    e_admin = _is_admin_ou_acesso_total(request)
-    if e_admin:
-        dus = DeclaracaoUnica.objects.all()
-    elif _tem_permissao_ou_papel(request, 'gerir_aduaneiro', 'criar_declaracao_unica'):
-        dus = DeclaracaoUnica.objects.filter(usuario_id=uid)
-    else:
-        # Despachante e Operador vêem as suas próprias DUs
-        dus = DeclaracaoUnica.objects.filter(usuario_id=uid)
+    dus = escopo_du(request, DeclaracaoUnica.objects.all())
 
     # Excluir DUs sem du_uuid (não editáveis via interface) — registo legado
     dus = dus.exclude(du_uuid='').exclude(du_uuid__isnull=True)
@@ -461,6 +466,7 @@ def du_lista(request):
     page_obj = paginator.get_page(page_number)
 
     pode_criar = _tem_permissao_ou_papel(request, 'criar_declaracao_unica') and _papel(request) not in ('Administrador', 'Colaborador Institucional')
+    e_admin = _is_admin_ou_acesso_total(request)
 
     ctx = _ctx_base(request)
     ctx.update({
@@ -483,7 +489,7 @@ def du_detalhe(request, du_uuid):
     if not _sessao_ok(request):
         return redirect('login')
 
-    du = get_object_or_404(DeclaracaoUnica, du_uuid=du_uuid)
+    du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
     papel = _papel(request)
     _, uid = _banca_owner(request)
 
@@ -509,10 +515,10 @@ def du_detalhe(request, du_uuid):
 def du_apagar(request, du_uuid):
     if not _sessao_ok(request):
         return JsonResponse({'erro': 'Não autorizado'}, status=401)
-    if _papel(request) != 'Administrador':
+    if not _is_admin_ou_acesso_total(request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
-    du = get_object_or_404(DeclaracaoUnica, du_uuid=du_uuid)
+    du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
     du.delete()
     return JsonResponse({'sucesso': True})
 
@@ -523,7 +529,7 @@ def du_apagar(request, du_uuid):
 def du_alterar_status(request, du_uuid):
     if not _sessao_ok(request):
         return JsonResponse({'erro': 'Não autorizado'}, status=401)
-    if _papel(request) != 'Administrador':
+    if not _is_admin_ou_acesso_total(request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
     try:
@@ -536,7 +542,7 @@ def du_alterar_status(request, du_uuid):
     if novo_status not in status_validos:
         return JsonResponse({'erro': 'Status inválido'}, status=400)
 
-    du = get_object_or_404(DeclaracaoUnica, du_uuid=du_uuid)
+    du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
     du.status = novo_status
     du.save(update_fields=['status', 'updated_at'])
     return JsonResponse({'sucesso': True, 'status': du.status})
@@ -549,11 +555,10 @@ def du_download_pdf(request, du_uuid):
     if not _sessao_ok(request):
         return redirect('login')
 
-    du    = get_object_or_404(DeclaracaoUnica, du_uuid=du_uuid)
-    papel = _papel(request)
+    du    = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
     _, uid = _banca_owner(request)
 
-    if du.usuario_id != uid and papel != 'Administrador':
+    if du.usuario_id != uid and not _is_admin_ou_acesso_total(request):
         return redirect('du_lista')
 
     try:
@@ -834,9 +839,9 @@ def du_download_pdf(request, du_uuid):
                         if isinstance(info, dict) and info.get('valor', 0):
                             imp_rows.append([
                                 cod,
-                                f"{float(info.get('base', 0)):,.2f}",
+                                fmt_kz(info.get('base', 0)),
                                 f"{info.get('taxa', 0)}%",
-                                f"{float(info.get('valor', 0)):,.2f}",
+                                fmt_kz(info.get('valor', 0)),
                                 info.get('acao', ''),
                             ])
                     if len(imp_rows) > 1:
@@ -860,11 +865,11 @@ def du_download_pdf(request, du_uuid):
         titulo_secao('8. RESUMO DE TAXACAO')
         totais_rows = [
             [Paragraph('<b>Imposto</b>', s_bold), Paragraph('<b>Valor (KZ)</b>', s_bold)],
-            ['DERIMP - Direitos de Importacao',    f'{float(du.total_derimp):,.2f}'],
-            ['IEC - Imposto Especial de Consumo',  f'{float(du.total_iec):,.2f}'],
-            ['05M - Emolumentos Gerais (EMGEAD)',   f'{float(du.total_emgead):,.2f}'],
-            ['DIREXP - Direitos de Exportacao',     f'{float(du.total_direxp):,.2f}'],
-            ['IVA',                                 f'{float(du.total_iva):,.2f}'],
+            ['DERIMP - Direitos de Importacao',    fmt_kz(du.total_derimp)],
+            ['IEC - Imposto Especial de Consumo',  fmt_kz(du.total_iec)],
+            ['05M - Emolumentos Gerais (EMGEAD)',   fmt_kz(du.total_emgead)],
+            ['DIREXP - Direitos de Exportacao',     fmt_kz(du.total_direxp)],
+            ['IVA',                                 fmt_kz(du.total_iva)],
         ]
         t_tot = Table(totais_rows, colWidths=[W - 4*cm, 4*cm])
         t_tot.setStyle(TableStyle([
@@ -883,7 +888,7 @@ def du_download_pdf(request, du_uuid):
         t_total = Table([[
             Paragraph('<b>TOTAL A PAGAR</b>', ParagraphStyle('tp',
                 fontSize=11, fontName='Helvetica-Bold', textColor=colors.white)),
-            Paragraph(f'<b>{float(du.total_geral):,.2f} KZ</b>', ParagraphStyle('tv',
+            Paragraph(f'<b>{fmt_kz(du.total_geral)} KZ</b>', ParagraphStyle('tv',
                 fontSize=11, fontName='Helvetica-Bold', textColor=colors.white, alignment=2)),
         ]], colWidths=[W - 4*cm, 4*cm])
         t_total.setStyle(TableStyle([
@@ -898,10 +903,10 @@ def du_download_pdf(request, du_uuid):
         # 9. VALORES ADUANEIROS
         titulo_secao('9. VALORES ADUANEIROS')
         t = tabela_kv([
-            ('Valor FOB (KZ)',    f'{float(du.valor_fob):,.2f}'),
-            ('Valor Frete (KZ)', f'{float(du.valor_frete or 0):,.2f}'),
-            ('Valor Seguro (KZ)', f'{float(du.valor_seguro or 0):,.2f}'),
-            ('Valor CIF (KZ)',    f'{float(du.valor_cif):,.2f}'),
+            ('Valor FOB (KZ)',    fmt_kz(du.valor_fob)),
+            ('Valor Frete (KZ)', fmt_kz(du.valor_frete or 0)),
+            ('Valor Seguro (KZ)', fmt_kz(du.valor_seguro or 0)),
+            ('Valor CIF (KZ)',    fmt_kz(du.valor_cif)),
         ])
         if t: story.append(t)
 
@@ -992,10 +997,7 @@ def du_pesquisar(request):
     if len(q) < 2:
         return JsonResponse({'resultados': []})
 
-    if _is_admin_ou_acesso_total(request):
-        qs = DeclaracaoUnica.objects.all()
-    else:
-        qs = DeclaracaoUnica.objects.filter(usuario_id=uid)
+    qs = escopo_du(request, DeclaracaoUnica.objects.all())
 
     qs = qs.filter(
         Q(codigo_processo__icontains=q) |
@@ -1091,13 +1093,19 @@ def criar_cliente_rapido(request):
     """API para criar cliente rapidamente via AJAX."""
     if not _sessao_ok(request):
         return JsonResponse({'error': 'Não autorizado'}, status=401)
-    if not _tem_permissao_ou_papel(request, 'criar_declaracao_unica', 'gerir_clientes', 'gerir_clientes_filial'):
+    if not _tem_permissao_ou_papel(request, 'criar_declaracao_unica', 'gerir_clientes'):
         return JsonResponse({'error': 'Sem permissão'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
 
     try:
         _, uid = _banca_owner(request)
+        banca_id = request.session.get('banca_id')
+        if not banca_id:
+            from rh.models import Banca
+            banca_obj = Banca.objects.filter(usuario_id=uid).first()
+            banca_id = banca_obj.id if banca_obj else None
+        filial_id = request.session.get('colaborador_filial_id') if request.session.get('tipo_usuario') == 'colaborador' else None
         nome       = request.POST.get('nome', '').strip()
         nif        = request.POST.get('nif', '').strip()
         localizacao = request.POST.get('localizacao', '').strip()
@@ -1117,7 +1125,7 @@ def criar_cliente_rapido(request):
         cliente = Cliente.objects.create(
             nome=nome, nif=nif, localizacao=localizacao,
             telefone=telefone, email=email, observacoes=observacoes,
-            usuario_id=uid, ativo=True,
+            usuario_id=uid, banca_id=banca_id, filial_id=filial_id, ativo=True,
         )
         return JsonResponse({'sucesso': True, 'cliente': {
             'nome': cliente.nome, 'nif': cliente.nif,

@@ -165,6 +165,7 @@
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 
           <!-- Filial / Localização -->
+          {% if not e_gestor_filial %}
           <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
               Filial / Localização
@@ -179,32 +180,7 @@
             </select>
             <p class="text-xs text-gray-500 mt-1">Deixe em branco para associar à sede</p>
           </div>
-
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Cargo <span class="text-red-500">*</span></label>
-            <select name="cargo" id="cargoSelect" onchange="toggleCargoPers()" required
-                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
-              <option value="">Selecione o cargo...</option>
-              {% for val, label in cargos %}
-              <option value="{{ val }}" {% if col.cargo == val %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <!-- Campo visível apenas quando "Outro" está seleccionado -->
-          <div id="cargoPersDiv" class="{% if not col or col.cargo != 'Outro' %}hidden{% endif %}">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-              Especifique o Cargo <span class="text-red-500">*</span>
-            </label>
-            <input type="text" name="cargo_personalizado" id="cargoPersonalizado"
-                   value="{{ col.cargo_personalizado|default:'' }}"
-                   placeholder="Ex: Técnico de Despacho, Coordenador, Jurista..."
-                   class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 text-gray-900 dark:text-white focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 transition-all" />
-            <p class="text-xs text-amber-700 dark:text-amber-400 mt-1 flex items-center gap-1">
-              <i class="fas fa-info-circle text-xs"></i>
-              Descreva o cargo específico que o colaborador ocupa
-            </p>
-          </div>
+          {% endif %}
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Cargo da Banca (Permissões)</label>
@@ -212,11 +188,17 @@
               <option value="">Sem cargo especial</option>
               {% for cb in cargos_banca %}
               <option value="{{ cb.pk }}" {% if col.cargo_banca_id == cb.pk %}selected{% endif %}>
-                {{ cb.nome }}
+                {{ cb.nome }}{% if cb.tem_perm_fora %} (Banca){% endif %}
               </option>
               {% endfor %}
             </select>
             <p class="text-xs text-gray-500 mt-1">Define as permissões do colaborador no sistema</p>
+            <div class="mt-1.5 p-2 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p class="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-1.5">
+                <i class="fas fa-info-circle mt-0.5"></i>
+                <span>Se o colaborador estiver alocado a uma filial, as permissões com sufixo <strong>"(Apenas Filial)"</strong> limitam-se a essa filial. Colaboradores da <strong>Sede</strong> (sem filial) têm âmbito de banca.</span>
+              </p>
+            </div>
           </div>
 
           <div>
@@ -244,7 +226,7 @@
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Salário Base (KZ)</label>
             <input type="text" inputmode="decimal" name="salario_base"
                    value="{% if col.salario_base is not None %}{{ col.salario_base|fmtkz }}{% endif %}" placeholder="0,00"
-                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                   class="moeda w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
           </div>
 
           <div class="lg:col-span-3">
@@ -256,66 +238,35 @@
         </div>
       </div>
 
-      {% if col and is_despachante %}
-      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <i class="fas fa-store text-primary"></i>
-          <h2 class="font-semibold text-gray-900 dark:text-white">Gestão de Filial</h2>
-        </div>
-        <div class="p-6">
-          {% if gestor_filial %}
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-            <div class="flex items-center gap-3">
-              <i class="fas fa-shield-alt text-green-600 text-2xl"></i>
-              <div>
-                <p class="font-semibold text-gray-900 dark:text-white">Gestor de filial activo</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                  Responsável pela filial de <strong>{{ gestor_filial.filial.provincia }}</strong>
-                </p>
+          <!-- Filial para Gestor de Filial (mostra apenas se o cargo "Gestor de Filial" estiver seleccionado) -->
+          <div id="filialGestorContainer" class="hidden lg:col-span-3">
+            <div class="p-4 rounded-xl border border-primary/20 bg-primary/5">
+              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <i class="fas fa-store text-primary"></i> Filial para Gestão
+              </label>
+              {% if gestor_filial %}
+              <div class="flex items-center gap-2 mb-3 text-sm text-green-700 dark:text-green-300">
+                <i class="fas fa-check-circle"></i>
+                <span>Gestor actual de <strong>{{ gestor_filial.filial.provincia }}</strong></span>
               </div>
-            </div>
-            <form method="POST" class="flex-shrink-0">
-              {% csrf_token %}
-              <input type="hidden" name="acao_gestor" value="remover_gestor" />
-              <button type="button"
-                      onclick="confirmarFormPost(this.closest('form'), { titulo: 'Remover responsabilidade', mensagem: 'Remover a responsabilidade de gestão de filial deste colaborador?', tipo: 'warning', textoBotao: 'Remover' })"
-                      class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-red-200 text-red-700 dark:text-red-300 font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all text-sm">
-                <i class="fas fa-user-minus text-base"></i>Remover responsabilidade
-              </button>
-            </form>
-          </div>
-          {% else %}
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Pode designar este colaborador como gestor responsável por uma filial sem gestor activo.
-          </p>
-          {% if filiais_sem_gestor %}
-          <form method="POST" class="flex flex-col sm:flex-row gap-3 items-end">
-            {% csrf_token %}
-            <input type="hidden" name="acao_gestor" value="atribuir_gestor" />
-            <div class="flex-1 w-full">
-              <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Filial</label>
-              <select name="filial_gestor" required
+              {% endif %}
+              <select name="filial_gestor"
                       class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
                 <option value="">Seleccione a filial...</option>
                 {% for f in filiais_sem_gestor %}
-                <option value="{{ f.pk }}">{{ f.provincia }}{% if f.municipio %} — {{ f.municipio }}{% endif %}</option>
+                <option value="{{ f.pk }}" {% if gestor_filial and gestor_filial.filial_id == f.pk %}selected{% endif %}>
+                  {{ f.provincia }}{% if f.municipio %} — {{ f.municipio }}{% endif %}
+                </option>
                 {% endfor %}
               </select>
+              <p class="text-xs text-gray-500 mt-1">Seleccione a filial que este colaborador vai gerir</p>
+              {% if not filiais_sem_gestor and not gestor_filial %}
+              <div class="mt-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                Todas as filiais já têm gestor designado.
+              </div>
+              {% endif %}
             </div>
-            <button type="submit"
-                    class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm whitespace-nowrap">
-              <i class="fas fa-user-shield text-lg"></i>Atribuir gestão
-            </button>
-          </form>
-          {% else %}
-          <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
-            Todas as filiais já têm gestor designado.
           </div>
-          {% endif %}
-          {% endif %}
-        </div>
-      </div>
-      {% endif %}
 
       <div class="flex justify-end gap-3">
         <a href="{% url 'rh_colaboradores' %}"
@@ -335,23 +286,6 @@
 <script>
 let documentoCount = 1;
 const MAX_DOCUMENTOS = 5;
-
-function toggleCargoPers() {
-  const sel = document.getElementById('cargoSelect');
-  const div = document.getElementById('cargoPersDiv');
-  const input = document.getElementById('cargoPersonalizado');
-  const isOutro = sel.value === 'Outro';
-
-  div.classList.toggle('hidden', !isOutro);
-
-  // Tornar obrigatório apenas quando "Outro" está seleccionado
-  if (input) {
-    input.required = isOutro;
-    if (isOutro) {
-      input.focus();
-    }
-  }
-}
 
 function addDocumento() {
   if (documentoCount >= MAX_DOCUMENTOS) {
@@ -415,8 +349,19 @@ function removeDocumento(docId) {
   );
 }
 
-// Validação de documentos no formulário
+// Mostra/esconde o selector de filial quando "Gestor de Filial" é seleccionado
 document.addEventListener('DOMContentLoaded', function() {
+  const cargoSelect = document.querySelector('[name="cargo_banca"]');
+  const filialContainer = document.getElementById('filialGestorContainer');
+  if (cargoSelect && filialContainer) {
+    function toggleFilialGestor() {
+      const opt = cargoSelect.options[cargoSelect.selectedIndex];
+      filialContainer.classList.toggle('hidden', !opt || !opt.textContent.trim().startsWith('Gestor de Filial'));
+    }
+    cargoSelect.addEventListener('change', toggleFilialGestor);
+    toggleFilialGestor();
+  }
+
   const form = document.querySelector('form');
   if (form) {
     form.addEventListener('submit', function(e) {
@@ -442,7 +387,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  toggleCargoPers();
 });
 </script>
 

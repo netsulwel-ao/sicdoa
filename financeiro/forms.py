@@ -1,6 +1,7 @@
 from django import forms
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
+from utils.format_kz import fmt_kz, parse_kz
 from .models import (
     RequisicaoFundo, FluxoAprovacao, NivelAprovacao,
     FacturaCliente, ReciboCliente,
@@ -59,10 +60,10 @@ class RequisicaoFundoForm(forms.ModelForm):
             'processo_aduaneiro': forms.Select(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
             }),
-            'valor_solicitado': forms.NumberInput(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'placeholder': '0.00',
-                'step': '0.01'
+            'valor_solicitado': forms.TextInput(attrs={
+                'class': 'moeda w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': '0,00',
+                'inputmode': 'decimal'
             }),
             'justificacao': forms.Textarea(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
@@ -140,8 +141,8 @@ class RequisicaoFundoForm(forms.ModelForm):
                 self.add_error(
                     'valor_solicitado',
                     f'Este valor ultrapassa o limite de crédito do cliente. '
-                    f'Limite: {limite:,.2f} Kz | Comprometido: {total_comprometido:,.2f} Kz | '
-                    f'Disponível: {(limite - total_comprometido):,.2f} Kz.'
+                    f'Limite: {fmt_kz(limite)} Kz | Comprometido: {fmt_kz(total_comprometido)} Kz | '
+                    f'Disponível: {fmt_kz(limite - total_comprometido)} Kz.'
                 )
 
         return cleaned_data
@@ -174,12 +175,12 @@ class FacturaClienteForm(forms.ModelForm):
         widgets = {
             'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'processo_aduaneiro': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'honorarios_despachante': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
-            'taxas_aduaneiras': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
-            'emolumentos': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
-            'despesas_operacionais': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
-            'iva': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
-            'outros_encargos': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
+            'honorarios_despachante': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
+            'taxas_aduaneiras': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
+            'emolumentos': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
+            'despesas_operacionais': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
+            'iva': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
+            'outros_encargos': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'data_vencimento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
             'descricao': forms.Textarea(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none', 'rows': '3'}),
         }
@@ -221,7 +222,7 @@ class ReciboClienteForm(forms.ModelForm):
         widgets = {
             'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'factura': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'valor_recebido': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
+            'valor_recebido': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'data_pagamento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
             'referencia_bancaria': forms.TextInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
@@ -253,7 +254,7 @@ class ReciboClienteForm(forms.ModelForm):
                 if self.instance.pk:
                     restante += self.instance.valor_recebido
                 if valor_recebido > restante:
-                    self.add_error('valor_recebido', f'O valor recebido excede o valor pendente desta factura ({restante:,.2f} Kz).')
+                    self.add_error('valor_recebido', f'O valor recebido excede o valor pendente desta factura ({fmt_kz(restante)} Kz).')
 
         return cleaned_data
 
@@ -263,7 +264,7 @@ class ReciboClienteUpdateForm(forms.ModelForm):
         model = ReciboCliente
         fields = ['valor_recebido', 'forma_pagamento', 'data_pagamento', 'referencia_bancaria']
         widgets = {
-            'valor_recebido': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
+            'valor_recebido': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'data_pagamento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
             'referencia_bancaria': forms.TextInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
@@ -277,7 +278,7 @@ class NotaCreditoForm(forms.ModelForm):
         widgets = {
             'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'factura_relacionada': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'valor_creditado': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
+            'valor_creditado': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'motivo': forms.Select(choices=[
                 ('Erro de facturação', 'Erro de facturação'),
                 ('Desconto posterior', 'Desconto posterior'),
@@ -309,7 +310,7 @@ class NotaCreditoForm(forms.ModelForm):
             if valor_creditado <= 0:
                 self.add_error('valor_creditado', 'O valor deve ser maior que zero.')
             elif valor_creditado > factura_relacionada.valor_total:
-                self.add_error('valor_creditado', f'O valor a creditar não pode exceder o valor total da factura ({factura_relacionada.valor_total:,.2f} Kz).')
+                self.add_error('valor_creditado', f'O valor a creditar não pode exceder o valor total da factura ({fmt_kz(factura_relacionada.valor_total)} Kz).')
 
         return cleaned_data
 
@@ -321,7 +322,7 @@ class NotaDebitoForm(forms.ModelForm):
         widgets = {
             'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'factura_relacionada': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'valor': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
+            'valor': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'motivo': forms.Select(choices=[
                 ('Taxas adicionais', 'Taxas adicionais'),
                 ('Correções de valores', 'Correções de valores'),
@@ -352,7 +353,7 @@ class NotaDebitoForm(forms.ModelForm):
             if valor <= 0:
                 self.add_error('valor', 'O valor deve ser maior que zero.')
             elif factura_relacionada and valor > factura_relacionada.valor_total:
-                self.add_error('valor', f'O valor a debitar não pode exceder o valor total da factura ({factura_relacionada.valor_total:,.2f} Kz).')
+                self.add_error('valor', f'O valor a debitar não pode exceder o valor total da factura ({fmt_kz(factura_relacionada.valor_total)} Kz).')
 
         return cleaned_data
 
@@ -364,7 +365,7 @@ class FacturaReciboForm(forms.ModelForm):
         widgets = {
             'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'factura': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'valor': forms.NumberInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'step': '0.01'}),
+            'valor': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
         }
@@ -394,6 +395,6 @@ class FacturaReciboForm(forms.ModelForm):
         if factura and valor:
             restante = factura.valor_total - factura.valor_pago
             if valor > restante:
-                self.add_error('valor', f'O valor excede o valor pendente desta factura ({restante:,.2f} Kz).')
+                self.add_error('valor', f'O valor excede o valor pendente desta factura ({fmt_kz(restante)} Kz).')
 
         return cleaned_data

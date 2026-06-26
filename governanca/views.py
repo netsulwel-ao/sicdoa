@@ -1,9 +1,12 @@
 import json
+import logging
 import random
 import hashlib
 import hmac
 import time
 import urllib.parse
+
+logger = logging.getLogger(__name__)
 
 from django.conf import settings
 from django.contrib import messages
@@ -24,6 +27,7 @@ from utils.cache_utils import cache_get_or_set, safe_cache_key, cache_invalidate
 from users.models import Usuario
 from users.auth_decorators import sessao_expirada, limpar_sessao
 from utils.email_utils import _enviar
+from utils.format_kz import fmt_kz, parse_kz
 from .models import (
     QuotaConfig, QuotaGerada, PagamentoQuota, EstadoFinanceiro,
     CertidaoRegularidade, CarteiraProfissional,
@@ -153,14 +157,14 @@ def _broadcast_ws(assembleia_id, event_type, data):
     try:
         layer = get_channel_layer()
         if layer is None:
-            print(f'[BROADCAST WS] ERRO: channel_layer is None')
+            logger.warning('channel_layer is None')
             return
         async_to_sync(layer.group_send)(
             f'assembleia_{assembleia_id}',
             {'type': event_type, 'data': data},
         )
     except Exception as e:
-        print(f'[BROADCAST WS] ERRO: {e}')
+        logger.exception('Erro no broadcast WS: %s', e)
 
 
 def _get_client_ip(request):
@@ -182,8 +186,8 @@ def _log_assembleia(assembleia_id, usuario_id, acao, detalhes=None, ip=''):
 
 def _verificar_elegibilidade(usuario_id):
     ef = EstadoFinanceiro.objects.filter(despachante_id=usuario_id).first()
-    if ef and ef.estado == 'Irregular':
-        return False, 'Status financeiro irregular — direito de voto suspenso. Acesso ao streaming autorizado.'
+    if ef and ef.estado in ('Irregular', 'Suspenso'):
+        return False, 'Estado financeiro irregular — direito de voto suspenso. Acesso ao streaming autorizado.'
     return True, ''
 
 
@@ -226,7 +230,7 @@ def index(request):
 def lista_assembleias(request):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_governanca') and not usuario_tem_permissao(request, 'gerir_governanca_filial'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_governanca'):
         return redirect('governanca_index')
 
     status_filtro = request.GET.get('status', '')
@@ -283,7 +287,7 @@ def lista_assembleias(request):
 def nova_assembleia(request):
     from users.permissoes import usuario_tem_permissao
     papel = request.session['usuario']['papel']
-    if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_governanca') and not usuario_tem_permissao(request, 'gerir_governanca_filial'):
+    if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_governanca'):
         messages.error(request, 'Sem permissão para criar assembleias.')
         return redirect('governanca_assembleias')
 
@@ -305,7 +309,7 @@ def nova_assembleia(request):
             if not data_hora_str:
                 messages.error(request, 'Preencha a data e hora.')
                 return render(request, 'governanca/nova_assembleia.html', {**locals()})
-            import pytz
+            from zoneinfo import ZoneInfo
             from django.utils.dateparse import parse_datetime
             from django.utils.timezone import make_aware
             data_hora = parse_datetime(data_hora_str)
@@ -313,7 +317,7 @@ def nova_assembleia(request):
                 messages.error(request, 'Data/hora inválida.')
                 return render(request, 'governanca/nova_assembleia.html', {**locals()})
             if timezone.is_naive(data_hora):
-                data_hora = make_aware(data_hora, timezone=pytz.timezone('Africa/Luanda'))
+                data_hora = make_aware(data_hora, timezone=ZoneInfo('Africa/Luanda'))
             if data_hora <= timezone.now():
                 messages.error(request, 'A data e hora deve ser posterior ao momento atual.')
                 return render(request, 'governanca/nova_assembleia.html', {**locals()})
@@ -326,7 +330,7 @@ def nova_assembleia(request):
         else:
             status = 'Agendada'
 
-        total_ativos = Usuario.objects.filter(status='Ativo').count()
+        total_ativos = Usuario.objects.filter(status='Ativo', papel__in=['Administrador', 'Despachante Oficial', 'Colaborador Institucional']).count()
         try:
             quorum_minimo_val = int(quorum_minimo) if quorum_minimo else total_ativos
         except (ValueError, TypeError):
@@ -410,7 +414,7 @@ def nova_assembleia(request):
                 messages.error(request, str(e))
             return render(request, 'governanca/nova_assembleia.html', {**locals()})
 
-    total_ativos = Usuario.objects.filter(status='Ativo').count()
+    total_ativos = Usuario.objects.filter(status='Ativo', papel__in=['Administrador', 'Despachante Oficial', 'Colaborador Institucional']).count()
     context = {
         'usuario': request.session['usuario'],
         'nome': request.session['usuario']['nome'],
@@ -454,7 +458,7 @@ def detalhe_assembleia(request, pk):
         'procuracao_recebidas': procuracao_recebidas,
         'tenho_presenca': tenho_presenca,
         'ja_votei_pautas': ja_votei_pautas,
-        'despachantes': Usuario.objects.filter(papel__in=['Administrador', 'Despachante Oficial'], status='Ativo').exclude(id=usuario_id),
+        'despachantes': Usuario.objects.filter(papel='Despachante Oficial', status='Ativo').exclude(id=usuario_id),
         'documentos': documentos,
         'minha_resposta': minha_resposta_obj.resposta if minha_resposta_obj else None,
     }
@@ -600,7 +604,7 @@ def sala_assembleia(request, pk):
         'presentes': assembleia.presencas.filter(presente_em__isnull=False).select_related('usuario'),
         'mesa': MembroMesa.objects.filter(assembleia=assembleia).select_related('usuario'),
         'despachantes': Usuario.objects.filter(
-            papel__in=['Administrador', 'Despachante Oficial'], status='Ativo'
+            papel='Despachante Oficial', status='Ativo'
         ).exclude(id=usuario_id) if request.session['usuario']['papel'] == 'Administrador' else [],
         'elegivel': elegivel,
     }
@@ -688,7 +692,6 @@ def repositorio_atas(request):
 # API - Presença
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_registar_presenca(request, pk):
@@ -743,7 +746,6 @@ def api_listar_presencas(request, pk):
 # API - Procuração
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_solicitar_procuracao(request, pk):
@@ -772,6 +774,13 @@ def api_solicitar_procuracao(request, pk):
     if not elegivel:
         return JsonResponse({'status': 'error', 'message': msg_elig}, status=403)
 
+    outorgante = Usuario.objects.get(id=outorgante_id)
+    if outorgante.papel != 'Despachante Oficial' or outorgante.status != 'Ativo':
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Apenas despachantes oficiais ativos podem delegar voto.'
+        }, status=403)
+
     data = json.loads(request.body)
     outorgado_id = data.get('outorgado_id')
     if not outorgado_id:
@@ -789,6 +798,13 @@ def api_solicitar_procuracao(request, pk):
             'status': 'error',
             'message': f'O despachante selecionado não pode receber delegação de voto: {msg_outorgado}'
         }, status=400)
+
+    outorgado = Usuario.objects.get(id=outorgado_id)
+    if outorgado.papel != 'Despachante Oficial' or outorgado.status != 'Ativo':
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Apenas despachantes oficiais ativos podem receber delegação de voto.'
+        }, status=403)
 
     # Validar limite de procurações por outorgado
     procuracao_ativas = Procuracao.objects.filter(
@@ -818,7 +834,6 @@ def api_solicitar_procuracao(request, pk):
     request.session['otp_plaintext'] = otp
     request.session['otp_procuracao_id'] = procuracao.id
 
-    outorgante = Usuario.objects.get(id=outorgante_id)
     if outorgante.email:
         _enviar(
             'Código OTP â€” Procuração â€” CDOA',
@@ -845,7 +860,6 @@ def api_solicitar_procuracao(request, pk):
     })
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_confirmar_procuracao(request, pk):
@@ -928,7 +942,6 @@ def api_minhas_procuracao(request, pk):
     return JsonResponse(data)
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_cancelar_procuracao(request, pk):
@@ -976,7 +989,6 @@ def api_cancelar_procuracao(request, pk):
 # API - Votação
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_iniciar_votacao(request, pk):
@@ -989,6 +1001,8 @@ def api_iniciar_votacao(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Assembleia não está em curso.'}, status=400)
     if pauta.status == 'Concluida':
         return JsonResponse({'status': 'error', 'message': 'Votação já foi concluída.'}, status=400)
+    if pauta.assembleia.presentes_count < pauta.assembleia.quorum_minimo:
+        return JsonResponse({'status': 'error', 'message': 'Quórum mínimo não atingido para iniciar votação.'}, status=400)
 
     pauta.status = 'Em Votacao'
     pauta.iniciado_em = timezone.now()
@@ -1014,7 +1028,6 @@ def api_iniciar_votacao(request, pk):
     })
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_encerrar_votacao(request, pk):
@@ -1054,30 +1067,32 @@ def api_encerrar_votacao(request, pk):
     })
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_votar(request, pk):
     pauta = get_object_or_404(PautaVotacao, pk=pk)
     assembleia = pauta.assembleia
 
-    print(f'[API_VOTAR] pauta={pk} status={pauta.status} tipo={pauta.tipo_votacao}')
+    logger.info('api_votar pauta=%s status=%s tipo=%s', pk, pauta.status, pauta.tipo_votacao)
 
     if pauta.status != 'Em Votacao':
-        print(f'[API_VOTAR] ERRO: status={pauta.status} != Em Votacao')
+        logger.warning('api_votar status=%s != Em Votacao', pauta.status)
         return JsonResponse({'status': 'error', 'message': 'Votação não está ativa.'}, status=400)
+
+    if assembleia.status != 'Em Curso':
+        return JsonResponse({'status': 'error', 'message': 'Assembleia não está em curso.'}, status=400)
 
     usuario_id = request.session['usuario_id']
 
     elegivel, msg = _verificar_elegibilidade(usuario_id)
     if not elegivel:
-        print(f'[API_VOTAR] ERRO: usuario {usuario_id} não elegível: {msg}')
+        logger.warning('api_votar usuario %s não elegível: %s', usuario_id, msg)
         return JsonResponse({'status': 'error', 'message': msg}, status=403)
 
     data = json.loads(request.body)
     opcao = data.get('opcao', '')
     if opcao not in ('Favor', 'Contra', 'Abstencao'):
-        print(f'[API_VOTAR] ERRO: opção inválida: {opcao}')
+        logger.warning('api_votar opção inválida: %s', opcao)
         return JsonResponse({'status': 'error', 'message': 'Opção inválida.'}, status=400)
 
     em_delegacao = data.get('em_delegacao', False)
@@ -1103,7 +1118,7 @@ def api_votar(request, pk):
         filtro_dup['delegado_de_id'] = delegado_de_id
     if Voto.objects.filter(**filtro_dup).exists():
         tipo = 'procuração' if em_delegacao else 'pessoal'
-        print(f'[API_VOTAR] ERRO: usuario {usuario_id} já votou {tipo} pauta={pk}')
+        logger.warning('api_votar usuario %s já votou %s pauta=%s', usuario_id, tipo, pk)
         return JsonResponse({'status': 'error', 'message': 'Já votou nesta pauta.'}, status=400)
 
     with transaction.atomic():
@@ -1115,19 +1130,20 @@ def api_votar(request, pk):
             delegado_de_id=delegado_de_id if em_delegacao else None,
         )
         if pauta.tipo_votacao == 'Secreta':
-            voto.refresh_from_db()
             ReciboVoto.objects.create(
                 voto=voto,
                 recibo_hash=voto.recibo_hash,
                 pauta_titulo=pauta.titulo,
                 data_voto=voto.votado_em,
             )
-            Voto.objects.filter(pk=voto.pk).update(opcao='')
     Assembleia.objects.filter(pk=assembleia.pk).update(ultima_actividade=timezone.now())
-    _log_assembleia(assembleia.id, usuario_id, 'votacao', {
+    log_detalhes = {
         'pauta_id': pauta.id, 'pauta_titulo': pauta.titulo,
-        'em_delegacao': em_delegacao, 'opcao': opcao,
-    }, ip=_get_client_ip(request))
+        'em_delegacao': em_delegacao,
+    }
+    if pauta.tipo_votacao == 'Aberta':
+        log_detalhes['opcao'] = opcao
+    _log_assembleia(assembleia.id, usuario_id, 'votacao', log_detalhes, ip=_get_client_ip(request))
 
     if pauta.tipo_votacao == 'Aberta':
         _broadcast_ws(assembleia.id, 'voto_registado', {
@@ -1245,7 +1261,6 @@ def api_status_assembleia(request, pk):
     })
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_iniciar_assembleia(request, pk):
@@ -1267,8 +1282,6 @@ def api_iniciar_assembleia(request, pk):
     return JsonResponse({'status': 'ok'})
 
 
-@csrf_exempt
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_concluir_assembleia(request, pk):
@@ -1311,7 +1324,6 @@ def api_concluir_assembleia(request, pk):
     return JsonResponse({'status': 'ok', 'hash': assembleia.hash_integridade})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_cancelar_assembleia(request, pk):
@@ -1330,7 +1342,6 @@ def api_cancelar_assembleia(request, pk):
 # API - Manifesto / Ata
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_gerar_manifesto(request, pk):
@@ -1353,11 +1364,15 @@ def api_gerar_manifesto(request, pk):
     })
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_publicar_ata(request, pk):
     assembleia = get_object_or_404(Assembleia, pk=pk)
+    if assembleia.status != 'Concluida':
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Apenas assembleias concluídas podem ter ata.'
+        }, status=403)
     data = json.loads(request.body)
     conteudo = data.get('conteudo', '')
     if not conteudo:
@@ -1389,7 +1404,6 @@ def api_publicar_ata(request, pk):
 # API - Documentos
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_upload_documento(request, pk):
@@ -1399,11 +1413,26 @@ def api_upload_documento(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Sem permissão para gerir documentos.'}, status=403)
     titulo = request.POST.get('titulo', '').strip()
     tipo = request.POST.get('tipo', 'ata')
+    if assembleia.status != 'Concluida':
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Apenas assembleias concluídas podem ter documentos.'
+        }, status=403)
     if not titulo:
         return JsonResponse({'status': 'error', 'message': 'Título obrigatório.'}, status=400)
     arquivo = request.FILES.get('arquivo')
     if not arquivo:
         return JsonResponse({'status': 'error', 'message': 'Ficheiro obrigatório.'}, status=400)
+    MAX_SIZE = 10 * 1024 * 1024
+    if arquivo.size > MAX_SIZE:
+        return JsonResponse({'status': 'error', 'message': 'O ficheiro excede o tamanho máximo de 10 MB.'}, status=400)
+    ALLOWED_TYPES = [
+        'application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg', 'image/png',
+    ]
+    if arquivo.content_type not in ALLOWED_TYPES:
+        return JsonResponse({'status': 'error', 'message': 'Tipo de ficheiro não permitido. Use PDF, DOC, DOCX, JPG ou PNG.'}, status=400)
     doc = DocumentoAssembleia.objects.create(
         assembleia=assembleia,
         tipo=tipo, titulo=titulo,
@@ -1430,7 +1459,6 @@ def api_listar_documentos(request, pk):
     return JsonResponse({'documentos': data})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_publicar_documento(request, pk, doc_pk):
@@ -1478,7 +1506,6 @@ def api_publicar_documento(request, pk, doc_pk):
     return JsonResponse({'status': 'ok', 'id': doc.id})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_remover_documento(request, pk, doc_pk):
@@ -1520,7 +1547,6 @@ def _pode_admin_ou_secretario(papel, usuario_obj, request=None):
 # API: Gerar documento a partir de assembleia
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_gerar_documento(request):
@@ -1656,7 +1682,6 @@ def api_secretario_assembleias(request):
 # API - Mesa da Assembleia
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_mesa_adicionar(request, pk):
@@ -1687,7 +1712,6 @@ def api_mesa_adicionar(request, pk):
     })
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_mesa_remover(request, pk, membro_pk):
@@ -1763,7 +1787,6 @@ def _livekit_rest_call(method, body=None):
         return {'error': str(e)}
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_livekit_mute(request):
@@ -1883,7 +1906,6 @@ def api_livekit_refresh_token(request):
     return JsonResponse({'token': token, 'identity': identity})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_recording_start(request):
@@ -1913,7 +1935,6 @@ def api_recording_start(request):
     return JsonResponse({'status': 'ok', 'egress_id': egress_id})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_recording_stop(request):
@@ -2061,6 +2082,7 @@ def _calcular_multa_quota(quota, config_override=None):
     dias_atraso = dias_desde_venc - carencia
     valor_original = quota.valor_original or quota.valor
     multa_valor = valor_original * (config.multa_percentual / _Decimal(100)) * dias_atraso
+    multa_valor = min(multa_valor, valor_original * 12)
     total = valor_original + multa_valor
     return {'dias_atraso': dias_atraso, 'multa_valor': multa_valor, 'total_sugerido': total}
 
@@ -2336,9 +2358,9 @@ def quotas_admin_gerar_retroativo(request):
         configs_json.append({
             'id': c.id, 'tipo_id': c.tipo_id, 'tipo_nome': c.tipo.nome if c.tipo else '',
             'ano': c.ano, 'mes': c.mes,
-            'valor': float(c.valor) if c.valor else 0,
+            'valor': float(str(c.valor)) if c.valor else 0,
             'data_vencimento': str(c.data_vencimento) if c.data_vencimento else '',
-            'multa_percentual': float(c.multa_percentual) if c.multa_percentual else None,
+            'multa_percentual': float(str(c.multa_percentual)) if c.multa_percentual else None,
             'dias_carencia': c.dias_carencia,
             'ativa': c.ativa,
         })
@@ -2355,7 +2377,6 @@ def quotas_admin_gerar_retroativo(request):
 
 # ─── APIs ───────────────────────────────────────────────────────────────────
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_pagar(request, fatura_uuid):
@@ -2396,13 +2417,12 @@ def api_quotas_pagar(request, fatura_uuid):
     _registrar_historico(
         membro=quota.despachante, quota=quota, pagamento=pag,
         acao='PAGAMENTO_SUBMETIDO',
-        descricao=f'Pagamento submetido via {metodo} — Kz {valor_pago:.2f}',
+        descricao=f'Pagamento submetido via {metodo} — Kz {fmt_kz(valor_pago)}',
         request=request,
     )
     return JsonResponse({'status': 'ok', 'pagamento_id': pag.id, 'mensagem': 'Pagamento submetido com sucesso. Aguarde confirmação.'})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_confirmar_pagamento(request, pk):
@@ -2425,13 +2445,13 @@ def api_quotas_confirmar_pagamento(request, pk):
         _registrar_historico(
             membro=pag.despachante, quota=pag.quota, pagamento=pag,
             acao='PAGAMENTO_APROVADO',
-            descricao=f'Pagamento aprovado por admin. Multa: Kz {multa_info["multa_valor"]:.2f}.',
+            descricao=f'Pagamento aprovado por admin. Multa: Kz {fmt_kz(multa_info["multa_valor"])}.',
             request=request,
         )
         _atualizar_estado_financeiro(pag.despachante_id, registar_historico=True, request=request)
         multa_msg = ''
         if multa_info['dias_atraso'] > 0:
-            multa_msg = f' ({multa_info["dias_atraso"]} dias de atraso, multa de Kz {multa_info["multa_valor"]:.2f})'
+            multa_msg = f' ({multa_info["dias_atraso"]} dias de atraso, multa de Kz {fmt_kz(multa_info["multa_valor"])})'
         Notificacao.objects.create(
             usuario=pag.despachante, tipo='pagamento_confirmado',
             titulo='Pagamento Confirmado',
@@ -2474,7 +2494,6 @@ def api_quotas_confirmar_pagamento(request, pk):
     return JsonResponse({'status': 'ok'})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_emitir_certidao(request):
@@ -2560,10 +2579,16 @@ def api_quotas_verificar_estado(request):
 def api_quotas_listar(request):
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = request.session['usuario']['papel']
+    ano = request.GET.get('ano')
     from users.permissoes import _is_admin_ou_acesso_total
     e_admin = _is_admin_ou_acesso_total(request)
     if e_admin:
-        quotas = QuotaGerada.objects.all().select_related('despachante').order_by('-ano','-mes')
+        quotas = QuotaGerada.objects.select_related('despachante').order_by('-ano','-mes')
+        if ano:
+            quotas = quotas.filter(ano=ano)
+        else:
+            from datetime import date
+            quotas = quotas.filter(ano=date.today().year)
     else:
         quotas = QuotaGerada.objects.filter(despachante_id=usuario_id).order_by('-ano','-mes')
     data = []
@@ -2590,7 +2615,6 @@ def api_quotas_dashboard(request):
 
 # ─── Carteira Profissional ──────────────────────────────────────────────────
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_renovar_carteira(request):
@@ -2658,7 +2682,6 @@ def api_quotas_listar_despachantes(request):
     return JsonResponse({'despachantes': data, 'total': len(data)})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_salvar_config(request):
@@ -2669,9 +2692,9 @@ def api_quotas_salvar_config(request):
         ano = int(request.POST.get('ano', 0))
         mes_s = request.POST.get('mes', '')
         mes = int(mes_s) if mes_s else None
-        valor = _Decimal(request.POST.get('valor', '0'))
+        valor = _Decimal(parse_kz(request.POST.get('valor', '0')) or '0')
         vencimento = request.POST.get('data_vencimento', '')
-        multa_percentual = _Decimal(request.POST.get('multa_percentual', '0.50'))
+        multa_percentual = _Decimal(parse_kz(request.POST.get('multa_percentual', '0.50')) or '0.50')
         dias_carencia = int(request.POST.get('dias_carencia', 5))
         ativa = request.POST.get('ativa', '0') == '1'
         publicar = request.POST.get('publicar', '0') == '1'
@@ -2734,12 +2757,11 @@ def api_quotas_salvar_config(request):
             'total': len(lista),
         })
     label = f'{mes:02d}/{ano}' if mes else f'{ano}'
-    msg = f'Configuração de {label} salva: Kz {valor:.2f}'
+    msg = f'Configuração de {label} salva: Kz {fmt_kz(valor)}'
     messages.success(request, msg)
     return JsonResponse({'status': 'ok', 'mensagem': msg})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_publicar(request):
@@ -2756,9 +2778,9 @@ def api_quotas_publicar(request):
         mes_s = request.POST.get('mes', '')
         mes = int(mes_s) if mes_s else None
         tipo_id = request.POST.get('tipo_id', '') or None
-        valor = _Decimal(request.POST.get('valor', '0'))
+        valor = _Decimal(parse_kz(request.POST.get('valor', '0')) or '0')
         vencimento = request.POST.get('data_vencimento', '')
-        multa_percentual = _Decimal(request.POST.get('multa_percentual', '0.50'))
+        multa_percentual = _Decimal(parse_kz(request.POST.get('multa_percentual', '0.50')) or '0.50')
         dias_carencia = int(request.POST.get('dias_carencia', 5))
         excluidos_str = request.POST.getlist('excluidos[]')
     except (ValueError, TypeError):
@@ -2846,7 +2868,6 @@ def api_quotas_publicar(request):
     return JsonResponse({'status': 'ok', 'mensagem': msg, 'geradas': geradas})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_gerar_retroativo(request):
@@ -2970,7 +2991,6 @@ def api_quotas_gerar_retroativo(request):
     return JsonResponse({'status': 'ok', 'mensagem': msg, 'geradas': geradas, 'erros': erros})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_marcar_paga(request, fatura_uuid):
@@ -3004,7 +3024,6 @@ def api_quotas_marcar_paga(request, fatura_uuid):
 
 # ─── Cancelamento de Quota ──────────────────────────────────────────────────
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_cancelar(request, fatura_uuid):
@@ -3053,7 +3072,10 @@ def api_quotas_listar_isencoes(request):
     from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
-    isencoes = IsencaoMembro.objects.all().select_related('despachante', 'tipo_quota', 'aprovado_por').order_by('-created_at')
+    isencoes = IsencaoMembro.objects.select_related('despachante', 'tipo_quota', 'aprovado_por').order_by('-created_at')
+    ano = request.GET.get('ano')
+    if ano:
+        isencoes = isencoes.filter(data_inicio__year=ano)
     data = []
     for i in isencoes:
         data.append({
@@ -3070,7 +3092,6 @@ def api_quotas_listar_isencoes(request):
     return JsonResponse({'isencoes': data})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_criar_isencao(request):
@@ -3162,7 +3183,6 @@ def api_quotas_historico(request, fatura_uuid):
 
 # ─── Verificar Vencimentos (trigger manual) ────────────────────────────────
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_quotas_verificar_vencimentos(request):
@@ -3189,7 +3209,7 @@ def api_quotas_verificar_vencimentos(request):
 def consulta_lista(request):
     from users.permissoes import usuario_tem_permissao
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_consultas') and not usuario_tem_permissao(request, 'gerir_governanca') and not usuario_tem_permissao(request, 'gerir_governanca_filial'):
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'gerir_consultas') and not usuario_tem_permissao(request, 'gerir_governanca'):
         return redirect('governanca_index')
 
     status_filtro = request.GET.get('status', '')
@@ -3673,7 +3693,6 @@ def criar_convocatoria(request, pk):
     return render(request, 'governanca/convocatorias/criar.html', context)
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_convocatoria_publicar(request, pk):
@@ -3701,7 +3720,6 @@ def api_convocatoria_publicar(request, pk):
     return JsonResponse({'status': 'ok'})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_convocatoria_confirmar_rececao(request, pk):
@@ -3720,7 +3738,6 @@ def api_convocatoria_confirmar_rececao(request, pk):
 # RSVP — Confirmação de Participação
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_responder_presenca(request, pk):
@@ -3747,7 +3764,6 @@ def api_responder_presenca(request, pk):
 # Reabertura de Votação
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_reabrir_votacao(request, pk):
@@ -3987,7 +4003,6 @@ def exportar_resultados_csv(request, pk):
 # Assinatura Digital da Ata
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_assinar_ata(request, pk):
@@ -4121,7 +4136,6 @@ def api_notificacoes(request):
     return JsonResponse({'notificacoes': data, 'nao_lidas': nao_lidas})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 def api_notificacao_marcar_lida(request, pk):
     usuario = _get_usuario(request)
@@ -4133,7 +4147,6 @@ def api_notificacao_marcar_lida(request, pk):
     return JsonResponse({'status': 'ok'})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 def api_notificacoes_marcar_todas_lidas(request):
     usuario = _get_usuario(request)
@@ -4216,7 +4229,7 @@ def utilizador_novo_view(request):
 
         if tipo == 'colaborador':
             from decimal import Decimal
-            salario_dec = Decimal(salario_base.replace(',', '.')) if salario_base else None
+            salario_dec = Decimal(parse_kz(salario_base)) if salario_base else None
             ColaboradorInstitucional.objects.create(
                 usuario=user, nome=nome, email=email, telefone=telefone,
                 area_actuacao=area_actuacao, salario_base=salario_dec,
@@ -4377,7 +4390,6 @@ def gerir_utilizadores(request):
     })
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_utilizador_criar(request):
@@ -4546,7 +4558,6 @@ Administração SICDOA — CDOA Angola
     return _enviar(assunto, texto, html, usuario.email)
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_utilizador_toggle_status(request):
@@ -4567,7 +4578,6 @@ def api_utilizador_toggle_status(request):
     return JsonResponse({'status': 'ok', 'novo_status': usuario_obj.status})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_utilizador_enviar_credenciais(request):
@@ -4594,7 +4604,6 @@ def api_utilizador_enviar_credenciais(request):
     return JsonResponse({'status': 'ok', 'email_enviado': sucesso, 'msg': msg})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_utilizador_permissoes(request):
@@ -4615,7 +4624,6 @@ def api_permissoes_usuario(request):
     }, status=403)
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_utilizador_eliminar(request):
@@ -4634,7 +4642,6 @@ def api_utilizador_eliminar(request):
     return JsonResponse({'status': 'ok', 'message': f'Utilizador "{nome}" eliminado com sucesso.'})
 
 
-@csrf_exempt
 @require_http_methods(['POST'])
 @_requer_login
 def api_utilizador_atribuir_funcao(request):

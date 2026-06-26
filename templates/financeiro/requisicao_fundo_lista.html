@@ -100,7 +100,7 @@
               <div class="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p class="text-xs text-gray-400">Valor</p>
-                  <p class="font-medium text-gray-900 dark:text-white">{{ req.valor_solicitado|floatformat:2 }} Kz</p>
+                  <p class="font-medium text-gray-900 dark:text-white">{{ req.valor_solicitado|fmtkz }} Kz</p>
                 </div>
                 <div>
                   <p class="text-xs text-gray-400">Data</p>
@@ -175,7 +175,7 @@
                 </div>
               </div>
               <div class="text-center font-medium text-gray-900 dark:text-white text-sm">
-                {{ req.valor_solicitado|floatformat:2 }} Kz
+                {{ req.valor_solicitado|fmtkz }} Kz
               </div>
               <div class="text-center">
                 <span class="text-xs text-gray-500 dark:text-gray-400">{{ req.data|date:"d/m/Y H:i" }}</span>

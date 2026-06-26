@@ -26,7 +26,7 @@
           </div>
           <div class="flex-1">
             <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ quota.mes|stringformat:"02d" }}/{{ quota.ano }}</p>
-            <p class="text-xs text-gray-500">Kz {{ quota.valor|floatformat:2 }} &middot; {{ quota.data_vencimento|date:"d/m/Y" }}</p>
+            <p class="text-xs text-gray-500">Kz {{ quota.valor|fmtkz }} &middot; {{ quota.data_vencimento|date:"d/m/Y" }}</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="px-2 py-1 text-xs font-medium rounded-full {% if quota.status == 'Paga' %}bg-green-100 text-green-700{% elif quota.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ quota.status }}</span>
@@ -54,7 +54,7 @@
             {% for quota in quotas %}
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
               <td class="px-4 py-3 text-sm font-semibold text-[#111418] dark:text-gray-200">{{ quota.mes|stringformat:"02d" }}/{{ quota.ano }}</td>
-              <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Kz {{ quota.valor|floatformat:2 }}</td>
+              <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Kz {{ quota.valor|fmtkz }}</td>
               <td class="px-4 py-3 text-sm text-gray-500">{{ quota.data_vencimento|date:"d/m/Y" }}</td>
               <td class="px-4 py-3">
                 <span class="px-2 py-1 text-xs font-medium rounded-full {% if quota.status == 'Paga' %}bg-green-100 text-green-700{% elif quota.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">

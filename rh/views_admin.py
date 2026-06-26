@@ -511,9 +511,10 @@ def admin_colaborador_inst_editar_view(request, pk):
             colaborador.area_actuacao = area_actuacao
             if salario_base:
                 from decimal import Decimal
-                salario_clean = salario_base.replace('.', '').replace(',', '.')
+                from utils.format_kz import parse_kz
                 try:
-                    colaborador.salario_base = Decimal(salario_clean)
+                    parsed = parse_kz(salario_base)
+                    colaborador.salario_base = Decimal(parsed) if parsed else None
                 except Exception:
                     colaborador.salario_base = None
             colaborador.observacoes = observacoes
@@ -598,8 +599,10 @@ def admin_presenca_inst_registar_view(request):
 
 @_requer_admin_ou_permissoes('gerir_presencas_inst')
 def admin_presenca_inst_aprovar_view(request, pk):
+    if request.method != 'POST':
+        return redirect('rh_admin_presencas_inst')
     presenca = get_object_or_404(PresencaInstitucional, pk=pk)
-    acao = request.GET.get('acao', 'aprovar')
+    acao = request.POST.get('acao', 'aprovar')
     if acao == 'aprovar':
         presenca.estado = 'Aprovado'
         presenca.save(update_fields=['estado'])
@@ -633,17 +636,18 @@ def admin_ferias_inst_view(request):
 
 @_requer_admin_ou_permissoes('gerir_ferias_inst')
 def admin_ferias_inst_acao_view(request, pk):
+    if request.method != 'POST':
+        return redirect('rh_admin_ferias_inst')
     pedido = get_object_or_404(FeriasInstitucional, pk=pk)
-    acao = request.GET.get('acao', '')
-    if request.method == 'POST' or acao:
-        if acao == 'aprovar':
-            pedido.estado = 'Aprovado'
-            pedido.save(update_fields=['estado'])
-            messages.success(request, 'Pedido de férias aprovado.')
-        elif acao == 'rejeitar':
-            pedido.estado = 'Rejeitado'
-            pedido.save(update_fields=['estado'])
-            messages.success(request, 'Pedido de férias rejeitado.')
+    acao = request.POST.get('acao', '')
+    if acao == 'aprovar':
+        pedido.estado = 'Aprovado'
+        pedido.save(update_fields=['estado'])
+        messages.success(request, 'Pedido de férias aprovado.')
+    elif acao == 'rejeitar':
+        pedido.estado = 'Rejeitado'
+        pedido.save(update_fields=['estado'])
+        messages.success(request, 'Pedido de férias rejeitado.')
     return redirect('rh_admin_ferias_inst')
 
 

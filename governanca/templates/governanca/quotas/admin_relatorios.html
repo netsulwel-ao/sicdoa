@@ -37,7 +37,7 @@
         </div>
         <div>
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Arrecadado</p>
-          <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">Kz {{ total_arrecadado|floatformat:2 }}</p>
+          <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">Kz {{ total_arrecadado|fmtkz }}</p>
         </div>
       </div>
     </div>
@@ -94,7 +94,7 @@
               </div>
               <div>
                 <p class="text-sm font-semibold text-[#111418] dark:text-gray-200">{{ r.mes|stringformat:"02d" }}/{{ r.ano }}</p>
-                <p class="text-xs text-gray-500">{{ r.total }} quotas &middot; Kz {{ r.valor_total|floatformat:2|default:"0.00" }}</p>
+                <p class="text-xs text-gray-500">{{ r.total }} quotas &middot; Kz {{ r.valor_total|fmtkz }}</p>
               </div>
             </div>
             <div class="text-right">
@@ -106,7 +106,7 @@
                 <span class="text-purple-600 font-medium">{{ r.isentas }} isentas</span>
                 <span class="text-gray-600 font-medium">{{ r.canceladas }} canc.</span>
               </div>
-              <p class="text-xs text-emerald-600 mt-0.5">Kz {{ r.arrecadado|floatformat:2|default:"0.00" }} arrecadado</p>
+              <p class="text-xs text-emerald-600 mt-0.5">Kz {{ r.arrecadado|fmtkz }} arrecadado</p>
             </div>
           </div>
           {% empty %}
@@ -138,7 +138,7 @@
             </div>
             <div class="text-right shrink-0">
               <p class="text-sm font-bold text-red-600 dark:text-red-400">{{ d.quotas_pend }} pendente{{ d.quotas_pend|pluralize }}</p>
-              <p class="text-xs text-gray-500">Kz {{ d.total_devido|floatformat:2|default:"0.00" }}</p>
+              <p class="text-xs text-gray-500">Kz {{ d.total_devido|fmtkz }}</p>
             </div>
           </div>
           {% endfor %}
@@ -175,7 +175,7 @@
               </div>
             </div>
             <div class="text-right shrink-0">
-              <p class="text-sm font-bold text-emerald-600">Kz {{ p.valor_pago|floatformat:2 }}</p>
+              <p class="text-sm font-bold text-emerald-600">Kz {{ p.valor_pago|fmtkz }}</p>
               <p class="text-xs text-gray-500">{{ p.confirmado_em|date:"d/m/Y H:i" }}</p>
             </div>
           </div>
@@ -228,8 +228,8 @@
                 <td class="py-3 px-4 text-center font-medium text-orange-600 dark:text-orange-400">{{ r.pend_conf }}</td>
                 <td class="py-3 px-4 text-center font-medium text-purple-600 dark:text-purple-400">{{ r.isentas }}</td>
                 <td class="py-3 px-4 text-center font-medium text-gray-600 dark:text-gray-400">{{ r.canceladas }}</td>
-                <td class="py-3 px-4 text-right text-gray-700 dark:text-gray-300 font-medium">Kz {{ r.valor_total|floatformat:2|default:"0.00" }}</td>
-                <td class="py-3 px-4 text-right font-medium text-emerald-600 dark:text-emerald-400">Kz {{ r.arrecadado|floatformat:2|default:"0.00" }}</td>
+                <td class="py-3 px-4 text-right text-gray-700 dark:text-gray-300 font-medium">Kz {{ r.valor_total|fmtkz }}</td>
+                <td class="py-3 px-4 text-right font-medium text-emerald-600 dark:text-emerald-400">Kz {{ r.arrecadado|fmtkz }}</td>
               </tr>
               {% empty %}
               <tr><td colspan="9" class="py-8 text-center text-gray-400">Nenhum dado disponível</td></tr>
@@ -264,7 +264,7 @@
                 <td class="py-3 px-4 font-semibold text-[#111418] dark:text-gray-200">{{ d.nome }}</td>
                 <td class="py-3 px-4 text-gray-500">{{ d.cedula|default:"—" }}</td>
                 <td class="py-3 px-4 text-center font-medium text-red-600 dark:text-red-400">{{ d.quotas_pend }}</td>
-                <td class="py-3 px-4 text-right font-medium text-red-600 dark:text-red-400">Kz {{ d.total_devido|floatformat:2|default:"0.00" }}</td>
+                <td class="py-3 px-4 text-right font-medium text-red-600 dark:text-red-400">Kz {{ d.total_devido|fmtkz }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -307,7 +307,7 @@
                 <td class="py-3 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.confirmado_em|date:"d/m/Y H:i" }}</td>
                 <td class="py-3 px-4 font-semibold text-[#111418] dark:text-gray-200 whitespace-nowrap">{{ p.despachante.nome }}</td>
                 <td class="py-3 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.quota.mes|stringformat:"02d" }}/{{ p.quota.ano }}</td>
-                <td class="py-3 px-4 text-right font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap">Kz {{ p.valor_pago|floatformat:2 }}</td>
+                <td class="py-3 px-4 text-right font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap">Kz {{ p.valor_pago|fmtkz }}</td>
                 <td class="py-3 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ p.metodo }}</td>
                 <td class="py-3 px-4 text-gray-500 whitespace-nowrap">{{ p.confirmado_por.nome|default:"—" }}</td>
               </tr>

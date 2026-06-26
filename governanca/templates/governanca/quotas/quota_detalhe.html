@@ -28,10 +28,10 @@
           <div><dt class="text-gray-500">Despachante</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.despachante.nome }}</dd></div>
           <div><dt class="text-gray-500">Período</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.mes|stringformat:"02d" }}/{{ quota.ano }}</dd></div>
           <div><dt class="text-gray-500">Referência</dt><dd class="font-semibold text-[#111418] dark:text-gray-200 font-mono text-xs">{{ quota.referencia|default:"—" }}</dd></div>
-          <div><dt class="text-gray-500">Valor Original</dt><dd class="font-semibold text-[#111418]">Kz {{ quota.valor_original|default:quota.valor|floatformat:2 }}</dd></div>
+          <div><dt class="text-gray-500">Valor Original</dt><dd class="font-semibold text-[#111418]">Kz {{ quota.valor_original|default:quota.valor|fmtkz }}</dd></div>
           {% if quota.valor_multa > 0 %}
-          <div><dt class="text-gray-500">Multa</dt><dd class="font-semibold text-red-600">+ Kz {{ quota.valor_multa|floatformat:2 }}</dd></div>
-          <div><dt class="text-gray-500">Valor Total</dt><dd class="font-semibold text-red-700">Kz {{ quota.valor_total|floatformat:2 }}</dd></div>
+          <div><dt class="text-gray-500">Multa</dt><dd class="font-semibold text-red-600">+ Kz {{ quota.valor_multa|fmtkz }}</dd></div>
+          <div><dt class="text-gray-500">Valor Total</dt><dd class="font-semibold text-red-700">Kz {{ quota.valor_total|fmtkz }}</dd></div>
           {% endif %}
           <div><dt class="text-gray-500">Data de Vencimento</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.data_vencimento|date:"d/m/Y" }}</dd></div>
           {% if quota.data_envio %}<div><dt class="text-gray-500">Data de Envio</dt><dd class="font-semibold text-[#111418] dark:text-gray-200">{{ quota.data_envio|date:"d/m/Y" }}</dd></div>{% endif %}
@@ -62,7 +62,7 @@
           {% for pag in pagamentos %}
           <div class="flex items-center justify-between p-3 rounded-lg {% if pag.status == 'Confirmado' %}bg-green-50{% elif pag.status == 'Rejeitado' %}bg-red-50{% else %}bg-yellow-50{% endif %}">
             <div>
-              <p class="text-sm font-semibold text-[#111418]">Kz {{ pag.valor_pago|floatformat:2 }} — {{ pag.metodo }}</p>
+              <p class="text-sm font-semibold text-[#111418]">Kz {{ pag.valor_pago|fmtkz }} — {{ pag.metodo }}</p>
               <p class="text-xs text-gray-500">{{ pag.data_pagamento|date:"d/m/Y H:i" }}</p>
               {% if pag.observacoes %}<p class="text-xs text-gray-500 mt-1">{{ pag.observacoes|truncatechars:100 }}</p>{% endif %}
             </div>
@@ -119,8 +119,8 @@
         <div class="space-y-2 text-sm">
           <p class="text-gray-600 dark:text-gray-400">Dias em atraso: <strong class="text-red-600">{{ multa_info.dias_atraso }}</strong></p>
           <p class="text-gray-600 dark:text-gray-400">Carência: <strong>{{ config_dias_carencia }} dias</strong></p>
-          <p class="text-gray-600 dark:text-gray-400">Multa: <strong class="text-red-600">+ Kz {{ multa_info.multa_valor|floatformat:2 }}</strong></p>
-          <p class="text-gray-600 dark:text-gray-400 text-base">Total devido: <strong class="text-red-700">Kz {{ multa_info.total_sugerido|floatformat:2 }}</strong></p>
+          <p class="text-gray-600 dark:text-gray-400">Multa: <strong class="text-red-600">+ Kz {{ multa_info.multa_valor|fmtkz }}</strong></p>
+          <p class="text-gray-600 dark:text-gray-400 text-base">Total devido: <strong class="text-red-700">Kz {{ multa_info.total_sugerido|fmtkz }}</strong></p>
         </div>
       </div>
       {% endif %}
@@ -149,12 +149,12 @@
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
         <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4">Efetuar Pagamento</h2>
         <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-1 text-sm">
-          <p class="text-gray-600 dark:text-gray-400">Valor Original: <strong class="text-[#111418] dark:text-gray-200">Kz {{ quota.valor_original|default:quota.valor|floatformat:2 }}</strong></p>
+          <p class="text-gray-600 dark:text-gray-400">Valor Original: <strong class="text-[#111418] dark:text-gray-200">Kz {{ quota.valor_original|default:quota.valor|fmtkz }}</strong></p>
           {% if multa_info.dias_atraso > 0 %}
-          <p class="text-red-600">Multa ({{ multa_info.dias_atraso }}d): <strong>+ Kz {{ multa_info.multa_valor|floatformat:2 }}</strong></p>
-          <p class="text-red-700 font-bold">Total a Pagar: Kz {{ multa_info.total_sugerido|floatformat:2 }}</p>
+          <p class="text-red-600">Multa ({{ multa_info.dias_atraso }}d): <strong>+ Kz {{ multa_info.multa_valor|fmtkz }}</strong></p>
+          <p class="text-red-700 font-bold">Total a Pagar: Kz {{ multa_info.total_sugerido|fmtkz }}</p>
           {% else %}
-          <p class="text-gray-600 dark:text-gray-400">Total a Pagar: <strong class="text-[#111418] dark:text-gray-200">Kz {{ quota.valor_total|default:quota.valor|floatformat:2 }}</strong></p>
+          <p class="text-gray-600 dark:text-gray-400">Total a Pagar: <strong class="text-[#111418] dark:text-gray-200">Kz {{ quota.valor_total|default:quota.valor|fmtkz }}</strong></p>
           {% endif %}
         </div>
         <form id="form-pagamento" enctype="multipart/form-data">
@@ -238,20 +238,78 @@ async function marcarPagaAdmin(faturaUuid) {
   else { location.reload(); }
 }
 
-async function cancelarQuota(faturaUuid) {
-  const motivo = prompt('Motivo do cancelamento (obrigatório):');
-  if (!motivo || motivo.trim() === '') return;
-  const ok = await showConfirm('Cancelar Quota', 'Tem certeza que deseja cancelar esta quota?\nMotivo: ' + motivo);
-  if (!ok) return;
-  var CANCELAR_URL = '{% url "governanca_api_quotas_cancelar" fatura_uuid="00000000-0000-0000-0000-000000000000" %}';
-  var fd = new FormData(); fd.append('motivo', motivo);
-  const res = await fetch(CANCELAR_URL.replace('00000000-0000-0000-0000-000000000000', faturaUuid), {
-    method: 'POST', body: fd,
-    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
-  });
-  const d = await res.json();
-  if (d.erro) { alert(d.erro); }
-  else { location.reload(); }
+function cancelarQuota(faturaUuid) {
+  const modal = document.getElementById('cancelar-quota-modal');
+  const textarea = document.getElementById('cancelar-motivo');
+  const confirmBtn = document.getElementById('cancelar-confirmar');
+  const cancelBtn = document.getElementById('cancelar-cancelar');
+  const errorEl = document.getElementById('cancelar-erro');
+  textarea.value = '';
+  errorEl.classList.add('hidden');
+  modal.classList.remove('hidden');
+  textarea.focus();
+
+  function limpar() {
+    modal.classList.add('hidden');
+    confirmBtn.removeEventListener('click', onConfirm);
+    cancelBtn.removeEventListener('click', onCancel);
+    modal.removeEventListener('click', onOutside);
+  }
+  function onConfirm() {
+    const motivo = textarea.value.trim();
+    if (!motivo) {
+      errorEl.textContent = 'O motivo do cancelamento é obrigatório.';
+      errorEl.classList.remove('hidden');
+      textarea.focus();
+      return;
+    }
+    limpar();
+    var CANCELAR_URL = '{% url "governanca_api_quotas_cancelar" fatura_uuid="00000000-0000-0000-0000-000000000000" %}';
+    var fd = new FormData(); fd.append('motivo', motivo);
+    fetch(CANCELAR_URL.replace('00000000-0000-0000-0000-000000000000', faturaUuid), {
+      method: 'POST', body: fd,
+      headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.erro) { alert(d.erro); }
+      else { location.reload(); }
+    });
+  }
+  function onCancel() { limpar(); }
+  function onOutside(e) { if (e.target === modal) limpar(); }
+  confirmBtn.addEventListener('click', onConfirm);
+  cancelBtn.addEventListener('click', onCancel);
+  modal.addEventListener('click', onOutside);
 }
 </script>
+
+<div id="cancelar-quota-modal" class="fixed inset-0 z-[300] hidden flex items-center justify-center bg-black/50 p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full p-6 transform transition-all">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+        <i class="fas fa-ban text-red-600 text-lg"></i>
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-[#111418] dark:text-gray-200">Cancelar Quota</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Indique o motivo do cancelamento</p>
+      </div>
+    </div>
+    <textarea id="cancelar-motivo" rows="3"
+              class="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 mb-1"
+              placeholder="Motivo do cancelamento..."></textarea>
+    <p id="cancelar-erro" class="text-xs text-red-600 hidden mb-2"></p>
+    <div class="flex gap-2 justify-end mt-3">
+      <button id="cancelar-cancelar"
+              class="px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer">
+        Cancelar
+      </button>
+      <button id="cancelar-confirmar"
+              class="px-5 py-2 rounded-xl bg-red-600 text-white font-medium text-sm hover:bg-red-700 transition-all shadow-sm cursor-pointer">
+        Confirmar Cancelamento
+      </button>
+    </div>
+  </div>
+</div>
+
 {% include 'includes/footer.html' %}

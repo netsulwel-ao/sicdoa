@@ -440,7 +440,7 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
         if not self.usuario:
             return False
         ef = EstadoFinanceiro.objects.filter(despachante_id=self.usuario.id).first()
-        if ef and ef.estado == 'Irregular':
+        if ef and ef.estado in ('Irregular', 'Suspenso'):
             return False
         return True
 

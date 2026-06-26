@@ -1,4 +1,4 @@
-﻿{% include 'includes/head.html' %}
+﻿{% load rh_extras %}{% include 'includes/head.html' %}
 {% include 'includes/sidebar.html' %}
 <div class="flex-1 ml-0 lg:ml-64 min-w-0">
   {% include 'includes/header.html' %}
@@ -54,6 +54,40 @@
           </div>
         </div>
       </div>
+
+      {% if colaboradores %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-3">
+            <i class="fas fa-users text-primary"></i>
+            <h2 class="font-semibold text-gray-900 dark:text-white">Colaboradores a Processar</h2>
+          </div>
+          <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
+            <input type="checkbox" id="selecionar_todos" checked onchange="document.querySelectorAll('.col-check').forEach(c=>c.checked=this.checked)"
+                   class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary">
+            <span>Seleccionar Todos</span>
+          </label>
+        </div>
+        <div class="p-6">
+          <p class="text-sm text-gray-500 mb-4">Desmarque os colaboradores que <strong>não</strong> devem ser incluídos neste processamento.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {% for col in colaboradores %}
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all select-none {% if not col.salario_efetivo %}opacity-60{% endif %}">
+              <input type="checkbox" name="colaboradores" value="{{ col.id }}" checked
+                     class="col-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary flex-shrink-0">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ col.nome }}</p>
+                <p class="text-xs text-gray-500 truncate">
+                  {% if col.salario_efetivo %}{{ col.salario_efetivo|fmtkz }} KZ{% else %}<span class="text-red-400">sem salário base</span>{% endif %}
+                </p>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+          <p class="text-xs text-gray-400 mt-3">{{ colaboradores|length }} colaborador{{ colaboradores|length|pluralize:"es" }} activo{{ colaboradores|length|pluralize:"s" }}</p>
+        </div>
+      </div>
+      {% endif %}
 
       <div class="flex justify-end gap-3">
         <a href="{% url 'rh_salarios' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>

@@ -13,7 +13,7 @@ from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
 import bcrypt
 
-from utils.format_kz import parse_kz
+from utils.format_kz import parse_kz, fmt_kz
 from utils.email_utils import gerar_senha_aleatoria, enviar_senha_colaborador
 from utils.email_utils import enviar_resultado_candidatura, enviar_convocatoria_entrevista
 from utils.validators import email_ja_existe
@@ -87,28 +87,28 @@ def _dec(val, default=Decimal('0')):
         return default
 
 
+# Tabela IRT Angola (Imposto sobre Rendimento do Trabalho) - OGE 2026
 def _calcular_irt(salario: Decimal) -> Decimal:
-    s = float(salario)
-    if s <= 150000:
-        irt = 0.0
-    elif s <= 200000:
-        irt = (s - 150000) * 0.16
-    elif s <= 300000:
-        irt = 8000 + (s - 200000) * 0.18
-    elif s <= 500000:
-        irt = 26000 + (s - 300000) * 0.19
-    elif s <= 1000000:
-        irt = 64000 + (s - 500000) * 0.20
-    elif s <= 1500000:
-        irt = 164000 + (s - 1000000) * 0.21
-    elif s <= 2000000:
-        irt = 269000 + (s - 1500000) * 0.22
-    elif s <= 5000000:
-        irt = 379000 + (s - 2000000) * 0.23
-    elif s <= 10000000:
-        irt = 1069000 + (s - 5000000) * 0.24
+    if salario <= Decimal('150000'):
+        irt = Decimal('0')
+    elif salario <= Decimal('200000'):
+        irt = (salario - Decimal('150000')) * Decimal('0.16')
+    elif salario <= Decimal('300000'):
+        irt = Decimal('8000') + (salario - Decimal('200000')) * Decimal('0.18')
+    elif salario <= Decimal('500000'):
+        irt = Decimal('26000') + (salario - Decimal('300000')) * Decimal('0.19')
+    elif salario <= Decimal('1000000'):
+        irt = Decimal('64000') + (salario - Decimal('500000')) * Decimal('0.20')
+    elif salario <= Decimal('1500000'):
+        irt = Decimal('164000') + (salario - Decimal('1000000')) * Decimal('0.21')
+    elif salario <= Decimal('2000000'):
+        irt = Decimal('269000') + (salario - Decimal('1500000')) * Decimal('0.22')
+    elif salario <= Decimal('5000000'):
+        irt = Decimal('379000') + (salario - Decimal('2000000')) * Decimal('0.23')
+    elif salario <= Decimal('10000000'):
+        irt = Decimal('1069000') + (salario - Decimal('5000000')) * Decimal('0.24')
     else:
-        irt = 2269000 + (s - 10000000) * 0.25
+        irt = Decimal('2269000') + (salario - Decimal('10000000')) * Decimal('0.25')
     return Decimal(str(round(irt, 2)))
 
 
@@ -229,13 +229,13 @@ def _gerar_pdf_processamento_inst(processamento, request):
         total_subs = sum(v.valor for v in recibo.subsidios_vinculados.all())
         dados = [
             recibo.colaborador.nome[:30],
-            f"{recibo.salario_base:,.2f}",
-            f"{total_subs:,.2f}",
-            f"{recibo.bruto:,.2f}",
-            f"{recibo.outros_descontos:,.2f}",
-            f"{recibo.irt:,.2f}",
-            f"{recibo.inss_trabalhador:,.2f}",
-            f"{recibo.liquido:,.2f}",
+            fmt_kz(recibo.salario_base),
+            fmt_kz(total_subs),
+            fmt_kz(recibo.bruto),
+            fmt_kz(recibo.outros_descontos),
+            fmt_kz(recibo.irt),
+            fmt_kz(recibo.inss_trabalhador),
+            fmt_kz(recibo.liquido),
         ]
         x = margin_left
         for i, d in enumerate(dados):
@@ -253,7 +253,7 @@ def _gerar_pdf_processamento_inst(processamento, request):
     total_liquido = sum(r.liquido for r in recibos)
     c.setFont("Helvetica-Bold", 10)
     c.drawString(margin_left, y_position, "Total Líquido Pago:")
-    c.drawRightString(width - margin_right, y_position, f"{total_liquido:,.2f} KZ")
+    c.drawRightString(width - margin_right, y_position, f"{fmt_kz(total_liquido)} KZ")
     y_position -= 60
     c.setFont("Helvetica", 8)
     footer = "Documento gerado automaticamente pelo Sistema de Gestão de Recursos Humanos"
@@ -588,17 +588,7 @@ def inst_salario_detalhe_view(request, pk):
                         subsidios_aplicaveis.append(subsidio)
 
                 for subsidio in subsidios_aplicaveis:
-                    if subsidio.obrigatorio:
-                        if subsidio.tipo_calculo == 'PERCENTUAL':
-                            v = (r.salario_base * subsidio.percentual) / 100 if subsidio.percentual and r.salario_base else subsidio.valor_padrao
-                        elif subsidio.tipo_calculo == 'DIAS_TRABALHO':
-                            v = subsidio.valor_padrao * 22
-                        elif subsidio.tipo_calculo == 'DEPENDENTES':
-                            v = subsidio.valor_padrao * 1
-                        else:
-                            v = subsidio.valor_padrao
-                    else:
-                        v = _dec(request.POST.get(f'{p}subsidio_{subsidio.pk}', '0'))
+                    v = _dec(request.POST.get(f'{p}subsidio_{subsidio.pk}', '0'))
 
                     vinculo, _ = SubsidioReciboInstitucional.objects.get_or_create(
                         recibo=r, subsidio=subsidio,
@@ -615,6 +605,8 @@ def inst_salario_detalhe_view(request, pk):
                 r.outros_subsidios = total_subs
                 r.subsidio_alimentacao = Decimal('0')
                 r.subsidio_transporte = Decimal('0')
+                faltas_count = int(request.POST.get(f'{p}faltas', '0') or '0')
+                r.outros_descontos = (r.salario_base / Decimal('22') * faltas_count).quantize(Decimal('0.01')) if faltas_count > 0 else Decimal('0')
                 base_impostos = r.base_calculo_impostos
                 r.irt = _calcular_irt(base_impostos)
                 r.inss_trabalhador = (base_impostos * Decimal('0.03')).quantize(Decimal('0.01'))
@@ -1279,10 +1271,11 @@ def inst_avaliacao_form_view(request, ciclo_pk, col_pk=None):
             return redirect('rh_inst_ciclo_detalhe', pk=ciclo.pk)
 
         kpis = {}
-        for m in ciclo.metricas.all():
+        metricas = list(ciclo.metricas.all())
+        for m in metricas:
             v = request.POST.get(f'metrica_{m.pk}')
             kpis[m.nome] = int(v) if v else 3
-        if not ciclo.metricas.exists():
+        if not metricas:
             for k in ['pontualidade', 'produtividade', 'qualidade_trabalho',
                       'trabalho_equipa', 'iniciativa']:
                 v = request.POST.get(k)
@@ -1300,12 +1293,12 @@ def inst_avaliacao_form_view(request, ciclo_pk, col_pk=None):
         )
         if created:
             NotaMetricaInstitucional.objects.filter(avaliacao=aval).delete()
-        for m in ciclo.metricas.all():
+        for m in metricas:
             v = request.POST.get(f'metrica_{m.pk}')
             if v:
                 NotaMetricaInstitucional.objects.create(avaliacao=aval, metrica=m, nota=int(v))
 
-        if not ciclo.metricas.exists():
+        if not metricas:
             aval.pontualidade = kpis.get('pontualidade', 3)
             aval.produtividade = kpis.get('produtividade', 3)
             aval.qualidade_trabalho = kpis.get('qualidade_trabalho', 3)

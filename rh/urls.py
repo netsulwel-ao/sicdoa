@@ -40,6 +40,7 @@ urlpatterns = [
     # Filiais
     path('filiais/nova/', views.filial_nova_view, name='rh_filial_nova'),
     path('filiais/<int:pk>/', views.filial_detalhe_view, name='rh_filial_detalhe'),
+    path('filiais/<int:pk>/dashboard/', views.filial_dashboard_view, name='rh_filial_dashboard'),
     path('filiais/<int:pk>/editar/', views.filial_editar_view, name='rh_filial_editar'),
     path('filiais/responsavel/novo/temp/', views.filial_responsavel_novo_temp_view, name='rh_filial_responsavel_novo_temp'),
     path('filiais/<int:pk>/responsavel/novo/', views.filial_responsavel_novo_view, name='rh_filial_responsavel_novo'),

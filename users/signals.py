@@ -1,4 +1,5 @@
 from datetime import timedelta
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -6,6 +7,7 @@ from .models import Usuario
 
 
 @receiver(post_save, sender=Usuario)
+@transaction.atomic
 def gerar_inscricao_auto(sender, instance, created, **kwargs):
     if not created:
         return

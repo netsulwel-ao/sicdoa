@@ -11,23 +11,17 @@ PERMISSOES = [
 
 
 def seed_permissoes(apps, schema_editor):
-    with schema_editor.connection.cursor() as cursor:
-        for codigo, nome, descricao, grupo, icone in PERMISSOES:
-            cursor.execute(
-                "SELECT COUNT(*) FROM permissoes WHERE codigo = %s", [codigo]
-            )
-            exists = cursor.fetchone()[0] > 0
-            if not exists:
-                cursor.execute(
-                    "INSERT INTO permissoes (codigo, nome, descricao, grupo, icone, created_at) VALUES (%s, %s, %s, %s, %s, NOW())",
-                    [codigo, nome, descricao, grupo, icone],
-                )
+    Permissao = apps.get_model('users', 'Permissao')
+    for codigo, nome, descricao, grupo, icone in PERMISSOES:
+        Permissao.objects.get_or_create(
+            codigo=codigo,
+            defaults={'nome': nome, 'descricao': descricao, 'grupo': grupo},
+        )
 
 
 def reverse_permissoes(apps, schema_editor):
-    with schema_editor.connection.cursor() as cursor:
-        for codigo, *_ in PERMISSOES:
-            cursor.execute("DELETE FROM permissoes WHERE codigo = %s", [codigo])
+    Permissao = apps.get_model('users', 'Permissao')
+    Permissao.objects.filter(codigo__in=[p[0] for p in PERMISSOES]).delete()
 
 
 class Migration(migrations.Migration):

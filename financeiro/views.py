@@ -26,21 +26,25 @@ from .models import (
     FacturaRecibo, HistoricoFinanceiro, registrar_historico
 )
 from .forms import FluxoAprovacaoForm, NivelAprovacaoForm
+from utils.format_kz import fmt_kz
 
 
 def _user_tem_acesso_total(request):
-    """True se user tem bypass de scoping (Admin ou permissão admin/financeiro)."""
+    """True se user tem bypass de scoping (Admin ou permissão admin)."""
     from users.permissoes import _is_admin_ou_acesso_total
     papel = request.session.get('usuario', {}).get('papel', '')
     if papel == 'Administrador':
         return True
     if _is_admin_ou_acesso_total(request):
         return True
-    from users.permissoes import get_usuario_permissoes
-    permissoes = get_usuario_permissoes(request)
-    if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes:
-        return True
     return False
+
+
+def _tem_escopo_filial(perm_set, filial_id=None):
+    """True se o user está escopeado a uma filial (por filial_id ou permissão)."""
+    if filial_id:
+        return True
+    return any(p in (perm_set or set()) for p in ('gerir_filial', 'gerir_financeiro',))
 
 
 def _pode_escrever(request):
@@ -100,26 +104,53 @@ class BaseContextMixin:
     def _get_user_cliente_filter(self):
         if _user_tem_acesso_total(self.request):
             return {}
-        usuario_id = self._resolve_usuario_id()
-        if not usuario_id:
-            return {}
-        return {'cliente__usuario_id': usuario_id}
+        from users.permissoes import get_usuario_permissoes
+        perm_set = get_usuario_permissoes(self.request)
+        banca_id = self.request.session.get('banca_id')
+        if not banca_id:
+            usuario_id = self._resolve_usuario_id()
+            if not usuario_id:
+                return {}
+            return {'cliente__usuario_id': usuario_id}
+        filtro = {'banca_id': banca_id}
+        filial_id = self.request.session.get('colaborador_filial_id')
+        if _tem_escopo_filial(perm_set, filial_id) and filial_id:
+            filtro['filial_id'] = filial_id
+        return filtro
 
     def _get_user_filter_direct(self):
         if _user_tem_acesso_total(self.request):
             return {}
-        usuario_id = self._resolve_usuario_id()
-        if not usuario_id:
-            return {}
-        return {'usuario_id': usuario_id}
+        from users.permissoes import get_usuario_permissoes
+        perm_set = get_usuario_permissoes(self.request)
+        banca_id = self.request.session.get('banca_id')
+        if not banca_id:
+            usuario_id = self._resolve_usuario_id()
+            if not usuario_id:
+                return {}
+            return {'usuario_id': usuario_id}
+        filtro = {'banca_id': banca_id}
+        filial_id = self.request.session.get('colaborador_filial_id')
+        if _tem_escopo_filial(perm_set, filial_id) and filial_id:
+            filtro['filial_id'] = filial_id
+        return filtro
 
     def _get_user_requisicao_filter(self):
         if _user_tem_acesso_total(self.request):
-            return {}
-        usuario_id = self._resolve_usuario_id()
-        if not usuario_id:
-            return {}
-        return Q(cliente__usuario_id=usuario_id) | Q(solicitante_id=usuario_id)
+            return Q()
+        from users.permissoes import get_usuario_permissoes
+        perm_set = get_usuario_permissoes(self.request)
+        banca_id = self.request.session.get('banca_id')
+        if not banca_id:
+            usuario_id = self._resolve_usuario_id()
+            if not usuario_id:
+                return Q(pk=None)
+            return Q(cliente__usuario_id=usuario_id) | Q(solicitante_id=usuario_id)
+        q = Q(banca_id=banca_id)
+        filial_id = self.request.session.get('colaborador_filial_id')
+        if _tem_escopo_filial(perm_set, filial_id) and filial_id:
+            q = Q(banca_id=banca_id, filial_id=filial_id)
+        return q
 
 # ─── Notas Home ─────────────────────────────────────────────────────────────
 
@@ -156,9 +187,9 @@ def du_custos_json(request, pk):
     else:
         usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
         du = get_object_or_404(DeclaracaoUnica, pk=pk, despachante_id=usuario_id)
-    taxas = float((du.total_impostos or 0))
-    emolumentos = float(du.total_emgead or 0)
-    iva_val = float(du.iva or 0)
+    taxas = float(str(du.total_impostos or 0))
+    emolumentos = float(str(du.total_emgead or 0))
+    iva_val = float(str(du.iva or 0))
     base = taxas + emolumentos
     honorarios = round(base * 0.05, 2)
     despesas = round(base * 0.02, 2)
@@ -176,12 +207,17 @@ def du_custos_json(request, pk):
 
 
 def _get_object_or_404_com_scope(request, model, pk, scope_field='cliente__usuario_id'):
+    base = {'pk': pk}
+    banca_id = request.session.get('banca_id')
+    if banca_id:
+        base['banca_id'] = banca_id
     if _user_tem_acesso_total(request):
-        return get_object_or_404(model, pk=pk)
+        return get_object_or_404(model, **base)
     usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
     if not usuario_id:
-        return get_object_or_404(model, pk=pk)
-    return get_object_or_404(model, **{scope_field: usuario_id, 'pk': pk})
+        return get_object_or_404(model, **base)
+    base[scope_field] = usuario_id
+    return get_object_or_404(model, **base)
 
 # ─── Requisições de Fundos ───────────────────────────────────────────────────
 
@@ -232,12 +268,15 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
         form.instance.solicitante_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.solicitante_nome = usuario_data.get('nome', '')
+        form.instance.banca_id = self.request.session.get('banca_id') or form.instance.cliente.banca_id
+        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
         registrar_historico(
             'Requisicao', self.object.pk, self.object.numero_requisicao, 'Criada',
             estado_novo='Pendente', valor=self.object.valor_solicitado,
             utilizador_id=self.object.solicitante_id, utilizador_nome=self.object.solicitante_nome,
             cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
         )
         return response
 
@@ -299,14 +338,10 @@ def aprovar_requisicao(request, pk):
         messages.error(request, 'Não tem permissão para aprovar requisições.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
 
-    if _user_tem_acesso_total(request):
-        requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
-    else:
-        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-        requisicao = get_object_or_404(
-            RequisicaoFundo, pk=pk,
-            cliente__usuario_id=usuario_id,
-        )
+    from financeiro.acesso import escopo_requisicao
+    requisicao = get_object_or_404(
+        escopo_requisicao(request, RequisicaoFundo.objects.all()), pk=pk
+    )
     if request.method == 'POST':
 
         # ── Fluxo hierárquico ──────────────────────────────────────
@@ -337,6 +372,7 @@ def aprovar_requisicao(request, pk):
                 valor=requisicao.valor_solicitado,
                 utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
                 cliente_nome=requisicao.cliente.nome,
+                banca_id=requisicao.banca_id, filial_id=requisicao.filial_id,
             )
 
             # Notificar solicitante por email se fluxo concluído
@@ -356,6 +392,7 @@ def aprovar_requisicao(request, pk):
             estado_anterior=estado_anterior, estado_novo='Aprovada', valor=requisicao.valor_solicitado,
             utilizador_id=request.session.get('usuario_id'), utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=requisicao.cliente.nome,
+            banca_id=requisicao.banca_id, filial_id=requisicao.filial_id,
         )
         messages.success(request, f'Requisição {requisicao.numero_requisicao} aprovada com sucesso.')
         _notificar_solicitante(requisicao, usuario_data)
@@ -372,14 +409,10 @@ def rejeitar_requisicao(request, pk):
         messages.error(request, 'Não tem permissão para rejeitar requisições.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
 
-    if _user_tem_acesso_total(request):
-        requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
-    else:
-        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-        requisicao = get_object_or_404(
-            RequisicaoFundo, pk=pk,
-            cliente__usuario_id=usuario_id,
-        )
+    from financeiro.acesso import escopo_requisicao
+    requisicao = get_object_or_404(
+        escopo_requisicao(request, RequisicaoFundo.objects.all()), pk=pk
+    )
     if request.method == 'POST':
         motivo = request.POST.get('motivo_rejeicao', '').strip()
         if not motivo:
@@ -401,6 +434,7 @@ def rejeitar_requisicao(request, pk):
                 valor=requisicao.valor_solicitado,
                 utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
                 cliente_nome=requisicao.cliente.nome,
+                banca_id=requisicao.banca_id, filial_id=requisicao.filial_id,
             )
             _notificar_solicitante(requisicao, usuario_data, motivo=motivo)
             return redirect('financeiro:requisicao_detalhe', pk=pk)
@@ -418,6 +452,7 @@ def rejeitar_requisicao(request, pk):
             estado_anterior=estado_anterior, estado_novo='Rejeitada', valor=requisicao.valor_solicitado,
             utilizador_id=request.session.get('usuario_id'), utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=requisicao.cliente.nome,
+            banca_id=requisicao.banca_id, filial_id=requisicao.filial_id,
         )
         messages.warning(request, f'Requisição {requisicao.numero_requisicao} foi rejeitada.')
         _notificar_solicitante(requisicao, usuario_data, motivo=motivo)
@@ -450,15 +485,15 @@ def cancelar_requisicao(request, pk):
             estado_anterior=estado_anterior, estado_novo='Cancelada', valor=requisicao.valor_solicitado,
             utilizador_id=request.session.get('usuario_id'), utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=requisicao.cliente.nome,
+            banca_id=requisicao.banca_id, filial_id=requisicao.filial_id,
         )
         messages.success(request, f'Requisição {requisicao.numero_requisicao} cancelada com sucesso.')
     return redirect('financeiro:requisicao_detalhe', pk=pk)
 
 @requer_sessao_ativa
 def eliminar_requisicao(request, pk):
-    requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
-    papel = request.session.get('usuario', {}).get('papel', '')
-    if papel != 'Administrador':
+    requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
+    if not _user_tem_acesso_total(request):
         messages.error(request, 'Apenas o Administrador pode eliminar requisições.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
 
@@ -474,14 +509,10 @@ def eliminar_requisicao(request, pk):
 @requer_sessao_ativa
 def editar_requisicao(request, pk):
     from .forms import RequisicaoFundoUpdateForm
-    if _user_tem_acesso_total(request):
-        requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
-    else:
-        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-        requisicao = get_object_or_404(
-            RequisicaoFundo, pk=pk,
-            cliente__usuario_id=usuario_id,
-        )
+    from financeiro.acesso import escopo_requisicao
+    requisicao = get_object_or_404(
+        escopo_requisicao(request, RequisicaoFundo.objects.all()), pk=pk
+    )
     if not requisicao.editavel:
         messages.error(request, 'Esta requisição não pode ser editada no estado atual.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
@@ -558,12 +589,15 @@ class FacturaClienteCreateView(BaseContextMixin, SuccessMessageMixin, CreateView
         form.instance.criado_por_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.criado_por_nome = usuario_data.get('nome', '')
+        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
         registrar_historico(
             'Factura', self.object.pk, self.object.numero_factura, 'Criada',
             estado_novo=self.object.estado, valor=self.object.valor_total,
             utilizador_id=self.object.criado_por_id, utilizador_nome=self.object.criado_por_nome,
             cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
         )
         return response
 
@@ -622,6 +656,7 @@ def cancelar_factura(request, pk):
             estado_anterior=estado_anterior, estado_novo='Cancelada', valor=factura.valor_total,
             utilizador_id=request.session.get('usuario_id'), utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=factura.cliente.nome,
+            banca_id=factura.banca_id, filial_id=factura.filial_id,
         )
         messages.success(request, f'Factura {factura.numero_factura} cancelada com sucesso.')
     return redirect('financeiro:factura_detalhe', pk=pk)
@@ -653,12 +688,12 @@ def factura_enviar_email(request, pk):
         ]
         colunas_pdf = ['Descrição do Item / Encargo', 'Valor (KZ)']
         linhas_pdf = [
-            ['Honorários do Despachante', f'{factura.honorarios_despachante:,.2f}'],
-            ['Taxas Aduaneiras', f'{factura.taxas_aduaneiras:,.2f}'],
-            ['Emolumentos', f'{factura.emolumentos:,.2f}'],
-            ['Despesas Operacionais', f'{factura.despesas_operacionais:,.2f}'],
-            ['IVA', f'{factura.iva:,.2f}'],
-            ['Outros Encargos', f'{factura.outros_encargos:,.2f}'],
+            ['Honorários do Despachante', fmt_kz(factura.honorarios_despachante)],
+            ['Taxas Aduaneiras', fmt_kz(factura.taxas_aduaneiras)],
+            ['Emolumentos', fmt_kz(factura.emolumentos)],
+            ['Despesas Operacionais', fmt_kz(factura.despesas_operacionais)],
+            ['IVA', fmt_kz(factura.iva)],
+            ['Outros Encargos', fmt_kz(factura.outros_encargos)],
         ]
         _construir_pdf_base(
             buffer, f"Factura Final {factura.numero_factura}",
@@ -676,8 +711,8 @@ Segue em anexo a Factura Final referente à prestação de serviços de despacho
 
 Detalhes:
   Número: {factura.numero_factura}
-  Valor Total: {factura.valor_total:,.2f} KZ
-  Valor Pago: {factura.valor_pago:,.2f} KZ
+  Valor Total: {fmt_kz(factura.valor_total)} KZ
+  Valor Pago: {fmt_kz(factura.valor_pago)} KZ
   Estado: {factura.estado}
   Data de Vencimento: {factura.data_vencimento.strftime('%d/%m/%Y')}
 
@@ -700,11 +735,11 @@ Equipa SICDOA
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Valor Total:</td>
-                    <td style="padding: 10px; font-weight: bold; color: #137fec;">{factura.valor_total:,.2f} KZ</td>
+                    <td style="padding: 10px; font-weight: bold; color: #137fec;">{fmt_kz(factura.valor_total)} KZ</td>
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Valor Pago:</td>
-                    <td style="padding: 10px;">{factura.valor_pago:,.2f} KZ</td>
+                    <td style="padding: 10px;">{fmt_kz(factura.valor_pago)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Estado:</td>
@@ -772,12 +807,15 @@ class ReciboClienteCreateView(BaseContextMixin, SuccessMessageMixin, CreateView)
         form.instance.utilizador_responsavel_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.utilizador_responsavel_nome = usuario_data.get('nome', '')
+        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
         registrar_historico(
             'Recibo', self.object.pk, self.object.numero_recibo, 'Criado',
             estado_novo='Pago', valor=self.object.valor_recebido,
             utilizador_id=self.object.utilizador_responsavel_id, utilizador_nome=self.object.utilizador_responsavel_nome,
             cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
         )
         return response
 
@@ -845,6 +883,7 @@ def cancelar_recibo(request, pk):
             valor=recibo.valor_recebido,
             utilizador_id=request.session.get('usuario_id'), utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=recibo.cliente.nome,
+            banca_id=recibo.banca_id, filial_id=recibo.filial_id,
         )
         messages.success(request, f'Recibo {recibo.numero_recibo} cancelado com sucesso.')
     return redirect('financeiro:recibo_detalhe', pk=pk)
@@ -925,12 +964,15 @@ class NotaCreditoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
         form.instance.utilizador_criador_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.utilizador_criador_nome = usuario_data.get('nome', '')
+        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
         registrar_historico(
             'NotaCredito', self.object.pk, self.object.numero_nota, 'Criada',
             estado_novo='Pendente', valor=self.object.valor_creditado,
             utilizador_id=self.object.utilizador_criador_id, utilizador_nome=self.object.utilizador_criador_nome,
             cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
         )
         return response
 
@@ -976,10 +1018,9 @@ class NotaCreditoDetailView(BaseContextMixin, DetailView):
 @requer_sessao_ativa
 def aprovar_nota_credito(request, pk):
     usuario_id = request.session.get('usuario_id')
-    papel = request.session.get('usuario', {}).get('papel', '')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
     pode_aprovar = (
-        papel == 'Administrador' or
+        _user_tem_acesso_total(request) or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_aprovar:
@@ -999,6 +1040,7 @@ def aprovar_nota_credito(request, pk):
             estado_anterior=estado_anterior, estado_novo='Aprovada', valor=nota.valor_creditado,
             utilizador_id=nota.utilizador_aprovador_id, utilizador_nome=nota.utilizador_aprovador_nome,
             cliente_nome=nota.cliente.nome,
+            banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
         messages.success(request, f'Nota de Crédito {nota.numero_nota} aprovada e creditada na conta corrente do cliente.')
 
@@ -1009,7 +1051,7 @@ def aprovar_nota_credito(request, pk):
                 assunto = f"Nota de Crédito {nota.numero_nota} aprovada — SICDOA"
                 texto = (
                     f"Prezado(a) {nota.cliente.nome},\n\n"
-                    f"A Nota de Crédito {nota.numero_nota} foi aprovada no valor de {nota.valor_creditado:,.2f} Kz.\n"
+                    f"A Nota de Crédito {nota.numero_nota} foi aprovada no valor de {fmt_kz(nota.valor_creditado)} Kz.\n"
                     f"Motivo: {nota.motivo}\n\n"
                     f"Atenciosamente,\nEquipa SICDOA"
                 )
@@ -1021,10 +1063,9 @@ def aprovar_nota_credito(request, pk):
 @requer_sessao_ativa
 def rejeitar_nota_credito(request, pk):
     usuario_id = request.session.get('usuario_id')
-    papel = request.session.get('usuario', {}).get('papel', '')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
     pode_rejeitar = (
-        papel == 'Administrador' or
+        _user_tem_acesso_total(request) or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_rejeitar:
@@ -1041,6 +1082,7 @@ def rejeitar_nota_credito(request, pk):
             estado_anterior=estado_anterior, estado_novo='Rejeitada', valor=nota.valor_creditado,
             utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=nota.cliente.nome,
+            banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
         messages.warning(request, f'Nota de Crédito {nota.numero_nota} rejeitada.')
     return redirect('financeiro:nota_credito_detalhe', pk=pk)
@@ -1073,6 +1115,7 @@ def cancelar_nota_credito(request, pk):
             estado_anterior=estado_anterior, estado_novo='Cancelada', valor=nota.valor_creditado,
             utilizador_id=request.session.get('usuario_id'), utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=nota.cliente.nome,
+            banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
         messages.success(request, f'Nota de Crédito {nota.numero_nota} cancelada com sucesso.')
     return redirect('financeiro:nota_credito_detalhe', pk=pk)
@@ -1117,12 +1160,15 @@ class NotaDebitoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
         form.instance.utilizador_criador_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.utilizador_criador_nome = usuario_data.get('nome', '')
+        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
         registrar_historico(
             'NotaDebito', self.object.pk, self.object.numero_nota, 'Criada',
             estado_novo='Pendente', valor=self.object.valor,
             utilizador_id=self.object.utilizador_criador_id, utilizador_nome=self.object.utilizador_criador_nome,
             cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
         )
         return response
 
@@ -1169,10 +1215,9 @@ class NotaDebitoDetailView(BaseContextMixin, DetailView):
 @requer_sessao_ativa
 def aprovar_nota_debito(request, pk):
     usuario_id = request.session.get('usuario_id')
-    papel = request.session.get('usuario', {}).get('papel', '')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
     pode_aprovar = (
-        papel == 'Administrador' or
+        _user_tem_acesso_total(request) or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_aprovar:
@@ -1192,6 +1237,7 @@ def aprovar_nota_debito(request, pk):
             estado_anterior=estado_anterior, estado_novo='Aprovada', valor=nota.valor,
             utilizador_id=nota.utilizador_aprovador_id, utilizador_nome=nota.utilizador_aprovador_nome,
             cliente_nome=nota.cliente.nome,
+            banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
         messages.success(request, f'Nota de Débito {nota.numero_nota} aprovada e debitada na conta corrente do cliente.')
 
@@ -1202,7 +1248,7 @@ def aprovar_nota_debito(request, pk):
                 assunto = f"Nota de Débito {nota.numero_nota} aprovada — SICDOA"
                 texto = (
                     f"Prezado(a) {nota.cliente.nome},\n\n"
-                    f"A Nota de Débito {nota.numero_nota} foi aprovada no valor de {nota.valor:,.2f} Kz.\n"
+                    f"A Nota de Débito {nota.numero_nota} foi aprovada no valor de {fmt_kz(nota.valor)} Kz.\n"
                     f"Motivo: {nota.motivo}\n\n"
                     f"Atenciosamente,\nEquipa SICDOA"
                 )
@@ -1215,10 +1261,9 @@ def aprovar_nota_debito(request, pk):
 @requer_sessao_ativa
 def rejeitar_nota_debito(request, pk):
     usuario_id = request.session.get('usuario_id')
-    papel = request.session.get('usuario', {}).get('papel', '')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
     pode_rejeitar = (
-        papel == 'Administrador' or
+        _user_tem_acesso_total(request) or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_rejeitar:
@@ -1235,6 +1280,7 @@ def rejeitar_nota_debito(request, pk):
             estado_anterior=estado_anterior, estado_novo='Rejeitada', valor=nota.valor,
             utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=nota.cliente.nome,
+            banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
         messages.warning(request, f'Nota de Débito {nota.numero_nota} rejeitada.')
     return redirect('financeiro:nota_debito_detalhe', pk=pk)
@@ -1267,6 +1313,7 @@ def cancelar_nota_debito(request, pk):
             estado_anterior=estado_anterior, estado_novo='Cancelada', valor=nota.valor,
             utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=nota.cliente.nome,
+            banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
         messages.success(request, f'Nota de Débito {nota.numero_nota} cancelada com sucesso.')
     return redirect('financeiro:nota_debito_detalhe', pk=pk)
@@ -1311,12 +1358,15 @@ class FacturaReciboCreateView(BaseContextMixin, SuccessMessageMixin, CreateView)
         form.instance.utilizador_responsavel_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.utilizador_responsavel_nome = usuario_data.get('nome', '')
+        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
         registrar_historico(
             'FacturaRecibo', self.object.pk, self.object.numero_factura_recibo, 'Criada',
             estado_novo='Paga', valor=self.object.valor,
             utilizador_id=self.object.utilizador_responsavel_id, utilizador_nome=self.object.utilizador_responsavel_nome,
             cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
         )
         return response
 
@@ -1377,6 +1427,7 @@ def cancelar_factura_recibo(request, pk):
             estado_anterior=estado_anterior, estado_novo='Cancelada', valor=fr.valor,
             utilizador_id=request.session.get('usuario_id'), utilizador_nome=usuario_data.get('nome', ''),
             cliente_nome=fr.cliente.nome,
+            banca_id=fr.banca_id, filial_id=fr.filial_id,
         )
         messages.success(request, f'Factura-Recibo {fr.numero_factura_recibo} cancelada com sucesso.')
     return redirect('financeiro:factura_recibo_detalhe', pk=pk)
@@ -1484,7 +1535,7 @@ def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_
     # Total Geral
     t_tot = Table([[
         Paragraph('<b>TOTAL</b>', ParagraphStyle('tp', fontSize=11, fontName='Helvetica-Bold', textColor=colors.white)),
-        Paragraph(f'<b>{total_geral:,.2f} KZ</b>', ParagraphStyle('tv', fontSize=11, fontName='Helvetica-Bold', textColor=colors.white, alignment=2)),
+        Paragraph(f'<b>{fmt_kz(total_geral)} KZ</b>', ParagraphStyle('tv', fontSize=11, fontName='Helvetica-Bold', textColor=colors.white, alignment=2)),
     ]], colWidths=[W - 4*cm, 4*cm])
     t_tot.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), cor_cabecalho),
@@ -1520,12 +1571,12 @@ def factura_pdf(request, pk):
 
     colunas = ['Descrição do Item / Encargo', 'Valor (KZ)']
     linhas = [
-        ['Honorários do Despachante', f'{factura.honorarios_despachante:,.2f}'],
-        ['Taxas Aduaneiras', f'{factura.taxas_aduaneiras:,.2f}'],
-        ['Emolumentos', f'{factura.emolumentos:,.2f}'],
-        ['Despesas Operacionais', f'{factura.despesas_operacionais:,.2f}'],
-        ['IVA', f'{factura.iva:,.2f}'],
-        ['Outros Encargos', f'{factura.outros_encargos:,.2f}'],
+        ['Honorários do Despachante', fmt_kz(factura.honorarios_despachante)],
+        ['Taxas Aduaneiras', fmt_kz(factura.taxas_aduaneiras)],
+        ['Emolumentos', fmt_kz(factura.emolumentos)],
+        ['Despesas Operacionais', fmt_kz(factura.despesas_operacionais)],
+        ['IVA', fmt_kz(factura.iva)],
+        ['Outros Encargos', fmt_kz(factura.outros_encargos)],
     ]
 
     _construir_pdf_base(
@@ -1561,7 +1612,7 @@ def recibo_pdf(request, pk):
 
     colunas = ['Conceito', 'Valor Recebido (KZ)']
     linhas = [
-        [f'Pagamento da Factura {recibo.factura.numero_factura}', f'{recibo.valor_recebido:,.2f}']
+        [f'Pagamento da Factura {recibo.factura.numero_factura}', fmt_kz(recibo.valor_recebido)]
     ]
 
     _construir_pdf_base(
@@ -1598,7 +1649,7 @@ def nota_credito_pdf(request, pk):
 
     colunas = ['Conceito', 'Valor Creditado (KZ)']
     linhas = [
-        [f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}', f'{nota.valor_creditado:,.2f}']
+        [f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor_creditado)]
     ]
 
     _construir_pdf_base(
@@ -1633,7 +1684,7 @@ def nota_debito_pdf(request, pk):
 
     colunas = ['Conceito', 'Valor Debitado (KZ)']
     linhas = [
-        [f'Débito adicional referente à Factura {nota.factura_relacionada.numero_factura}', f'{nota.valor:,.2f}']
+        [f'Débito adicional referente à Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor)]
     ]
 
     _construir_pdf_base(
@@ -1668,7 +1719,7 @@ def factura_recibo_pdf(request, pk):
 
     colunas = ['Descrição / Venda Direta', 'Valor Pago (KZ)']
     linhas = [
-        ['Prestação de Serviços de Despacho com pagamento imediato', f'{fr.valor:,.2f}']
+        ['Prestação de Serviços de Despacho com pagamento imediato', fmt_kz(fr.valor)]
     ]
 
     _construir_pdf_base(
@@ -1714,7 +1765,7 @@ def recibo_enviar_email(request, pk):
             ('Emitido Por', recibo.utilizador_responsavel_nome),
         ]
         colunas = ['Conceito', 'Valor Recebido (KZ)']
-        linhas = [[f'Pagamento da Factura {recibo.factura.numero_factura}', f'{recibo.valor_recebido:,.2f}']]
+        linhas = [[f'Pagamento da Factura {recibo.factura.numero_factura}', fmt_kz(recibo.valor_recebido)]]
         _construir_pdf_base(
             buffer, f"Recibo de Pagamento {recibo.numero_recibo}",
             "Documento Comprovativo de Pagamento", "PAGO",
@@ -1727,7 +1778,7 @@ def recibo_enviar_email(request, pk):
         
         texto = f"""Prezado(a) {cliente.nome},
         
-Confirmamos a recepção do seu pagamento no valor de {recibo.valor_recebido:,.2f} KZ.
+Confirmamos a recepção do seu pagamento no valor de {fmt_kz(recibo.valor_recebido)} KZ.
 
 Detalhes do Recibo:
   Número: {recibo.numero_recibo}
@@ -1759,7 +1810,7 @@ Equipa SICDOA
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Valor Recebido:</td>
-                    <td style="padding: 10px; font-weight: bold; color: #137fec;">{recibo.valor_recebido:,.2f} KZ</td>
+                    <td style="padding: 10px; font-weight: bold; color: #137fec;">{fmt_kz(recibo.valor_recebido)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Forma de Pagamento:</td>
@@ -1811,7 +1862,7 @@ def factura_recibo_enviar_email(request, pk):
         ]
         colunas_pdf = ['Descrição / Venda Direta', 'Valor Pago (KZ)']
         linhas_pdf = [
-            ['Prestação de Serviços de Despacho com pagamento imediato', f'{fr.valor:,.2f}']
+            ['Prestação de Serviços de Despacho com pagamento imediato', fmt_kz(fr.valor)]
         ]
         _construir_pdf_base(
             buffer, f"Factura-Recibo {fr.numero_factura_recibo}",
@@ -1829,7 +1880,7 @@ Segue em anexo a Factura-Recibo referente à prestação de serviços de despach
 
 Detalhes:
   Número: {fr.numero_factura_recibo}
-  Valor: {fr.valor:,.2f} KZ
+  Valor: {fmt_kz(fr.valor)} KZ
   Forma de Pagamento: {fr.forma_pagamento}
   Data: {fr.data.strftime('%d/%m/%Y')}
 
@@ -1852,7 +1903,7 @@ Equipa SICDOA
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Valor Pago:</td>
-                    <td style="padding: 10px; font-weight: bold; color: #137fec;">{fr.valor:,.2f} KZ</td>
+                    <td style="padding: 10px; font-weight: bold; color: #137fec;">{fmt_kz(fr.valor)} KZ</td>
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Forma de Pagamento:</td>
@@ -1905,7 +1956,7 @@ def nota_credito_enviar_email(request, pk):
         ]
         colunas_pdf = ['Conceito', 'Valor Creditado (KZ)']
         linhas_pdf = [
-            [f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}', f'{nota.valor_creditado:,.2f}']
+            [f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor_creditado)]
         ]
         _construir_pdf_base(
             buffer, f"Nota de Crédito {nota.numero_nota}",
@@ -1924,7 +1975,7 @@ Segue em anexo a Nota de Crédito referente à factura {nota.factura_relacionada
 Detalhes:
   Número: {nota.numero_nota}
   Factura Relacionada: {nota.factura_relacionada.numero_factura}
-  Valor Creditado: {nota.valor_creditado:,.2f} KZ
+  Valor Creditado: {fmt_kz(nota.valor_creditado)} KZ
   Motivo: {nota.motivo}
   Data: {nota.data.strftime('%d/%m/%Y')}
   Estado: {nota.estado}
@@ -1950,7 +2001,7 @@ Equipa SICDOA
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Valor Creditado:</td>
-                    <td style="padding: 10px; font-weight: bold; color: #137fec;">{nota.valor_creditado:,.2f} KZ</td>
+                    <td style="padding: 10px; font-weight: bold; color: #137fec;">{fmt_kz(nota.valor_creditado)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Motivo:</td>
@@ -1998,7 +2049,7 @@ def nota_debito_enviar_email(request, pk):
         ]
         colunas_pdf = ['Conceito', 'Valor Debitado (KZ)']
         linhas_pdf = [
-            [f'Débito adicional referente à Factura {nota.factura_relacionada.numero_factura}', f'{nota.valor:,.2f}']
+            [f'Débito adicional referente à Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor)]
         ]
         _construir_pdf_base(
             buffer, f"Nota de Débito {nota.numero_nota}",
@@ -2017,7 +2068,7 @@ Segue em anexo a Nota de Débito referente à factura {nota.factura_relacionada.
 Detalhes:
   Número: {nota.numero_nota}
   Factura Relacionada: {nota.factura_relacionada.numero_factura}
-  Valor Debitado: {nota.valor:,.2f} KZ
+  Valor Debitado: {fmt_kz(nota.valor)} KZ
   Motivo: {nota.motivo}
   Data: {nota.data.strftime('%d/%m/%Y')}
   Estado: {nota.estado}
@@ -2043,7 +2094,7 @@ Equipa SICDOA
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Valor Debitado:</td>
-                    <td style="padding: 10px; font-weight: bold; color: #dc2626;">{nota.valor:,.2f} KZ</td>
+                    <td style="padding: 10px; font-weight: bold; color: #dc2626;">{fmt_kz(nota.valor)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Motivo:</td>
@@ -2085,6 +2136,9 @@ def fluxo_aprovacao_lista(request):
         messages.error(request, 'Acesso negado.')
         return redirect('financeiro:requisicao_lista')
     fluxos = FluxoAprovacao.objects.prefetch_related('niveis').order_by('-ativo', 'nome')
+    banca_id = request.session.get('banca_id')
+    if banca_id:
+        fluxos = fluxos.filter(banca_id=banca_id)
     ctx = {
         'fluxos': fluxos,
         'active_menu': 'Financeiro',
@@ -2108,6 +2162,7 @@ def fluxo_aprovacao_criar(request):
         if form.is_valid():
             fluxo = form.save(commit=False)
             fluxo.criado_por_id = request.session.get('usuario_id')
+            fluxo.banca_id = request.session.get('banca_id')
             fluxo.save()
             from users.models import Usuario
             niveis_nomes = request.POST.getlist('nivel_nome[]')
@@ -2136,6 +2191,7 @@ def fluxo_aprovacao_criar(request):
                     'ordem': i + 1,
                     'nome': niveis_nomes[i].strip(),
                     'qtde_aprovadores': qtde,
+                    'banca_id': fluxo.banca_id,
                 }
                 if fid:
                     kwargs['funcao_id'] = int(fid)
@@ -2170,6 +2226,10 @@ def fluxo_aprovacao_editar(request, pk):
         messages.error(request, 'Acesso negado.')
         return redirect('financeiro:requisicao_lista')
     fluxo = get_object_or_404(FluxoAprovacao, pk=pk)
+    banca_id = request.session.get('banca_id')
+    if banca_id and fluxo.banca_id != banca_id:
+        messages.error(request, 'Acesso negado.')
+        return redirect('financeiro:requisicao_lista')
     if request.method == 'POST':
         form = FluxoAprovacaoForm(request.POST, instance=fluxo)
         if form.is_valid():
@@ -2200,6 +2260,7 @@ def fluxo_aprovacao_editar(request, pk):
                     'ordem': i + 1,
                     'nome': niveis_nomes[i].strip(),
                     'qtde_aprovadores': qtde,
+                    'banca_id': fluxo.banca_id,
                 }
                 if fid:
                     kwargs['funcao_id'] = int(fid)
@@ -2244,6 +2305,10 @@ def fluxo_aprovacao_eliminar(request, pk):
         messages.error(request, 'Acesso negado.')
         return redirect('financeiro:requisicao_lista')
     fluxo = get_object_or_404(FluxoAprovacao, pk=pk)
+    banca_id = request.session.get('banca_id')
+    if banca_id and fluxo.banca_id != banca_id:
+        messages.error(request, 'Acesso negado.')
+        return redirect('financeiro:requisicao_lista')
     nome = fluxo.nome
     fluxo.delete()
     messages.success(request, f'Fluxo "{nome}" eliminado com sucesso!')
@@ -2270,7 +2335,7 @@ def _notificar_solicitante(requisicao, usuario_data, motivo=None):
         texto = (
             f"Prezado(a) {solicitante.nome},\n\n"
             f"A sua requisição de fundos {requisicao.numero_requisicao} "
-            f"no valor de {requisicao.valor_solicitado:,.2f} Kz foi {status}.\n\n"
+            f"no valor de {fmt_kz(requisicao.valor_solicitado)} Kz foi {status}.\n\n"
             f"Cliente: {requisicao.cliente.nome}\n"
             f"Justificação: {requisicao.justificacao}\n"
         )
@@ -2279,7 +2344,7 @@ def _notificar_solicitante(requisicao, usuario_data, motivo=None):
         texto += f"{'Aprovado' if aprovada else 'Rejeitado'} por: {usuario_data.get('nome', '')}\n\nAtenciosamente,\nEquipa SICDOA"
         html_rows = (
             f"<tr><td style='padding:8px;font-weight:bold;'>Nº Requisição:</td><td>{requisicao.numero_requisicao}</td></tr>"
-            f"<tr><td style='padding:8px;font-weight:bold;'>Valor:</td><td>{requisicao.valor_solicitado:,.2f} Kz</td></tr>"
+            f"<tr><td style='padding:8px;font-weight:bold;'>Valor:</td><td>{fmt_kz(requisicao.valor_solicitado)} Kz</td></tr>"
             f"<tr><td style='padding:8px;font-weight:bold;'>Cliente:</td><td>{requisicao.cliente.nome}</td></tr>"
         )
         if motivo:

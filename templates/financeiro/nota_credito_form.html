@@ -101,7 +101,11 @@ function filtrarFacturas(clienteId) {
     if (f.cliente_id == clienteId) {
       var opt = document.createElement('option');
       opt.value = f.id;
-      opt.text = f.numero_factura + ' — ' + Number(f.valor_total).toFixed(2) + ' Kz';
+      var fStr = Number(f.valor_total).toFixed(2).split('.');
+      var fInt = fStr[0], fDec = fStr[1], fGrp = [];
+      while (fInt.length > 3) { fGrp.unshift(fInt.slice(-3)); fInt = fInt.slice(0, -3); }
+      if (fInt.length > 0) fGrp.unshift(fInt);
+      opt.text = f.numero_factura + ' — ' + (fGrp.join(' ') || '0') + ',' + fDec + ' Kz';
       if (f.id == currentVal) opt.selected = true;
       sel.appendChild(opt);
     }

@@ -377,6 +377,7 @@
 
   /* ── Export ─────────────────────────────────────────────────── */
   window.autocompleteSelect = autocompleteSelect;
+  window.escapeHtml = escapeHtml;
 
   /* ── Auto-init para elementos com data-ac ────────────────────── */
   document.addEventListener('DOMContentLoaded', function() {

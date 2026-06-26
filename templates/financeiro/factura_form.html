@@ -157,8 +157,12 @@ document.addEventListener('DOMContentLoaded', function() {
         total += val;
       }
     });
-    const formatted = new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(total);
-    document.getElementById('calculo-total').textContent = formatted.replace('AOA', 'Kz');
+    var parts = total.toFixed(2).split('.');
+    var intPart = parts[0], decPart = parts[1];
+    var groups = [];
+    while (intPart.length > 3) { groups.unshift(intPart.slice(-3)); intPart = intPart.slice(0, -3); }
+    if (intPart.length > 0) groups.unshift(intPart);
+    document.getElementById('calculo-total').textContent = (groups.join(' ') || '0') + ',' + decPart + ' Kz';
   }
 
   fields.forEach(function(fid) {

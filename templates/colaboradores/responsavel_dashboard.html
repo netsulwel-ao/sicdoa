@@ -149,7 +149,7 @@
         </a>
         {% endif %}
 
-        {% if 'gerir_clientes' in user_permissoes or 'gerir_clientes_filial' in user_permissoes %}
+        {% if 'gerir_clientes' in user_permissoes %}
         <a href="{% url 'clientes:lista' %}"
            class="group bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all duration-200">
           <div class="flex items-center justify-between mb-4">
@@ -163,7 +163,7 @@
         </a>
         {% endif %}
 
-        {% if 'gerir_financeiro' in user_permissoes or 'gerir_financeiro_filial' in user_permissoes %}
+        {% if 'gerir_financeiro' in user_permissoes %}
         <a href="{% url 'financeiro:requisicao_lista' %}"
            class="group bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-rose-300 dark:hover:border-rose-700 transition-all duration-200">
           <div class="flex items-center justify-between mb-4">

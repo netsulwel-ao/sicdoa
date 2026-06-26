@@ -123,8 +123,22 @@ def criar_sessao_usuario(request, usuario):
             request.session['colaborador_id'] = usuario.colaborador_id
         if usuario.tipo == 'colaborador' and hasattr(usuario, 'banca_usuario_id'):
             request.session['banca_usuario_id'] = usuario.banca_usuario_id
+            if hasattr(usuario, 'banca_id'):
+                request.session['banca_id'] = usuario.banca_id
+            # Filial do colaborador
+            if hasattr(usuario, 'colaborador_id'):
+                from rh.models import Colaborador
+                col_filial = Colaborador.objects.filter(pk=usuario.colaborador_id).values_list('filial_id', flat=True).first()
+                if col_filial:
+                    request.session['colaborador_filial_id'] = col_filial
     else:
         request.session['tipo_usuario'] = 'usuario'
+        # Para usuários normais, buscar banca pelo usuario_id
+        if usuario.papel != 'Administrador':
+            from rh.models import Banca
+            banca = Banca.objects.filter(usuario_id=usuario.id).first()
+            if banca:
+                request.session['banca_id'] = banca.id
     
     # Guardar timestamp de login
     request.session['login_time'] = timezone.now().isoformat()

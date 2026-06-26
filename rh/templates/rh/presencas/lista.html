@@ -2,7 +2,7 @@
 <div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a><i class="fas fa-chevron-right text-xs"></i><span class="text-primary">RH</span><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">Controlo de Presenças</span></div>
 
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-  <div><h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Controlo de Presenças</h1><p class="text-gray-500 mt-1 text-sm">Faltas, férias, horas extras e turnos</p></div>
+  <div><h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Controlo de Presenças</h1><p class="text-gray-500 mt-1 text-sm">Faltas, férias e turnos</p></div>
   <div class="flex gap-2">
     <button onclick="document.getElementById('modalPresenca').classList.remove('hidden')" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm"><i class="fas fa-plus text-base"></i>Registar</button>
     <button onclick="document.getElementById('modalFerias').classList.remove('hidden')" class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm"><i class="fas fa-umbrella-beach text-base"></i>Pedir Férias</button>
@@ -16,11 +16,15 @@
 </div>
 
 <!-- Filtro de mês -->
-<form method="GET" class="flex items-center gap-3 mb-6">
+<form method="GET" class="flex items-center gap-3 mb-6 flex-wrap">
   <select name="mes" class="px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm">
     {% for m in meses %}<option value="{{ forloop.counter }}" {% if forloop.counter == mes %}selected{% endif %}>{{ m }}</option>{% endfor %}
   </select>
   <input type="number" name="ano" value="{{ ano }}" min="2020" max="2050" class="w-24 px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm" />
+  <select name="colaborador" class="px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm">
+    <option value="">Todos os colaboradores</option>
+    {% for col in colaboradores %}<option value="{{ col.pk }}" {% if colaborador_id == col.pk|slugify %}selected{% endif %}>{{ col.nome }}</option>{% endfor %}
+  </select>
   <button type="submit" class="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">Filtrar</button>
 </form>
 
@@ -35,8 +39,10 @@
       <div class="flex items-center justify-between bg-white dark:bg-gray-900 rounded-xl p-3 border border-amber-200 dark:border-amber-800">
         <div><p class="font-semibold text-gray-900 dark:text-white text-sm">{{ p.colaborador.nome }}</p><p class="text-xs text-gray-500">{{ p.data_inicio|date:"d/m/Y" }} → {{ p.data_fim|date:"d/m/Y" }} ({{ p.dias }} dias)</p></div>
         <div class="flex gap-2">
+          {% if p.can_approve %}
           <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-all">Aprovar</button></form>
           <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-all">Rejeitar</button></form>
+          {% endif %}
         </div>
       </div>
       {% endfor %}
@@ -76,10 +82,6 @@
               <span class="text-gray-500">Entrada/Saída</span>
               <span class="font-medium text-gray-900 dark:text-white">{{ r.hora_entrada|default:"—" }} / {{ r.hora_saida|default:"—" }}</span>
             </div>
-            <div class="flex justify-between">
-              <span class="text-gray-500">H. Extra</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ r.horas_extras|default:"0" }}h</span>
-            </div>
           </div>
           <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
             <div>
@@ -87,7 +89,7 @@
               {% elif r.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
               {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
             </div>
-            {% if r.estado == 'Pendente' %}
+            {% if r.estado == 'Pendente' and r.can_approve %}
             <div class="flex gap-1">
               <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
               <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
@@ -108,7 +110,6 @@
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Entrada / Saída</th>
-      <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">H. Extra</th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
       <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acção</th>
     </tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -125,7 +126,6 @@
         {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ r.get_tipo_display }}</span>{% endif %}
       </td>
       <td class="px-5 py-4 text-sm text-gray-600">{{ r.hora_entrada|default:"—" }} / {{ r.hora_saida|default:"—" }}</td>
-      <td class="px-5 py-4 text-sm text-gray-600">{{ r.horas_extras|default:"0" }}h</td>
       <td class="px-5 py-4">
         {% if r.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aprovado</span>
         {% elif r.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
@@ -133,7 +133,7 @@
       </td>
       <td class="px-5 py-4 text-right">
         <div class="flex items-center justify-end gap-1">
-          {% if r.estado == 'Pendente' %}
+          {% if r.estado == 'Pendente' and r.can_approve %}
           <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
           <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
           {% endif %}
@@ -180,7 +180,7 @@
       </td>
       <td class="px-5 py-4 text-right">
         <div class="flex items-center justify-end gap-1">
-          {% if p.estado == 'Pendente' %}
+          {% if p.estado == 'Pendente' and p.can_approve %}
           <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
           <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
           {% endif %}
@@ -198,10 +198,8 @@
 function togglePresencaFields() {
   var tipo = document.getElementById('tipoPresenca').value;
   var isEntrada = tipo === 'Entrada';
-  var isExtra = tipo === 'Hora_Extra';
   var isJustif = tipo === 'Falta_Justificada';
   document.getElementById('presencaHoras').classList.toggle('hidden', !isEntrada);
-  document.getElementById('presencaExtras').classList.toggle('hidden', !isExtra);
   document.getElementById('presencaJustif').classList.toggle('hidden', !isJustif);
   var he = document.querySelector('input[name="hora_entrada"]');
   if (he) he.required = isEntrada;
@@ -249,7 +247,6 @@ function togglePresencaFields() {
             <option value="Entrada">Presença</option>
             <option value="Falta">Falta</option>
             <option value="Falta_Justificada">Falta Justificada</option>
-            <option value="Hora_Extra">Hora Extra</option>
           </select>
         </div>
       </div>
@@ -257,7 +254,6 @@ function togglePresencaFields() {
         <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Hora Entrada</label><input type="time" name="hora_entrada" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
         <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Hora Saída <span class="text-gray-400 font-normal">(opcional)</span></label><input type="time" name="hora_saida" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
       </div>
-      <div id="presencaExtras" class="hidden"><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Horas Extras</label><input type="number" name="horas_extras" value="0" step="0.5" min="0" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
       <div id="presencaJustif" class="hidden"><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Justificação</label><textarea name="justificacao" rows="2" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"></textarea></div>
       <div class="flex justify-end gap-3"><button type="button" onclick="document.getElementById('modalPresenca').classList.add('hidden')" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button><button type="submit" class="px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">Registar</button></div>
     </form>

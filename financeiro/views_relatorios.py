@@ -19,6 +19,7 @@ from .models import (
     RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo, HistoricoFinanceiro
 )
 from .views import BaseContextMixin
+from utils.format_kz import fmt_kz
 
 
 class ReportPermissionMixin:
@@ -111,13 +112,13 @@ class RelatorioRequisicaoFundosView(OperacionalMixin, ReportMixin, TemplateView)
         context.update({
             'summary_cards': [
                 {'label': 'Total de Requisições', 'value': qs.count(), 'color': 'primary'},
-                {'label': 'Valor Total Solicitado', 'value': f'{total_solicitado:,.2f} Kz', 'color': 'warning'},
-                {'label': 'Valor Aprovado', 'value': f'{total_aprovado:,.2f} Kz', 'color': 'success'},
+                {'label': 'Valor Total Solicitado', 'value': f'{fmt_kz(total_solicitado)} Kz', 'color': 'warning'},
+                {'label': 'Valor Aprovado', 'value': f'{fmt_kz(total_aprovado)} Kz', 'color': 'success'},
             ],
             'columns': ['Nº', 'Cliente', 'Valor', 'Estado', 'Data', 'Solicitante'],
             'rows': [
                 {
-                    'cells': [r.numero_requisicao, r.cliente.nome, f'{r.valor_solicitado:,.2f}',
+                    'cells': [r.numero_requisicao, r.cliente.nome, f'{fmt_kz(r.valor_solicitado)}',
                               r.estado, r.data.strftime('%d/%m/%Y'), r.solicitante_nome],
                     'url': 'financeiro:requisicao_detalhe',
                     'pk': r.pk,
@@ -158,15 +159,15 @@ class RelatorioFacturacaoView(OperacionalMixin, ReportMixin, TemplateView):
 
         context.update({
             'summary_cards': [
-                {'label': 'Total Facturado', 'value': f'{total_facturado:,.2f} Kz', 'color': 'primary'},
-                {'label': 'Total Pago', 'value': f'{total_pago:,.2f} Kz', 'color': 'success'},
+                {'label': 'Total Facturado', 'value': f'{fmt_kz(total_facturado)} Kz', 'color': 'primary'},
+                {'label': 'Total Pago', 'value': f'{fmt_kz(total_pago)} Kz', 'color': 'success'},
                 {'label': 'Facturas Pendentes', 'value': pendentes, 'color': 'danger'},
             ],
             'columns': ['Factura', 'Cliente', 'Valor Total', 'Valor Pago', 'Estado', 'Emissão'],
             'rows': [
                 {
-                    'cells': [f.numero_factura, f.cliente.nome, f'{f.valor_total:,.2f}',
-                              f'{f.valor_pago:,.2f}', f.estado, f.data_emissao.strftime('%d/%m/%Y')],
+                    'cells': [f.numero_factura, f.cliente.nome, f'{fmt_kz(f.valor_total)}',
+                              f'{fmt_kz(f.valor_pago)}', f.estado, f.data_emissao.strftime('%d/%m/%Y')],
                     'url': 'financeiro:factura_detalhe',
                     'pk': f.pk,
                 }
@@ -207,13 +208,13 @@ class RelatorioRecibosView(OperacionalMixin, ReportMixin, TemplateView):
         context.update({
             'summary_cards': [
                 {'label': 'Total de Recibos', 'value': qs.count(), 'color': 'primary'},
-                {'label': 'Valor Total Recebido', 'value': f'{total_recebido:,.2f} Kz', 'color': 'success'},
+                {'label': 'Valor Total Recebido', 'value': f'{fmt_kz(total_recebido)} Kz', 'color': 'success'},
                 {'label': 'Formas de Pagamento', 'value': por_forma.count(), 'color': 'info'},
             ],
             'columns': ['Recibo', 'Cliente', 'Valor', 'Forma Pagamento', 'Data', 'Responsável'],
             'rows': [
                 {
-                    'cells': [r.numero_recibo, r.cliente.nome, f'{r.valor_recebido:,.2f}',
+                    'cells': [r.numero_recibo, r.cliente.nome, f'{fmt_kz(r.valor_recebido)}',
                               r.forma_pagamento, r.data_pagamento.strftime('%d/%m/%Y'),
                               r.utilizador_responsavel_nome],
                     'url': 'financeiro:recibo_detalhe',
@@ -225,7 +226,7 @@ class RelatorioRecibosView(OperacionalMixin, ReportMixin, TemplateView):
                 {
                     'title': 'Recebimentos por Forma de Pagamento',
                     'columns': ['Forma de Pagamento', 'Total'],
-                    'rows': [{'cells': [p['forma_pagamento'], f'{p["total"]:,.2f} Kz'], 'url': None, 'pk': None}
+                    'rows': [{'cells': [p['forma_pagamento'], f'{fmt_kz(p["total"])} Kz'], 'url': None, 'pk': None}
                              for p in por_forma],
                 }
             ],
@@ -288,14 +289,14 @@ class RelatorioNotasCreditoView(OperacionalMixin, ReportMixin, TemplateView):
         context.update({
             'summary_cards': [
                 {'label': 'Total de NC', 'value': qs.count(), 'color': 'primary'},
-                {'label': 'Valor Total Creditado', 'value': f'{total_creditado:,.2f} Kz', 'color': 'warning'},
-                {'label': 'Valor Aprovado', 'value': f'{aprovadas:,.2f} Kz', 'color': 'success'},
+                {'label': 'Valor Total Creditado', 'value': f'{fmt_kz(total_creditado)} Kz', 'color': 'warning'},
+                {'label': 'Valor Aprovado', 'value': f'{fmt_kz(aprovadas)} Kz', 'color': 'success'},
             ],
             'columns': ['NC', 'Cliente', 'Factura', 'Valor', 'Estado', 'Data', 'Motivo'],
             'rows': [
                 {
                     'cells': [n.numero_nota, n.cliente.nome, n.factura_relacionada.numero_factura,
-                              f'{n.valor_creditado:,.2f}', n.estado, n.data.strftime('%d/%m/%Y'), n.motivo[:50]],
+                              f'{fmt_kz(n.valor_creditado)}', n.estado, n.data.strftime('%d/%m/%Y'), n.motivo[:50]],
                     'url': 'financeiro:nota_credito_detalhe',
                     'pk': n.pk,
                 }
@@ -338,14 +339,14 @@ class RelatorioNotasDebitoView(OperacionalMixin, ReportMixin, TemplateView):
         context.update({
             'summary_cards': [
                 {'label': 'Total de ND', 'value': qs.count(), 'color': 'primary'},
-                {'label': 'Valor Total Debitado', 'value': f'{total_debitado:,.2f} Kz', 'color': 'danger'},
-                {'label': 'Valor Aprovado', 'value': f'{aprovadas:,.2f} Kz', 'color': 'success'},
+                {'label': 'Valor Total Debitado', 'value': f'{fmt_kz(total_debitado)} Kz', 'color': 'danger'},
+                {'label': 'Valor Aprovado', 'value': f'{fmt_kz(aprovadas)} Kz', 'color': 'success'},
             ],
             'columns': ['ND', 'Cliente', 'Factura', 'Valor', 'Estado', 'Data', 'Motivo'],
             'rows': [
                 {
                     'cells': [n.numero_nota, n.cliente.nome, n.factura_relacionada.numero_factura,
-                              f'{n.valor:,.2f}', n.estado, n.data.strftime('%d/%m/%Y'), n.motivo[:50]],
+                              f'{fmt_kz(n.valor)}', n.estado, n.data.strftime('%d/%m/%Y'), n.motivo[:50]],
                     'url': 'financeiro:nota_debito_detalhe',
                     'pk': n.pk,
                 }
@@ -384,14 +385,14 @@ class RelatorioContasAReceberView(ReportMixin, TemplateView):
         context.update({
             'summary_cards': [
                 {'label': 'Facturas Pendentes', 'value': qs.count(), 'color': 'danger'},
-                {'label': 'Valor Total a Receber', 'value': f'{total_a_receber:,.2f} Kz', 'color': 'warning'},
-                {'label': 'Saldo Pendente', 'value': f'{saldo_pendente:,.2f} Kz', 'color': 'primary'},
+                {'label': 'Valor Total a Receber', 'value': f'{fmt_kz(total_a_receber)} Kz', 'color': 'warning'},
+                {'label': 'Saldo Pendente', 'value': f'{fmt_kz(saldo_pendente)} Kz', 'color': 'primary'},
             ],
             'columns': ['Factura', 'Cliente', 'Valor', 'Pago', 'Saldo', 'Vencimento', 'Estado'],
             'rows': [
                 {
-                    'cells': [f.numero_factura, f.cliente.nome, f'{f.valor_total:,.2f}',
-                              f'{f.valor_pago:,.2f}', f'{f.valor_total - f.valor_pago:,.2f}',
+                    'cells': [f.numero_factura, f.cliente.nome, f'{fmt_kz(f.valor_total)}',
+                              f'{fmt_kz(f.valor_pago)}', f'{fmt_kz(f.valor_total - f.valor_pago)}',
                               f.data_vencimento.strftime('%d/%m/%Y'), f.estado],
                     'url': 'financeiro:factura_detalhe',
                     'pk': f.pk,
@@ -423,8 +424,8 @@ class RelatorioClientesDevedoresView(ReportMixin, TemplateView):
             rows.append({
                 'cells': [
                     c.nome, c.nif, c.telefone or 'N/D',
-                    f'{abs(c.saldo_conta_corrente):,.2f}',
-                    f'{total_facturas:,.2f}',
+                    f'{fmt_kz(abs(c.saldo_conta_corrente))}',
+                    f'{fmt_kz(total_facturas)}',
                 ],
                 'url': 'financeiro:conta_corrente_cliente',
                 'pk': c.pk,
@@ -433,7 +434,7 @@ class RelatorioClientesDevedoresView(ReportMixin, TemplateView):
         context.update({
             'summary_cards': [
                 {'label': 'Clientes Devedores', 'value': clientes.count(), 'color': 'danger'},
-                {'label': 'Dívida Total', 'value': f'{abs(total_divida):,.2f} Kz', 'color': 'warning'},
+                {'label': 'Dívida Total', 'value': f'{fmt_kz(abs(total_divida))} Kz', 'color': 'warning'},
             ],
             'columns': ['Cliente', 'NIF', 'Telefone', 'Dívida CC', 'Facturas Pendentes'],
             'rows': rows,
@@ -494,18 +495,18 @@ class RelatorioFluxoCaixaView(ReportMixin, TemplateView):
 
         context.update({
             'summary_cards': [
-                {'label': 'Total Entradas', 'value': f'{total_entradas:,.2f} Kz', 'color': 'success'},
-                {'label': 'Total Saídas', 'value': f'{total_saidas:,.2f} Kz', 'color': 'danger'},
-                {'label': 'Saldo Líquido', 'value': f'{total_entradas - total_saidas:,.2f} Kz', 'color': 'primary'},
+                {'label': 'Total Entradas', 'value': f'{fmt_kz(total_entradas)} Kz', 'color': 'success'},
+                {'label': 'Total Saídas', 'value': f'{fmt_kz(total_saidas)} Kz', 'color': 'danger'},
+                {'label': 'Saldo Líquido', 'value': f'{fmt_kz(total_entradas - total_saidas)} Kz', 'color': 'primary'},
             ],
             'columns': ['Mês', 'Entradas (Kz)', 'Saídas (Kz)', 'Saldo (Kz)'],
             'rows': [
                 {
                     'cells': [
                         meses_pt[m - 1],
-                        f'{meses[m]["entradas"]:,.2f}',
-                        f'{meses[m]["saidas"]:,.2f}',
-                        f'{meses[m]["saldo"]:,.2f}',
+                        f'{fmt_kz(meses[m]["entradas"])}',
+                        f'{fmt_kz(meses[m]["saidas"])}',
+                        f'{fmt_kz(meses[m]["saldo"])}',
                     ],
                     'url': None, 'pk': None,
                 }
@@ -623,19 +624,19 @@ class RelatorioDemonstrativoReceitasView(ReportMixin, TemplateView):
 
         context.update({
             'summary_cards': [
-                {'label': 'Receita Bruta', 'value': f'{receita_bruta:,.2f} Kz', 'color': 'primary'},
-                {'label': 'Receita Líquida', 'value': f'{receita_liquida:,.2f} Kz', 'color': 'success'},
-                {'label': 'Total Recebido', 'value': f'{recebido:,.2f} Kz', 'color': 'info'},
+                {'label': 'Receita Bruta', 'value': f'{fmt_kz(receita_bruta)} Kz', 'color': 'primary'},
+                {'label': 'Receita Líquida', 'value': f'{fmt_kz(receita_liquida)} Kz', 'color': 'success'},
+                {'label': 'Total Recebido', 'value': f'{fmt_kz(recebido)} Kz', 'color': 'info'},
             ],
             'columns': ['Tipo', 'Valor (Kz)'],
             'rows': [
-                {'cells': ['Facturas Emitidas', f'{total_facturas:,.2f}'], 'url': None, 'pk': None},
-                {'cells': ['Facturas-Recibo', f'{total_fr:,.2f}'], 'url': None, 'pk': None},
-                {'cells': ['Notas de Débito', f'{total_nd:,.2f}'], 'url': None, 'pk': None},
-                {'cells': ['(-) Notas de Crédito', f'({total_nc:,.2f})'], 'url': None, 'pk': None},
-                {'cells': ['Receita Líquida', f'{receita_liquida:,.2f}'], 'url': None, 'pk': None},
-                {'cells': ['Recebido via Recibos', f'{total_recibos:,.2f}'], 'url': None, 'pk': None},
-                {'cells': ['Recebido via F-Recibo', f'{total_fr:,.2f}'], 'url': None, 'pk': None},
+                {'cells': ['Facturas Emitidas', f'{fmt_kz(total_facturas)}'], 'url': None, 'pk': None},
+                {'cells': ['Facturas-Recibo', f'{fmt_kz(total_fr)}'], 'url': None, 'pk': None},
+                {'cells': ['Notas de Débito', f'{fmt_kz(total_nd)}'], 'url': None, 'pk': None},
+                {'cells': ['(-) Notas de Crédito', f'({fmt_kz(total_nc)})'], 'url': None, 'pk': None},
+                {'cells': ['Receita Líquida', f'{fmt_kz(receita_liquida)}'], 'url': None, 'pk': None},
+                {'cells': ['Recebido via Recibos', f'{fmt_kz(total_recibos)}'], 'url': None, 'pk': None},
+                {'cells': ['Recebido via F-Recibo', f'{fmt_kz(total_fr)}'], 'url': None, 'pk': None},
             ],
             'filtro_data_ini': data_ini,
             'filtro_data_fim': data_fim,
@@ -673,27 +674,27 @@ class RelatorioBalanceteFinanceiroView(ReportMixin, TemplateView):
 
         context.update({
             'summary_cards': [
-                {'label': 'Saldo CC (Clientes)', 'value': f'{total_saldo_cc:,.2f} Kz', 'color': 'primary'},
-                {'label': 'Total Facturado', 'value': f'{total_facturas:,.2f} Kz', 'color': 'warning'},
-                {'label': 'Total Recebido', 'value': f'{total_recibos + total_fr:,.2f} Kz', 'color': 'success'},
+                {'label': 'Saldo CC (Clientes)', 'value': f'{fmt_kz(total_saldo_cc)} Kz', 'color': 'primary'},
+                {'label': 'Total Facturado', 'value': f'{fmt_kz(total_facturas)} Kz', 'color': 'warning'},
+                {'label': 'Total Recebido', 'value': f'{fmt_kz(total_recibos + total_fr)} Kz', 'color': 'success'},
             ],
             'columns': ['Conta', 'Valor (Kz)', 'Tipo'],
             'rows': [
-                {'cells': ['Saldo Conta Corrente (Clientes)', f'{total_saldo_cc:,.2f}', 'Passivo'],
+                {'cells': ['Saldo Conta Corrente (Clientes)', f'{fmt_kz(total_saldo_cc)}', 'Passivo'],
                  'url': None, 'pk': None},
-                {'cells': ['Facturas Emitidas (não canceladas)', f'{total_facturas:,.2f}', 'Activo'],
+                {'cells': ['Facturas Emitidas (não canceladas)', f'{fmt_kz(total_facturas)}', 'Activo'],
                  'url': None, 'pk': None},
-                {'cells': ['Valor Pago (Facturas)', f'{total_pago:,.2f}', 'Activo'],
+                {'cells': ['Valor Pago (Facturas)', f'{fmt_kz(total_pago)}', 'Activo'],
                  'url': None, 'pk': None},
-                {'cells': ['Recibos Emitidos', f'{total_recibos:,.2f}', 'Activo'],
+                {'cells': ['Recibos Emitidos', f'{fmt_kz(total_recibos)}', 'Activo'],
                  'url': None, 'pk': None},
-                {'cells': ['Notas de Crédito Aprovadas', f'{total_nc:,.2f}', 'Passivo'],
+                {'cells': ['Notas de Crédito Aprovadas', f'{fmt_kz(total_nc)}', 'Passivo'],
                  'url': None, 'pk': None},
-                {'cells': ['Notas de Débito Aprovadas', f'{total_nd:,.2f}', 'Activo'],
+                {'cells': ['Notas de Débito Aprovadas', f'{fmt_kz(total_nd)}', 'Activo'],
                  'url': None, 'pk': None},
-                {'cells': ['Facturas-Recibo', f'{total_fr:,.2f}', 'Activo'],
+                {'cells': ['Facturas-Recibo', f'{fmt_kz(total_fr)}', 'Activo'],
                  'url': None, 'pk': None},
-                {'cells': ['Requisições Aprovadas', f'{total_hist_req:,.2f}', 'Passivo'],
+                {'cells': ['Requisições Aprovadas', f'{fmt_kz(total_hist_req)}', 'Passivo'],
                  'url': None, 'pk': None},
             ],
         })
@@ -806,10 +807,10 @@ class RelatorioDashboardFinanceiroView(ReportMixin, TemplateView):
         pct_inadimplencia = (clientes_com_divida / total_clientes * 100) if total_clientes else 0
 
         context.update({
-            'total_facturado': f'{tot_fact_total:,.2f}',
-            'total_recebido': f'{tot_recebido:,.2f}',
-            'a_receber': f'{a_receber:,.2f}',
-            'saldo_cc': f'{saldo_cc:,.2f}',
+            'total_facturado': f'{fmt_kz(tot_fact_total)}',
+            'total_recebido': f'{fmt_kz(tot_recebido)}',
+            'a_receber': f'{fmt_kz(a_receber)}',
+            'saldo_cc': f'{fmt_kz(saldo_cc)}',
             'margem_recebimento': f'{margem:.1f}',
             'clientes_com_divida': clientes_com_divida,
             'total_clientes': total_clientes,
@@ -878,8 +879,8 @@ class RelatorioIndicadoresCobrancaView(ReportMixin, TemplateView):
                  'url': None, 'pk': None},
                 {'cells': ['Clientes em Dívida', str(devedores)], 'url': None, 'pk': None},
                 {'cells': ['Taxa de Inadimplência', f'{inadimplencia:.1f}%'], 'url': None, 'pk': None},
-                {'cells': ['Total Recebido (Kz)', f'{total_recebido:,.2f}'], 'url': None, 'pk': None},
-                {'cells': ['Total Facturado (Kz)', f'{tot_fact_total:,.2f}'], 'url': None, 'pk': None},
+                {'cells': ['Total Recebido (Kz)', f'{fmt_kz(total_recebido)}'], 'url': None, 'pk': None},
+                {'cells': ['Total Facturado (Kz)', f'{fmt_kz(tot_fact_total)}'], 'url': None, 'pk': None},
             ],
         })
         return context
@@ -919,8 +920,8 @@ class RelatorioReceitaPorClienteView(ReportMixin, TemplateView):
             receita_total = total_f + total_fr
             total_geral_receita += receita_total
             rows.append({
-                'cells': [c.nome, c.nif, f'{total_f:,.2f}', f'{total_fr:,.2f}',
-                          f'{total_r:,.2f}', f'{receita_total:,.2f}'],
+                'cells': [c.nome, c.nif, f'{fmt_kz(total_f)}', f'{fmt_kz(total_fr)}',
+                          f'{fmt_kz(total_r)}', f'{fmt_kz(receita_total)}'],
                 'url': 'financeiro:conta_corrente_cliente',
                 'pk': c.pk,
             })
@@ -930,7 +931,7 @@ class RelatorioReceitaPorClienteView(ReportMixin, TemplateView):
         context.update({
             'summary_cards': [
                 {'label': 'Total de Clientes', 'value': len(rows), 'color': 'primary'},
-                {'label': 'Receita Total', 'value': f'{total_geral_receita:,.2f} Kz', 'color': 'success'},
+                {'label': 'Receita Total', 'value': f'{fmt_kz(total_geral_receita)} Kz', 'color': 'success'},
             ],
             'columns': ['Cliente', 'NIF', 'Facturas', 'F-Recibo', 'Recebido', 'Receita Total'],
             'rows': rows,
@@ -976,10 +977,10 @@ class RelatorioReceitaPorLocalizacaoView(ReportMixin, TemplateView):
                 'cells': [
                     loc,
                     str(info['clientes']),
-                    f'{info["facturado"]:,.2f}',
-                    f'{info["fr"]:,.2f}',
-                    f'{info["recebido"]:,.2f}',
-                    f'{info["facturado"] + info["fr"]:,.2f}',
+                    f'{fmt_kz(info["facturado"])}',
+                    f'{fmt_kz(info["fr"])}',
+                    f'{fmt_kz(info["recebido"])}',
+                    f'{fmt_kz(info["facturado"] + info["fr"])}',
                 ],
                 'url': None, 'pk': None,
             }
@@ -989,7 +990,7 @@ class RelatorioReceitaPorLocalizacaoView(ReportMixin, TemplateView):
         context.update({
             'summary_cards': [
                 {'label': 'Localizações', 'value': len(dados), 'color': 'primary'},
-                {'label': 'Receita Total', 'value': f'{total_geral:,.2f} Kz', 'color': 'success'},
+                {'label': 'Receita Total', 'value': f'{fmt_kz(total_geral)} Kz', 'color': 'success'},
             ],
             'columns': ['Localização', 'Clientes', 'Facturas', 'F-Recibo', 'Recebido', 'Receita Total'],
             'rows': rows,
@@ -1031,8 +1032,8 @@ class RelatorioReceitaPorDespachanteView(ReportMixin, TemplateView):
             receita = total_f + total_fr
             total_geral += receita
             rows.append({
-                'cells': [d.nome, d.papel, str(cls.count()), f'{total_f:,.2f}',
-                          f'{total_fr:,.2f}', f'{total_r:,.2f}', f'{receita:,.2f}'],
+                'cells': [d.nome, d.papel, str(cls.count()), f'{fmt_kz(total_f)}',
+                          f'{fmt_kz(total_fr)}', f'{fmt_kz(total_r)}', f'{fmt_kz(receita)}'],
                 'url': None, 'pk': None,
             })
 
@@ -1041,7 +1042,7 @@ class RelatorioReceitaPorDespachanteView(ReportMixin, TemplateView):
         context.update({
             'summary_cards': [
                 {'label': 'Despachantes', 'value': len(rows), 'color': 'primary'},
-                {'label': 'Receita Total', 'value': f'{total_geral:,.2f} Kz', 'color': 'success'},
+                {'label': 'Receita Total', 'value': f'{fmt_kz(total_geral)} Kz', 'color': 'success'},
             ],
             'columns': ['Despachante', 'Perfil', 'Clientes', 'Facturas', 'F-Recibo', 'Recebido', 'Receita Total'],
             'rows': rows,

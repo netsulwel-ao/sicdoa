@@ -37,7 +37,7 @@
   {% if config %}
   <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 mb-6">
     <p class="text-sm text-gray-500">Valor da quota vigente</p>
-    <p class="text-xl font-bold text-[#111418] dark:text-gray-200">Kz {{ config.valor|floatformat:2 }} <span class="text-sm font-normal text-gray-500">({{ config.mes|stringformat:"02d" }}/{{ config.ano }})</span></p>
+    <p class="text-xl font-bold text-[#111418] dark:text-gray-200">Kz {{ config.valor|fmtkz }} <span class="text-sm font-normal text-gray-500">({{ config.mes|stringformat:"02d" }}/{{ config.ano }})</span></p>
   </div>
   {% endif %}
 

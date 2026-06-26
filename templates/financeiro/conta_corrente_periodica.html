@@ -116,16 +116,16 @@
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Faturação</p>
-          <p class="text-2xl font-bold mt-2 text-indigo-600 dark:text-indigo-400">{{ total_faturacao|floatformat:2 }} Kz</p>
+          <p class="text-2xl font-bold mt-2 text-indigo-600 dark:text-indigo-400">{{ total_faturacao|fmtkz }} Kz</p>
         </div>
         <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Recebimentos</p>
-          <p class="text-2xl font-bold mt-2 text-green-600 dark:text-green-400">{{ total_recebimentos|floatformat:2 }} Kz</p>
+          <p class="text-2xl font-bold mt-2 text-green-600 dark:text-green-400">{{ total_recebimentos|fmtkz }} Kz</p>
         </div>
         <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saldo Total</p>
           <p class="text-2xl font-bold mt-2 {% if total_saldo >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
-            {{ total_saldo|floatformat:2 }} Kz
+            {{ total_saldo|fmtkz }} Kz
           </p>
         </div>
         <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
@@ -153,6 +153,16 @@
 
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
       <script>
+        /* Formata número com espaço como separador de milhar */
+        function fmtChart(v) {
+          if (v == null || isNaN(v)) return '';
+          var parts = Number(v).toFixed(2).split('.');
+          var intPart = parts[0], decPart = parts[1];
+          var groups = [];
+          while (intPart.length > 3) { groups.unshift(intPart.slice(-3)); intPart = intPart.slice(0, -3); }
+          if (intPart.length > 0) groups.unshift(intPart);
+          return (groups.join(' ') || '0') + ',' + decPart + ' Kz';
+        }
         (async function() {
           const canvas = document.getElementById('evolucaoChart');
           const empty = document.getElementById('evolucaoEmpty');
@@ -237,7 +247,7 @@
                     bodyFont: { size: 12 },
                     callbacks: {
                       label: function(ctx) {
-                        return ctx.dataset.label + ': ' + Number(ctx.raw).toLocaleString() + ' Kz';
+                        return ctx.dataset.label + ': ' + fmtChart(ctx.raw);
                       }
                     }
                   }
@@ -263,7 +273,7 @@
                       callback: function(v) {
                         if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M Kz';
                         if (v >= 1000) return (v / 1000).toFixed(0) + 'k Kz';
-                        return v.toLocaleString() + ' Kz';
+                        return fmtChart(v);
                       }
                     }
                   },
@@ -277,7 +287,7 @@
                       callback: function(v) {
                         if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M Kz';
                         if (v >= 1000) return (v / 1000).toFixed(0) + 'k Kz';
-                        return v.toLocaleString() + ' Kz';
+                        return fmtChart(v);
                       }
                     }
                   }
@@ -308,12 +318,12 @@
         {% for p in periodos %}
         <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-3 items-center px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors border-b border-gray-100 dark:border-gray-700/60 text-sm">
           <div class="font-medium text-gray-900 dark:text-white">{{ p.label }}</div>
-          <div class="text-right font-medium text-indigo-600 dark:text-indigo-400">{{ p.faturacao|floatformat:2 }}</div>
-          <div class="text-right font-medium text-green-600 dark:text-green-400">{{ p.recebimentos|floatformat:2 }}</div>
-          <div class="text-right font-medium text-yellow-600 dark:text-yellow-400">{{ p.creditos|floatformat:2 }}</div>
-          <div class="text-right font-medium text-orange-600 dark:text-orange-400">{{ p.debitos|floatformat:2 }}</div>
+          <div class="text-right font-medium text-indigo-600 dark:text-indigo-400">{{ p.faturacao|fmtkz }}</div>
+          <div class="text-right font-medium text-green-600 dark:text-green-400">{{ p.recebimentos|fmtkz }}</div>
+          <div class="text-right font-medium text-yellow-600 dark:text-yellow-400">{{ p.creditos|fmtkz }}</div>
+          <div class="text-right font-medium text-orange-600 dark:text-orange-400">{{ p.debitos|fmtkz }}</div>
           <div class="text-right font-bold {% if p.saldo >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
-            {{ p.saldo|floatformat:2 }}
+            {{ p.saldo|fmtkz }}
           </div>
         </div>
         {% endfor %}

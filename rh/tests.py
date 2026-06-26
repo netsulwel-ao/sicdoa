@@ -69,16 +69,16 @@ class FormatKZTests(TestCase):
         self.assertEqual(parse_kz('1.234.567,89'), '1234567.89')
 
     def test_parse_kz_single_dot_no_comma(self):
-        """'1.000' (1 dot, sem vírgula) → '1.000' (pass-through, ambíguo)"""
-        self.assertEqual(parse_kz('1.000'), '1.000')
+        """'1.000' (1 dot, sem vírgula) → '1000' (milhar, pois 3 dígitos após ponto)"""
+        self.assertEqual(parse_kz('1.000'), '1000')
 
     def test_fmt_kz_standard(self):
-        """Decimal('1234.56') → '1.234,56'"""
-        self.assertEqual(fmt_kz(Decimal('1234.56')), '1.234,56')
+        """Decimal('1234.56') → '1 234,56'"""
+        self.assertEqual(fmt_kz(Decimal('1234.56')), '1 234,56')
 
     def test_fmt_kz_integer(self):
-        """Decimal('1500') → '1.500,00'"""
-        self.assertEqual(fmt_kz(Decimal('1500')), '1.500,00')
+        """Decimal('1500') → '1 500,00'"""
+        self.assertEqual(fmt_kz(Decimal('1500')), '1 500,00')
 
     def test_fmt_kz_zero(self):
         """Decimal('0') → '0,00'"""
@@ -93,16 +93,16 @@ class FormatKZTests(TestCase):
         self.assertEqual(fmt_kz(None), '')
 
     def test_fmt_kz_negative(self):
-        """Decimal('-1234.56') → '-1.234,56'"""
-        self.assertEqual(fmt_kz(Decimal('-1234.56')), '-1.234,56')
+        """Decimal('-1234.56') → '-1 234,56'"""
+        self.assertEqual(fmt_kz(Decimal('-1234.56')), '-1 234,56')
 
     def test_fmt_kz_thousands(self):
-        """Decimal('1000000.00') → '1.000.000,00'"""
-        self.assertEqual(fmt_kz(Decimal('1000000.00')), '1.000.000,00')
+        """Decimal('1000000.00') → '1 000 000,00'"""
+        self.assertEqual(fmt_kz(Decimal('1000000.00')), '1 000 000,00')
 
     def test_template_filter_fmtkz(self):
         """Filtro |fmtkz com valor normal"""
-        self.assertEqual(fmtkz(Decimal('1234.56')), '1.234,56')
+        self.assertEqual(fmtkz(Decimal('1234.56')), '1 234,56')
 
     def test_template_filter_fmtkz_none(self):
         """Filtro |fmtkz com None → ''"""

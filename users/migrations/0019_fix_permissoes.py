@@ -30,29 +30,22 @@ PERM_FALTA = [
 
 
 def fix_permissoes(apps, schema_editor):
-    with schema_editor.connection.cursor() as cursor:
-        # 1. Renomear gerir_assembleias -> gerir_assembleia
-        cursor.execute(
-            "UPDATE permissoes SET codigo = 'gerir_assembleia', nome = 'Gerir Assembleia' "
-            "WHERE codigo = 'gerir_assembleias'"
+    Permissao = apps.get_model('users', 'Permissao')
+
+    # 1. Renomear gerir_assembleias -> gerir_assembleia
+    Permissao.objects.filter(codigo='gerir_assembleias').update(
+        codigo='gerir_assembleia', nome='Gerir Assembleia'
+    )
+
+    # 2. Remover permissões fictícias
+    Permissao.objects.filter(codigo__in=PERM_FICTICIAS).delete()
+
+    # 3. Adicionar permissões em falta
+    for codigo, nome, descricao, grupo, icone in PERM_FALTA:
+        Permissao.objects.get_or_create(
+            codigo=codigo,
+            defaults={'nome': nome, 'descricao': descricao, 'grupo': grupo, 'icone': icone},
         )
-
-        # 2. Remover permissões fictícias
-        for codigo in PERM_FICTICIAS:
-            cursor.execute("DELETE FROM permissoes WHERE codigo = %s", [codigo])
-
-        # 3. Adicionar permissões em falta
-        for codigo, nome, descricao, grupo, icone in PERM_FALTA:
-            cursor.execute(
-                "SELECT COUNT(*) FROM permissoes WHERE codigo = %s", [codigo]
-            )
-            exists = cursor.fetchone()[0] > 0
-            if not exists:
-                cursor.execute(
-                    "INSERT INTO permissoes (codigo, nome, descricao, grupo, icone, created_at) "
-                    "VALUES (%s, %s, %s, %s, %s, NOW())",
-                    [codigo, nome, descricao, grupo, icone],
-                )
 
 
 def reverse_fix(apps, schema_editor):

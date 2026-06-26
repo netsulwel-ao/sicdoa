@@ -29,7 +29,7 @@
               </div>
               <div class="min-w-0">
                 <p class="text-sm font-semibold text-[#111418] dark:text-gray-200 truncate">{{ pag.despachante.nome }}</p>
-                <p class="text-xs text-gray-500">{{ pag.quota.mes|stringformat:"02d" }}/{{ pag.quota.ano }} &middot; Kz {{ pag.valor_pago|floatformat:2 }}</p>
+                <p class="text-xs text-gray-500">{{ pag.quota.mes|stringformat:"02d" }}/{{ pag.quota.ano }} &middot; Kz {{ pag.valor_pago|fmtkz }}</p>
               </div>
             </div>
             <div class="text-right shrink-0">
@@ -49,7 +49,7 @@
             <span>Método: {{ pag.metodo }}</span>
             <span>Data: {{ pag.data_pagamento|date:"d/m/Y H:i" }}</span>
             {% if item.dias_atraso > 0 %}
-            <span class="text-red-600 font-medium">{{ item.dias_atraso }}d atraso (+Kz {{ item.multa_valor|floatformat:2 }})</span>
+            <span class="text-red-600 font-medium">{{ item.dias_atraso }}d atraso (+Kz {{ item.multa_valor|fmtkz }})</span>
             {% else %}
             <span class="text-emerald-600">Sem atraso</span>
             {% endif %}
@@ -83,13 +83,13 @@
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors" id="pag-{{ pag.id }}">
               <td class="px-4 py-3 font-semibold text-[#111418] dark:text-gray-200">{{ pag.despachante.nome }}</td>
               <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ pag.quota.mes|stringformat:"02d" }}/{{ pag.quota.ano }}</td>
-              <td class="px-4 py-3 text-gray-700 dark:text-gray-300">Kz {{ pag.valor_pago|floatformat:2 }}</td>
+              <td class="px-4 py-3 text-gray-700 dark:text-gray-300">Kz {{ pag.valor_pago|fmtkz }}</td>
               <td class="px-4 py-3">
                 {% if item.dias_atraso > 0 %}
                 <span class="text-xs text-red-600 dark:text-red-400 font-medium">
-                  {{ item.dias_atraso }}d &middot; +Kz {{ item.multa_valor|floatformat:2 }}
+                  {{ item.dias_atraso }}d &middot; +Kz {{ item.multa_valor|fmtkz }}
                 </span>
-                <span class="text-xs text-gray-400 block">Sugerido: Kz {{ item.total_sugerido|floatformat:2 }}</span>
+                <span class="text-xs text-gray-400 block">Sugerido: Kz {{ item.total_sugerido|fmtkz }}</span>
                 {% else %}
                 <span class="text-xs text-emerald-600">Sem atraso</span>
                 {% endif %}

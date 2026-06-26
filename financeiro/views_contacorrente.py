@@ -20,6 +20,7 @@ from .models import (
     FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo, HistoricoFinanceiro
 )
 from .views import BaseContextMixin
+from utils.format_kz import fmt_kz
 
 
 def _user_filter_direct_from_request(request):
@@ -27,7 +28,17 @@ def _user_filter_direct_from_request(request):
     from .views import _user_tem_acesso_total
     if _user_tem_acesso_total(request):
         return {}
-    usuario_id = request.session.get('usuario_id')
+    from users.permissoes import get_usuario_permissoes
+    from .views import _tem_escopo_filial
+    perm_set = get_usuario_permissoes(request)
+    banca_id = request.session.get('banca_id')
+    if banca_id:
+        filtro = {'banca_id': banca_id}
+        filial_id = request.session.get('colaborador_filial_id')
+        if _tem_escopo_filial(perm_set, filial_id) and filial_id:
+            filtro['filial_id'] = filial_id
+        return filtro
+    usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
     if not usuario_id:
         return {}
     return {'usuario_id': usuario_id}
@@ -665,11 +676,11 @@ def conta_corrente_mensal_pdf(request):
         saldo = rec - fat
         row_data = [
             Paragraph(meses_pt[m - 1], s_normal),
-            Paragraph(f'{fat:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
-            Paragraph(f'{rec:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
-            Paragraph(f'{cr:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
-            Paragraph(f'{db:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
-            Paragraph(f'{saldo:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica-Bold', alignment=2)),
+            Paragraph(f'{fmt_kz(fat)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
+            Paragraph(f'{fmt_kz(rec)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
+            Paragraph(f'{fmt_kz(cr)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
+            Paragraph(f'{fmt_kz(db)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
+            Paragraph(f'{fmt_kz(saldo)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica-Bold', alignment=2)),
         ]
         t_data.append(row_data)
 
@@ -1045,11 +1056,11 @@ def conta_corrente_periodica_pdf(request):
         saldo = rec - fat
         row_data = [
             Paragraph(label, s_normal),
-            Paragraph(f'{fat:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
-            Paragraph(f'{rec:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
-            Paragraph(f'{cr:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
-            Paragraph(f'{db:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
-            Paragraph(f'{saldo:,.2f}', ParagraphStyle('r', fontSize=8, fontName='Helvetica-Bold', alignment=2)),
+            Paragraph(f'{fmt_kz(fat)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
+            Paragraph(f'{fmt_kz(rec)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
+            Paragraph(f'{fmt_kz(cr)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
+            Paragraph(f'{fmt_kz(db)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica', alignment=2)),
+            Paragraph(f'{fmt_kz(saldo)}', ParagraphStyle('r', fontSize=8, fontName='Helvetica-Bold', alignment=2)),
         ]
         t_data.append(row_data)
 

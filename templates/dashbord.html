@@ -27,7 +27,7 @@
         </div>
         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium mb-0.5">Processos</p>
         <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_dus_total }}</p>
-        <p class="text-xs text-gray-500 mt-1">{{ stats_dus_ativos }} ativos &middot; {{ stats_dus_mes|floatformat:0 }} KZ mês</p>
+        <p class="text-xs text-gray-500 mt-1">{{ stats_dus_ativos }} ativos &middot; {{ stats_dus_mes|fmtkz }} KZ mês</p>
         <a href="{% url 'du_lista' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver todos <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
       </div>
 
@@ -52,7 +52,7 @@
           <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">Financeiro</span>
         </div>
         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium mb-0.5">Facturação (mês)</p>
-        <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_fact_valor|floatformat:0 }} KZ</p>
+        <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_fact_valor|fmtkz }} KZ</p>
         <p class="text-xs text-gray-500 mt-1">{{ stats_fact_qtd }} factura{{ stats_fact_qtd|pluralize:"s" }} emitida{{ stats_fact_qtd|pluralize:"s" }}</p>
         <a href="{% url 'financeiro:factura_lista' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver facturas <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
       </div>
@@ -326,7 +326,7 @@
                   <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ c.nome }}</p>
                   <p class="text-xs text-gray-500">{{ c.nif }}</p>
                 </div>
-                <span class="text-sm font-bold text-red-600 whitespace-nowrap">{{ c.saldo_conta_corrente|floatformat:0 }} KZ</span>
+                <span class="text-sm font-bold text-red-600 whitespace-nowrap">{{ c.saldo_conta_corrente|fmtkz }} KZ</span>
               </a>
               {% endfor %}
             </div>

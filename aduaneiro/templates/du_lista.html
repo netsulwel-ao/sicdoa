@@ -91,7 +91,7 @@
                     </div>
                   </td>
                   <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white font-mono text-xs">
-                    {{ du.total_geral|floatformat:2 }}
+                    {{ du.total_geral|fmtkz }}
                   </td>
                   <td class="px-4 py-3 text-center">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
@@ -198,7 +198,7 @@
                 
                 <div class="grid grid-cols-2 gap-2 text-sm">
                   <div class="font-medium text-gray-500 dark:text-gray-400">Total:</div>
-                  <div class="font-bold text-gray-900 dark:text-white font-mono">{{ du.total_geral|floatformat:2 }} KZ</div>
+                  <div class="font-bold text-gray-900 dark:text-white font-mono">{{ du.total_geral|fmtkz }} KZ</div>
                 </div>
                 
                 <div class="text-sm">

@@ -16,6 +16,8 @@ PERMISSOES_BANCA = [
     # Gestão Aduaneira
     'gerir_aduaneiro', 'criar_declaracao_unica', 'ver_pauta_aduaneira',
     'gerir_clientes',
+    # Filial
+    'gerir_filial',
     # RH
     'gerir_rh',
     'ver_minha_banca', 'gerir_colaboradores_banca', 'gerir_cargos_banca',
@@ -32,6 +34,8 @@ PERMISSOES_BANCA = [
     # Super
     'admin_banca',
 ]
+
+PERMISSOES_AUTO_DESPACHANTE = ['alterar_perfil']
 
 
 def _is_admin_ou_acesso_total(request):
@@ -106,6 +110,8 @@ def get_usuario_permissoes(request):
     if not usuario:
         return set()
     permissoes = set(usuario.permissoes_diretas.values_list('codigo', flat=True))
+    if usuario.papel == 'Despachante Oficial':
+        permissoes.update(PERMISSOES_AUTO_DESPACHANTE)
     if usuario.papel == 'Colaborador Institucional':
         permissoes.update(_get_usuario_funcao_permissoes(usuario))
     if 'acesso_auditoria' in permissoes:
@@ -123,6 +129,9 @@ def usuario_tem_permissao(request, codigo):
     # Colaborador: verificar permissões do cargo_banca na BD em tempo real
     if request.session.get('tipo_usuario') == 'colaborador':
         return codigo in get_usuario_permissoes(request)
+    papel = request.session.get('usuario', {}).get('papel', '')
+    if papel == 'Despachante Oficial' and codigo in PERMISSOES_AUTO_DESPACHANTE:
+        return True
     usuario_id = request.session['usuario_id']
     if codigo.startswith('ver_'):
         if Usuario.objects.filter(pk=usuario_id, permissoes_diretas__codigo='acesso_auditoria').exists():

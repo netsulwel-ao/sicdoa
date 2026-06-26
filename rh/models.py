@@ -16,9 +16,11 @@ from governanca.utils import (
 
 class CargoBanca(models.Model):
     banca = models.ForeignKey('Banca', on_delete=models.CASCADE, related_name='cargos')
-    nome = models.CharField(max_length=100)
+    nome = models.CharField(max_length=100, db_index=True)
     descricao = models.TextField(blank=True, default='')
     permissoes = models.ManyToManyField('users.Permissao', blank=True, related_name='cargos_banca')
+    locked = models.BooleanField(default=False, verbose_name='Bloqueado',
+                                 help_text='Se marcado, as permissões não podem ser alteradas manualmente (controladas pelo sistema)')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -160,11 +162,11 @@ class Subsidio(models.Model):
     
     banca = models.ForeignKey(Banca, on_delete=models.CASCADE, related_name='subsidios')
     nome = models.CharField(max_length=100, verbose_name='Nome do Subsídio')
-    codigo = models.CharField(max_length=20, verbose_name='Código Interno')
+    codigo = models.CharField(max_length=20, verbose_name='Código Interno', db_index=True)
     tipo_calculo = models.CharField(max_length=20, choices=TIPOS_CALCULO, default='FIXO')
     valor_padrao = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='Valor Padrão')
     percentual = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Percentual (%)')
-    ativo = models.BooleanField(default=True)
+    ativo = models.BooleanField(default=True, db_index=True)
     obrigatorio = models.BooleanField(default=False, verbose_name='Obrigatório para Todos')
     apenas_especificos = models.BooleanField(
         default=False,
@@ -216,7 +218,7 @@ class DocumentoColaborador(models.Model):
     tipo = models.CharField(max_length=20, choices=TIPOS_DOCUMENTO, default='OUTRO')
     arquivo = models.FileField(upload_to='colaboradores/documentos/%Y/%m/')
     descricao = models.CharField(max_length=255, blank=True, default='')
-    criado_em = models.DateTimeField(auto_now_add=True)
+    criado_em = models.DateTimeField(auto_now_add=True, db_index=True)
     
     class Meta:
         db_table = 'rh_colaborador_documentos'
@@ -226,7 +228,14 @@ class DocumentoColaborador(models.Model):
     
     def __str__(self):
         return f"{self.colaborador.nome} - {self.get_tipo_display()}"
-    
+
+    def clean(self):
+        import os
+        allowed_extensions = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.xls', '.xlsx']
+        ext = os.path.splitext(self.arquivo.name)[1].lower() if self.arquivo else ''
+        if ext and ext not in allowed_extensions:
+            raise ValidationError({'arquivo': f'Tipo de ficheiro "{ext}" não permitido. Permitidos: {", ".join(allowed_extensions)}'})
+
     @property
     def nome_arquivo(self):
         return self.arquivo.name.split('/')[-1] if self.arquivo else ''
@@ -264,23 +273,23 @@ class Colaborador(models.Model):
     filial      = models.ForeignKey(FilialBanca, on_delete=models.SET_NULL,
                                     null=True, blank=True, related_name='colaboradores')
     nome        = models.CharField(max_length=255, db_index=True)
-    bi          = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº BI')
-    nif         = models.CharField(max_length=50, blank=True, default='')
+    bi          = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº BI', db_index=True)
+    nif         = models.CharField(max_length=50, blank=True, default='', db_index=True)
     genero      = models.CharField(max_length=1, choices=GENEROS, blank=True, default='')
     data_nascimento = models.DateField(null=True, blank=True)
-    cargo       = models.CharField(max_length=30, choices=CARGOS, default='Assistente')
+    cargo       = models.CharField(max_length=30, choices=CARGOS, default='Assistente', db_index=True)
     cargo_personalizado = models.CharField(max_length=100, blank=True, default='')
     cargo_banca = models.ForeignKey('CargoBanca', null=True, blank=True, on_delete=models.SET_NULL,
                                     related_name='colaboradores')
-    departamento = models.CharField(max_length=100, blank=True, default='')
+    departamento = models.CharField(max_length=100, blank=True, default='', db_index=True)
     email       = models.EmailField(blank=True, default='', db_index=True)
-    telefone    = models.CharField(max_length=30, blank=True, default='')
-    data_admissao = models.DateField(null=True, blank=True)
+    telefone    = models.CharField(max_length=30, blank=True, default='', db_index=True)
+    data_admissao = models.DateField(null=True, blank=True, db_index=True)
     salario_base = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     estado      = models.CharField(max_length=10, choices=ESTADOS, default='Ativo')
     foto        = models.ImageField(upload_to='colaboradores/fotos/', null=True, blank=True)
     observacoes = models.TextField(blank=True, default='')
-    password    = models.CharField(max_length=255, null=True, blank=True, help_text='Senha para acesso ao sistema')
+    password    = models.CharField(max_length=255, null=True, blank=True, help_text='Senha para acesso ao sistema')  # senha com hash bcrypt (ver _hash_password)
     criado_em   = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -332,8 +341,10 @@ class ProcessamentoSalarial(models.Model):
         ('Pago', 'Pago'),
     ]
     banca       = models.ForeignKey(Banca, on_delete=models.CASCADE, related_name='processamentos')
-    mes         = models.PositiveSmallIntegerField()
-    ano         = models.PositiveSmallIntegerField()
+    filial      = models.ForeignKey(FilialBanca, on_delete=models.SET_NULL,
+                                    null=True, blank=True, related_name='processamentos')
+    mes         = models.PositiveSmallIntegerField(db_index=True)
+    ano         = models.PositiveSmallIntegerField(db_index=True)
     estado      = models.CharField(max_length=15, choices=ESTADOS, default='Rascunho')
     criado_em   = models.DateTimeField(auto_now_add=True)
     processado_em = models.DateTimeField(null=True, blank=True)
@@ -341,8 +352,29 @@ class ProcessamentoSalarial(models.Model):
 
     class Meta:
         db_table = 'rh_processamentos'
-        unique_together = ('banca', 'mes', 'ano')
+        unique_together = ('banca', 'filial', 'mes', 'ano')
         ordering = ['-ano', '-mes']
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        dupes = ProcessamentoSalarial.objects.filter(
+            banca=self.banca, mes=self.mes, ano=self.ano
+        )
+        if self.filial_id is None:
+            dupes = dupes.filter(filial__isnull=True)
+        else:
+            dupes = dupes.filter(filial=self.filial)
+        if self.pk:
+            dupes = dupes.exclude(pk=self.pk)
+        if dupes.exists():
+            raise ValidationError(
+                f'Já existe um processamento para {self.banca}/{self.mes:02d}/{self.ano}.'
+            )
+
+    def save(self, *args, **kwargs):
+        if not kwargs.get('update_fields'):
+            self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.banca.nome} — {self.mes:02d}/{self.ano}"
@@ -419,6 +451,12 @@ class ReciboSalarial(models.Model):
                           + self.outros_subsidios + self.horas_extras_valor)
         return base_com_impostos + total_subsidios
 
+    @property
+    def faltas_count(self):
+        if self.outros_descontos and self.salario_base:
+            return round(float(self.outros_descontos) / float(self.salario_base) * 22)
+        return 0
+
 
 # ─── Recrutamento ─────────────────────────────────────────────────────────────
 
@@ -475,7 +513,8 @@ class Vaga(models.Model):
             validate_date_not_past(self.data_encerramento, 'Data de Encerramento', allow_today=True)
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 class Candidatura(models.Model):
@@ -523,7 +562,7 @@ class Entrevista(models.Model):
         ('Reagendada', 'Reagendada'),
     ]
     candidatura     = models.ForeignKey(Candidatura, on_delete=models.CASCADE, related_name='entrevistas')
-    data_hora       = models.DateTimeField()
+    data_hora       = models.DateTimeField(db_index=True)
     tipo            = models.CharField(max_length=15, choices=TIPOS, default='Presencial')
     local_link      = models.CharField(max_length=300, blank=True, default='',
                                        verbose_name='Local / Link')
@@ -532,7 +571,7 @@ class Entrevista(models.Model):
     nota            = models.PositiveSmallIntegerField(null=True, blank=True,
                                                        help_text='Nota de 1 a 10')
     observacoes     = models.TextField(blank=True, default='')
-    criado_em       = models.DateTimeField(auto_now_add=True)
+    criado_em       = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'rh_entrevistas'
@@ -545,7 +584,8 @@ class Entrevista(models.Model):
         validate_date_not_past(self.data_hora, field_name="Data e Hora", allow_today=True)
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -568,7 +608,7 @@ class PlanoIntegracao(models.Model):
     responsavel     = models.CharField(max_length=255, blank=True, default='')
     estado          = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
     notas           = models.TextField(blank=True, default='')
-    criado_em       = models.DateTimeField(auto_now_add=True)
+    criado_em       = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'rh_planos_integracao'
@@ -596,7 +636,8 @@ class PlanoIntegracao(models.Model):
             validate_date_range(self.data_inicio, self.data_fim_prevista, "Data de Início", "Data Fim Prevista")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -606,9 +647,9 @@ class TarefaIntegracao(models.Model):
     titulo      = models.CharField(max_length=200)
     descricao   = models.TextField(blank=True, default='')
     responsavel = models.CharField(max_length=255, blank=True, default='')
-    prazo       = models.DateField(null=True, blank=True)
+    prazo       = models.DateField(null=True, blank=True, db_index=True)
     concluida   = models.BooleanField(default=False)
-    criado_em   = models.DateTimeField(auto_now_add=True)
+    criado_em   = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'rh_tarefas_integracao'
@@ -635,6 +676,8 @@ class Fatura(models.Model):
     
     # Relacionamentos
     banca = models.ForeignKey(Banca, on_delete=models.CASCADE, related_name='faturas')
+    filial = models.ForeignKey(FilialBanca, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='faturas')
     colaborador = models.ForeignKey('Colaborador', on_delete=models.CASCADE, related_name='faturas', null=True, blank=True)
     processamento_salarial = models.ForeignKey('ProcessamentoSalarial', on_delete=models.CASCADE, related_name='faturas')
     
@@ -645,7 +688,7 @@ class Fatura(models.Model):
     
     # Dados da fatura
     data_emissao = models.DateTimeField(auto_now_add=True, db_index=True)
-    data_vencimento = models.DateField()
+    data_vencimento = models.DateField(db_index=True)
     data_pagamento = models.DateTimeField(null=True, blank=True)
     
     # Descrição
@@ -653,7 +696,7 @@ class Fatura(models.Model):
     observacoes = models.TextField(blank=True, default='')
     
     # Metadados
-    criado_por = models.IntegerField(null=True, blank=True)  # ID do usuário que criou
+    criado_por = models.IntegerField(null=True, blank=True, db_index=True)  # ID do usuário que criou
     atualizado_em = models.DateTimeField(auto_now=True)
     
     class Meta:
@@ -680,7 +723,8 @@ class Fatura(models.Model):
             validate_date_not_future(self.data_pagamento, field_name="Data de Pagamento")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 class RegistoPresenca(models.Model):
@@ -699,7 +743,7 @@ class RegistoPresenca(models.Model):
         ('Rejeitado', 'Rejeitado'),
     ]
     colaborador = models.ForeignKey(Colaborador, on_delete=models.CASCADE, related_name='presencas')
-    data        = models.DateField()
+    data        = models.DateField(db_index=True)
     tipo        = models.CharField(max_length=20, choices=TIPOS, default='Entrada')
     hora_entrada = models.TimeField(null=True, blank=True)
     hora_saida  = models.TimeField(null=True, blank=True)
@@ -722,7 +766,8 @@ class RegistoPresenca(models.Model):
             validate_date_not_future(self.data_aprovacao, field_name="Data de Aprovação")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -732,12 +777,15 @@ class PedidoFerias(models.Model):
         ('Aprovado', 'Aprovado'),
         ('Rejeitado', 'Rejeitado'),
     ]
-    colaborador = models.ForeignKey(Colaborador, on_delete=models.CASCADE, related_name='pedidos_ferias')
-    data_inicio = models.DateField()
-    data_fim    = models.DateField()
-    motivo      = models.TextField(blank=True, default='')
-    estado      = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
-    criado_em   = models.DateTimeField(auto_now_add=True)
+    colaborador  = models.ForeignKey(Colaborador, on_delete=models.CASCADE, related_name='pedidos_ferias')
+    data_inicio  = models.DateField()
+    data_fim     = models.DateField()
+    motivo       = models.TextField(blank=True, default='')
+    estado       = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
+    aprovado_por = models.ForeignKey(Colaborador, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name='ferias_aprovadas')
+    data_aprovacao = models.DateTimeField(null=True, blank=True)
+    criado_em    = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         db_table = 'rh_pedidos_ferias'
@@ -745,19 +793,136 @@ class PedidoFerias(models.Model):
 
     @property
     def dias(self):
-        return (self.data_fim - self.data_inicio).days + 1
+        return max((self.data_fim - self.data_inicio).days + 1, 0)
 
     def clean(self):
+        # Vide rh/acesso.py docstring para fluxo completo de aprovacao.
         # Pedido de férias não pode começar no passado (a menos que seja edição)
         if not self.pk:
             validate_date_not_past(self.data_inicio, field_name="Data de Início", allow_today=True)
         validate_date_range(self.data_inicio, self.data_fim, "Data de Início", "Data de Fim")
         if self.dias <= 0:
             raise ValidationError({"data_fim": "O período de férias deve ter pelo menos 1 dia."})
+        # Validar sobreposição com pedidos já aprovados
+        overlap = PedidoFerias.objects.filter(
+            colaborador=self.colaborador,
+            estado='Aprovado',
+            data_inicio__lte=self.data_fim,
+            data_fim__gte=self.data_inicio,
+        )
+        if self.pk:
+            overlap = overlap.exclude(pk=self.pk)
+        if overlap.exists():
+            raise ValidationError(
+                f'O colaborador já tem férias aprovadas neste período '
+                f'({overlap.first().data_inicio} a {overlap.first().data_fim}).'
+            )
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
+
+
+class HistoricoPresenca(models.Model):
+    """Audit trail para aprovações de presenças e férias."""
+    ACOES = [
+        ('CRIADA', 'Criada'),
+        ('APROVADA', 'Aprovada'),
+        ('REJEITADA', 'Rejeitada'),
+        ('ALTERADA', 'Alterada'),
+        ('REMOVIDA', 'Removida'),
+        ('FALTA_AUTO', 'Falta Auto-Marcada'),
+    ]
+    TIPOS_REGISTO = [
+        ('presenca', 'Presença'),
+        ('ferias', 'Férias'),
+    ]
+    banca       = models.ForeignKey('Banca', on_delete=models.CASCADE, related_name='historico_presencas')
+    filial      = models.ForeignKey('FilialBanca', on_delete=models.SET_NULL, null=True, blank=True)
+    tipo_registo = models.CharField(max_length=20, choices=TIPOS_REGISTO)
+    registo_id  = models.PositiveIntegerField()
+    accao       = models.CharField(max_length=20, choices=ACOES)
+    estado_anterior = models.CharField(max_length=20, blank=True, default='')
+    estado_novo = models.CharField(max_length=20, blank=True, default='')
+    colaborador = models.ForeignKey('Colaborador', on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='+')
+    colaborador_nome = models.CharField(max_length=255, blank=True, default='')
+    aprovador   = models.ForeignKey('Colaborador', on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='+')
+    aprovador_nome = models.CharField(max_length=255, blank=True, default='')
+    observacao  = models.TextField(blank=True, default='')
+    criado_em   = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'rh_historico_presencas'
+        ordering = ['-criado_em']
+        indexes = [
+            models.Index(fields=['banca', 'tipo_registo', 'registo_id']),
+            models.Index(fields=['colaborador']),
+        ]
+
+
+class DelegacaoAprovacao(models.Model):
+    """Delegação de autoridade de aprovação durante ausência."""
+    banca       = models.ForeignKey('Banca', on_delete=models.CASCADE, related_name='delegacoes_aprovacao')
+    delegante   = models.ForeignKey('Colaborador', on_delete=models.CASCADE, related_name='delegacoes_feitas')
+    delegado    = models.ForeignKey('Colaborador', on_delete=models.CASCADE, related_name='delegacoes_recebidas')
+    data_inicio = models.DateField()
+    data_fim    = models.DateField()
+    ativo       = models.BooleanField(default=True)
+    motivo      = models.TextField(blank=True, default='')
+    criado_em   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'rh_delegacoes_aprovacao'
+        indexes = [
+            models.Index(fields=['delegante', 'ativo']),
+            models.Index(fields=['delegado', 'ativo']),
+        ]
+
+    @property
+    def ativa(self):
+        hoje = timezone.now().date()
+        return self.ativo and self.data_inicio <= hoje <= self.data_fim
+
+    def clean(self):
+        if self.delegante_id == self.delegado_id:
+            raise ValidationError('Não pode delegar a si próprio.')
+        if self.data_inicio > self.data_fim:
+            raise ValidationError('Data de fim deve ser posterior à data de início.')
+
+    def save(self, *args, **kwargs):
+        if not kwargs.get('update_fields'):
+            self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class NotificacaoRH(models.Model):
+    """Notificações in-app do módulo RH."""
+    TIPOS = [
+        ('aprovacao_pendente', 'Aprovação Pendente'),
+        ('pedido_aprovado', 'Pedido Aprovado'),
+        ('pedido_rejeitado', 'Pedido Rejeitado'),
+        ('delegacao_recebida', 'Delegação Recebida'),
+        ('delegacao_expirada', 'Delegação Expirada'),
+        ('sla_alerta', 'Alerta SLA'),
+    ]
+    banca        = models.ForeignKey('Banca', on_delete=models.CASCADE, related_name='notificacoes_rh')
+    destinatario = models.ForeignKey('Colaborador', on_delete=models.CASCADE, related_name='notificacoes_rh')
+    tipo         = models.CharField(max_length=30, choices=TIPOS)
+    titulo       = models.CharField(max_length=255)
+    mensagem     = models.TextField()
+    link         = models.CharField(max_length=500, blank=True, default='')
+    lida         = models.BooleanField(default=False)
+    criado_em    = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'rh_notificacoes'
+        ordering = ['-criado_em']
+        indexes = [
+            models.Index(fields=['destinatario', 'lida']),
+        ]
 
 
 # ─── Avaliação de Desempenho ──────────────────────────────────────────────────
@@ -770,7 +935,7 @@ class CicloAvaliacao(models.Model):
     ]
     banca       = models.ForeignKey(Banca, on_delete=models.CASCADE, related_name='ciclos_avaliacao')
     nome        = models.CharField(max_length=200)
-    periodo_inicio = models.DateField()
+    periodo_inicio = models.DateField(db_index=True)
     periodo_fim = models.DateField()
     estado      = models.CharField(max_length=10, choices=ESTADOS, default='Aberto')
     criado_em   = models.DateTimeField(auto_now_add=True)
@@ -783,7 +948,8 @@ class CicloAvaliacao(models.Model):
         validate_date_range(self.periodo_inicio, self.periodo_fim, "Período de Início", "Período de Fim")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get('update_fields'):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -791,7 +957,7 @@ class MetricaAvaliacao(models.Model):
     ciclo = models.ForeignKey(CicloAvaliacao, on_delete=models.CASCADE, related_name='metricas')
     nome = models.CharField(max_length=100)
     descricao = models.CharField(max_length=255, blank=True, default='')
-    ordem = models.PositiveSmallIntegerField(default=0)
+    ordem = models.PositiveSmallIntegerField(default=0, db_index=True)
 
     class Meta:
         db_table = 'rh_metricas_avaliacao'
@@ -835,7 +1001,7 @@ class Avaliacao(models.Model):
 
     @property
     def classificacao(self):
-        n = float(self.nota_global)
+        n = float(str(self.nota_global))
         if n >= 4.5: return ('Excelente', 'green')
         if n >= 3.5: return ('Bom', 'blue')
         if n >= 2.5: return ('Satisfatório', 'amber')

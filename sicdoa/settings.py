@@ -7,7 +7,9 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Segurança
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-joracc_k%opc%9(*5+%h%3-=es6u1-26o0q+*kby7b=d$!shm3')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError('SECRET_KEY environment variable is required')
 
 DEBUG = True
 ALLOWED_HOSTS = ['*']
@@ -61,6 +63,7 @@ TEMPLATES = [
         'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': False,
         'OPTIONS': {
+            'builtins': ['rh.templatetags.rh_extras'],
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
@@ -248,9 +251,9 @@ EMAIL_TIMEOUT = 30
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
 
 # LiveKit — videoconferência para plenário virtual
-LIVEKIT_URL = os.environ.get('LIVEKIT_URL', 'wss://sicdoa-tis9fow6.livekit.cloud')
-LIVEKIT_API_KEY = os.environ.get('LIVEKIT_API_KEY', 'APIKRrpXavczgjH')
-LIVEKIT_API_SECRET = os.environ.get('LIVEKIT_API_SECRET', 'yRfV6e8F2zEmt7feDe88nVrELb1mWQNzXRVt1xdkfViG')
+LIVEKIT_URL = os.environ.get('LIVEKIT_URL', '')
+LIVEKIT_API_KEY = os.environ.get('LIVEKIT_API_KEY', '')
+LIVEKIT_API_SECRET = os.environ.get('LIVEKIT_API_SECRET', '')
 
 # ── Celery (tarefas assíncronas) ───────────────────────────────────
 if REDIS_ENABLED:

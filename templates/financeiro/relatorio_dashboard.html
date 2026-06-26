@@ -139,6 +139,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
+function fmtDash(v) {
+  if (v == null || isNaN(v)) return '';
+  var p = Number(v).toFixed(2).split('.'), i = p[0], d = p[1], g = [];
+  while (i.length > 3) { g.unshift(i.slice(-3)); i = i.slice(0, -3); }
+  if (i.length > 0) g.unshift(i);
+  return (g.join(' ') || '0') + ',' + d;
+}
 document.addEventListener('DOMContentLoaded', function() {
   fetch('{% url 'financeiro:relatorio_dashboard_json' %}')
     .then(r => r.json())
@@ -152,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
         plugins: { legend: { labels: { color: textColor, font: { size: 11 } } } },
         scales: {
           x: { ticks: { color: textColor }, grid: { color: gridColor } },
-          y: { ticks: { color: textColor, callback: v => v.toLocaleString() }, grid: { color: gridColor } }
+          y: { ticks: { color: textColor, callback: function(v) { return fmtDash(v); } }, grid: { color: gridColor } }
         }
       };
       const c1 = document.getElementById('chartFaturacao');
@@ -207,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
           indexAxis: 'y',
           plugins: { legend: { display: false } },
           scales: {
-            x: { ticks: { color: textColor, callback: v => v.toLocaleString() }, grid: { color: gridColor } },
+            x: { ticks: { color: textColor, callback: function(v) { return fmtDash(v); } }, grid: { color: gridColor } },
             y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
           }
         }

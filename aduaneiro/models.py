@@ -6,6 +6,10 @@ from django.db import models
 
 
 class DeclaracaoUnica(models.Model):
+    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE, related_name='declaracoes',
+                               null=True, blank=True)
+    filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
+                                null=True, blank=True, related_name='declaracoes')
     """
     Declaração Única (DU).
     Mapeada para a tabela `declaracoes_unicas` já existente no MySQL.
@@ -22,27 +26,27 @@ class DeclaracaoUnica(models.Model):
     ]
 
     # ── Campos originais da tabela ────────────────────────────────────────────
-    numero_du            = models.CharField(max_length=50, blank=True, null=True, unique=True)
-    processo_id          = models.IntegerField(null=True, blank=True)   # FK removida — DU pode existir sem processo
-    nif_declarante       = models.CharField(max_length=50, blank=True, default='')
-    nome_declarante      = models.CharField(max_length=200, blank=True, default='')
+    numero_du            = models.CharField(max_length=50, blank=True, default='', unique=True)
+    processo_id          = models.IntegerField(null=True, blank=True, db_index=True)   # FK removida — DU pode existir sem processo
+    nif_declarante       = models.CharField(max_length=50, blank=True, default='', db_index=True)
+    nome_declarante      = models.CharField(max_length=200, blank=True, default='', db_index=True)
     endereco_declarante  = models.TextField(blank=True, null=True)
-    regime_aduaneiro     = models.CharField(max_length=100, blank=True, default='')
-    codigo_pautal        = models.CharField(max_length=20, blank=True, default='')
+    regime_aduaneiro     = models.CharField(max_length=100, blank=True, default='', db_index=True)
+    codigo_pautal        = models.CharField(max_length=20, blank=True, default='', db_index=True)
     descricao_mercadoria = models.TextField(blank=True, null=True)
     quantidade           = models.IntegerField(default=0)
     peso_bruto           = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     peso_liquido         = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     valor_fob            = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    valor_frete          = models.DecimalField(max_digits=15, decimal_places=2, default=0, null=True)
-    valor_seguro         = models.DecimalField(max_digits=15, decimal_places=2, default=0, null=True)
+    valor_frete          = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    valor_seguro         = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     valor_cif            = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    direitos_aduaneiros  = models.DecimalField(max_digits=15, decimal_places=2, default=0, null=True)
-    iva                  = models.DecimalField(max_digits=15, decimal_places=2, default=0, null=True)
-    imposto_consumo      = models.DecimalField(max_digits=15, decimal_places=2, default=0, null=True)
-    emolumentos          = models.DecimalField(max_digits=15, decimal_places=2, default=0, null=True)
-    total_impostos       = models.DecimalField(max_digits=15, decimal_places=2, default=0, null=True)
-    pais_origem          = models.CharField(max_length=100, blank=True, null=True)
+    direitos_aduaneiros  = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    iva                  = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    imposto_consumo      = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    emolumentos          = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_impostos       = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    pais_origem          = models.CharField(max_length=100, blank=True, null=True, db_index=True)
     porto_embarque       = models.CharField(max_length=100, blank=True, null=True)
     porto_desembarque    = models.CharField(max_length=100, blank=True, null=True)
     meio_transporte      = models.CharField(max_length=50, blank=True, null=True)
@@ -55,7 +59,7 @@ class DeclaracaoUnica(models.Model):
 
     # ── Campos adicionados via migração ───────────────────────────────────────
     du_uuid           = models.CharField(max_length=36, blank=True, default='', db_index=True, db_column='du_uuid')
-    codigo_processo   = models.CharField(max_length=8, blank=True, null=True, unique=True)  # 8 dígitos, único, gerado automaticamente
+    codigo_processo   = models.CharField(max_length=8, blank=True, default='', unique=True)  # 8 dígitos, único, gerado automaticamente
     ref_despachante   = models.CharField(max_length=100, blank=True, default='')
     exportador_nome  = models.CharField(max_length=200, blank=True, default='')
     destinatario_nome = models.CharField(max_length=200, blank=True, default='')

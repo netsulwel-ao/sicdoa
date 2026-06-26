@@ -43,20 +43,20 @@
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saldo Inicial</p>
-          <p class="text-2xl font-bold mt-2 text-gray-900 dark:text-gray-100">{{ indicadores.saldo_inicial|floatformat:2 }} Kz</p>
+          <p class="text-2xl font-bold mt-2 text-gray-900 dark:text-gray-100">{{ indicadores.saldo_inicial|fmtkz }} Kz</p>
         </div>
         <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Débitos</p>
-          <p class="text-2xl font-bold mt-2 text-red-600 dark:text-red-400">{{ indicadores.total_debitos|floatformat:2 }} Kz</p>
+          <p class="text-2xl font-bold mt-2 text-red-600 dark:text-red-400">{{ indicadores.total_debitos|fmtkz }} Kz</p>
         </div>
         <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Créditos</p>
-          <p class="text-2xl font-bold mt-2 text-green-600 dark:text-green-400">{{ indicadores.total_creditos|floatformat:2 }} Kz</p>
+          <p class="text-2xl font-bold mt-2 text-green-600 dark:text-green-400">{{ indicadores.total_creditos|fmtkz }} Kz</p>
         </div>
         <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saldo Actual</p>
           <p class="text-2xl font-bold mt-2 {% if indicadores.saldo_atual >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
-            {{ indicadores.saldo_atual|floatformat:2 }} Kz
+            {{ indicadores.saldo_atual|fmtkz }} Kz
           </p>
         </div>
       </div>
@@ -130,10 +130,10 @@
             <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ m.descricao }}</p>
           </div>
           <div class="text-right font-medium text-red-600 dark:text-red-400">
-            {% if m.debito %}{{ m.debito|floatformat:2 }}{% endif %}
+            {% if m.debito %}{{ m.debito|fmtkz }}{% endif %}
           </div>
           <div class="text-right font-medium text-green-600 dark:text-green-400">
-            {% if m.credito %}{{ m.credito|floatformat:2 }}{% endif %}
+            {% if m.credito %}{{ m.credito|fmtkz }}{% endif %}
           </div>
           <div class="flex justify-center">
             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold

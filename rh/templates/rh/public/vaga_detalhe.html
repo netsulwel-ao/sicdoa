@@ -290,7 +290,7 @@
     <script>
         // Share functionality
         function shareJob() {
-            const title = '{{ vaga.titulo }}';
+            const title = '{{ vaga.titulo|escapejs }}';
             const url = window.location.href;
             
             if (navigator.share) {
