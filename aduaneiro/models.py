@@ -26,7 +26,7 @@ class DeclaracaoUnica(models.Model):
     ]
 
     # ── Campos originais da tabela ────────────────────────────────────────────
-    numero_du            = models.CharField(max_length=50, blank=True, default='', unique=True)
+    numero_du            = models.CharField(max_length=50, blank=True, default='', null=True, unique=True)
     processo_id          = models.IntegerField(null=True, blank=True, db_index=True)   # FK removida — DU pode existir sem processo
     nif_declarante       = models.CharField(max_length=50, blank=True, default='', db_index=True)
     nome_declarante      = models.CharField(max_length=200, blank=True, default='', db_index=True)

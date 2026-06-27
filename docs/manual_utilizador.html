@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SICDOA - Manual do Utilizador</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        :root {
+            --primary: #137fec;
+            --primary-dark: #0a5fc7;
+            --primary-deeper: #003366;
+            --secondary: #D4AF37;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --bg-light: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-dark: #0f1117;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --radius: 0.75rem;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg-light);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* ── Cover / Hero ── */
+        .cover {
+            background: linear-gradient(135deg, var(--primary-deeper) 0%, var(--primary-dark) 50%, var(--primary) 100%);
+            color: #fff;
+            padding: 4rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .cover::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(212,175,55,0.08) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .cover-badge {
+            display: inline-block;
+            padding: 0.4rem 1.2rem;
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+        }
+        .cover h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.75rem;
+            position: relative;
+        }
+        .cover h1 span { color: var(--secondary); }
+        .cover p {
+            font-size: 1.125rem;
+            opacity: 0.85;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+        .cover-meta {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+        .cover-meta i { margin-right: 0.4rem; }
+
+        /* ── Container ── */
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* ── Navigation (sidebar) ── */
+        .nav-toggle {
+            display: none;
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 100;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            font-size: 1.25rem;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(19,127,236,0.35);
+            transition: all 0.2s;
+        }
+        .nav-toggle:hover { transform: scale(1.08); }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            background: #fff;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            z-index: 50;
+            padding: 1.5rem 0;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .sidebar.open { transform: translateX(0); }
+
+        .sidebar-brand {
+            padding: 0 1.5rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        .sidebar-brand h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary-deeper);
+        }
+        .sidebar-brand h2 i { color: var(--primary); margin-right: 0.4rem; }
+        .sidebar-brand small {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .sidebar nav a {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 1.5rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s;
+            border-left: 3px solid transparent;
+        }
+        .sidebar nav a:hover,
+        .sidebar nav a.active {
+            background: rgba(19,127,236,0.06);
+            color: var(--primary);
+            border-left-color: var(--primary);
+        }
+        .sidebar nav a i {
+            width: 1.25rem;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .sidebar nav .section-label {
+            padding: 1rem 1.5rem 0.4rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+
+        /* ── Main Content ── */
+        .main { margin-left: 280px; }
+
+        section {
+            padding: 3rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        section:last-child { border-bottom: none; }
+
+        .section-header {
+            margin-bottom: 2rem;
+        }
+        .section-header .section-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+        .section-header h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+        .section-header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 1.75rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: box-shadow 0.2s;
+        }
+        .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        .card h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .card h3 i { color: var(--primary); font-size: 1rem; }
+        .card p, .card li { color: var(--text-secondary); font-size: 0.9rem; }
+        .card ul, .card ol { padding-left: 1.25rem; }
+        .card li { margin-bottom: 0.4rem; }
+
+        /* ── Steps ── */
+        .step-list { counter-reset: step; }
+        .step-item-card {
+            counter-increment: step;
+            display: flex;
+            gap: 1rem;
+            padding: 1.25rem;
+            margin-bottom: 0.75rem;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: all 0.2s;
+        }
+        .step-item-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px rgba(19,127,236,0.08);
+        }
+        .step-item-card .step-num {
+            flex-shrink: 0;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.5rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .step-item-card .step-body { flex: 1; min-width: 0; }
+        .step-item-card .step-body strong {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            margin-bottom: 0.2rem;
+        }
+        .step-item-card .step-body span {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* ── Tips / Alerts ── */
+        .tip {
+            display: flex;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius);
+            margin: 1rem 0;
+            font-size: 0.875rem;
+        }
+        .tip i { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.1rem; }
+        .tip-info {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+        .tip-info i { color: var(--primary); }
+        .tip-success {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+            color: #166534;
+        }
+        .tip-success i { color: var(--success); }
+        .tip-warning {
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+        .tip-warning i { color: var(--warning); }
+
+        /* ── Table of Contents ── */
+        .toc {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+        .toc h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+        .toc a {
+            display: block;
+            padding: 0.4rem 0;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border);
+            transition: color 0.15s;
+        }
+        .toc a:last-child { border-bottom: none; }
+        .toc a:hover { color: var(--primary); }
+        .toc a .toc-num {
+            display: inline-block;
+            width: 1.6rem;
+            height: 1.6rem;
+            line-height: 1.6rem;
+            text-align: center;
+            border-radius: 0.4rem;
+            background: rgba(19,127,236,0.08);
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+        }
+
+        /* ── Screenshot placeholder ── */
+        .screenshot {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, var(--bg-light) 0%, #eef2f6 100%);
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-lg);
+            margin: 1rem 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .screenshot i { font-size: 1.5rem; }
+
+        /* ── Grid layouts ── */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+        .feature-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .feature-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(19,127,236,0.1);
+        }
+        .feature-card i {
+            font-size: 1.75rem;
+            color: var(--primary);
+            margin-bottom: 0.75rem;
+        }
+        .feature-card h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+        .feature-card p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* ── Table ── */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background: var(--bg-light);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        tr:hover td { background: rgba(19,127,236,0.02); }
+
+        /* ── Footer ── */
+        .footer {
+            margin-left: 280px;
+            padding: 2rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .nav-toggle { display: flex; align-items: center; justify-content: center; }
+            .main { margin-left: 0; }
+            .footer { margin-left: 0; }
+            .cover h1 { font-size: 2rem; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .cover-meta { flex-direction: column; gap: 0.5rem; }
+            .step-item-card { flex-direction: column; }
+            .step-item-card .step-num { align-self: flex-start; }
+        }
+
+        /* Back to top */
+        .back-to-top {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 99;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: #fff;
+            color: var(--primary);
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .back-to-top:hover { background: var(--primary); color: #fff; transform: translateY(-2px); }
+        .back-to-top.visible { display: flex; }
+
+        /* Print */
+        @media print {
+            .sidebar, .nav-toggle, .back-to-top { display: none !important; }
+            .main { margin-left: 0; }
+            .footer { margin-left: 0; }
+            .cover { padding: 2rem; }
+            section { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ─── COVER ─── -->
+<header class="cover">
+    <div class="cover-badge"><i class="fas fa-book-open"></i> Manual do Utilizador</div>
+    <h1>SICDOA <span>—</span> Sistema de Informação da<br>Câmara dos Despachantes</h1>
+    <p>Guia completo para utilização do sistema, com instruções passo a passo para todas as funcionalidades.</p>
+    <div class="cover-meta">
+        <span><i class="fas fa-calendar"></i> Junho 2026</span>
+        <span><i class="fas fa-users"></i> Despachantes, Assistentes e Colaboradores</span>
+        <span><i class="fas fa-shield-alt"></i> Versão 2.0</span>
+    </div>
+</header>
+
+<!-- ─── NAV TOGGLE (mobile) ─── -->
+<button class="nav-toggle" id="navToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+    <i class="fas fa-bars"></i>
+</button>
+
+<!-- ─── SIDEBAR ─── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <h2><i class="fas fa-briefcase"></i> SICDOA</h2>
+        <small>Manual do Utilizador</small>
+    </div>
+    <nav>
+        <div class="section-label">Introdução</div>
+        <a href="#intro" onclick="closeSidebar()"><i class="fas fa-info-circle"></i> Sobre o Sistema</a>
+        <a href="#acesso" onclick="closeSidebar()"><i class="fas fa-sign-in-alt"></i> Acesso ao Sistema</a>
+
+        <div class="section-label">Funcionalidades</div>
+        <a href="#painel" onclick="closeSidebar()"><i class="fas fa-tachometer-alt"></i> Painel Principal</a>
+        <a href="#clientes" onclick="closeSidebar()"><i class="fas fa-users"></i> Gestão de Clientes</a>
+        <a href="#du" onclick="closeSidebar()"><i class="fas fa-file-alt"></i> Declaração Única (DU)</a>
+        <a href="#quotes" onclick="closeSidebar()"><i class="fas fa-coins"></i> Quotas</a>
+        <a href="#financeiro" onclick="closeSidebar()"><i class="fas fa-chart-line"></i> Gestão Financeira</a>
+        <a href="#assembleias" onclick="closeSidebar()"><i class="fas fa-vote-yea"></i> Assembleias e Votações</a>
+        <a href="#reunioes" onclick="closeSidebar()"><i class="fas fa-video"></i> Reuniões Online</a>
+        <a href="#rh" onclick="closeSidebar()"><i class="fas fa-id-badge"></i> Recursos Humanos</a>
+
+        <div class="section-label">Configurações</div>
+        <a href="#perfil" onclick="closeSidebar()"><i class="fas fa-user-cog"></i> Perfil e Definições</a>
+        <a href="#faq" onclick="closeSidebar()"><i class="fas fa-question-circle"></i> Perguntas Frequentes</a>
+    </nav>
+</aside>
+
+<!-- ─── MAIN CONTENT ─── -->
+<div class="main">
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INTRODUÇÃO -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="intro">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <h2>Sobre o Sistema</h2>
+                <p>O que é o SICDOA e como pode ajudá-lo no seu dia a dia.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-cube"></i> O que é o SICDOA?</h3>
+                <p>O SICDOA (Sistema de Informação da Câmara dos Despachantes Oficiais de Angola) é uma plataforma online que centraliza todas as atividades dos Despachantes, desde a gestão de clientes e declarações até à participação em assembleias e reuniões virtuais.</p>
+                <p>Com o SICDOA, pode:</p>
+                <ul>
+                    <li>Registar e acompanhar os seus clientes e respetivas declarações</li>
+                    <li>Criar e submeter a Declaração Única (DU) de forma simplificada</li>
+                    <li>Consultar o estado das suas quotas e emitir recibos</li>
+                    <li>Participar em assembleias e votações da Câmara</li>
+                    <li>Aderir a reuniões online com outros Despachantes</li>
+                </ul>
+            </div>
+
+            <div class="grid-2">
+                <div class="feature-card">
+                    <i class="fas fa-bolt"></i>
+                    <h4>Rápido e Simples</h4>
+                    <p>Interface moderna e intuitiva, com formulários inteligentes que se adaptam à sua navegação.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-lock"></i>
+                    <h4>Seguro e Confiável</h4>
+                    <p>Todos os seus dados são protegidos com os mais elevados padrões de segurança.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- ACESSO -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="acesso">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <h2>Acesso ao Sistema</h2>
+                <p>Como entrar no sistema e resolver problemas de acesso.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-sign-in-alt"></i> Iniciar Sessão</h3>
+                <div class="step-list">
+                    <div class="step-item-card">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <strong>Abra o navegador</strong>
+                            <span>Utilize o Google Chrome, Microsoft Edge ou Mozilla Firefox para aceder ao sistema.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <strong>Aceda ao endereço do sistema</strong>
+                            <span>Digite o endereço fornecido pela Câmara na barra de endereços do navegador.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <strong>Introduza o seu email</strong>
+                            <span>Digite o endereço de email que registou na Câmara dos Despachantes.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">4</div>
+                        <div class="step-body">
+                            <strong>Introduza a sua senha</strong>
+                            <span>Digite a sua senha pessoal e clique em "Entrar".</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-key"></i> Primeiro Acesso / Recuperar Senha</h3>
+                <p>Se é a primeira vez que acede ao sistema ou se esqueceu a sua senha:</p>
+                <div class="step-list">
+                    <div class="step-item-card">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <strong>Clique em "Recuperar Senha"</strong>
+                            <span>No ecrã de login, clique na opção "Esqueceu-se da senha?".</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <strong>Digite o seu email</strong>
+                            <span>Receberá um email com as instruções para definir a sua nova senha.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <strong>Crie uma senha segura</strong>
+                            <span>Escolha uma senha com pelo menos 8 caracteres, incluindo letras e números.</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tip tip-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>A sua senha é pessoal e intransmissível. Nunca partilhe a sua senha com ninguém.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-sign-out-alt"></i> Terminar Sessão</h3>
+                <p>Para sair do sistema em segurança, clique no seu nome no canto superior direito e selecione "Terminar Sessão". Recomendamos que termine sempre a sessão em equipamentos partilhados.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- PAINEL PRINCIPAL -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="painel">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <h2>Painel Principal</h2>
+                <p>Vista geral do sistema com as informações mais importantes.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-tachometer-alt"></i> O seu painel de controlo</h3>
+                <p>Assim que inicia sessão, o Painel Principal mostra-lhe um resumo de tudo o que precisa de saber:</p>
+                <ul>
+                    <li><strong>Clientes ativos</strong> — número total de clientes registados</li>
+                    <li><strong>Declarações pendentes</strong> — declarações que aguardam a sua ação</li>
+                    <li><strong>Estado das quotas</strong> — situação atual das suas quotas</li>
+                    <li><strong>Notificações</strong> — avisos importantes sobre prazos e eventos</li>
+                    <li><strong>Declarações recentes</strong> — últimas declarações submetidas e o seu estado</li>
+                </ul>
+            </div>
+
+            <div class="tip tip-info">
+                <i class="fas fa-lightbulb"></i>
+                <div>O Painel Principal é personalizável: pode reorganizar os widgets de acordo com as suas preferências através do botão <i class="fas fa-cog"></i> no canto superior direito.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- CLIENTES -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="clientes">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <h2>Gestão de Clientes</h2>
+                <p>Registe e acompanhe todos os seus clientes num só lugar.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-user-plus"></i> Registar um Novo Cliente</h3>
+                <div class="step-list">
+                    <div class="step-item-card">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <strong>Aceda a "Clientes"</strong>
+                            <span>No menu lateral, clique em "Clientes" e depois em "Adicionar Cliente".</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <strong>Preencha os dados do cliente</strong>
+                            <span>Nome, NIF, morada, contacto telefónico e email. Os campos assinalados com * são obrigatórios.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <strong>Clique em "Guardar"</strong>
+                            <span>O cliente fica registado e pode começar a criar declarações para ele.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-search"></i> Consultar e Editar Clientes</h3>
+                <p>Na lista de clientes, pode:</p>
+                <ul>
+                    <li><strong>Procurar</strong> — digite o nome ou NIF na barra de pesquisa para encontrar rapidamente um cliente</li>
+                    <li><strong>Filtrar</strong> — use os filtros disponíveis para organizar a lista por ordem alfabética, data de registo, etc.</li>
+                    <li><strong>Editar</strong> — clique no nome do cliente para ver os detalhes e editar as informações</li>
+                    <li><strong>Portal do Cliente</strong> — envie um convite ao cliente para que ele possa acompanhar o estado das suas declarações online</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- DECLARAÇÃO ÚNICA (DU) -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="du">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">5</div>
+                <h2>Declaração Única (DU)</h2>
+                <p>Crie e submeta a Declaração Única de forma simples e organizada.</p>
+            </div>
+
+            <div class="tip tip-info">
+                <i class="fas fa-info-circle"></i>
+                <div>A Declaração Única (DU) é o documento principal do sistema, utilizado para registar operações de importação e exportação.</div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-file-alt"></i> Criar uma Nova DU</h3>
+                <div class="step-list">
+                    <div class="step-item-card">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <strong>Aceda a "Declaração Única"</strong>
+                            <span>No menu lateral, clique em "DU" e depois em "Nova Declaração".</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <strong>Selecione o cliente</strong>
+                            <span>Escolha o cliente para o qual deseja criar a declaração.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <strong>Preencha os passos do formulário</strong>
+                            <span>O formulário está dividido em etapas: Dados Gerais, Mercadoria, Contentores, Taxas e Valores. Navegue entre elas usando os botões "Seguinte" e "Anterior".</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">4</div>
+                        <div class="step-body">
+                            <strong>Reveja e Submeta</strong>
+                            <span>Na última etapa, reveja todos os dados preenchidos e clique em "Submeter".</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3><i class="fas fa-tasks"></i> Estado da Declaração</h3>
+                    <p>Cada DU pode apresentar um dos seguintes estados:</p>
+                    <ul>
+                        <li><span style="color:var(--warning);font-weight:600;">Pendente</span> — aguarda revisão ou ação</li>
+                        <li><span style="color:var(--success);font-weight:600;">Aprovada</span> — foi aceite e está em processamento</li>
+                        <li><span style="color:var(--error);font-weight:600;">Rejeitada</span> — necessita de correções</li>
+                        <li><span style="color:var(--text-muted);font-weight:600;">Rascunho</span> — ainda não foi submetida</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-history"></i> Histórico e Arquivamento</h3>
+                    <p>Todas as declarações submetidas ficam guardadas no histórico. Pode consultar, imprimir ou reabrir uma declaração anterior sempre que necessário.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-file-pdf"></i> Imprimir / Exportar DU</h3>
+                <p>Em qualquer declaração, encontra os botões:</p>
+                <ul>
+                    <li><strong>Imprimir</strong> — abre uma versão pronta para impressão da declaração</li>
+                    <li><strong>Exportar PDF</strong> — gera um ficheiro PDF para guardar ou enviar por email</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- QUOTAS -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="quotes">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">6</div>
+                <h2>Gestão de Quotas</h2>
+                <p>Consulte o estado das suas quotas e emita recibos.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-search-dollar"></i> Consultar o Estado das Quotas</h3>
+                <div class="step-list">
+                    <div class="step-item-card">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <strong>Aceda a "Quotas"</strong>
+                            <span>No menu lateral, clique em "Quotas".</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <strong>Veja o resumo</strong>
+                            <span>O ecrã mostra o valor total, o montante pago e o saldo em aberto.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <strong>Consulte o histórico</strong>
+                            <span>Pode ver o histórico de pagamentos e emitir recibos dos valores já pagos.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-receipt"></i> Emitir Recibo</h3>
+                <p>Para cada quota paga, pode emitir um recibo oficial com o logótipo da Câmara. Basta clicar no botão "Emitir Recibo" ao lado do pagamento correspondente.</p>
+            </div>
+
+            <div class="tip tip-success">
+                <i class="fas fa-check-circle"></i>
+                <div>Mantenha as suas quotas em dia para ter acesso a todas as funcionalidades do sistema e participar nas assembleias.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- GESTÃO FINANCEIRA -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="financeiro">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">7</div>
+                <h2>Gestão Financeira</h2>
+                <p>Faturas, recibos e documentos financeiros num só local.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-file-invoice"></i> Faturas e Notas de Crédito</h3>
+                <p>Na área financeira, pode:</p>
+                <ul>
+                    <li><strong>Emitir faturas</strong> — crie faturas para os seus clientes de forma rápida</li>
+                    <li><strong>Notas de Crédito</strong> — emita notas de crédito para anular ou corrigir faturas</li>
+                    <li><strong>Consulta de documentos</strong> — encontre qualquer documento pelo número, data ou cliente</li>
+                    <li><strong>Imprimir / PDF</strong> — imprima ou exporte documentos no formato PDF</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-chart-bar"></i> Relatórios Financeiros</h3>
+                <p>O sistema disponibiliza relatórios financeiros que pode filtrar por período: relatório de faturas emitidas, recibos emitidos, saldos e movimentos. Todos os relatórios podem ser exportados para Excel ou PDF.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- ASSEMBLEIAS E VOTAÇÕES -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="assembleias">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">8</div>
+                <h2>Assembleias e Votações</h2>
+                <p>Participe nas assembleias e exerça o seu direito de voto.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-calendar-check"></i> Participar numa Assembleia</h3>
+                <div class="step-list">
+                    <div class="step-item-card">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <strong>Aceda a "Assembleias"</strong>
+                            <span>No menu lateral, clique em "Assembleias" para ver a lista de assembleias agendadas.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <strong>Confirme a sua presença</strong>
+                            <span>Clique no botão "Confirmar Presença" para registar a sua participação.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <strong>Acompanhe a assembleia</strong>
+                            <span>No dia e hora marcados, aceda à assembleia através do link disponível na página.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3><i class="fas fa-vote-yea"></i> Como Votar</h3>
+                    <ol>
+                        <li>Durante a assembleia, quando uma votação for aberta, aparecerá um painel de votação</li>
+                        <li>Escolha a sua opção: <strong>Favor</strong>, <strong>Contra</strong> ou <strong>Abstenção</strong></li>
+                        <li>O seu voto é registado de forma segura e anónima</li>
+                        <li>Após confirmar, verá o resultado da sua votação</li>
+                    </ol>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-poll"></i> Resultados em Direto</h3>
+                    <p>Os resultados das votações são apresentados em tempo real durante a assembleia, com barras de progresso que mostram a distribuição dos votos.</p>
+                </div>
+            </div>
+
+            <div class="tip tip-info">
+                <i class="fas fa-clock"></i>
+                <div>As notificações de novas assembleias são enviadas por email com a devida antecedência. Mantenha o seu email atualizado nas definições do perfil.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- REUNIÕES ONLINE -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="reunioes">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">9</div>
+                <h2>Reuniões Online</h2>
+                <p>Participe em reuniões virtuais com outros Despachantes.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-video"></i> Aderir a uma Reunião</h3>
+                <div class="step-list">
+                    <div class="step-item-card">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <strong>Aceda a "Reuniões"</strong>
+                            <span>No menu lateral, clique em "Reuniões" para ver as reuniões agendadas.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <strong>Clique em "Aderir"</strong>
+                            <span>No momento da reunião, clique no botão "Aderir" ao lado da reunião desejada.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <strong>Permita o acesso ao microfone e câmara</strong>
+                            <span>O navegador pedirá autorização para usar o microfone e a câmara. Clique em "Permitir".</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-microphone"></i> Controlos da Reunião</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Controlo</th>
+                                <th>Ícone</th>
+                                <th>O que faz</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Microfone</td>
+                                <td><i class="fas fa-microphone" style="color:var(--success);"></i></td>
+                                <td>Liga/desliga o som do seu microfone</td>
+                            </tr>
+                            <tr>
+                                <td>Câmara</td>
+                                <td><i class="fas fa-video" style="color:var(--success);"></i></td>
+                                <td>Liga/desliga a sua câmara de vídeo</td>
+                            </tr>
+                            <tr>
+                                <td>Ecrã</td>
+                                <td><i class="fas fa-desktop"></i></td>
+                                <td>Partilha o seu ecrã com os participantes</td>
+                            </tr>
+                            <tr>
+                                <td>Mão</td>
+                                <td><i class="fas fa-hand-paper"></i></td>
+                                <td>Levanta a mão para pedir a palavra</td>
+                            </tr>
+                            <tr>
+                                <td>Chat</td>
+                                <td><i class="fas fa-comment-dots"></i></td>
+                                <td>Abre o chat para enviar mensagens</td>
+                            </tr>
+                            <tr>
+                                <td>Sair</td>
+                                <td><i class="fas fa-phone-slash" style="color:var(--error);"></i></td>
+                                <td>Termina a sua participação na reunião</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tip tip-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>Para uma melhor experiência, utilize uma ligação à internet estável e use auscultadores para evitar eco.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- RECURSOS HUMANOS -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="rh">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">10</div>
+                <h2>Recursos Humanos</h2>
+                <p>Gestão de colaboradores da sua empresa.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-user-friends"></i> Colaboradores</h3>
+                <p>Na secção de Recursos Humanos, pode gerir os colaboradores da sua empresa (Despachantes e Assistentes):</p>
+                <ul>
+                    <li><strong>Adicionar Colaborador</strong> — registe novos colaboradores com os respetivos dados pessoais e profissionais</li>
+                    <li><strong>Atribuir Funções</strong> — defina o cargo e as permissões de cada colaborador</li>
+                    <li><strong>Consultar</strong> — veja a lista completa de colaboradores e os seus contactos</li>
+                    <li><strong>Editar</strong> — atualize os dados de qualquer colaborador sempre que necessário</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-user-tag"></i> Tipos de Utilizador</h3>
+                <p>Cada colaborador pode ter um perfil diferente:</p>
+                <ul>
+                    <li><strong>Despachante</strong> — acesso completo a todas as funcionalidades do sistema</li>
+                    <li><strong>Assistente</strong> — acesso às funcionalidades de gestão, mas com algumas restrições</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- PERFIL -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="perfil">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">11</div>
+                <h2>Perfil e Definições</h2>
+                <p>Personalize a sua experiência no sistema.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-user-edit"></i> Editar o seu Perfil</h3>
+                <div class="step-list">
+                    <div class="step-item-card">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <strong>Clique no seu nome</strong>
+                            <span>No canto superior direito, clique no seu nome e depois em "O Meu Perfil".</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <strong>Atualize os seus dados</strong>
+                            <span>Pode alterar o seu nome, email, contacto telefónico e fotografia de perfil.</span>
+                        </div>
+                    </div>
+                    <div class="step-item-card">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <strong>Guardar alterações</strong>
+                            <span>Clique em "Guardar" para confirmar as alterações.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-key"></i> Alterar Senha</h3>
+                <p>No seu perfil, existe a opção "Alterar Senha". Para alterar a sua senha de acesso:</p>
+                <ol>
+                    <li>Digite a sua senha atual</li>
+                    <li>Digite a nova senha (mínimo 8 caracteres)</li>
+                    <li>Confirme a nova senha</li>
+                    <li>Clique em "Alterar Senha"</li>
+                </ol>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-palette"></i> Modo Escuro / Claro</h3>
+                <p>O sistema permite alternar entre o modo claro (fundo branco) e o modo escuro (fundo escuro) para uma leitura mais confortável. Encontre o botão de alternância no canto superior direito do ecrã.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- FAQ -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section id="faq">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number">12</div>
+                <h2>Perguntas Frequentes</h2>
+                <p>Respostas às dúvidas mais comuns.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> Não consigo iniciar sessão. O que faço?</h3>
+                <p>Verifique se o email e a senha estão corretos. Se o problema persistir, clique em "Esqueceu-se da senha?" para redefinir a sua senha. Se ainda assim não conseguir, contacte o suporte técnico.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> O sistema aparece em branco ou não carrega.</h3>
+                <p>Experimente limpar a cache do navegador (Chrome: Definições > Privacidade e Segurança > Limpar dados de navegação) ou tente utilizar outro navegador (Chrome, Edge ou Firefox).</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> Como crio uma Declaração Única?</h3>
+                <p>Aceda ao menu "Declaração Única" e clique em "Nova Declaração". Siga os passos do formulário: selecione o cliente, preencha os dados da mercadoria, contentores e valores. No final, clique em "Submeter". Consulte a secção 5 deste manual para mais detalhes.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> O que significa cada estado da DU?</h3>
+                <ul>
+                    <li><strong>Rascunho</strong> — ainda está a preencher a declaração, ainda não foi submetida</li>
+                    <li><strong>Pendente</strong> — já submeteu a declaração e ela aguarda análise</li>
+                    <li><strong>Aprovada</strong> — a declaração foi aceite e está a ser processada</li>
+                    <li><strong>Rejeitada</strong> — a declaração foi recusada e precisa de correções</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> Como participo numa votação?</h3>
+                <p>Durante uma assembleia, quando a votação for aberta, aparecerá um painel no ecrã com as opções "Favor", "Contra" e "Abstenção". Escolha a sua opção e confirme o voto. O voto é registado de forma segura.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> O microfone ou a câmara não funcionam na reunião.</h3>
+                <p>Verifique se permitiu o acesso ao microfone e câmara quando o navegador pediu autorização. Se já negou a permissão, terá de a reativar nas definições do navegador (no ícone do cadeado ao lado do endereço do site).</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> Como emito um recibo de quota?</h3>
+                <p>Aceda a "Quotas", encontre o pagamento na lista e clique em "Emitir Recibo". O recibo será gerado em PDF e pode ser impresso ou guardado.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> Posso aceder ao sistema pelo telemóvel?</h3>
+                <p>Sim, o sistema foi desenvolvido com tecnologia responsiva e adapta-se a qualquer ecrã, incluindo smartphones e tablets. Pode aceder através do navegador do seu dispositivo móvel.</p>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-question-circle"></i> Como atualizo os meus dados de contacto?</h3>
+                <p>Clique no seu nome no canto superior direito, selecione "O Meu Perfil", edite os campos desejados e clique em "Guardar".</p>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<!-- ─── FOOTER ─── -->
+<div class="footer">
+    <p>&copy; 2026 Câmara dos Despachantes Oficiais de Angola &mdash; SICDOA v2.0</p>
+    <p style="margin-top:0.25rem;">Este manual é um documento vivo. Para sugestões de melhoria, contacte o suporte técnico.</p>
+</div>
+
+<!-- ─── BACK TO TOP ─── -->
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+    <i class="fas fa-arrow-up"></i>
+</button>
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+    // Sidebar close on mobile
+    function closeSidebar() {
+        const s = document.getElementById('sidebar');
+        if (window.innerWidth <= 768) s.classList.remove('open');
+    }
+
+    // Back to top visibility
+    const btt = document.getElementById('backToTop');
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 400) btt.classList.add('visible');
+        else btt.classList.remove('visible');
+    });
+
+    // Active section highlighting in sidebar
+    const sections = document.querySelectorAll('section[id]');
+    const links = document.querySelectorAll('.sidebar nav a[href^="#"]');
+    window.addEventListener('scroll', function() {
+        let current = '';
+        sections.forEach(function(section) {
+            const top = section.getBoundingClientRect().top;
+            if (top <= 120) current = section.getAttribute('id');
+        });
+        links.forEach(function(link) {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+        });
+    });
+</script>
+
+</body>
+</html>

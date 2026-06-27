@@ -126,6 +126,21 @@ function goToStep(step) {
   }
 }
 
+function _fieldLabel(field) {
+  const labelEl = field.closest('.form-field')?.querySelector('label');
+  if (labelEl) {
+    const txt = labelEl.textContent.replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, '').trim();
+    if (txt) return txt;
+  }
+  const ph = field.placeholder?.trim();
+  if (ph) return ph;
+  if (field.name) {
+    const m = field.name.match(/adicao\[\d+\]\[(.+)\]/);
+    return m ? m[1] : field.name;
+  }
+  return 'Campo obrigatório';
+}
+
 function validateCurrentStep() {
   const currentStepElement = document.querySelector(`.form-step-modern[data-step="${currentStep}"]`);
   if (!currentStepElement) return true;
@@ -133,14 +148,32 @@ function validateCurrentStep() {
   const requiredFields = currentStepElement.querySelectorAll('[required]');
   
   for (let field of requiredFields) {
-    if (!field.value.trim()) {
-      showError('Por favor, preencha todos os campos obrigatórios antes de continuar');
+    if (field.offsetParent === null) continue;
+    if (typeof field.value !== 'string' || !field.value.trim()) {
+      showError(`Campo obrigatório: ${_fieldLabel(field)}`);
       field.focus();
       field.classList.add('is-invalid');
       return false;
     }
     field.classList.remove('is-invalid');
   }
+
+  const acInputs = currentStepElement.querySelectorAll('.ac-input');
+  for (let field of acInputs) {
+    const wrapper = field.closest('.ac-wrapper');
+    if (!wrapper) continue;
+    const prev = wrapper.previousElementSibling;
+    if (prev && prev.hasAttribute('required')) {
+      const val = field.dataset.value || prev.value;
+      if (!val || !val.trim()) {
+        showError(`Campo obrigatório: ${_fieldLabel(prev)}`);
+        field.focus();
+        field.classList.remove('has-value');
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
@@ -1989,7 +2022,10 @@ function _submeterDU(submeter) {
   // ── Validação client-side antes de enviar ────────────────────────────────
   const errosClient = [];
 
-  const regime = document.getElementById('regime_aduaneiro')?.value?.trim();
+  const regimeEl = document.getElementById('regime_aduaneiro');
+  const regimeWrapper = regimeEl?.nextElementSibling;
+  const regimeAc = regimeWrapper?.classList?.contains('ac-wrapper') ? regimeWrapper.querySelector('.ac-input') : null;
+  const regime = regimeAc?.dataset?.value || regimeEl?.value?.trim();
   if (!regime) errosClient.push('Regime Aduaneiro é obrigatório (Step 1).');
 
   const ref = form.querySelector('[name="ref_despachante"]')?.value?.trim();
@@ -2007,10 +2043,16 @@ function _submeterDU(submeter) {
     } else {
       cards.forEach((card, i) => {
         const n = card.dataset.adicao;
-        const cp = card.querySelector(`[name="adicao[${n}][codigo_pautal]"]`)?.value?.trim();
-        if (!cp) errosClient.push(`Adição ${i + 1}: Código Pautal é obrigatório.`);
-        const po = card.querySelector(`[name="adicao[${n}][pais_origem]"]`)?.value?.trim();
-        if (!po) errosClient.push(`Adição ${i + 1}: País de Origem é obrigatório.`);
+        const cpEl = card.querySelector(`[name="adicao[${n}][codigo_pautal]"]`);
+        const cpWrapper = cpEl?.nextElementSibling;
+        const cpAc = cpWrapper?.classList?.contains('ac-wrapper') ? cpWrapper.querySelector('.ac-input') : null;
+        const cpVal = cpAc?.dataset?.value || cpEl?.value?.trim();
+        if (!cpVal) errosClient.push(`Adição ${i + 1}: Código Pautal é obrigatório.`);
+        const poEl = card.querySelector(`[name="adicao[${n}][pais_origem]"]`);
+        const poWrapper = poEl?.nextElementSibling;
+        const poAc = poWrapper?.classList?.contains('ac-wrapper') ? poWrapper.querySelector('.ac-input') : null;
+        const poVal = poAc?.dataset?.value || poEl?.value?.trim();
+        if (!poVal) errosClient.push(`Adição ${i + 1}: País de Origem é obrigatório.`);
       });
     }
 
@@ -2028,7 +2070,12 @@ function _submeterDU(submeter) {
   const dados = {};
   const formData = new FormData(form);
   for (const [k, v] of formData.entries()) {
-    if (!k.startsWith('adicao[')) dados[k] = v;
+    if (!k.startsWith('adicao[')) {
+      const el = form.querySelector(`[name="${k}"]`);
+      const wrapper = el?.nextElementSibling;
+      const ac = wrapper?.classList?.contains('ac-wrapper') ? wrapper.querySelector('.ac-input') : null;
+      dados[k] = ac?.dataset?.value || v;
+    }
   }
 
   // Adições — recolher como array
@@ -2039,7 +2086,9 @@ function _submeterDU(submeter) {
     const ad = {};
     card.querySelectorAll('[name]').forEach(el => {
       const nome = el.name.replace(`adicao[${n}][`, '').replace(']', '');
-      ad[nome] = el.value;
+      const wrapper = el.nextElementSibling;
+      const ac = wrapper?.classList?.contains('ac-wrapper') ? wrapper.querySelector('.ac-input') : null;
+      ad[nome] = ac?.dataset?.value || el.value;
     });
     // Converter impostos_json de string para objecto (se existir)
     if (ad.impostos_json) {
