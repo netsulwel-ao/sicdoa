@@ -333,6 +333,11 @@
       // Adicionar local
       adicionarParticipanteLocal();
 
+      // ── Auto-enter PiP mode ────────────────────────────────────
+      // Destacar o primeiro participante remoto em grande,
+      // e colocar o próprio utilizador em miniatura (canto inferior direito)
+      autoEnterPipMode();
+
       // Atualizar layout da grelha
       atualizarGrid();
 
@@ -583,6 +588,7 @@
         (papel ? '<span class="tile-badge">' + papel + '</span>' : '') +
         '<span class="tile-icon tile-mic-icon"><i class="fas fa-microphone"></i></span>' +
       '</div>' +
+      '<div class="pip-hover-label">Clique para alternar</div>' +
       '<button class="tile-pin-btn" title="Fixar" onclick="window.MEET_TOGGLE_PIN(\'' + CSS.escape(identity) + '\')">' +
         '<i class="fas fa-thumbtack"></i>' +
       '</button>' +
@@ -596,6 +602,20 @@
     if (idx >= start && idx < end) {
       tile.style.display = '';
     }
+  }
+
+  // ── Auto PiP ────────────────────────────────────────────────
+  function autoEnterPipMode() {
+    var remoteIds = [];
+    for (var id in state.participantes) {
+      if (!state.participantes[id].isLocal) remoteIds.push(id);
+    }
+    // Só entra em PiP se houver pelo menos um participante remoto
+    if (remoteIds.length === 0) return;
+
+    // Fixar o primeiro remoto → ele fica em grande, o local fica em PiP
+    state.pinnedParticipant = remoteIds[0];
+    console.log('[PiP] Auto-pinned remote:', remoteIds[0]);
   }
 
   // ── PIN / SWAP ────────────────────────────────────────────
@@ -734,6 +754,21 @@
 
     // ── Pinned (PiP) layout ────────────────────────────────────
     console.log('[PiP] atualizarGrid check:', 'pinned=', state.pinnedParticipant, 'count=', count);
+    // Verificar se o pinned ainda existe
+    if (state.pinnedParticipant && !state.participantes[state.pinnedParticipant]) {
+      console.log('[PiP] pinned participant gone, resetting');
+      state.pinnedParticipant = null;
+    }
+    // Se há remotos e não temos pinned, auto-pin um remoto (ex: quando o pinned saiu)
+    if (!state.pinnedParticipant && count >= 2) {
+      for (var _id in state.participantes) {
+        if (!state.participantes[_id].isLocal) {
+          state.pinnedParticipant = _id;
+          console.log('[PiP] Auto-pinned new remote:', _id);
+          break;
+        }
+      }
+    }
     if (state.pinnedParticipant && count >= 2) {
       console.log('[PiP] ENTER pip-mode, pinnedParticipant=', state.pinnedParticipant);
 
@@ -776,6 +811,13 @@
         mainTile.style.borderRadius = '16px';
         // Mover para o início da grid (garante ordem DOM)
         DOM.grid.insertBefore(mainTile, DOM.grid.firstChild);
+        // Clique no main também pode fazer swap (pins o pip)
+        (function(mainIdentity, pipIdentity) {
+          mainTile.onclick = function(e) {
+            if (e.target.closest('.tile-pin-btn, .tile-maximize-btn')) return;
+            if (pipIdentity) togglePinParticipant(pipIdentity);
+          };
+        })(mainId, pipId);
       }
 
       // Pip tile — overlay canto inferior direito
@@ -793,10 +835,15 @@
           pipTile.style.boxShadow = '0 4px 24px rgba(0,0,0,0.5)';
           pipTile.style.border = '2px solid rgba(255,255,255,0.15)';
           pipTile.style.cursor = 'pointer';
-          pipTile.onclick = function(e) {
-            if (e.target.closest('.tile-pin-btn, .tile-maximize-btn')) return;
-            togglePinParticipant(pipId);
-          };
+          // Marcar se é o tile local (para glow especial)
+          pipTile.classList.toggle('tile-pip-local', state.participantes[pipId]?.isLocal);
+          (function(pipIdentity) {
+            pipTile.onclick = function(e) {
+              if (e.target.closest('.tile-pin-btn, .tile-maximize-btn')) return;
+              // Swap: fixa o pip, o que estava fixado vai para pip
+              togglePinParticipant(pipIdentity);
+            };
+          })(pipId);
         }
       }
 

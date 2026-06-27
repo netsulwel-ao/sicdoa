@@ -33,10 +33,12 @@
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
   box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.04);
 }
 
 .meet-tile:hover {
   box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  border-color: rgba(255,255,255,0.08);
 }
 
 .meet-tile video {
@@ -413,9 +415,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 20px;
-  background: rgba(26,29,39,0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(26,29,39,0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: #f1f5f9;
   border-bottom: 1px solid rgba(255,255,255,0.06);
   box-shadow: 0 1px 0 rgba(255,255,255,0.04);
@@ -480,9 +482,9 @@
   justify-content: center;
   gap: 8px;
   padding: 12px 20px;
-  background: rgba(26,29,39,0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(26,29,39,0.5);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0;
   flex-wrap: wrap;
@@ -576,12 +578,14 @@
   right: 0;
   width: 380px;
   height: 100%;
-  background: #1e2030;
-  border-left: 1px solid rgba(255,255,255,0.05);
+  background: rgba(30,32,48,0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-left: 1px solid rgba(255,255,255,0.06);
   display: flex;
   flex-direction: column;
   z-index: 20;
-  box-shadow: -4px 0 24px rgba(0,0,0,0.3);
+  box-shadow: -4px 0 32px rgba(0,0,0,0.3);
   animation: panel-fade-in 0.2s ease;
 }
 
@@ -1191,13 +1195,16 @@
 }
 
 .meet-overlay .overlay-box {
-  background: #1e2030;
+  background: rgba(30,32,48,0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 20px;
   padding: 32px;
   max-width: 400px;
   width: 90%;
   text-align: center;
   box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
 .meet-overlay .overlay-box h3 {
@@ -1261,7 +1268,9 @@
   left: 0;
   right: 0;
   z-index: 50;
-  background: linear-gradient(135deg, #1e40af, #3b82f6, #6366f1);
+  background: linear-gradient(135deg, rgba(30,64,175,0.85), rgba(59,130,246,0.85), rgba(99,102,241,0.85));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(255,255,255,0.1);
   box-shadow: 0 4px 24px rgba(0,0,0,0.3);
   animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1561,8 +1570,8 @@
   box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   border: 2px solid rgba(255,255,255,0.15);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  animation: pip-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pip-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes pip-enter {
@@ -1571,12 +1580,52 @@
 }
 
 .pip-mode .tile-pip:hover {
-  transform: scale(1.03);
-  box-shadow: 0 6px 32px rgba(0,0,0,0.6);
-  border-color: rgba(59,130,246,0.5);
+  transform: scale(1.04);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  border-color: rgba(59,130,246,0.6);
 }
 
-/* Os cliques no vídeo passam para o tile (que faz toggle do pin) */
+/* Pip glow sutil quando é o local (indica que é clicável) */
+.pip-mode .tile-pip.tile-pip-local::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 14px;
+  border: 2px solid rgba(59,130,246,0.25);
+  pointer-events: none;
+  z-index: 0;
+  animation: pip-local-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes pip-local-pulse {
+  0%, 100% { border-color: rgba(59,130,246,0.25); }
+  50% { border-color: rgba(59,130,246,0.5); }
+}
+
+/* Label "Clique para maximizar" no hover do pip */
+.pip-mode .tile-pip .pip-hover-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 6;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.pip-mode .tile-pip:hover .pip-hover-label {
+  opacity: 1;
+}
+
+/* Os cliques no vídeo passam para o tile */
 .pip-mode .tile-pip video {
   pointer-events: none !important;
 }
@@ -1587,6 +1636,25 @@
 
 .pip-mode .tile-pip .tile-name {
   font-size: 11px;
+}
+
+/* Swap animation — quando os tiles trocam de lugar */
+.meet-tile.swap-out {
+  animation: swap-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.meet-tile.swap-in {
+  animation: swap-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes swap-out {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(0.85); opacity: 0.5; }
+}
+
+@keyframes swap-in {
+  from { transform: scale(0.85); opacity: 0.5; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 /* Responsivo: pip mais pequeno em ecrãs pequenos */
