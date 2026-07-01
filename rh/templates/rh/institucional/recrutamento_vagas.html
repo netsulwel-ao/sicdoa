@@ -1,4 +1,6 @@
-{% load rh_extras %}{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
 <div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a><i class="fas fa-chevron-right text-xs"></i><a href="{% url 'rh_inst_dashboard' %}" class="hover:text-primary">RH Institucional</a><i class="fas fa-chevron-right text-xs"></i><span class="text-primary font-medium">Recrutamento</span></div>
 
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -246,7 +248,7 @@
 </div>
 {% endif %}
 {% endif %}
-</main></div>{% include 'includes/footer.html' %}
+{% endif %}
 
 <div id="shareModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
   <div class="bg-white dark:bg-gray-800 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl">
@@ -380,3 +382,4 @@ document.addEventListener('click', function(e) {
   if (modal && e.target === modal) fecharModalPartilha();
 });
 </script>
+{% endblock %}

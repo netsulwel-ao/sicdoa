@@ -1,10 +1,5 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-
-  <main class="p-3 sm:p-5 lg:p-8 min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+{% extends 'base.html' %}
+{% block content %}
     <div class="max-w-xl mx-auto w-full">
 
       <!-- ── Cabeçalho ── -->
@@ -85,35 +80,4 @@
       </form>
 
     </div>
-  </main>
-</div>
-
-<script>
-var clientes = {{ clientes_json|safe }};
-var facturasJson = {{ facturas_json|safe }};
-
-function filtrarFacturas(clienteId) {
-  var sel = document.getElementById('id_factura_relacionada');
-  if (!sel) return;
-  var currentVal = sel.value;
-  sel.innerHTML = '<option value="">---------</option>';
-  facturasJson.forEach(function(f) {
-    if (f.cliente_id == clienteId) {
-      var opt = document.createElement('option');
-      opt.value = f.id;
-      opt.text = f.numero_factura + ' — ' + Number(f.valor_total).toFixed(2) + ' Kz';
-      if (f.id == currentVal) opt.selected = true;
-      sel.appendChild(opt);
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  var s = document.getElementById('id_cliente');
-  if (s) {
-    s.addEventListener('change', function() { filtrarFacturas(this.value); });
-    s.dispatchEvent(new Event('change'));
-  }
-});
-</script>
-{% include 'includes/footer.html' %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% include 'includes/head.html' %}
+{% block sidebar %}{% include 'includes/sidebar.html' %}{% endblock %}
+
+<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+  {% block header %}{% include 'includes/header.html' %}{% endblock %}
+  {% block breadcrumbs %}{% endblock %}
+  <main class="{% block main_classes %}p-4 md:p-6 lg:p-8{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+{% include 'includes/footer.html' %}
+{% block extra_js %}{% endblock %}

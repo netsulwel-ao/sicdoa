@@ -15,14 +15,15 @@ def aprovar_requicoes(modeladmin, request, queryset):
     if not _pode_aprovar(request):
         messages.error(request, 'Apenas Administrador pode aprovar.')
         return
-    count = 0
-    for obj in queryset.filter(estado__in=('Pendente', 'Em Aprovação')):
+    objs = list(queryset.filter(estado__in=('Pendente', 'Em Aprovação')))
+    for obj in objs:
         obj.estado = 'Aprovada'
         obj.responsavel_aprovacao_id_usuario = request.user.id
         obj.responsavel_aprovacao_nome = request.user.nome
-        obj.save(update_fields=['estado', 'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome'])
-        count += 1
-    messages.success(request, f'{count} requisição(ões) aprovada(s).')
+    RequisicaoFundo.objects.bulk_update(
+        objs, fields=['estado', 'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome']
+    )
+    messages.success(request, f'{len(objs)} requisição(ões) aprovada(s).')
 
 
 @admin.action(description='Rejeitar requisições seleccionadas')
@@ -30,14 +31,15 @@ def rejeitar_requicoes(modeladmin, request, queryset):
     if not _pode_aprovar(request):
         messages.error(request, 'Apenas Administrador pode rejeitar.')
         return
-    count = 0
-    for obj in queryset.filter(estado__in=('Pendente', 'Em Aprovação')):
+    objs = list(queryset.filter(estado__in=('Pendente', 'Em Aprovação')))
+    for obj in objs:
         obj.estado = 'Rejeitada'
         obj.responsavel_aprovacao_id_usuario = request.user.id
         obj.responsavel_aprovacao_nome = request.user.nome
-        obj.save(update_fields=['estado', 'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome'])
-        count += 1
-    messages.success(request, f'{count} requisição(ões) rejeitada(s).')
+    RequisicaoFundo.objects.bulk_update(
+        objs, fields=['estado', 'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome']
+    )
+    messages.success(request, f'{len(objs)} requisição(ões) rejeitada(s).')
 
 
 @admin.action(description='Cancelar requisições seleccionadas')
@@ -45,12 +47,11 @@ def cancelar_requicoes(modeladmin, request, queryset):
     if not _pode_aprovar(request):
         messages.error(request, 'Apenas Administrador pode cancelar.')
         return
-    count = 0
-    for obj in queryset.filter(estado__in=('Pendente', 'Em Aprovação')):
+    objs = list(queryset.filter(estado__in=('Pendente', 'Em Aprovação')))
+    for obj in objs:
         obj.estado = 'Cancelada'
-        obj.save(update_fields=['estado'])
-        count += 1
-    messages.success(request, f'{count} requisição(ões) cancelada(s).')
+    RequisicaoFundo.objects.bulk_update(objs, fields=['estado'])
+    messages.success(request, f'{len(objs)} requisição(ões) cancelada(s).')
 
 
 @admin.register(RequisicaoFundo)

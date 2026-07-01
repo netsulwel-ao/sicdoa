@@ -1,4 +1,5 @@
-{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+{% extends 'rh/base_rh.html' %}
+{% block conteudo %}
 <div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a><i class="fas fa-chevron-right text-xs"></i><span class="text-primary">RH</span><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">Férias</span></div>
 <div class="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
   <a href="{% url 'rh_presencas' %}" class="px-4 py-2 text-sm font-semibold rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-all">Presenças</a>
@@ -72,4 +73,4 @@
     </form>
   </div>
 </div>
-</main></div>{% include 'includes/footer.html' %}
+{% endblock %}

@@ -1,4 +1,5 @@
-{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+{% extends 'rh/base_rh.html' %}
+{% block conteudo %}
 <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
   <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
   <i class="fas fa-chevron-right text-xs"></i>
@@ -71,4 +72,4 @@
   <a href="{% url 'rh_inst_ciclo_novo' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm"><i class="fas fa-plus"></i>Criar Ciclo</a>
 </div>
 {% endif %}
-</main></div>{% include 'includes/footer.html' %}
+{% endblock %}

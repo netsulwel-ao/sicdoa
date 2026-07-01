@@ -1,8 +1,6 @@
-﻿{% load rh_extras %}{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
       <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
@@ -81,11 +79,12 @@
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Email</label>
             <input type="email" name="email" value="{{ col.email|default:'' }}" placeholder="email@banca.ao"
                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+            <p class="text-xs text-gray-400 mt-1.5">Deixe vazio para colaboradores que <strong>não precisam de acesso ao sistema</strong> (ex: limpeza, segurança). Serão listados apenas no processamento salarial, sem controlo de presenças e sem acesso a cargos/funções.</p>
           </div>
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
-            <input type="text" name="telefone" value="{{ col.telefone|default:'' }}" placeholder="+244 923 456 789"
+            <input type="tel" name="telefone" id="inputTelefone" value="{{ col.telefone|default:'' }}" placeholder="+244 923 456 789"
                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
           </div>
 
@@ -184,7 +183,7 @@
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Cargo da Banca (Permissões)</label>
-            <select name="cargo_banca" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            <select name="cargo_banca" id="selectCargoBanca" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
               <option value="">Sem cargo especial</option>
               {% for cb in cargos_banca %}
               <option value="{{ cb.pk }}" {% if col.cargo_banca_id == cb.pk %}selected{% endif %}>
@@ -193,6 +192,15 @@
               {% endfor %}
             </select>
             <p class="text-xs text-gray-500 mt-1">Define as permissões do colaborador no sistema</p>
+            <div id="permissoesPreview" class="mt-2 hidden">
+              <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-1.5">
+                  <i class="fas fa-shield-alt text-primary"></i>Permissões do cargo
+                </p>
+                <div id="permissoesLista" class="flex flex-wrap gap-1.5"></div>
+                <p id="nenhumaPerm" class="text-xs text-gray-400 hidden">Nenhuma permissão especial</p>
+              </div>
+            </div>
             <div class="mt-1.5 p-2 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
               <p class="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-1.5">
                 <i class="fas fa-info-circle mt-0.5"></i>
@@ -280,10 +288,9 @@
         </button>
       </div>
     </form>
-  </main>
-</div>
-
+{{ cargos_permissoes_json|json_script:"cargos-permissoes" }}
 <script>
+const CARGOS_PERMISSOES = JSON.parse(document.getElementById('cargos-permissoes').textContent);
 let documentoCount = 1;
 const MAX_DOCUMENTOS = 5;
 
@@ -362,6 +369,49 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleFilialGestor();
   }
 
+  // Permissions preview
+  const cargoSelect = document.getElementById('selectCargoBanca');
+  const previewDiv = document.getElementById('permissoesPreview');
+  const permissoesLista = document.getElementById('permissoesLista');
+  const nenhumaPerm = document.getElementById('nenhumaPerm');
+  if (cargoSelect && previewDiv) {
+    function atualizarPermissoes() {
+      const val = cargoSelect.value;
+      const data = CARGOS_PERMISSOES[val];
+      if (data && data.permissoes && data.permissoes.length > 0) {
+        previewDiv.classList.remove('hidden');
+        nenhumaPerm.classList.add('hidden');
+        permissoesLista.innerHTML = data.permissoes.map(p =>
+          '<span class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"><i class="fas fa-check-circle text-[10px]"></i>' + p.nome + '</span>'
+        ).join('');
+      } else if (data) {
+        previewDiv.classList.remove('hidden');
+        nenhumaPerm.classList.remove('hidden');
+        permissoesLista.innerHTML = '';
+      } else {
+        previewDiv.classList.add('hidden');
+      }
+    }
+    cargoSelect.addEventListener('change', atualizarPermissoes);
+    atualizarPermissoes();
+  }
+
+  // Phone mask (+244 XXX XXX XXX)
+  const telefoneInput = document.getElementById('inputTelefone');
+  if (telefoneInput) {
+    telefoneInput.addEventListener('input', function() {
+      let v = this.value.replace(/[^\d+]/g, '');
+      if (v.startsWith('+244')) {
+        let d = v.slice(4).replace(/\D/g, '').slice(0, 9);
+        let fmt = '+244';
+        if (d.length > 0) fmt += ' ' + d.slice(0, 3);
+        if (d.length > 3) fmt += ' ' + d.slice(3, 6);
+        if (d.length > 6) fmt += ' ' + d.slice(6);
+        this.value = fmt;
+      }
+    });
+  }
+
   const form = document.querySelector('form');
   if (form) {
     form.addEventListener('submit', function(e) {
@@ -390,4 +440,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

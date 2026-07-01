@@ -79,7 +79,7 @@ def _verificar_sessao_colaborador(request):
     if not colaborador_id:
         return None, None  # pode ser institucional sem colaborador banca
     try:
-        return Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id), None
+        return Colaborador.objects.select_related('cargo_banca', 'filial').get(id=colaborador_id), None
     except Colaborador.DoesNotExist:
         return None, redirect("login")
 
@@ -256,7 +256,6 @@ def login_view(request):
     return redirect("dashboard")
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 def login_portal_view(request):
     """
@@ -566,7 +565,7 @@ def dashboard_view(request):
 
     user_permissoes = get_usuario_permissoes(request)
 
-    return render(request, "dashbord.html", {
+    return render(request, "dashboard.html", {
         "usuario": usuario,
         "nome": usuario["nome"],
         "papel": papel,
@@ -686,7 +685,7 @@ def dashboard_colaborador_view(request):
             "stats_colab_ativos": col_dash.banca.colaboradores.filter(estado='Ativo').count() if col_dash.banca else 0,
             "stats_notificacoes": Notificacao.objects.filter(usuario_id=dono_id, lida=False).count(),
         }
-        return render(request, "dashbord.html", contexto)
+        return render(request, "dashboard.html", contexto)
 
     # ── Dashboard simples de colaborador da banca ─────────────────────────
     colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
@@ -843,7 +842,9 @@ def perfil_view(request):
             "active_menu": "Meus Dados",
             "active_sub": "perfil",
             "colaborador": institucional,
+            "colaborador_logado": institucional,
             "e_responsavel": False,
+            "user_permissoes": permissoes,
             "pode_editar_perfil": pode_editar,
         })
 
@@ -855,7 +856,9 @@ def perfil_view(request):
         "active_menu": "Meus Dados",
         "active_sub": "perfil",
         "colaborador": colaborador,
+        "colaborador_logado": colaborador,
         "e_responsavel": colaborador.e_gestor_filial,
+        "user_permissoes": permissoes,
         "pode_editar_perfil": pode_editar,
     })
 
@@ -878,7 +881,8 @@ def documentos_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Determinar o papel: usar cargo_banca se existir, senão "Colaborador"
+    from .permissoes import get_usuario_permissoes
+    permissoes = get_usuario_permissoes(request)
     papel = colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador"
     return render(request, "colaboradores/documentos.html", {
         "nome": colaborador.nome,
@@ -886,7 +890,9 @@ def documentos_view(request):
         "active_menu": "Meus Dados",
         "active_sub": "documentos",
         "colaborador": colaborador,
+        "colaborador_logado": colaborador,
         "e_responsavel": colaborador.e_gestor_filial,
+        "user_permissoes": permissoes,
         "documentos": page_obj,
         "page_obj": page_obj,
     })
@@ -962,12 +968,16 @@ def presenca_view(request):
     else:
         papel = colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador"
 
+    from .permissoes import get_usuario_permissoes
+    permissoes = get_usuario_permissoes(request)
     return render(request, "colaboradores/presenca.html", {
         "nome": obj.nome,
         "papel": papel,
         "active_menu": "Presença",
         "colaborador": obj,
+        "colaborador_logado": obj,
         "e_responsavel": False if e_inst else colaborador.e_gestor_filial,
+        "user_permissoes": permissoes,
         "hoje": hoje,
         "registo_hoje": registo_hoje,
         "historico": page_obj,
@@ -987,13 +997,17 @@ def processo_salarial_view(request):
     e_inst = institucional is not None
     obj = institucional if e_inst else colaborador
     papel = obj.area_actuacao or "Colaborador" if e_inst else (colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador")
+    from .permissoes import get_usuario_permissoes
+    permissoes = get_usuario_permissoes(request)
     return render(request, "colaboradores/processo_salarial.html", {
         "nome": obj.nome,
         "papel": papel,
         "active_menu": "processo-salarial",
         "active_sub": "processo-salarial",
         "colaborador": obj,
+        "colaborador_logado": obj,
         "e_responsavel": False if e_inst else colaborador.e_gestor_filial,
+        "user_permissoes": permissoes,
     })
 
 
@@ -1024,13 +1038,17 @@ def salario_view(request):
     pagina = paginator.get_page(pagina_num)
 
     papel = obj.area_actuacao or "Colaborador" if e_inst else (colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador")
+    from .permissoes import get_usuario_permissoes
+    permissoes = get_usuario_permissoes(request)
     return render(request, "colaboradores/salario.html", {
         "nome": obj.nome,
         "papel": papel,
         "active_menu": "processo-salarial",
         "active_sub": "salario",
         "colaborador": obj,
+        "colaborador_logado": obj,
         "e_responsavel": False if e_inst else colaborador.e_gestor_filial,
+        "user_permissoes": permissoes,
         "recibos": pagina,
         "paginator": paginator,
         "pagina_actual": pagina_num,
@@ -1067,13 +1085,17 @@ def historico_salarial_view(request):
     pagina = paginator.get_page(pagina_num)
 
     papel = obj.area_actuacao or "Colaborador" if e_inst else (colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador")
+    from .permissoes import get_usuario_permissoes
+    permissoes = get_usuario_permissoes(request)
     return render(request, "colaboradores/historico_salarial.html", {
         "nome": obj.nome,
         "papel": papel,
         "active_menu": "processo-salarial",
         "active_sub": "historico-salarial",
         "colaborador": obj,
+        "colaborador_logado": obj,
         "e_responsavel": False if e_inst else colaborador.e_gestor_filial,
+        "user_permissoes": permissoes,
         "recibos": pagina,
         "paginator": paginator,
         "pagina_actual": pagina_num,
@@ -1142,12 +1164,16 @@ def ferias_view(request):
     page_obj = paginator.get_page(page_number)
 
     papel = obj.area_actuacao or "Colaborador" if e_inst else (colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador")
+    from .permissoes import get_usuario_permissoes
+    permissoes = get_usuario_permissoes(request)
     return render(request, "colaboradores/ferias.html", {
         "nome": obj.nome,
         "papel": papel,
         "active_menu": "Ferias",
         "colaborador": obj,
+        "colaborador_logado": obj,
         "e_responsavel": False if e_inst else colaborador.e_gestor_filial,
+        "user_permissoes": permissoes,
         "pedidos": page_obj,
         "page_obj": page_obj,
     })
@@ -1163,7 +1189,8 @@ def buscar_view(request):
     if not query:
         return redirect("dashboard_colaborador")
 
-    # Determinar o papel: usar cargo_banca se existir, senão "Colaborador"
+    from .permissoes import get_usuario_permissoes
+    permissoes = get_usuario_permissoes(request)
     papel = colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador"
     return render(request, "colaboradores/buscar.html", {
         "nome": colaborador.nome,
@@ -1171,7 +1198,9 @@ def buscar_view(request):
         "active_menu": "Dashboard",
         "query": query,
         "colaborador": colaborador,
+        "colaborador_logado": colaborador,
         "e_responsavel": colaborador.e_gestor_filial,
+        "user_permissoes": permissoes,
     })
 
 
@@ -1653,8 +1682,11 @@ def logs_atividade_view(request):
     except (PageNotAnInteger, EmptyPage):
         page_obj = paginator.page(1)
 
+    # Despachantes/colaboradores usam o link dentro do RH, por isso active_menu='RH'
+    # para manter o submenu RH aberto. Admins/auditores usam o link standalone em Sistema.
+    menu_activo = 'RH' if (is_despachante or is_colab_logs) else 'Sistema'
     context = {
-        'active_menu': 'Sistema',
+        'active_menu': menu_activo,
         'active_sub': 'logs',
         'page_obj': page_obj,
         'accao_filter': accao_filter,

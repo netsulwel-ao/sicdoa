@@ -1,8 +1,9 @@
 import json
 import io
+import logging
 from django.core.serializers.json import DjangoJSONEncoder
-from django.views.generic import ListView, CreateView, DetailView, TemplateView
-from django.urls import reverse_lazy
+from django.views.generic import ListView, CreateView, DetailView, UpdateView, TemplateView
+from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import get_object_or_404, redirect, render
@@ -28,6 +29,8 @@ from .models import (
 from .forms import FluxoAprovacaoForm, NivelAprovacaoForm
 from utils.format_kz import fmt_kz
 
+logger = logging.getLogger(__name__)
+
 
 def _user_tem_acesso_total(request):
     """True se user tem bypass de scoping (Admin ou permissão admin)."""
@@ -44,7 +47,7 @@ def _tem_escopo_filial(perm_set, filial_id=None):
     """True se o user está escopeado a uma filial (por filial_id ou permissão)."""
     if filial_id:
         return True
-    return any(p in (perm_set or set()) for p in ('gerir_filial', 'gerir_financeiro',))
+    return any(p in (perm_set or set()) for p in ('gerir_filial', 'gerir_financeiro', 'gerir_financeiro_filial',))
 
 
 def _pode_escrever(request):
@@ -638,6 +641,53 @@ class FacturaClienteDetailView(BaseContextMixin, DetailView):
         return context
 
 
+@method_decorator(requer_sessao_ativa, name='dispatch')
+@method_decorator(requer_escrita_financeira, name='dispatch')
+class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
+    model = FacturaCliente
+    form_class = FacturaClienteForm
+    template_name = 'financeiro/factura_form.html'
+    success_message = "Factura Final actualizada com sucesso!"
+
+    def get_success_url(self):
+        return reverse('financeiro:factura_detalhe', kwargs={'pk': self.object.pk})
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        filtro = self._get_user_cliente_filter()
+        if filtro:
+            qs = qs.filter(**filtro)
+        return qs.filter(estado='Pendente')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = "Editar Factura Final"
+        context['active_menu'] = 'Financeiro'
+        context['active_sub'] = 'facturas_finais'
+        clientes_qs = Cliente.objects.filter(ativo=True)
+        filtro_cliente = self._get_user_filter_direct()
+        if filtro_cliente:
+            clientes_qs = clientes_qs.filter(**filtro_cliente)
+        context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
+        processos_qs = DeclaracaoUnica.objects.all()
+        context['processos_json'] = json.dumps(list(processos_qs.values('id', 'nif_declarante', 'numero_du')))
+        return context
+
+    def form_valid(self, form):
+        form.instance.criado_por_id = self.request.session.get('usuario_id')
+        usuario_data = self.request.session.get('usuario', {})
+        form.instance.criado_por_nome = usuario_data.get('nome', '')
+        response = super().form_valid(form)
+        registrar_historico(
+            'Factura', self.object.pk, self.object.numero_factura, 'Editada',
+            estado_novo=self.object.estado, valor=self.object.valor_total,
+            utilizador_id=self.object.criado_por_id, utilizador_nome=self.object.criado_por_nome,
+            cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
+        )
+        return response
+
+
 @requer_sessao_ativa
 @requer_escrita_financeira
 def cancelar_factura(request, pk):
@@ -1015,6 +1065,56 @@ class NotaCreditoDetailView(BaseContextMixin, DetailView):
         )[:20]
         return context
 
+@method_decorator(requer_sessao_ativa, name='dispatch')
+@method_decorator(requer_escrita_financeira, name='dispatch')
+class NotaCreditoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
+    model = NotaCredito
+    form_class = NotaCreditoForm
+    template_name = 'financeiro/nota_credito_form.html'
+    success_message = "Nota de Crédito actualizada com sucesso!"
+
+    def get_success_url(self):
+        return reverse('financeiro:nota_credito_detalhe', kwargs={'pk': self.object.pk})
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        filtro = self._get_user_cliente_filter()
+        if filtro:
+            qs = qs.filter(**filtro)
+        return qs.filter(estado='Pendente')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = "Editar Nota de Crédito"
+        context['active_menu'] = 'Financeiro'
+        context['active_sub'] = 'notas_credito'
+        clientes_qs = Cliente.objects.filter(ativo=True)
+        filtro_cliente = self._get_user_filter_direct()
+        if filtro_cliente:
+            clientes_qs = clientes_qs.filter(**filtro_cliente)
+        context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
+        facturas_qs = FacturaCliente.objects.all()
+        filtro_factura = self._get_user_cliente_filter()
+        if filtro_factura:
+            facturas_qs = facturas_qs.filter(**filtro_factura)
+        context['facturas_json'] = json.dumps(list(facturas_qs.values('id', 'cliente_id', 'numero_factura', 'valor_total')), cls=DjangoJSONEncoder)
+        return context
+
+    def form_valid(self, form):
+        form.instance.utilizador_criador_id = self.request.session.get('usuario_id')
+        usuario_data = self.request.session.get('usuario', {})
+        form.instance.utilizador_criador_nome = usuario_data.get('nome', '')
+        response = super().form_valid(form)
+        registrar_historico(
+            'NotaCredito', self.object.pk, self.object.numero_nota, 'Editada',
+            estado_novo=self.object.estado, valor=self.object.valor_creditado,
+            utilizador_id=self.object.utilizador_criador_id, utilizador_nome=self.object.utilizador_criador_nome,
+            cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
+        )
+        return response
+
+
 @requer_sessao_ativa
 def aprovar_nota_credito(request, pk):
     usuario_id = request.session.get('usuario_id')
@@ -1057,7 +1157,7 @@ def aprovar_nota_credito(request, pk):
                 )
                 _enviar(assunto, texto, '', nota.cliente.email)
             except Exception:
-                pass
+                logger.exception("Falha ao enviar email de aprovação de Nota de Crédito %s", nota.numero_nota)
     return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
 @requer_sessao_ativa
@@ -1212,6 +1312,56 @@ class NotaDebitoDetailView(BaseContextMixin, DetailView):
         return context
 
 
+@method_decorator(requer_sessao_ativa, name='dispatch')
+@method_decorator(requer_escrita_financeira, name='dispatch')
+class NotaDebitoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
+    model = NotaDebito
+    form_class = NotaDebitoForm
+    template_name = 'financeiro/nota_debito_form.html'
+    success_message = "Nota de Débito actualizada com sucesso!"
+
+    def get_success_url(self):
+        return reverse('financeiro:nota_debito_detalhe', kwargs={'pk': self.object.pk})
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        filtro = self._get_user_cliente_filter()
+        if filtro:
+            qs = qs.filter(**filtro)
+        return qs.filter(estado='Pendente')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = "Editar Nota de Débito"
+        context['active_menu'] = 'Financeiro'
+        context['active_sub'] = 'notas_debito'
+        clientes_qs = Cliente.objects.filter(ativo=True)
+        filtro_cliente = self._get_user_filter_direct()
+        if filtro_cliente:
+            clientes_qs = clientes_qs.filter(**filtro_cliente)
+        context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
+        facturas_qs = FacturaCliente.objects.all()
+        filtro_factura = self._get_user_cliente_filter()
+        if filtro_factura:
+            facturas_qs = facturas_qs.filter(**filtro_factura)
+        context['facturas_json'] = json.dumps(list(facturas_qs.values('id', 'cliente_id', 'numero_factura', 'valor_total')), cls=DjangoJSONEncoder)
+        return context
+
+    def form_valid(self, form):
+        form.instance.utilizador_criador_id = self.request.session.get('usuario_id')
+        usuario_data = self.request.session.get('usuario', {})
+        form.instance.utilizador_criador_nome = usuario_data.get('nome', '')
+        response = super().form_valid(form)
+        registrar_historico(
+            'NotaDebito', self.object.pk, self.object.numero_nota, 'Editada',
+            estado_novo=self.object.estado, valor=self.object.valor,
+            utilizador_id=self.object.utilizador_criador_id, utilizador_nome=self.object.utilizador_criador_nome,
+            cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
+        )
+        return response
+
+
 @requer_sessao_ativa
 def aprovar_nota_debito(request, pk):
     usuario_id = request.session.get('usuario_id')
@@ -1254,7 +1404,7 @@ def aprovar_nota_debito(request, pk):
                 )
                 _enviar(assunto, texto, '', nota.cliente.email)
             except Exception:
-                pass
+                logger.exception("Falha ao enviar email de aprovação de Nota de Débito %s", nota.numero_nota)
     return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
 
@@ -1386,6 +1536,56 @@ class FacturaReciboCreateView(BaseContextMixin, SuccessMessageMixin, CreateView)
             facturas_qs = facturas_qs.filter(**filtro_factura)
         context['facturas_json'] = json.dumps(list(facturas_qs.values('id', 'cliente_id', 'numero_factura', 'valor_total', 'valor_pago')), cls=DjangoJSONEncoder)
         return context
+
+@method_decorator(requer_sessao_ativa, name='dispatch')
+@method_decorator(requer_escrita_financeira, name='dispatch')
+class FacturaReciboUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
+    model = FacturaRecibo
+    form_class = FacturaReciboForm
+    template_name = 'financeiro/factura_recibo_form.html'
+    success_message = "Factura-Recibo actualizada com sucesso!"
+
+    def get_success_url(self):
+        return reverse('financeiro:factura_recibo_detalhe', kwargs={'pk': self.object.pk})
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        filtro = self._get_user_cliente_filter()
+        if filtro:
+            qs = qs.filter(**filtro)
+        return qs.exclude(estado='Cancelada')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['titulo'] = "Editar Factura-Recibo"
+        context['active_menu'] = 'Financeiro'
+        context['active_sub'] = 'facturas_recibo'
+        clientes_qs = Cliente.objects.filter(ativo=True)
+        filtro_cliente = self._get_user_filter_direct()
+        if filtro_cliente:
+            clientes_qs = clientes_qs.filter(**filtro_cliente)
+        context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
+        facturas_qs = FacturaCliente.objects.filter(estado__in=['Pendente', 'Parcialmente Paga'])
+        filtro_factura = self._get_user_cliente_filter()
+        if filtro_factura:
+            facturas_qs = facturas_qs.filter(**filtro_factura)
+        context['facturas_json'] = json.dumps(list(facturas_qs.values('id', 'cliente_id', 'numero_factura', 'valor_total', 'valor_pago')), cls=DjangoJSONEncoder)
+        return context
+
+    def form_valid(self, form):
+        form.instance.utilizador_responsavel_id = self.request.session.get('usuario_id')
+        usuario_data = self.request.session.get('usuario', {})
+        form.instance.utilizador_responsavel_nome = usuario_data.get('nome', '')
+        response = super().form_valid(form)
+        registrar_historico(
+            'FacturaRecibo', self.object.pk, self.object.numero_factura_recibo, 'Editada',
+            estado_novo=self.object.estado, valor=self.object.valor,
+            utilizador_id=self.object.utilizador_responsavel_id, utilizador_nome=self.object.utilizador_responsavel_nome,
+            cliente_nome=self.object.cliente.nome,
+            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
+        )
+        return response
+
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class FacturaReciboDetailView(BaseContextMixin, DetailView):
@@ -2360,7 +2560,7 @@ def _notificar_solicitante(requisicao, usuario_data, motivo=None):
         )
         _enviar(assunto, texto, html, solicitante.email)
     except Exception:
-        pass
+        logger.exception("Falha ao enviar email de notificação de requisição")
 
 
 # ═══════════════════════════════════════════════════════════

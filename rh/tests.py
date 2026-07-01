@@ -6,7 +6,8 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.urls import reverse
 from utils.format_kz import parse_kz, fmt_kz
 from rh.templatetags.rh_extras import fmtkz
-from rh.views import _dec, _remover_gestor_filial
+from rh.views import _dec as _dec_views, _remover_gestor_filial
+from rh.tax_utils import _dec, _hash_password, _calcular_irt, DIAS_UTEIS_MES, INSS_TAXA_TRABALHADOR, INSS_TAXA_ENTIDADE
 from rh.models import (
     Banca, Colaborador, Subsidio, PedidoFerias,
     ProcessamentoSalarial, ReciboSalarial, SubsidioRecibo,
@@ -134,6 +135,146 @@ class DecFunctionTests(TestCase):
     def test_dec_none(self):
         """_dec(None) → Decimal('0')"""
         self.assertEqual(_dec(None), Decimal('0'))
+
+
+
+class IRTTests(TestCase):
+
+    def test_irt_isento_ate_150k(self):
+        """Salário ≤ 150.000 KZ → IRT = 0"""
+        self.assertEqual(_calcular_irt(Decimal('150000')), Decimal('0'))
+        self.assertEqual(_calcular_irt(Decimal('100000')), Decimal('0'))
+        self.assertEqual(_calcular_irt(Decimal('0')), Decimal('0'))
+
+    def test_irt_1o_escalao(self):
+        """150.001–200.000 → 16% sobre excedente"""
+        irt = _calcular_irt(Decimal('200000'))
+        esperado = (Decimal('200000') - Decimal('150000')) * Decimal('0.16')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_2o_escalao(self):
+        """200.001–300.000 → 8.000 + 18% sobre excedente"""
+        irt = _calcular_irt(Decimal('300000'))
+        esperado = Decimal('8000') + (Decimal('300000') - Decimal('200000')) * Decimal('0.18')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_3o_escalao(self):
+        """300.001–500.000 → 26.000 + 19% sobre excedente"""
+        irt = _calcular_irt(Decimal('500000'))
+        esperado = Decimal('26000') + (Decimal('500000') - Decimal('300000')) * Decimal('0.19')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_4o_escalao(self):
+        """500.001–1.000.000 → 64.000 + 20% sobre excedente"""
+        irt = _calcular_irt(Decimal('1000000'))
+        esperado = Decimal('64000') + (Decimal('1000000') - Decimal('500000')) * Decimal('0.20')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_5o_escalao(self):
+        """1.000.001–1.500.000 → 164.000 + 21% sobre excedente"""
+        irt = _calcular_irt(Decimal('1500000'))
+        esperado = Decimal('164000') + (Decimal('1500000') - Decimal('1000000')) * Decimal('0.21')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_6o_escalao(self):
+        """1.500.001–2.000.000 → 269.000 + 22% sobre excedente"""
+        irt = _calcular_irt(Decimal('2000000'))
+        esperado = Decimal('269000') + (Decimal('2000000') - Decimal('1500000')) * Decimal('0.22')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_7o_escalao(self):
+        """2.000.001–5.000.000 → 379.000 + 23% sobre excedente"""
+        irt = _calcular_irt(Decimal('5000000'))
+        esperado = Decimal('379000') + (Decimal('5000000') - Decimal('2000000')) * Decimal('0.23')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_8o_escalao(self):
+        """5.000.001–10.000.000 → 1.069.000 + 24% sobre excedente"""
+        irt = _calcular_irt(Decimal('10000000'))
+        esperado = Decimal('1069000') + (Decimal('10000000') - Decimal('5000000')) * Decimal('0.24')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_9o_escalao(self):
+        """> 10.000.000 → 2.269.000 + 25% sobre excedente"""
+        irt = _calcular_irt(Decimal('12000000'))
+        esperado = Decimal('2269000') + (Decimal('12000000') - Decimal('10000000')) * Decimal('0.25')
+        self.assertEqual(irt, esperado)
+
+    def test_irt_valor_exato_no_limite(self):
+        """Testa valor exatamente no limite do escalão"""
+        irt = _calcular_irt(Decimal('150001'))
+        esperado = (Decimal('150001') - Decimal('150000')) * Decimal('0.16')
+        self.assertEqual(irt, esperado)
+
+
+class INSSTests(TestCase):
+
+    def test_inss_taxas_configuraveis(self):
+        """INSS_TAXA_TRABALHADOR = 3%, INSS_TAXA_ENTIDADE = 8%"""
+        self.assertEqual(INSS_TAXA_TRABALHADOR, Decimal('0.03'))
+        self.assertEqual(INSS_TAXA_ENTIDADE, Decimal('0.08'))
+
+    def test_inss_trabalhador_calculo(self):
+        """INSS trabalhador = 3% do salário"""
+        salario = Decimal('500000')
+        inss = (salario * INSS_TAXA_TRABALHADOR).quantize(Decimal('0.01'))
+        self.assertEqual(inss, Decimal('15000.00'))
+
+    def test_inss_entidade_calculo(self):
+        """INSS entidade = 8% do salário"""
+        salario = Decimal('500000')
+        inss = (salario * INSS_TAXA_ENTIDADE).quantize(Decimal('0.01'))
+        self.assertEqual(inss, Decimal('40000.00'))
+
+
+class HashPasswordTests(TestCase):
+
+    def test_hash_password_returns_string(self):
+        """_hash_password devolve uma string"""
+        h = _hash_password('teste123')
+        self.assertIsInstance(h, str)
+
+    def test_hash_password_compativel_php(self):
+        """Hash usa prefixo $2y$ (compatível PHP)"""
+        h = _hash_password('teste123')
+        self.assertTrue(h.startswith('$2y$'))
+
+    def test_hash_password_diferente_salt(self):
+        """Mesma senha gera hashes diferentes (salt aleatório)"""
+        h1 = _hash_password('teste123')
+        h2 = _hash_password('teste123')
+        self.assertNotEqual(h1, h2)
+
+    def test_hash_password_vazia(self):
+        """Senha vazia → None"""
+        self.assertIsNone(_hash_password(''))
+        self.assertIsNone(_hash_password(None))
+
+
+class DecTaxUtilsTests(TestCase):
+    """Testes para _dec do tax_utils (partilhado)"""
+
+    def test_dec_angolan(self):
+        self.assertEqual(_dec('1.234,56'), Decimal('1234.56'))
+
+    def test_dec_comma_only(self):
+        self.assertEqual(_dec('1234,56'), Decimal('1234.56'))
+
+    def test_dec_standard(self):
+        self.assertEqual(_dec('1234.56'), Decimal('1234.56'))
+
+    def test_dec_empty(self):
+        self.assertEqual(_dec(''), Decimal('0'))
+
+    def test_dec_none(self):
+        self.assertEqual(_dec(None), Decimal('0'))
+
+
+class DiasUteisConstTests(TestCase):
+    """Testes para constantes de dias úteis e taxa de serviço"""
+
+    def test_dias_uteis_mes(self):
+        self.assertEqual(DIAS_UTEIS_MES, Decimal('22'))
 
 
 # ─── Tests: Models ──────────────────────────────────────────────────

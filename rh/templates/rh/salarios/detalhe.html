@@ -1,8 +1,6 @@
-﻿{% load rh_extras %}{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
       <a href="{% url 'rh_salarios' %}" class="hover:text-primary">Processamento Salarial</a>
@@ -209,7 +207,9 @@
                   <span class="bruto">{{ r.bruto|fmtkz }}</span>
                 </td>
                 <td class="px-4 py-3 text-right bg-red-50/50 dark:bg-red-900/10">
-                  {% if proc.estado == 'Rascunho' %}
+                  {% if not r.colaborador.email %}
+                  <span class="text-xs text-gray-400 font-medium">Isento</span>
+                  {% elif proc.estado == 'Rascunho' %}
                   <input type="number" inputmode="numeric" min="0" step="1"
                          name="rec_{{ r.pk }}_faltas"
                          value="{{ r.faltas_count }}"
@@ -268,7 +268,7 @@
         <ul class="space-y-0.5 text-blue-700 dark:text-blue-400">
           <li>· <strong>IRT</strong> - calculado pela tabela angolana vigente sobre (Salário Base - Faltas)</li>
           <li>· <strong>INSS</strong> - 3% do (Salário Base - Faltas) (trabalhador) + 8% entidade patronal</li>
-          <li>· <strong>Faltas</strong> - desconto proporcional: salário ÷ 22 dias úteis × nº faltas aprovadas</li>
+          <li>· <strong>Faltas</strong> - desconto proporcional: salário ÷ 22 dias úteis × nº faltas não justificadas</li>
           <li>· <strong>Subsídios</strong> - valores editáveis por colaborador</li>
           <li>· <strong>Líquido</strong> = (Salário Base - Faltas - IRT - INSS) + Subsídios</li>
         </ul>
@@ -276,133 +276,4 @@
     </div>
 
     {% endif %}
-  </main>
-</div>
-
-<script>
-// Helpers para formato pt_AO: 1 234,56
-function parseKZ(s) {
-  if (!s) return 0;
-  return parseFloat(String(s).replace(/\s/g, '').replace(/\./g, '').replace(',', '.')) || 0;
-}
-
-function fmtKZ(n) {
-  var p = n.toFixed(2).split('.');
-  var i = p[0], d = p[1];
-  var grupos = [];
-  while (i.length > 3) { grupos.unshift(i.slice(-3)); i = i.slice(0, -3); }
-  grupos.unshift(i);
-  return grupos.join(' ') + ',' + d;
-}
-
-// Tabela IRT Angola (escalões em KZ) — isento até 150.000 KZ
-function calcularIRT(salario) {
-  const s = parseFloat(salario) || 0;
-  if (s <= 150000)      return 0;
-  if (s <= 200000)      return (s - 150000) * 0.16;
-  if (s <= 300000)      return 8000 + (s - 200000) * 0.18;
-  if (s <= 500000)      return 26000 + (s - 300000) * 0.19;
-  if (s <= 1000000)     return 64000 + (s - 500000) * 0.20;
-  if (s <= 1500000)     return 164000 + (s - 1000000) * 0.21;
-  if (s <= 2000000)     return 269000 + (s - 1500000) * 0.22;
-  if (s <= 5000000)     return 379000 + (s - 2000000) * 0.23;
-  if (s <= 10000000)    return 1069000 + (s - 5000000) * 0.24;
-  return 2269000 + (s - 10000000) * 0.25;
-}
-
-function recalcularLinha(inputEl) {
-  const row = inputEl.closest('tr');
-  const salarioBase = parseKZ(row.querySelector('.salario-base').textContent);
-  
-  // Calcular total de subsídios dinâmicos
-  let totalSubsidios = 0;
-  row.querySelectorAll('input[name*="subsidio_"]').forEach(input => {
-    totalSubsidios += parseKZ(input.value);
-  });
-  
-  // Faltas: o input é o NÚMERO de faltas → converter para valor monetário
-  const faltasInput = row.querySelector('.faltas');
-  const faltasCount = parseInt(faltasInput ? faltasInput.value : '0') || 0;
-  const descontoFaltas = faltasCount > 0 ? (salarioBase / 22 * faltasCount) : 0;
-
-  // IRT e INSS calculados sobre (salário_base - desconto_faltas)
-  const baseImpostos = Math.max(0, salarioBase - descontoFaltas);
-  const bruto  = salarioBase + totalSubsidios;
-  const irt    = calcularIRT(baseImpostos);
-  const inss   = baseImpostos * 0.03;
-  const liquido = (baseImpostos - irt - inss) + totalSubsidios;
-
-  row.querySelector('.bruto').textContent  = fmtKZ(bruto);
-  row.querySelector('.irt').textContent    = fmtKZ(irt);
-  row.querySelector('.inss').textContent   = fmtKZ(inss);
-  row.querySelector('.liquido').textContent = fmtKZ(Math.max(liquido, 0));
-
-  // Actualizar total
-  recalcularTotal();
-}
-
-function recalcularTotal() {
-  let total = 0;
-  document.querySelectorAll('.liquido').forEach(el => {
-    total += parseKZ(el.textContent);
-  });
-  const totalEl = document.getElementById('totalLiquido');
-  if (totalEl) totalEl.textContent = fmtKZ(total) + ' KZ';
-}
-
-// Inicializar recalculo do total ao carregar
-document.addEventListener('DOMContentLoaded', function() {
-  recalcularTotal();
-});
-</script>
-
-{% if proc.estado == 'Rascunho' %}
-<div id="modalColabs" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col mx-4">
-    <form method="POST">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="atualizar_colaboradores">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="font-bold text-gray-900 dark:text-white text-lg">Seleccionar Colaboradores</h3>
-        <button type="button" onclick="document.getElementById('modalColabs').classList.add('hidden')"
-                class="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800">
-          <i class="fas fa-times text-xl"></i>
-        </button>
-      </div>
-      <div class="p-4 overflow-y-auto flex-1">
-        <label class="flex items-center gap-2 mb-4 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
-          <input type="checkbox" id="selTodos" checked
-                 onchange="document.querySelectorAll('.col-check').forEach(c=>c.checked=this.checked)"
-                 class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary">
-          <span>Seleccionar Todos</span>
-        </label>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {% for col in todas_cols %}
-          <label class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all {% if not col.salario_efetivo %}opacity-60{% endif %}">
-            <input type="checkbox" name="colaboradores" value="{{ col.id }}"
-                   class="col-check w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                   {% if col.id in ids_processados %}checked{% endif %}>
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ col.nome }}</p>
-              <p class="text-xs text-gray-500">{% if col.salario_efetivo %}{{ col.salario_efetivo|fmtkz }} KZ{% else %}sem salário{% endif %}</p>
-            </div>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-        <button type="button" onclick="document.getElementById('modalColabs').classList.add('hidden')"
-                class="px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-          Cancelar
-        </button>
-        <button type="submit"
-                class="px-5 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm text-sm">
-          <i class="fas fa-save text-base"></i> Actualizar Lista
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-{% endif %}
-
-{% include 'includes/footer.html' %}
+{% endblock %}

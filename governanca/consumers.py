@@ -71,7 +71,7 @@ class AssembleiaConsumer(AsyncWebsocketConsumer):
         try:
             await self.send(text_data=json.dumps({'action': 'chat_erro', 'message': message}))
         except Exception:
-            pass
+            logger.exception("Falha ao enviar mensagem rate-limited para WebSocket %s", getattr(self, 'channel_name', '?'))
 
     async def dispatch(self, message):
         usr = getattr(self, 'usuario', None)

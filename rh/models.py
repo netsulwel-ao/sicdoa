@@ -307,6 +307,21 @@ class Colaborador(models.Model):
             models.Index(fields=['criado_em']),
         ]
 
+    def clean(self):
+        if self.data_admissao:
+            validate_date_not_future(self.data_admissao, field_name="Data de Admissão")
+        if self.data_nascimento:
+            idade = (timezone.now().date() - self.data_nascimento).days / 365.25
+            if idade < 18:
+                raise ValidationError(
+                    {'data_nascimento': 'O colaborador deve ter pelo menos 18 anos.'}
+                )
+
+    def save(self, *args, **kwargs):
+        if not kwargs.get('update_fields'):
+            self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.nome} — {self.get_cargo_display()}"
 
@@ -545,6 +560,11 @@ class Candidatura(models.Model):
             models.Index(fields=['vaga', 'estado']),
             models.Index(fields=['criado_em']),
         ]
+
+    def clean(self):
+        from django.utils import timezone
+        if self.data_entrevista and self.data_entrevista < timezone.now():
+            raise ValidationError({'data_entrevista': 'A data da entrevista não pode estar no passado.'})
 
 
 # ─── Entrevistas ──────────────────────────────────────────────────────────────

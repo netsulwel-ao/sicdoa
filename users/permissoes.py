@@ -15,7 +15,7 @@ PERMISSOES_INSTITUCIONAIS = [
 PERMISSOES_BANCA = [
     # Gestão Aduaneira
     'gerir_aduaneiro', 'criar_declaracao_unica', 'ver_pauta_aduaneira',
-    'gerir_clientes',
+    'gerir_clientes', 'gerir_clientes_filial',
     # Filial
     'gerir_filial',
     # RH
@@ -24,7 +24,7 @@ PERMISSOES_BANCA = [
     'gerir_processamento_salarial', 'gerir_recrutamento_banca',
     'gerir_presencas_banca', 'gerir_avaliacoes_banca',
     # Financeiro
-    'gerir_financeiro',
+    'gerir_financeiro', 'gerir_financeiro_filial',
     'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
     'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros',
     # Colaborador

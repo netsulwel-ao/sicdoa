@@ -1,11 +1,10 @@
 """
 Utilitários de email para o sistema SICDOA.
 Todas as funções retornam (sucesso: bool, mensagem: str).
-O envio é feito em thread separada para não bloquear o request.
+O envio é síncrono para que o caller saiba o resultado real.
 """
-import random
+import secrets
 import string
-import threading
 import logging
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
@@ -18,32 +17,32 @@ logger = logging.getLogger(__name__)
 def gerar_senha_aleatoria(tamanho=8):
     """Gera uma senha aleatória com letras, números e símbolos."""
     caracteres = string.ascii_letters + string.digits + "!@#$%&*"
-    return ''.join(random.choice(caracteres) for _ in range(tamanho))
+    return ''.join(secrets.choice(caracteres) for _ in range(tamanho))
 
 
 def _url_login():
     """URL absoluta da página de início de sessão."""
     from django.urls import reverse
-    base = getattr(settings, 'SITE_URL', 'https://sicdoa-ycg9.onrender.com').rstrip('/')
+    base = settings.SITE_URL.rstrip('/')
     return f"{base}{reverse('login')}"  
 
 
 def _url_vaga(vaga):
     """URL absoluta da página pública da vaga."""
-    base = getattr(settings, 'SITE_URL', 'https://sicdoa-ycg9.onrender.com').rstrip('/')
+    base = settings.SITE_URL.rstrip('/')
     return f"{base}/vaga/{vaga.link_externo}/"
     
 
 def _url_candidatura(vaga):
     """URL absoluta do formulário de candidatura da vaga."""
-    base = getattr(settings, 'SITE_URL', 'https://sicdoa-ycg9.onrender.com').rstrip('/')
+    base = settings.SITE_URL.rstrip('/')
     return f"{base}/candidatar/{vaga.link_externo}/"
 
 
 def _enviar_sync(assunto, texto, html, destinatarios, anexos=None):
-    """Envia email de forma síncrona (chamado internamente pela thread)."""
+    """Envia email de forma síncrona. Retorna (sucesso, mensagem)."""
     if not destinatarios:
-        return
+        return False, "Nenhum destinatário definido"
     prefixo = getattr(settings, 'EMAIL_SUBJECT_PREFIX', '') or ''
     if prefixo and not assunto.startswith(prefixo):
         assunto = f'{prefixo}{assunto}'
@@ -61,30 +60,30 @@ def _enviar_sync(assunto, texto, html, destinatarios, anexos=None):
                 msg.attach(nome_ficheiro, conteudo, mime_type)
         msg.send(fail_silently=False)
         logger.info("Email enviado para %s — assunto: %s", destinatarios, assunto)
+        return True, "Email enviado com sucesso"
     except Exception as e:  # noqa: BLE001
         logger.error("Falha ao enviar email para %s: %s", destinatarios, str(e))
+        return False, f"Falha ao enviar email: {str(e)}"
 
 
 def _enviar(assunto, texto, html, destinatarios, anexos=None):
     """
-    Envia email de forma assíncrona.
-    Usa Celery quando REDIS_ENABLED=1, caso contrário usa thread daemon.
-    Retorna sempre (True, mensagem) porque o envio é assíncrono.
+    Envia email de forma síncrona.
+    Usa Celery quando REDIS_ENABLED=1, caso contrário chama directamente.
+    Retorna (sucesso, mensagem) com o resultado real do envio.
     """
     if not destinatarios:
         return False, "Nenhum destinatário definido"
 
     if getattr(settings, 'REDIS_ENABLED', False):
-        from utils.tasks import enviar_email_task
-        enviar_email_task.delay(assunto, texto, html, destinatarios, anexos=anexos)
-    else:
-        t = threading.Thread(
-            target=_enviar_sync,
-            args=(assunto, texto, html, destinatarios, anexos),
-            daemon=True,
-        )
-        t.start()
-    return True, "Email em envio"
+        try:
+            from utils.tasks import enviar_email_task
+            enviar_email_task.delay(assunto, texto, html, destinatarios, anexos=anexos)
+            return True, "Email em envio"
+        except Exception as e:  # noqa: BLE001
+            logger.error("Falha ao enviar email via Celery: %s", str(e))
+            return False, f"Falha ao enviar email: {str(e)}"
+    return _enviar_sync(assunto, texto, html, destinatarios, anexos)
 
 
 # ─── Colaboradores ────────────────────────────────────────────────────────────

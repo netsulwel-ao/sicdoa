@@ -4,6 +4,7 @@ from . import views_public
 from . import views_admin
 from . import views_institucional
 
+
 urlpatterns = [
     # ── Colaboradores Institucionais (Equipa do Administrador) ────────────
     path('admin/colaboradores-institucionais/',                                         views_admin.admin_colaboradores_inst_view,          name='rh_admin_colaboradores_inst'),
@@ -50,6 +51,7 @@ urlpatterns = [
     path('colaboradores/',                          views.colaboradores_view,       name='rh_colaboradores'),
     path('colaboradores/novo/',                     views.colaborador_novo_view,    name='rh_colaborador_novo'),
     path('colaboradores/<int:pk>/editar/',          views.colaborador_editar_view,  name='rh_colaborador_editar'),
+    path('colaboradores/<int:pk>/',                 views.colaborador_detalhe_view, name='rh_colaborador_detalhe'),
     path('colaboradores/<int:pk>/dados/',           views.colaborador_dados_api,    name='rh_colaborador_dados'),
     path('colaboradores/<int:pk>/apagar/',          views.colaborador_apagar_view,  name='rh_colaborador_apagar'),
     path('colaboradores/<int:pk>/reenviar-email/',  views.colaborador_reenviar_email_view, name='rh_colaborador_reenviar_email'),

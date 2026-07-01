@@ -155,12 +155,12 @@ if IS_PRODUCTION:
         if origin.strip()
     ]
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = False
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
-    SECURE_HSTS_SECONDS = 0
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-    SECURE_HSTS_PRELOAD = False
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # ── MySQL com Connection Pooling ──────────────────────────────────────
@@ -248,7 +248,7 @@ EMAIL_SUBJECT_PREFIX = '[SICDOA] '
 EMAIL_TIMEOUT = 30
 
 # URL pública do sistema (usada em emails — credenciais, convites, etc.)
-SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
+SITE_URL = os.environ.get('SITE_URL', 'https://sicdoa.cdoangola.co.ao').rstrip('/')
 
 # LiveKit — videoconferência para plenário virtual
 LIVEKIT_URL = os.environ.get('LIVEKIT_URL', '')

@@ -1,10 +1,6 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
   {% csrf_token %}
-  <main class="p-4 md:p-6 lg:p-8">
 
     <div class="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
       <div>
@@ -269,9 +265,6 @@
       </div>
     </div>
 
-  </main>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // RSVP
@@ -362,4 +355,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

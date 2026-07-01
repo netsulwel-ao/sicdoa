@@ -1,10 +1,5 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-
-  <main class="p-4 md:p-6 lg:p-8">
+{% extends 'base.html' %}
+{% block content %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
       <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
@@ -146,37 +141,4 @@
       </div>
     </form>
 
-<script>
-var clientes = {{ clientes_json|safe }};
-var processos = {{ processos_json|safe }};
-
-function filtrarProcessos(clienteId) {
-  var sel = document.getElementById('id_processo_aduaneiro');
-  if (!sel) return;
-  var nif = '';
-  clientes.forEach(function(c) { if (c.id == clienteId) nif = c.nif; });
-  var currentVal = sel.value;
-  sel.innerHTML = '<option value="">---------</option>';
-  processos.forEach(function(p) {
-    if (p.nif_declarante == nif) {
-      var opt = document.createElement('option');
-      opt.value = p.id;
-      opt.text = p.numero_du + ' (NIF: ' + p.nif_declarante + ')';
-      if (p.id == currentVal) opt.selected = true;
-      sel.appendChild(opt);
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  var s = document.getElementById('id_cliente');
-  if (s) {
-    s.addEventListener('change', function() { filtrarProcessos(this.value); });
-    s.dispatchEvent(new Event('change'));
-  }
-});
-</script>
-  </main>
-</div>
-
-{% include 'includes/footer.html' %}
+{% endblock %}

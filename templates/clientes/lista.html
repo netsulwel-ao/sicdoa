@@ -1,10 +1,5 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-
-  <main class="p-3 sm:p-5 lg:p-8 min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+{% extends 'base.html' %}
+{% block content %}
     <div class="max-w-5xl mx-auto w-full">
 
       <!-- ── Cabeçalho ── -->
@@ -245,9 +240,6 @@
       </div>
 
     </div>
-  </main>
-</div>
-
 <!-- ── Modal Confirmar Exclusão ── -->
 <div id="modalExcluirCliente" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
   <div class="bg-white dark:bg-gray-800 w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl">
@@ -308,4 +300,4 @@ document.getElementById('modalExcluirCliente').addEventListener('click', functio
 });
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

@@ -1,6 +1,6 @@
-﻿{% load static %}
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
+﻿{% extends 'base_aduaneiro.html' %}
+{% block content %}
+{% load static %}
 <link href="{% static 'du/style.css' %}" rel="stylesheet" />
 <style>
   /* ============================================================
@@ -264,10 +264,6 @@
   color: #f1f5f9 !important;
   border-color: #334155 !important;
 }</style>
-<div class="flex-1 ml-0 lg:ml-64 min-w-0 overflow-x-hidden aduaneiro-page">
-{% include 'includes/header.html' %}
-
-<main class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-6">
   <!-- Header Section -->
   <div class="max-w-7xl mx-auto">
     <!-- Page Title & Breadcrumb -->
@@ -1378,9 +1374,6 @@
       </div>
     </div>
   </div>
-</main>
-</div>
-
 <!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <!-- Select2 CSS -->
@@ -3399,9 +3392,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% if du and du.dados_json %}
 <!-- Pré-preenchimento do formulário em modo de edição -->
+{{ du.dados_json|json_script:"du-dados-raw" }}
 <script>
 (function() {
-  var _dadosRaw = {{ du.dados_json|safe }};
+  var _dadosRaw = JSON.parse(document.getElementById('du-dados-raw').textContent);
   if (!_dadosRaw || typeof _dadosRaw !== 'object') return;
 
   // Aguardar que as APIs (regimes, estâncias, etc.) terminem de carregar
@@ -3553,4 +3547,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% endif %}
 
-{% include 'includes/footer.html' %}
+{% endblock %}

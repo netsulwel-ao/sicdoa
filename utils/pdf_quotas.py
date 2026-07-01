@@ -358,7 +358,8 @@ def gerar_carteira_pdf(despachante, carteira, admin_nome='Administração CDOA')
     c.showPage()
     c.save()
 
-    pdf_filename = f'carteiras/{carteira.numero_carteira.replace("/", "-").replace("\\", "-")}.pdf'
+    safe_number = carteira.numero_carteira.replace("/", "-").replace("\\", "-")
+    pdf_filename = f'carteiras/{safe_number}.pdf'
     pdf_path = os.path.join(settings.MEDIA_ROOT, pdf_filename)
     os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
     with open(pdf_path, 'wb') as f:

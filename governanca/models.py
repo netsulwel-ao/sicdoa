@@ -248,6 +248,10 @@ class PresencaAssembleia(models.Model):
         verbose_name = 'Presença'
         verbose_name_plural = 'Presenças'
 
+    def clean(self):
+        if self.presente_em and self.saiu_em and self.saiu_em < self.presente_em:
+            raise ValidationError({'saiu_em': 'A data/hora de saída não pode ser anterior à data/hora de entrada.'})
+
     def __str__(self):
         return f'{self.usuario.nome} - {self.assembleia.titulo}'
 

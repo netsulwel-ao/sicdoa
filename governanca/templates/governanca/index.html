@@ -1,10 +1,6 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
   {% csrf_token %}
-  <main class="p-4 md:p-6 lg:p-8">
 
     {# ── Cabeçalho ─────────────────────────────────────────────────────── #}
     <div class="mb-8">
@@ -250,10 +246,6 @@
       </div>
     </div>
 
-  </main>
-</div>
-{% include 'includes/footer.html' %}
-
 {# ── Modal: Gerar Documento ──────────────────────────────────────────── #}
 <div id="gerarDocumentoModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-800">
@@ -333,3 +325,4 @@ document.getElementById('gerarDocumentoForm').addEventListener('submit', functio
   });
 });
 </script>
+{% endblock %}

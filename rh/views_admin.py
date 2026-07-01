@@ -3,7 +3,6 @@ Views de administração do RH — apenas para utilizadores com papel 'Administr
 Permite gerir todos os despachantes e as suas bancas.
 """
 import json
-import bcrypt
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -17,6 +16,7 @@ from django.http import JsonResponse
 
 from .acesso import obter_acesso_admin
 from .models import Banca, FilialBanca, Colaborador, GestorFilial
+from .tax_utils import _hash_password
 from users.models import Usuario
 from utils.email_utils import gerar_senha_aleatoria, _enviar
 
@@ -72,12 +72,7 @@ def _ctx_admin(request, sub='', extra=None, active_menu='ADMIN_RH'):
     return ctx
 
 
-def _hash_password(senha: str) -> str:
-    """Gera hash bcrypt compatível com PHP ($2y$)."""
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(senha.encode('utf-8'), salt)
-    return hashed.decode('utf-8').replace('$2b$', '$2y$')
-
+# _hash_password imported from tax_utils
 
 # ─── Criar Novo Despachante ───────────────────────────────────────────────────
 
@@ -87,10 +82,12 @@ def admin_despachante_novo_view(request):
 
 def _enviar_credenciais_despachante(despachante, senha):
     """Envia email com credenciais de acesso SICDOA ao despachante."""
+    if not despachante.email:
+        return False, "Despachante não tem email registado"
     from django.conf import settings
     from django.urls import reverse
 
-    base = getattr(settings, 'SITE_URL', 'https://sicdoa-ycg9.onrender.com').rstrip('/')
+    base = settings.SITE_URL.rstrip('/')
     link_login = f"{base}{reverse('login')}"
 
     assunto = 'As suas credenciais de acesso — SICDOA'
@@ -698,7 +695,7 @@ def admin_avaliacao_inst_nova_view(request, ciclo_pk, col_pk=None):
         colaborador_id = request.POST.get('colaborador', col_pk)
         if not colaborador_id:
             messages.error(request, 'Selecione um colaborador.')
-            return redirect('admin_ciclo_inst_avaliar', ciclo_pk=ciclo_pk)
+            return redirect('rh_admin_avaliacao_inst_nova', ciclo_pk=ciclo_pk)
 
         defaults = {
             'pontualidade': int(request.POST.get('pontualidade', 3)),

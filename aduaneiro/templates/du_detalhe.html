@@ -1,17 +1,12 @@
+{% extends 'base_aduaneiro.html' %}
+{% block content %}
 {% load static %}
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0 aduaneiro-page">
-  {% include 'includes/header.html' %}
-
-  <main class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-3 sm:p-5 lg:p-6">
     <div class="max-w-5xl mx-auto w-full">
 
       <!-- Breadcrumb + Cabeçalho -->
       <div class="mb-6">
         <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
-          <a href="{% url 'du_lista' %}" class="hover:text-primary transition-colors">Declarações Únicas</a>
+          <a href="{% url 'aduaneiro:du_lista' %}" class="hover:text-primary transition-colors">Declarações Únicas</a>
           <i class="fas fa-chevron-right text-xs"></i>
           <span class="text-gray-900 dark:text-white font-medium">
             {{ du.numero_du|default:"Rascunho" }}
@@ -44,13 +39,13 @@
 
           <!-- Acções -->
           <div class="flex items-center gap-2 flex-wrap">
-            <a href="{% url 'du_pdf' du.du_uuid %}"
+            <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}"
               class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
               <i class="fas fa-download text-base"></i>
               Download PDF
             </a>
             {% if pode_editar and du.status == 'Rascunho' %}
-            <a href="{% url 'du_editar' du.du_uuid %}"
+            <a href="{% url 'aduaneiro:du_editar' du.du_uuid %}"
               class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm">
               <i class="fas fa-edit text-base"></i>
               Editar
@@ -72,13 +67,15 @@
                 </button>
                 {% endif %}
                 {% endfor %}
-                <div class="border-t border-gray-100 dark:border-gray-700"></div>
-                <button onclick="apagarDU()"
-                  class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                  Apagar DU
-                </button>
               </div>
             </div>
+            {% endif %}
+            {% if is_admin or du.status == 'Rascunho' %}
+            <button onclick="apagarDU()"
+              class="flex items-center gap-2 px-4 py-2 border-2 border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shadow-sm">
+              <i class="fas fa-trash text-base"></i>
+              Apagar
+            </button>
             {% endif %}
           </div>
         </div>
@@ -322,19 +319,24 @@
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Acções</h2>
             <div class="space-y-2">
-              <a href="{% url 'du_pdf' du.du_uuid %}"
+              <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300">
                 <i class="fas fa-file-pdf text-base text-green-600"></i>
                 Download PDF
               </a>
               {% if pode_editar and du.status == 'Rascunho' %}
-              <a href="{% url 'du_editar' du.du_uuid %}"
+              <a href="{% url 'aduaneiro:du_editar' du.du_uuid %}"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300">
                 <i class="fas fa-edit text-base text-blue-600"></i>
                 Continuar Edição
               </a>
               {% endif %}
-              <a href="{% url 'du_lista' %}"
+              <a href="{% url 'aduaneiro:du_historico' du.du_uuid %}"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300">
+                <i class="fas fa-history text-base text-amber-600"></i>
+                Histórico de Alterações
+              </a>
+              <a href="{% url 'aduaneiro:du_lista' %}"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300">
                 <i class="fas fa-arrow-left text-base text-gray-500"></i>
                 Voltar à Lista
@@ -345,9 +347,6 @@
         </div>
       </div>
     </div>
-  </main>
-</div>
-
 <script>
 function toggleAdminMenu() {
   document.getElementById('admin-menu').classList.toggle('hidden');
@@ -364,7 +363,7 @@ function alterarStatus(novoStatus) {
     mensagem: `Alterar o status desta DU para "${novoStatus}"?`,
     textoBotao: 'Alterar',
     onConfirm: function () {
-      fetch('{% url "du_alterar_status" du.du_uuid %}', {
+      fetch('{% url "aduaneiro:du_alterar_status" du.du_uuid %}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
         body: JSON.stringify({ status: novoStatus }),
@@ -382,15 +381,15 @@ function apagarDU() {
     mensagem: 'Esta acção é irreversível. A DU será eliminada permanentemente do sistema.',
     textoBotao: 'Apagar DU',
     onConfirm: function () {
-      fetch('{% url "du_apagar" du.du_uuid %}', {
+      fetch('{% url "aduaneiro:du_apagar" du.du_uuid %}', {
         method: 'POST',
         headers: { 'X-CSRFToken': '{{ csrf_token }}' },
       })
       .then(r => r.json())
-      .then(d => { if (d.sucesso) window.location.href = '{% url "du_lista" %}'; });
+      .then(d => { if (d.sucesso) window.location.href = '{% url "aduaneiro:du_lista" %}'; });
     },
   });
 }
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

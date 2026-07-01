@@ -1,6 +1,8 @@
 import uuid
 from decimal import Decimal
 from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 class Usuario(models.Model):
@@ -303,6 +305,10 @@ class PresencaInstitucional(models.Model):
         verbose_name = 'Presença Institucional'
         verbose_name_plural = 'Presenças Institucionais'
 
+    def clean(self):
+        if self.data and self.data > timezone.now().date():
+            raise ValidationError({'data': 'A data não pode estar no futuro.'})
+
 
 class FeriasInstitucional(models.Model):
     ESTADOS = [
@@ -322,6 +328,13 @@ class FeriasInstitucional(models.Model):
         ordering = ['-criado_em']
         verbose_name = 'Férias Institucional'
         verbose_name_plural = 'Férias Institucionais'
+
+    def clean(self):
+        if self.data_inicio and self.data_fim:
+            if self.data_fim < self.data_inicio:
+                raise ValidationError({'data_fim': 'A data de fim não pode ser anterior à data de início.'})
+            if self.data_inicio > timezone.now().date():
+                raise ValidationError({'data_inicio': 'A data de início não pode estar no futuro.'})
 
     @property
     def dias(self):

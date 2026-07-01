@@ -1,9 +1,5 @@
-{% include 'includes/head.html' %}
-{% include 'colaboradores/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'colaboradores/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+{% extends 'colaboradores/base_colaboradores.html' %}
+{% block content %}
 
     {# ── Boas-vindas ─────────────────────────────────────────────────────── #}
     <div class="bg-gradient-to-r from-primary to-blue-700 rounded-2xl p-6 text-white shadow-lg">
@@ -100,7 +96,4 @@
       </div>
     </div>
 
-  </main>
-</div>
-
-{% include 'includes/footer.html' %}
+{% endblock %}

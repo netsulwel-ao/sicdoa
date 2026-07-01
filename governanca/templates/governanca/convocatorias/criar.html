@@ -1,9 +1,5 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
 
     <div class="max-w-2xl mx-auto mb-6">
       <div class="flex items-center justify-between mb-4">
@@ -61,7 +57,4 @@
       </form>
     </div>
 
-  </main>
-</div>
-
-{% include 'includes/footer.html' %}
+{% endblock %}

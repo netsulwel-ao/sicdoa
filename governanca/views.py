@@ -85,8 +85,12 @@ def _notificar_para_papel(papel, tipo, titulo, mensagem='', link=''):
         from governanca.tasks import notificar_utilizadores_task
         notificar_utilizadores_task.delay(usuarios, tipo, titulo, mensagem, link)
     else:
+        Notificacao.objects.bulk_create([
+            Notificacao(usuario_id=u_id, tipo=tipo, titulo=titulo, mensagem=mensagem, link=link)
+            for u_id in usuarios
+        ])
         for u_id in usuarios:
-            _criar_notificacao(u_id, tipo, titulo, mensagem, link)
+            cache_invalidate_prefix(f'dash_governanca_{u_id}')
 
 
 def _enviar_convocatorias_email(assembleia):
@@ -98,7 +102,7 @@ def _enviar_convocatorias_email(assembleia):
         return
     topicos = '\n'.join(f'  • {c.titulo}' for c in convocatorias)
     data_hora = assembleia.data_hora.strftime('%d/%m/%Y às %H:%M')
-    site_url = getattr(dj_settings, 'SITE_URL', 'http://127.0.0.1:8000')
+    site_url = dj_settings.SITE_URL
     assunto = f'Assembleia em Curso: {assembleia.titulo}'
     texto = (
         f'Prezado(a) Membro,\n\n'
@@ -380,10 +384,10 @@ def nova_assembleia(request):
             for u in Usuario.objects.filter(status='Ativo', papel__in=['Administrador', 'Despachante Oficial']).exclude(email=''):
                 if iniciar_agora:
                     assunto = f'Assembleia em curso: {titulo}'
-                    corpo = f'Prezado(a) {u.nome},\n\nA assembleia "{titulo}" foi iniciada e já está em curso.\n\nEntre na sala virtual: {getattr(settings, "SITE_URL", "http://127.0.0.1:8000")}/governanca/assembleia/{assembleia.pk}/sala/\n\nAtenciosamente,\nCDOA'
+                    corpo = f'Prezado(a) {u.nome},\n\nA assembleia "{titulo}" foi iniciada e já está em curso.\n\nEntre na sala virtual: {settings.SITE_URL}/governanca/assembleia/{assembleia.pk}/sala/\n\nAtenciosamente,\nCDOA'
                 else:
                     assunto = f'Assembleia Agendada: {titulo}'
-                    corpo = f'Prezado(a) {u.nome},\n\nFoi agendada uma nova assembleia:\n\n  Título: {titulo}\n  Data: {data_hora:%d/%m/%Y às %H:%M}\n  Descrição: {descricao}\n\nParticipe em: {getattr(settings, "SITE_URL", "http://127.0.0.1:8000")}/governanca/assembleia/{assembleia.pk}/\n\nAtenciosamente,\nCDOA'
+                    corpo = f'Prezado(a) {u.nome},\n\nFoi agendada uma nova assembleia:\n\n  Título: {titulo}\n  Data: {data_hora:%d/%m/%Y às %H:%M}\n  Descrição: {descricao}\n\nParticipe em: {settings.SITE_URL}/governanca/assembleia/{assembleia.pk}/\n\nAtenciosamente,\nCDOA'
                 _enviar(assunto, corpo, None, [u.email])
 
             pautas_titulos = request.POST.getlist('pauta_titulo[]')
@@ -483,10 +487,10 @@ def editar_assembleia(request, pk):
             nova_data = parse_datetime(data_hora_str)
             if not nova_data:
                 messages.error(request, 'Formato de data inválido. Use AAAA-MM-DD HH:MM.')
-                return redirect('governanca_editar_assembleia', pk=pk)
+                return redirect('governanca_editar', pk=pk)
             if nova_data <= timezone.now():
                 messages.error(request, 'A data da assembleia deve ser posterior ao momento atual.')
-                return redirect('governanca_editar_assembleia', pk=pk)
+                return redirect('governanca_editar', pk=pk)
             assembleia.data_hora = nova_data
         assembleia.link_streaming = request.POST.get('link_streaming', assembleia.link_streaming)
         assembleia.local = request.POST.get('local', '').strip() or 'Sala Virtual CDOA'
@@ -1488,7 +1492,7 @@ def api_publicar_documento(request, pk, doc_pk):
             f'Documento publicado: {doc.titulo}',
             f'Prezado(a) {u.nome},\n\n'
             f'Foi publicado o documento "{doc.titulo}" referente à assembleia "{doc.assembleia.titulo}".\n\n'
-            f'Aceda em: {getattr(settings, "SITE_URL", "http://127.0.0.1:8000")}/governanca/assembleia/{pk}/\n\n'
+            f'Aceda em: {settings.SITE_URL}/governanca/assembleia/{pk}/\n\n'
             f'Atenciosamente,\nCDOA',
             None, [u.email],
         )
@@ -1498,7 +1502,7 @@ def api_publicar_documento(request, pk, doc_pk):
             f'Documento publicado: {doc.titulo}',
             f'Prezado(a) {u.nome},\n\n'
             f'O documento "{doc.titulo}" foi publicado na assembleia "{doc.assembleia.titulo}".\n\n'
-            f'Aceda em: {getattr(settings, "SITE_URL", "http://127.0.0.1:8000")}/governanca/assembleia/{pk}/\n\n'
+            f'Aceda em: {settings.SITE_URL}/governanca/assembleia/{pk}/\n\n'
             f'Atenciosamente,\nCDOA',
             None, [u.email],
         )
@@ -3042,10 +3046,11 @@ def api_quotas_cancelar(request, fatura_uuid):
     quota.status = 'Cancelada'
     quota.observacoes = (quota.observacoes + '\n' + f'Cancelado: {motivo}').strip()
     quota.save(update_fields=['status', 'observacoes'])
-    for pag in PagamentoQuota.objects.filter(quota=quota, status='Pendente Confirmacao'):
+    pags = list(PagamentoQuota.objects.filter(quota=quota, status='Pendente Confirmacao'))
+    for pag in pags:
         pag.status = 'Rejeitado'
         pag.observacoes = (pag.observacoes + '\n' + f'Cancelado por admin: {motivo}').strip()
-        pag.save(update_fields=['status', 'observacoes'])
+    PagamentoQuota.objects.bulk_update(pags, fields=['status', 'observacoes'])
     _registrar_historico(
         membro=quota.despachante, quota=quota, pagamento=None,
         acao='QUOTA_CANCELADA',
@@ -3250,7 +3255,7 @@ def consulta_detalhe(request, pk):
         'artigos__comentarios__autor', 'artigos__comentarios__respostas__autor',
         'votacoes__votos',
     ), pk=pk)
-    total_comentarios = sum(a.comentarios.count() for a in consulta.artigos.all())
+    total_comentarios = sum(len(a.comentarios.all()) for a in consulta.artigos.all())
     votacao_ativa = consulta.votacoes.filter(ativa=True).first()
     ja_votou = False
     resultados_votacao = {}
@@ -3416,16 +3421,16 @@ def api_consulta_publicar(request, pk):
         Q(papel='Despachante Oficial') | Q(papel='Administrador'),
         status='Ativo'
     ).values_list('email', flat=True)
-    for u in Usuario.objects.filter(
-        Q(papel='Despachante Oficial') | Q(papel='Administrador'),
-        status='Ativo'
-    ):
-        Notificacao.objects.create(
-            usuario=u, tipo='consulta_publicada',
+    Notificacao.objects.bulk_create([
+        Notificacao(usuario=u, tipo='consulta_publicada',
             titulo='Nova Consulta Pública',
             mensagem=f'Foi publicada a consulta "{consulta.titulo}". Participe até {consulta.prazo_fim.strftime("%d/%m/%Y %H:%M") if consulta.prazo_fim else "ao prazo indicado"}.',
             link=f'/governanca/consulta/{consulta.id}/',
+        ) for u in Usuario.objects.filter(
+            Q(papel='Despachante Oficial') | Q(papel='Administrador'),
+            status='Ativo'
         )
+    ])
     return JsonResponse({'status': 'ok'})
 
 
@@ -3489,13 +3494,14 @@ def api_consulta_abrir_votacao(request, pk):
     consulta.status = 'EmVotacao'
     consulta.save()
     VotacaoConsulta.objects.create(consulta=consulta)
-    for u in Usuario.objects.filter(status='Ativo'):
-        Notificacao.objects.create(
-            usuario=u, tipo='votacao_aberta',
+    usuarios_ativos = Usuario.objects.filter(status='Ativo')
+    Notificacao.objects.bulk_create([
+        Notificacao(usuario=u, tipo='votacao_aberta',
             titulo='Votação Aberta',
             mensagem=f'A votação para "{consulta.titulo}" está aberta. Participe!',
             link=f'/governanca/consulta/{consulta.id}/',
-        )
+        ) for u in usuarios_ativos
+    ])
     return JsonResponse({'status': 'ok'})
 
 
@@ -3528,13 +3534,14 @@ def api_consulta_encerrar(request, pk):
         votacao.save()
     consulta.status = 'Encerrada'
     consulta.save()
-    for u in Usuario.objects.filter(status='Ativo'):
-        Notificacao.objects.create(
-            usuario=u, tipo='consulta_encerrada',
+    usuarios_ativos = Usuario.objects.filter(status='Ativo')
+    Notificacao.objects.bulk_create([
+        Notificacao(usuario=u, tipo='consulta_encerrada',
             titulo='Consulta Encerrada',
             mensagem=f'A consulta "{consulta.titulo}" foi encerrada. O relatório final será publicado em breve.',
             link=f'/governanca/consulta/{consulta.id}/',
-        )
+        ) for u in usuarios_ativos
+    ])
     return JsonResponse({'status': 'ok'})
 
 
@@ -3572,13 +3579,14 @@ def api_consulta_gerar_relatorio(request, pk):
     hash_str = json.dumps(relatorio_data, sort_keys=True)
     relatorio.assinatura_hash = hashlib.sha256(hash_str.encode()).hexdigest()
     relatorio.save()
-    for u in Usuario.objects.filter(status='Ativo'):
-        Notificacao.objects.create(
-            usuario=u, tipo='relatorio_publicado',
+    usuarios_ativos = Usuario.objects.filter(status='Ativo')
+    Notificacao.objects.bulk_create([
+        Notificacao(usuario=u, tipo='relatorio_publicado',
             titulo='Relatório Disponível',
             mensagem=f'O relatório da consulta "{consulta.titulo}" já está disponível.',
             link=f'/governanca/consulta/{consulta.id}/relatorio/',
-        )
+        ) for u in usuarios_ativos
+    ])
     return JsonResponse({'status': 'ok'})
 
 
@@ -3589,13 +3597,14 @@ def api_consulta_publicar_versao_final(request, pk):
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     consulta.status = 'Aprovada'
     consulta.save()
-    for u in Usuario.objects.filter(status='Ativo'):
-        Notificacao.objects.create(
-            usuario=u, tipo='versao_final_publicada',
+    usuarios_ativos = Usuario.objects.filter(status='Ativo')
+    Notificacao.objects.bulk_create([
+        Notificacao(usuario=u, tipo='versao_final_publicada',
             titulo='Versão Final Publicada',
             mensagem=f'A versão final da consulta "{consulta.titulo}" foi publicada no Repositório Digital.',
             link='/governanca/atas/',
-        )
+        ) for u in usuarios_ativos
+    ])
     return JsonResponse({'status': 'ok'})
 
 
@@ -4235,9 +4244,12 @@ def utilizador_novo_view(request):
                 area_actuacao=area_actuacao, salario_base=salario_dec,
             )
 
-        _enviar_credenciais_utilizador(user, senha)
-
-        messages.success(request, f'Utilizador "{nome}" criado com sucesso. Credenciais enviadas para {email}.')
+        sucesso_email, msg_email = _enviar_credenciais_utilizador(user, senha)
+        if sucesso_email:
+            messages.success(request, f'Utilizador "{nome}" criado com sucesso. Credenciais enviadas para {email}.')
+        else:
+            messages.success(request, f'Utilizador "{nome}" criado com sucesso.')
+            messages.warning(request, f'Não foi possível enviar o email de credenciais: {msg_email}')
         return redirect('governanca_gerir_utilizadores')
 
     from users.models import Funcao
@@ -4495,11 +4507,13 @@ def api_utilizador_criar(request):
 
 
 def _enviar_credenciais_utilizador(usuario, senha):
+    if not usuario.email:
+        return False, "Utilizador não tem email registado"
     from django.conf import settings
     from django.urls import reverse
     from utils.email_utils import _enviar
 
-    base = getattr(settings, 'SITE_URL', 'https://sicdoa-ycg9.onrender.com').rstrip('/')
+    base = settings.SITE_URL.rstrip('/')
     link_login = f"{base}{reverse('login')}"
 
     assunto = 'As suas credenciais de acesso — SICDOA'

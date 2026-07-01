@@ -1,8 +1,6 @@
-﻿{% load rh_extras %}{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
       <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
       <i class="fas fa-chevron-right text-xs"></i>
@@ -24,6 +22,47 @@
     </div>
 
     {% if banca %}
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-users text-primary"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-black text-gray-900 dark:text-white">{{ stats.total }}</p>
+          <p class="text-xs text-gray-500">Total</p>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-check-circle text-green-600"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-black text-gray-900 dark:text-white">{{ stats.ativos }}</p>
+          <p class="text-xs text-gray-500">Activos</p>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-pause-circle text-amber-600"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-black text-gray-900 dark:text-white">{{ stats.inativos }}</p>
+          <p class="text-xs text-gray-500">Inactivos</p>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-ban text-red-600"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-black text-gray-900 dark:text-white">{{ stats.suspensos }}</p>
+          <p class="text-xs text-gray-500">Suspensos</p>
+        </div>
+      </div>
+    </div>
+
     <div class="flex flex-wrap items-center gap-2 mb-6 pb-4 border-b border-gray-200 dark:border-gray-800">
       <a href="{% url 'rh_vagas' %}"
          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium
@@ -141,6 +180,7 @@
                 <span class="text-gray-500">Filial</span>
                 <span class="font-medium text-gray-900 dark:text-white">{{ f.filial.provincia|default:"—" }}</span>
               </div>
+              <div class="flex justify-between"><span class="text-gray-500">Acesso</span><span class="font-medium">{% if f.email %}<span class="text-green-600 dark:text-green-400"><i class="fas fa-check-circle text-xs"></i> Sim</span>{% else %}<span class="text-gray-400"><i class="fas fa-minus-circle text-xs"></i> Não</span>{% endif %}</span></div>
               {% if f.email %}<div class="flex justify-between"><span class="text-gray-500">Email</span><span class="font-medium text-gray-900 dark:text-white truncate">{{ f.email }}</span></div>{% endif %}
               <div class="flex justify-between">
                 <span class="text-gray-500">Admissão</span>
@@ -153,7 +193,10 @@
             </div>
 
             <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <div>
+              <div class="flex items-center gap-2">
+                <a href="{% url 'rh_colaborador_detalhe' f.pk %}" class="p-2 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all" title="Visualizar">
+                  <i class="fas fa-eye text-lg"></i>
+                </a>
                 {% if f.estado == 'Ativo' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span> Ativo</span>
                 {% elif f.estado == 'Inativo' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span> Inativo</span>
                 {% elif f.estado == 'Suspenso' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700"><span class="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"></span> Suspenso</span>
@@ -178,6 +221,7 @@
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cargo / Dept.</th>
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Permissões</th>
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contacto</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Acesso</th>
               {% if filiais %}<th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Filial</th>{% endif %}
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Admissão</th>
               <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Salário Base</th>
@@ -230,6 +274,13 @@
                 <p class="text-sm text-gray-700 dark:text-gray-300">{{ f.telefone|default:"—" }}</p>
                 {% if f.email %}<p class="text-xs text-gray-500">{{ f.email }}</p>{% endif %}
               </td>
+              <td class="px-5 py-4">
+                {% if f.email %}
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700"><i class="fas fa-check text-[9px]"></i>Sim</span>
+                {% else %}
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500"><i class="fas fa-times text-[9px]"></i>Não</span>
+                {% endif %}
+              </td>
               {% if filiais %}<td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{{ f.filial.provincia|default:"—" }}</td>{% endif %}
               <td class="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{{ f.data_admissao|date:"d/m/Y"|default:"—" }}</td>
               <td class="px-5 py-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -243,6 +294,11 @@
               </td>
               <td class="px-5 py-4 text-right">
                 <div class="flex items-center justify-end gap-2">
+                  <a href="{% url 'rh_colaborador_detalhe' f.pk %}"
+                     class="p-2 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                     title="Visualizar">
+                    <i class="fas fa-eye text-lg"></i>
+                  </a>
                   <a href="{% url 'rh_colaborador_editar' f.pk %}"
                      class="p-2 rounded-lg text-gray-500 hover:text-primary hover:bg-primary/10 transition-all"
                      title="Editar">
@@ -291,9 +347,6 @@
       {% endif %}
     </div>
     {% endif %}
-  </main>
-</div>
-
 <!-- ═══ MODAL DE ATRIBUIÇÃO DE CARGO ═══ -->
 <div id="modalCargo" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog">
   <!-- Overlay -->
@@ -594,4 +647,4 @@ document.addEventListener('keydown', function(e) {
 });
 </script>
 </div>
-{% include 'includes/footer.html' %}
+{% endblock %}

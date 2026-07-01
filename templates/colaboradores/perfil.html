@@ -1,9 +1,5 @@
-﻿{% include 'includes/head.html' %}
-{% include 'colaboradores/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'colaboradores/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+﻿{% extends 'colaboradores/base_colaboradores.html' %}
+{% block content %}
 
     {# ── Cabeçalho ───────────────────────────────────────────────────────── #}
     <div class="flex items-center justify-between">
@@ -219,8 +215,6 @@
       </div>
 
     </div>
-  </main>
-</div>
 
 <script>
 function togglePass(id) {
@@ -240,14 +234,12 @@ const confirmar = document.getElementById('confirmar_senha');
 const msg      = document.getElementById('msg-match');
 
 function verificarMatch() {
-  // Validação de mínimo 4 caracteres na nova senha
   if (nova.value.length > 0 && nova.value.length < 4) {
     msg.classList.remove('hidden');
     msg.innerHTML = '<i class="fas fa-times text-red-600 text-xs"></i> Mínimo de 4 caracteres';
     msg.className = 'text-xs mt-1 text-red-600 dark:text-red-400';
     return;
   }
-  // Validação de coincidência
   if (!confirmar.value) { msg.classList.add('hidden'); return; }
   msg.classList.remove('hidden');
   if (nova.value === confirmar.value) {
@@ -259,12 +251,10 @@ function verificarMatch() {
   }
 }
 
-// Bloquear submissão se validação falhar
 document.getElementById('form-password').addEventListener('submit', function(e) {
   const senhaActual = document.getElementById('senha_actual').value.trim();
   const novaSenha   = nova.value.trim();
   const confirmarSenha = confirmar.value.trim();
-
   if (!senhaActual) {
     e.preventDefault();
     msg.classList.remove('hidden');
@@ -301,4 +291,4 @@ document.getElementById('form-password').addEventListener('submit', function(e) 
 nova.addEventListener('input', verificarMatch);
 confirmar.addEventListener('input', verificarMatch);
 </script>
-{% include 'includes/footer.html' %}
+{% endblock %}

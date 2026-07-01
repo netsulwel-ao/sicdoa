@@ -362,27 +362,9 @@ def pode_aprovar_presenca(request, banca, aprovador_col, is_desp, target_col):
     target_is_sede_rh = _colaborador_eh_rh_sede(target_col, perm_target)
     target_is_filial_rh = _colaborador_eh_rh_filial(target_col, perm_target)
 
-    # 2 — Despachante: regras restritas por nível
+    # 2 — Despachante: aprova todos da sua banca
     if is_desp:
-        # 2a — RH Sede → sempre o Despachante (não há nível acima)
-        if target_is_sede_rh:
-            return True
-        # 2b — RH Filial → só como fallback se não existir RH Sede na banca
-        if target_is_filial_rh:
-            if not _existe_aprovador_rh(banca, filial_id=None).exists():
-                return True
-            return False
-        # 2c — Regular Sede → só como fallback se não existir RH Sede na banca
-        if not target_col.filial_id:
-            if not _existe_aprovador_rh(banca, filial_id=None).exists():
-                return True
-            return False
-        # 2d — Regular Filial → só como fallback se não existir RH Filial (mesma filial) nem RH Sede
-        tem_rh_filial = _existe_aprovador_rh(banca, filial_id=target_col.filial_id).exclude(pk=target_col.pk).exists()
-        tem_rh_sede = _existe_aprovador_rh(banca, filial_id=None).exists()
-        if not tem_rh_filial and not tem_rh_sede:
-            return True
-        return False
+        return True
 
     if not aprovador_col:
         return False
@@ -406,12 +388,15 @@ def pode_aprovar_presenca(request, banca, aprovador_col, is_desp, target_col):
     if target_is_sede_rh:
         return False
 
-    # 4b — Alvo é RH Filial → Sede RH
+    # 4b — Alvo é RH Filial → Sede RH ou Gestor da mesma filial
     if target_is_filial_rh:
         if is_sede_rh:
             return True
         if is_filial_rh and aprovador_col.filial_id == target_col.filial_id:
             return False  # mesma filial → auto-aprovação indirecta proibida
+        # Gestor de Filial pode aprovar RH Filial da filial que gere
+        if _colaborador_eh_gestor_filial(aprovador_col, target_col.filial_id):
+            return True
         return False
 
     # 4c — Alvo é regular Sede → Sede RH
@@ -480,7 +465,7 @@ def contexto_colaborador(request):
         'colaborador': col,
         'colaborador_logado': col,
         'e_gestor_filial': e_gestor,
-        'e_responsavel': e_gestor,
+        'e_responsavel': e_gestor or ('gerir_rh' in permissoes and not col.filial_id),
         'filial_gestor': filial_gestor,
         'user_permissoes': permissoes,
     }

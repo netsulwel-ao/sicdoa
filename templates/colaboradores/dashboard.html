@@ -1,9 +1,5 @@
-{% include 'includes/head.html' %}
-{% include 'colaboradores/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'colaboradores/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+{% extends 'colaboradores/base_colaboradores.html' %}
+{% block content %}
 
     {# ── Boas-vindas ─────────────────────────────────────────────────────── #}
     <div class="bg-gradient-to-r from-primary to-blue-700 rounded-2xl p-6 text-white shadow-lg">
@@ -158,7 +154,7 @@
 
         {# ── Acções baseadas em permissões (cargo_banca) ───────────────── #}
         {% if 'gerir_aduaneiro' in user_permissoes or 'criar_declaracao_unica' in user_permissoes or 'ver_pauta_aduaneira' in user_permissoes %}
-        <a href="{% url 'du' %}"
+        <a href="{% url 'aduaneiro:du' %}"
           class="group bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-teal-300 dark:hover:border-teal-700 transition-all duration-200">
           <div class="flex items-center justify-between mb-4">
             <div class="p-3 bg-teal-50 dark:bg-teal-900/20 rounded-xl group-hover:bg-teal-100 dark:group-hover:bg-teal-900/40 transition-colors">
@@ -311,11 +307,7 @@
 
     </div>
 
-  </main>
-</div>
-
 <script>
-  // Contador regressivo da sessão
   let tempoRestante = {{ tempo_restante_sessao }};
   function atualizarContador() {
     if (tempoRestante <= 0) { window.location.href = '/login/'; return; }
@@ -324,4 +316,4 @@
   }
   setTimeout(atualizarContador, 60000);
 </script>
-{% include 'includes/footer.html' %}
+{% endblock %}

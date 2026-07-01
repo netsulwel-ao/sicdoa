@@ -55,7 +55,7 @@ def _tem_perm_clientes(request):
     if _is_admin_ou_acesso_total(request):
         return True
     permissoes = get_usuario_permissoes(request)
-    return 'gerir_clientes' in permissoes
+    return 'gerir_clientes' in permissoes or 'gerir_clientes_filial' in permissoes
 
 
 @_requer_sessao
@@ -253,20 +253,22 @@ def detalhar_cliente(request, pk):
 
 @_requer_sessao
 def excluir_cliente(request, pk):
-    """View para excluir permanentemente um cliente"""
+    """View para desativar (soft-delete) um cliente"""
     if not _tem_perm_clientes(request):
         messages.error(request, 'Não tem permissão para excluir clientes.')
         return redirect('clientes:lista')
+    from clientes.models import Cliente
     cliente = get_object_or_404(escopo_cliente(request, Cliente.objects.all()), pk=pk)
     
     if request.method == 'POST':
         try:
             nome_cliente = cliente.nome
-            cliente.delete()
-            messages.success(request, f'Cliente "{nome_cliente}" excluído permanentemente da base de dados!')
+            cliente.ativo = False
+            cliente.save(update_fields=['ativo'])
+            messages.success(request, f'Cliente "{nome_cliente}" desactivado com sucesso!')
             return redirect('clientes:lista')
         except Exception as e:
-            messages.error(request, f'Erro ao excluir cliente: {str(e)}')
+            messages.error(request, f'Erro ao desactivar cliente: {str(e)}')
             return redirect('clientes:detalhes', pk=pk)
     
     context = _ctx(request, 'excluir', {'cliente': cliente})

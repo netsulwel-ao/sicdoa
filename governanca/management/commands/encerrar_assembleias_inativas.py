@@ -73,7 +73,7 @@ class Command(BaseCommand):
                     }
                 )
             except Exception:
-                pass
+                self.stdout.write(self.style.ERROR(f"Falha ao notificar chat para assembleia #{a.pk}"))
 
             self.stdout.write(
                 self.style.SUCCESS(

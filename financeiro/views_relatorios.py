@@ -745,14 +745,19 @@ def dashboard_financeiro_json(request):
         recebimentos_mensal.append(rec + fr_val)
 
     # Top 10 clientes por facturação
-    top_clientes_data = []
-    for c in clientes.filter(ativo=True):
-        total = float(FacturaCliente.objects.filter(cliente=c).exclude(estado='Cancelada')
-                      .aggregate(t=Sum('valor_total'))['t'] or 0)
-        if total > 0:
-            top_clientes_data.append({'nome': c.nome[:20], 'total': total})
-    top_clientes_data.sort(key=lambda x: x['total'], reverse=True)
-    top_clientes_data = top_clientes_data[:10]
+    top_totals = (
+        FacturaCliente.objects
+        .filter(cliente__in=clientes.filter(ativo=True))
+        .exclude(estado='Cancelada')
+        .values('cliente_id', 'cliente__nome')
+        .annotate(total=Sum('valor_total'))
+        .filter(total__gt=0)
+        .order_by('-total')[:10]
+    )
+    top_clientes_data = [
+        {'nome': t['cliente__nome'][:20], 'total': float(t['total'])}
+        for t in top_totals
+    ]
 
     # Distribuição de estados de facturas
     total_facturas = FacturaCliente.objects.filter(cliente__in=clientes).count()

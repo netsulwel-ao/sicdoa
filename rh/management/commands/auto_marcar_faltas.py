@@ -1,5 +1,6 @@
 from datetime import date
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 from rh.models import Banca, RegistoPresenca, HistoricoPresenca
 from rh.views import _encontrar_responsavel_aprovacao
 from rh.notificacoes import notificar_presenca_pendente
@@ -13,7 +14,7 @@ class Command(BaseCommand):
         parser.add_argument('--banca-slug', type=str, help='Slug da banca. Padrão: todas')
 
     def handle(self, *args, **options):
-        data_alvo = date.today()
+        data_alvo = timezone.now().date()
         if options['data']:
             from datetime import datetime
             data_alvo = datetime.strptime(options['data'], '%Y-%m-%d').date()
@@ -28,7 +29,13 @@ class Command(BaseCommand):
 
         total = 0
         for banca in bancas:
-            cols = banca.colaboradores.filter(estado='Ativo').only('id', 'nome')
+            cols = banca.colaboradores.filter(
+                estado='Ativo',
+            ).exclude(
+                gestor_filial__isnull=False, gestor_filial__ativo=True,
+            ).exclude(
+                email='',
+            ).only('id', 'nome')
             for col in cols:
                 if not RegistoPresenca.objects.filter(colaborador=col, data=data_alvo).exists():
                     try:

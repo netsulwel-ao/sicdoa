@@ -1,9 +1,5 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
 
     <div class="max-w-3xl mx-auto mb-8">
       <div class="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
@@ -182,9 +178,6 @@
         </button>
       </div>
     </form>
-
-  </main>
-</div>
 
 <script>
 (function() {
@@ -365,4 +358,4 @@
 })();
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

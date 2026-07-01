@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="max-w-4xl">
+    <div class="flex items-center gap-3 mb-6">
+      <a href="{% url 'aduaneiro:du_detalhe' du.du_uuid %}" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors"><i class="fas fa-arrow-left"></i></a>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Histórico de Alterações</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">DU {{ du.codigo_processo|default:du.du_uuid|truncatechars:12 }} — {{ total_versoes }} versões</p>
+      </div>
+    </div>
+    {% for h in historicos %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">#{{ forloop.revcounter }}</span>
+          <div>
+            <p class="text-sm font-medium text-gray-800 dark:text-white">{{ h.utilizador_nome|default:"—" }}</p>
+            <p class="text-xs text-gray-400">{{ h.criado_em|date:"d/m/Y H:i:s" }}</p>
+          </div>
+        </div>
+        {% if h.status %}
+        <span class="px-2 py-1 rounded-full text-xs font-medium {% if h.status == 'Aprovada' %}bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300{% else %}bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %}">{{ h.status }}</span>
+        {% endif %}
+      </div>
+      {% if h.campos_alterados_dict %}
+      <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+        <p class="text-xs font-medium text-gray-500 mb-2 uppercase">Campos alterados</p>
+        <div class="space-y-1 text-sm">
+          {% for campo, valores in h.campos_alterados_dict.items %}
+          {% if campo != '_criado' %}
+          <div class="flex gap-2">
+            <span class="text-gray-400 font-mono min-w-[120px]">{{ campo }}:</span>
+            {% if valores.de and valores.para %}
+            <span class="text-red-500 line-through">{{ valores.de|truncatechars:40 }}</span>
+            <span class="text-gray-400">→</span>
+            <span class="text-green-600">{{ valores.para|truncatechars:40 }}</span>
+            {% elif valores.para %}
+            <span class="text-green-600">{{ valores.para|truncatechars:40 }}</span>
+            {% else %}
+            <span class="text-gray-400">{{ valores|truncatechars:60 }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if h.numero_du %}
+      <div class="mt-2 text-xs text-gray-400">Nº DU: {{ h.numero_du }} | Processo: {{ h.codigo_processo }}</div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="text-center py-12 text-gray-400">Nenhuma versão registada no histórico.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -83,28 +83,39 @@ def notificar_aprovado(registo_ou_pedido, banca, colaborador, tipo_registo):
     if tipo_registo == 'presenca':
         titulo = 'Presença aprovada'
         mensagem = f'A sua presença de {registo_ou_pedido.data} foi aprovada.'
+        assunto = 'SICDOA — Presença aprovada'
+        corpo = f'<p>Olá {colaborador.nome},</p><p>A sua presença de {registo_ou_pedido.data} foi aprovada.</p>'
     else:
         titulo = 'Férias aprovadas'
         mensagem = f'O seu pedido de férias ({registo_ou_pedido.data_inicio} a {registo_ou_pedido.data_fim}) foi aprovado.'
+        assunto = 'SICDOA — Férias aprovadas'
+        corpo = f'<p>Olá {colaborador.nome},</p><p>O seu pedido de férias ({registo_ou_pedido.data_inicio} a {registo_ou_pedido.data_fim}) foi aprovado.</p>'
     _notificar_in_app(
         banca=banca, destinatario=colaborador,
         tipo='pedido_aprovado', titulo=titulo, mensagem=mensagem,
     )
+    _notificar_email(colaborador, assunto, corpo)
 
 
 def notificar_rejeitado(registo_ou_pedido, banca, colaborador, tipo_registo, motivo=''):
     if tipo_registo == 'presenca':
         titulo = 'Presença rejeitada'
         mensagem = f'A sua presença de {registo_ou_pedido.data} foi rejeitada.'
+        assunto = 'SICDOA — Presença rejeitada'
+        corpo = f'<p>Olá {colaborador.nome},</p><p>A sua presença de {registo_ou_pedido.data} foi rejeitada.</p>'
     else:
         titulo = 'Férias rejeitadas'
         mensagem = f'O seu pedido de férias ({registo_ou_pedido.data_inicio} a {registo_ou_pedido.data_fim}) foi rejeitado.'
+        assunto = 'SICDOA — Férias rejeitadas'
+        corpo = f'<p>Olá {colaborador.nome},</p><p>O seu pedido de férias ({registo_ou_pedido.data_inicio} a {registo_ou_pedido.data_fim}) foi rejeitado.</p>'
     if motivo:
         mensagem += f' Motivo: {motivo}'
+        corpo += f'<p><strong>Motivo:</strong> {motivo}</p>'
     _notificar_in_app(
         banca=banca, destinatario=colaborador,
         tipo='pedido_rejeitado', titulo=titulo, mensagem=mensagem,
     )
+    _notificar_email(colaborador, assunto, corpo)
 
 
 def notificar_delegacao_recebida(delegacao):

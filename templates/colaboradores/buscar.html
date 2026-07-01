@@ -1,9 +1,5 @@
-﻿{% include 'includes/head.html' %}
-{% include 'colaboradores/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'colaboradores/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'colaboradores/base_colaboradores.html' %}
+{% block content %}
     <div class="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-[#111418] dark:text-gray-200 text-2xl font-bold">Resultados da Busca</h2>
@@ -36,6 +32,4 @@
         {% endif %}
       </div>
     </div>
-  </main>
-</div>
-{% include 'includes/footer.html' %}
+{% endblock %}

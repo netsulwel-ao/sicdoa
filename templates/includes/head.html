@@ -8,7 +8,7 @@
 <script>
 (function(){try{var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark');document.documentElement.classList.remove('light');}else{document.documentElement.classList.remove('dark');document.documentElement.classList.add('light');}}catch(e){}})();
 </script>
-<title>CDOA Sistema</title>
+<title>{% block title %}CDOA Sistema{% endblock %}</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect" />
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
@@ -144,6 +144,10 @@ main {
 .skeleton-block { height: 3rem; width: 100%; }
 .skeleton-avatar { width: 2.5rem; height: 2.5rem; border-radius: 9999px; }
 .skeleton-badge { height: 1.25rem; width: 4rem; border-radius: 9999px; }
+
+/* ── Dark Mode Toggle — fallback para Tailwind JIT timing ── */
+html:not(.dark) .dark-hide-in-light { display: none !important; }
+html.dark .dark-hide-in-dark { display: none !important; }
 
 /* ── Page Loading Bar ────────────────────────────────────────── */
 </style>

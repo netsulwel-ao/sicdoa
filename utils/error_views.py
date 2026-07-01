@@ -1,7 +1,6 @@
 import json
 import logging
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from utils.email_utils import _enviar_sync
@@ -9,7 +8,6 @@ from utils.email_utils import _enviar_sync
 logger = logging.getLogger(__name__)
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 def report_error_view(request):
     try:
@@ -27,7 +25,7 @@ def report_error_view(request):
     remote_ip = request.META.get('REMOTE_ADDR', '')
 
     assunto = f'[ERRO] {error_type}: {error_message[:120]}'
-    site_url = getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')
+    site_url = settings.SITE_URL
 
     texto = f"""
 ERRO REPORTADO — SICDOA

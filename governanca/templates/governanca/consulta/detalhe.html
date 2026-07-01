@@ -1,10 +1,6 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
   {% csrf_token %}
-  <main class="p-4 md:p-6 lg:p-8">
 
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
@@ -193,9 +189,6 @@
     </div>
 
   {% include 'includes/confirm-modal.html' %}
-  </main>
-</div>
-
 <script>
 (function() {
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
@@ -278,4 +271,4 @@
 })();
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

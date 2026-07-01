@@ -1,9 +1,5 @@
-﻿{% include 'includes/head.html' %}
-{% include 'colaboradores/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'colaboradores/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'colaboradores/base_colaboradores.html' %}
+{% block content %}
     <div class="bg-white dark:bg-gray-900 rounded-xl p-5 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-2">
@@ -16,27 +12,60 @@
         </a>
       </div>
       
+      {% if documentos %}
       <div data-view-container>
         <div data-grid-view>
-          <div class="text-center py-8">
-            <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-full w-16 h-16 mx-auto">
-              <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-3xl"></i>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+            {% for doc in documentos %}
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ doc.get_tipo_display }}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ doc.criado_em|date:"d/m/Y" }}</p>
+                </div>
+              </div>
+              {% if doc.descricao %}
+              <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">{{ doc.descricao }}</p>
+              {% endif %}
+              <a href="{{ doc.arquivo.url }}" target="_blank"
+                 class="flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary/20 transition-colors">
+                <i class="fas fa-download text-sm"></i>
+                Download
+              </a>
             </div>
-            <p class="text-gray-600 dark:text-gray-400 text-lg font-medium mt-4 mb-2">Nenhum documento disponível</p>
-            <p class="text-gray-500 dark:text-gray-500 text-sm">
-              Os seus documentos serão exibidos aqui quando disponíveis.
-            </p>
+            {% endfor %}
           </div>
         </div>
         <div data-list-view class="hidden">
-          <div class="text-center py-8">
-            <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-full w-16 h-16 mx-auto">
-              <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-3xl"></i>
-            </div>
-            <p class="text-gray-600 dark:text-gray-400 text-lg font-medium mt-4 mb-2">Nenhum documento disponível</p>
-            <p class="text-gray-500 dark:text-gray-500 text-sm">
-              Os seus documentos serão exibidos aqui quando disponíveis.
-            </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 dark:bg-gray-800/50">
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tipo</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Descrição</th>
+                  <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Data</th>
+                  <th class="text-center px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Acção</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+                {% for doc in documentos %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                  <td class="px-5 py-3.5 font-medium text-gray-800 dark:text-gray-200">{{ doc.get_tipo_display }}</td>
+                  <td class="px-5 py-3.5 text-gray-600 dark:text-gray-400">{{ doc.descricao|default:"—" }}</td>
+                  <td class="px-5 py-3.5 text-gray-600 dark:text-gray-400">{{ doc.criado_em|date:"d/m/Y" }}</td>
+                  <td class="px-5 py-3.5 text-center">
+                    <a href="{{ doc.arquivo.url }}" target="_blank"
+                       class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-lg hover:bg-primary/20 transition-colors">
+                      <i class="fas fa-download"></i> Download
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -45,7 +74,16 @@
         {% include 'includes/pagination.html' %}
       </div>
       {% endif %}
+      {% else %}
+      <div class="text-center py-12">
+        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-full w-16 h-16 mx-auto">
+          <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-3xl"></i>
+        </div>
+        <p class="text-gray-600 dark:text-gray-400 text-lg font-medium mt-4 mb-2">Nenhum documento disponível</p>
+        <p class="text-gray-500 dark:text-gray-500 text-sm">
+          Os seus documentos serão exibidos aqui quando disponíveis.
+        </p>
+      </div>
+      {% endif %}
     </div>
-  </main>
-</div>
-{% include 'includes/footer.html' %}
+{% endblock %}

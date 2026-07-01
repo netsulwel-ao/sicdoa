@@ -475,36 +475,41 @@ class ContaCorrenteMensalView(BaseContextMixin, TemplateView):
 
         cliente_ids = list(clientes_qs.values_list('pk', flat=True))
 
+        data_inicio_ano = date(ano, 1, 1)
+        data_fim_ano = date(ano + 1, 1, 1)
+
+        # 5 queries para o ano todo em vez de 12×5=60
+        mov_por_cliente = _movimentacoes_para_clientes(cliente_ids, data_inicio_ano, data_fim_ano - timedelta(days=1))
+
+        # NC e ND agregadas por mês — 2 queries em vez de 12×2=24
+        nc_por_mes = NotaCredito.objects.filter(
+            cliente_id__in=cliente_ids, data__gte=data_inicio_ano, data__lt=data_fim_ano, estado='Aprovada'
+        ).annotate(mes=TruncMonth('data')).values('mes').annotate(total=Sum('valor_creditado'))
+        nc_dict = {r['mes'].month: float(r['total']) for r in nc_por_mes}
+
+        nd_por_mes = NotaDebito.objects.filter(
+            cliente_id__in=cliente_ids, data__gte=data_inicio_ano, data__lt=data_fim_ano, estado='Aprovada'
+        ).annotate(mes=TruncMonth('data')).values('mes').annotate(total=Sum('valor'))
+        nd_dict = {r['mes'].month: float(r['total']) for r in nd_por_mes}
+
         for m in range(1, 13):
             data_ini = date(ano, m, 1)
             if m == 12:
-                data_fim = date(ano + 1, 1, 1)
+                data_fim = data_fim_ano
             else:
                 data_fim = date(ano, m + 1, 1)
             data_fim_mes = data_fim - timedelta(days=1)
 
-            mov_por_cliente = _movimentacoes_para_clientes(cliente_ids, data_ini, data_fim_mes)
             for cid, mov in mov_por_cliente.items():
-                ind = _calcular_indicadores(mov)
-                meses_resumo[m]['faturacao'] += ind['total_debitos']
-                meses_resumo[m]['recebimentos'] += ind['total_creditos']
-                meses_resumo[m]['saldo'] += ind['saldo_atual']
+                mov_mes = [mv for mv in mov if data_ini <= mv['data'] <= data_fim_mes]
+                if mov_mes:
+                    ind = _calcular_indicadores(mov_mes)
+                    meses_resumo[m]['faturacao'] += ind['total_debitos']
+                    meses_resumo[m]['recebimentos'] += ind['total_creditos']
+                    meses_resumo[m]['saldo'] += ind['saldo_atual']
 
-            # Créditos emitidos = Notas de Crédito aprovadas no mês
-            nc_qs = NotaCredito.objects.filter(
-                cliente_id__in=cliente_ids, data__gte=data_ini, data__lt=data_fim, estado='Aprovada'
-            )
-            meses_resumo[m]['creditos_emitidos'] += sum(
-                float(v) for v in nc_qs.values_list('valor_creditado', flat=True)
-            )
-
-            # Débitos emitidos = Notas de Débito aprovadas no mês
-            nd_qs = NotaDebito.objects.filter(
-                cliente_id__in=cliente_ids, data__gte=data_ini, data__lt=data_fim, estado='Aprovada'
-            )
-            meses_resumo[m]['debitos_emitidos'] += sum(
-                float(v) for v in nd_qs.values_list('valor', flat=True)
-            )
+            meses_resumo[m]['creditos_emitidos'] = nc_dict.get(m, 0)
+            meses_resumo[m]['debitos_emitidos'] = nd_dict.get(m, 0)
 
         # Filtrar por mês se especificado
         if mes:

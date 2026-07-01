@@ -21,6 +21,10 @@ def backup_db_task():
     call_command('backup_db')
 
 
+def auto_marcar_faltas_task():
+    call_command('auto_marcar_faltas')
+
+
 def start_scheduler():
     if os.environ.get('RUN_MAIN') != 'true' and 'RUN_MAIN' in os.environ and settings.DEBUG:
         return
@@ -59,5 +63,14 @@ def start_scheduler():
         minute=0,
         id='backup_db_diario',
         replace_existing=True,
+    )
+    scheduler.add_job(
+        auto_marcar_faltas_task,
+        'cron',
+        hour=22,
+        minute=0,
+        id='auto_marcar_faltas_diario',
+        replace_existing=True,
+        day_of_week='mon-fri',
     )
     scheduler.start()

@@ -1,10 +1,6 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0 flex flex-col">
-  {% include 'includes/header.html' %}
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
   {% csrf_token %}
-  <main class="p-4 md:p-6 lg:p-8 space-y-6">
 
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
@@ -405,8 +401,7 @@
     </div>
     {% endif %}
 
-  </main>
-</div>
+
 
 {% include 'includes/confirm-modal.html' %}
 
@@ -542,4 +537,4 @@
 })();
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

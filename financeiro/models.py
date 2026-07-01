@@ -1,8 +1,10 @@
+from datetime import date as date_type
 from decimal import Decimal
 
 from django.db import models, transaction
 from django.db.models import F
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
 
@@ -232,6 +234,10 @@ class FacturaCliente(models.Model):
             models.Index(fields=['estado', '-data_emissao'], name='ix_factura_estado_data'),
         ]
 
+    def clean(self):
+        if self.data_vencimento and self.data_vencimento < timezone.now().date():
+            raise ValidationError({'data_vencimento': 'A data de vencimento não pode estar no passado.'})
+
     def _gerar_numero_factura(self):
         """Gera número sequencial: FT-AAAA-NNNN."""
         ano = timezone.now().year
@@ -322,6 +328,10 @@ class ReciboCliente(models.Model):
         verbose_name = 'Recibo de Cliente'
         verbose_name_plural = 'Recibos de Clientes'
         ordering = ['-data_criacao']
+
+    def clean(self):
+        if self.data_pagamento and self.data_pagamento > timezone.now().date():
+            raise ValidationError({'data_pagamento': 'A data de pagamento não pode estar no futuro.'})
 
     def _gerar_numero_recibo(self):
         """Gera número sequencial: REC-AAAA-NNNN."""
@@ -439,6 +449,10 @@ class NotaCredito(models.Model):
         verbose_name_plural = 'Notas de Crédito'
         ordering = ['-data_criacao']
 
+    def clean(self):
+        if self.data and self.data > timezone.now().date():
+            raise ValidationError({'data': 'A data não pode estar no futuro.'})
+
     def _gerar_numero_nota(self):
         """Gera número sequencial: NC-AAAA-NNNN."""
         ano = timezone.now().year
@@ -530,6 +544,10 @@ class NotaDebito(models.Model):
         verbose_name = 'Nota de Débito'
         verbose_name_plural = 'Notas de Débito'
         ordering = ['-data_criacao']
+
+    def clean(self):
+        if self.data and self.data > timezone.now().date():
+            raise ValidationError({'data': 'A data não pode estar no futuro.'})
 
     def _gerar_numero_nota(self):
         """Gera número sequencial: ND-AAAA-NNNN."""
@@ -624,6 +642,10 @@ class FacturaRecibo(models.Model):
         verbose_name = 'Factura-Recibo'
         verbose_name_plural = 'Facturas-Recibo'
         ordering = ['-data_criacao']
+
+    def clean(self):
+        if self.data and self.data > timezone.now().date():
+            raise ValidationError({'data': 'A data não pode estar no futuro.'})
 
     def _gerar_numero_factura_recibo(self):
         """Gera número sequencial: FR-AAAA-NNNN."""
@@ -797,3 +819,5 @@ def registrar_historico(tipo_documento, documento_id, documento_numero, accao,
         banca_id=banca_id,
         filial_id=filial_id,
     )
+
+# Fim dos modelos existentes.

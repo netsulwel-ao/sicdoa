@@ -1,10 +1,5 @@
-{% include 'includes/head.html' %}</head>
-<body class="bg-gray-50 dark:bg-gray-900">
-
-{% include 'includes/sidebar.html' %}
-{% include 'includes/header.html' %}
-
-<div class="p-4 sm:ml-64 mt-14">
+{% extends 'base.html' %}
+{% block content %}
 
   <div class="mb-8">
     <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Relatórios</h1>
@@ -54,8 +49,4 @@
 
   </div>
 
-</div>
-
-{% include 'includes/footer.html' %}
-</body>
-</html>
+{% endblock %}

@@ -3,6 +3,7 @@ import json
 import uuid as _uuid
 
 from django.db import models
+from django.utils import timezone
 
 
 class DeclaracaoUnica(models.Model):
@@ -96,6 +97,23 @@ class DeclaracaoUnica(models.Model):
     def set_dados(self, dados: dict):
         self.dados_json = json.dumps(dados, ensure_ascii=False)
 
+    def registrar_versao(self, campos_alterados, utilizador_id=None, utilizador_nome='', request=None):
+        """Regista uma versão/histórico das alterações desta DU."""
+        if request:
+            utilizador_id = request.session.get('usuario_id')
+            u = request.session.get('usuario', {})
+            utilizador_nome = u.get('nome', '')
+        HistoricoDU.objects.create(
+            du=self,
+            dados_json=self.dados_json,
+            status=self.status,
+            numero_du=self.numero_du,
+            codigo_processo=self.codigo_processo,
+            campos_alterados=campos_alterados,
+            utilizador_id=utilizador_id,
+            utilizador_nome=utilizador_nome,
+        )
+
     def gerar_numero(self):
         """Gera número sequencial: DU-AAAA-NNNNNN."""
         from django.utils import timezone
@@ -126,5 +144,42 @@ class DeclaracaoUnica(models.Model):
         # Fallback: usar timestamp + random
         import time
         return str(int(time.time()))[-8:]
+
+
+class HistoricoDU(models.Model):
+    """Registo de versões/histórico de alterações da Declaração Única."""
+    du = models.ForeignKey(DeclaracaoUnica, on_delete=models.CASCADE, related_name='historico_versoes')
+    dados_json = models.TextField(verbose_name='Dados Completos (snapshot)')
+    status = models.CharField(max_length=20, blank=True, default='', db_index=True, verbose_name='Estado')
+    numero_du = models.CharField(max_length=50, blank=True, default='', verbose_name='Número DU')
+    codigo_processo = models.CharField(max_length=8, blank=True, default='', verbose_name='Código Processo')
+    campos_alterados = models.TextField(blank=True, default='', verbose_name='Campos Alterados (JSON)')
+    utilizador_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Utilizador')
+    utilizador_nome = models.CharField(max_length=255, blank=True, default='', verbose_name='Nome do Utilizador')
+    criado_em = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Data/Hora')
+
+    class Meta:
+        db_table = 'aduaneiro_historico_du'
+        ordering = ['-criado_em']
+        verbose_name = 'Histórico de DU'
+        verbose_name_plural = 'Históricos de DU'
+        indexes = [
+            models.Index(fields=['du', '-criado_em'], name='ix_historico_du_data'),
+        ]
+
+    def __str__(self):
+        return f'DU {self.numero_du or self.du_id} — {self.criado_em:%d/%m/%Y %H:%M}'
+
+    def get_dados(self):
+        try:
+            return json.loads(self.dados_json or '{}')
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    def get_campos_alterados_dict(self):
+        try:
+            return json.loads(self.campos_alterados or '{}')
+        except (json.JSONDecodeError, TypeError):
+            return {}
 
 

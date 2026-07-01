@@ -3,6 +3,7 @@ from . import views
 from . import views_contacorrente as cc
 from . import views_relatorios as rel
 
+
 app_name = 'financeiro'
 
 urlpatterns = [
@@ -27,6 +28,7 @@ urlpatterns = [
     path('facturas/criar/', views.FacturaClienteCreateView.as_view(), name='factura_criar'),
     path('facturas/<int:pk>/', views.FacturaClienteDetailView.as_view(), name='factura_detalhe'),
     path('facturas/<int:pk>/pdf/', views.factura_pdf, name='factura_pdf'),
+    path('facturas/<int:pk>/editar/', views.FacturaClienteUpdateView.as_view(), name='factura_editar'),
     path('facturas/<int:pk>/cancelar/', views.cancelar_factura, name='factura_cancelar'),
     path('facturas/<int:pk>/enviar-email/', views.factura_enviar_email, name='factura_enviar_email'),
     path('facturas/du-custos/<int:pk>/', views.du_custos_json, name='factura_du_custos'),
@@ -47,6 +49,7 @@ urlpatterns = [
     path('notas-credito/', views.NotaCreditoListView.as_view(), name='nota_credito_lista'),
     path('notas-credito/criar/', views.NotaCreditoCreateView.as_view(), name='nota_credito_criar'),
     path('notas-credito/<int:pk>/', views.NotaCreditoDetailView.as_view(), name='nota_credito_detalhe'),
+    path('notas-credito/<int:pk>/editar/', views.NotaCreditoUpdateView.as_view(), name='nota_credito_editar'),
     path('notas-credito/<int:pk>/aprovar/', views.aprovar_nota_credito, name='nota_credito_aprovar'),
     path('notas-credito/<int:pk>/rejeitar/', views.rejeitar_nota_credito, name='nota_credito_rejeitar'),
     path('notas-credito/<int:pk>/cancelar/', views.cancelar_nota_credito, name='nota_credito_cancelar'),
@@ -57,6 +60,7 @@ urlpatterns = [
     path('notas-debito/', views.NotaDebitoListView.as_view(), name='nota_debito_lista'),
     path('notas-debito/criar/', views.NotaDebitoCreateView.as_view(), name='nota_debito_criar'),
     path('notas-debito/<int:pk>/', views.NotaDebitoDetailView.as_view(), name='nota_debito_detalhe'),
+    path('notas-debito/<int:pk>/editar/', views.NotaDebitoUpdateView.as_view(), name='nota_debito_editar'),
     path('notas-debito/<int:pk>/aprovar/', views.aprovar_nota_debito, name='nota_debito_aprovar'),
     path('notas-debito/<int:pk>/rejeitar/', views.rejeitar_nota_debito, name='nota_debito_rejeitar'),
     path('notas-debito/<int:pk>/cancelar/', views.cancelar_nota_debito, name='nota_debito_cancelar'),
@@ -72,6 +76,7 @@ urlpatterns = [
     path('facturas-recibo/<int:pk>/', views.FacturaReciboDetailView.as_view(), name='factura_recibo_detalhe'),
     path('facturas-recibo/<int:pk>/pdf/', views.factura_recibo_pdf, name='factura_recibo_pdf'),
     path('facturas-recibo/<int:pk>/enviar-email/', views.factura_recibo_enviar_email, name='factura_recibo_enviar_email'),
+    path('facturas-recibo/<int:pk>/editar/', views.FacturaReciboUpdateView.as_view(), name='factura_recibo_editar'),
     path('facturas-recibo/<int:pk>/cancelar/', views.cancelar_factura_recibo, name='factura_recibo_cancelar'),
 
     # ─── Conta Corrente ──────────────────────────────────────────────────
@@ -111,4 +116,5 @@ urlpatterns = [
     path('relatorios/receita-cliente/', rel.RelatorioReceitaPorClienteView.as_view(), name='relatorio_receita_cliente'),
     path('relatorios/receita-localizacao/', rel.RelatorioReceitaPorLocalizacaoView.as_view(), name='relatorio_receita_localizacao'),
     path('relatorios/receita-despachante/', rel.RelatorioReceitaPorDespachanteView.as_view(), name='relatorio_receita_despachante'),
+
 ]

@@ -7,11 +7,11 @@ from django.db.models import Count, Sum, Prefetch, Q
 from django.core.paginator import Paginator
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 import calendar
+import json
 from datetime import date
 from utils.format_kz import parse_kz, fmt_kz
-import bcrypt
 from utils.email_utils import gerar_senha_aleatoria, enviar_senha_colaborador
 from utils.cache_utils import cache_get_or_set, safe_cache_key
 from utils.validators import email_ja_existe
@@ -39,6 +39,7 @@ from .notificacoes import (
     notificar_presenca_pendente, notificar_ferias_pendente,
     notificar_aprovado, notificar_rejeitado,
 )
+from .tax_utils import _dec, _hash_password, _calcular_irt, MESES, DIAS_UTEIS_MES
 from users.models import Permissao, LogAtividade
 from aduaneiro.models import DeclaracaoUnica
 from clientes.models import Cliente
@@ -54,8 +55,7 @@ PROVINCIAS = [
 BANCA_TIPOS = Banca.TIPOS
 CARGOS      = Colaborador.CARGOS
 ESTADOS_COL = Colaborador.ESTADOS
-MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-         'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+MESES = MESES  # imported from tax_utils
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,15 +71,37 @@ def _requer_sessao(fn):
 # Permissões que o gestor de filial pode atribuir a cargos que cria
 PERMISSOES_GESTOR_CARGO = {
     # Aduaneiro (âmbito filial)
-    'criar_declaracao_unica', 'ver_pauta_aduaneira', 'gerir_clientes', 'gerir_aduaneiro',
+    'criar_declaracao_unica', 'ver_pauta_aduaneira', 'gerir_clientes_filial', 'gerir_aduaneiro',
     # RH (âmbito filial)
     'gerir_rh', 'ver_minha_banca', 'gerir_colaboradores_banca',
     'gerir_processamento_salarial', 'gerir_recrutamento_banca',
     'gerir_presencas_banca', 'gerir_avaliacoes_banca',
     # Financeiro (âmbito filial)
-    'gerir_financeiro', 'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
+    'gerir_financeiro_filial', 'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
     'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros',
 }
+
+
+# Pares de permissões que não podem coexistir (sede vs filial)
+PERMISSOES_SEDE_FILIAL = {
+    'gerir_clientes': 'gerir_clientes_filial',
+    'gerir_financeiro': 'gerir_financeiro_filial',
+}
+PERMISSOES_SEDE_FILIAL_SET = set(PERMISSOES_SEDE_FILIAL.keys()) | set(PERMISSOES_SEDE_FILIAL.values())
+
+
+def _validar_mistura_sede_filial(codigos_perm):
+    """Retorna mensagem de erro se houver mistura de permissões sede+filial, ou None."""
+    for sede_cod, filial_cod in PERMISSOES_SEDE_FILIAL.items():
+        if sede_cod in codigos_perm and filial_cod in codigos_perm:
+            _sede = Permissao.objects.filter(codigo=sede_cod).values_list('nome', flat=True).first() or sede_cod
+            _filial = Permissao.objects.filter(codigo=filial_cod).values_list('nome', flat=True).first() or filial_cod
+            return (
+                f'Não pode misturar permissões de Sede e Filial no mesmo cargo. '
+                f'Encontradas: "{_sede}" (Sede) e "{_filial}" (Filial). '
+                f'Remova uma delas.'
+            )
+    return None
 
 
 def _ctx(request, sub='', extra=None):
@@ -241,28 +263,6 @@ def _encontrar_responsavel_aprovacao(banca, target_col):
     return None
 
 
-def auto_marcar_faltas(banca, data_alvo=None):
-    """Marca 'Falta' para colaboradores activos sem registo de presença num dia útil."""
-    from datetime import date
-    data_alvo = data_alvo or date.today()
-    if data_alvo.weekday() >= 5:
-        return
-    cols = banca.colaboradores.filter(estado='Ativo').only('id', 'nome')
-    ja_registados = set(
-        RegistoPresenca.objects.filter(
-            colaborador__in=cols, data=data_alvo
-        ).values_list('colaborador_id', flat=True)
-    )
-    for col in cols:
-        if col.id not in ja_registados:
-            reg = RegistoPresenca(colaborador=col, data=data_alvo)
-            reg.tipo = 'Falta'
-            reg.estado = 'Pendente'
-            reg.justificacao = 'Falta automática — não registou presença'
-            reg.full_clean()
-            reg.save()
-
-
 def _redirect_se_vaga_inacessivel(request, acc, vaga):
     banca, col_log, gestor, is_desp = acc
     if not pode_aceder_vaga(gestor, is_desp, vaga):
@@ -277,22 +277,7 @@ def _e_despachante_principal(request):
     return acc is not None and acc[3]
 
 
-def _dec(val, default=Decimal('0')):
-    try:
-        parsed = parse_kz(val)
-        return Decimal(str(parsed)) if parsed else default
-    except (InvalidOperation, ValueError, TypeError):
-        return default
-
-
-def _hash_password(senha):
-    """Gera hash bcrypt para a senha (compatível com formato PHP)"""
-    if not senha:
-        return None
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(senha.encode('utf-8'), salt)
-    # Converter de $2b$ (Python) para $2y$ (PHP) para compatibilidade
-    return hashed.decode('utf-8').replace('$2b$', '$2y$')
+# _dec, _hash_password imported from tax_utils
 
 
 def _colaboradores_elegiveis_gestor(banca, filial=None):
@@ -348,8 +333,8 @@ def _atribuir_gestor_filial(col, filial):
     perm_cods = [
         'gerir_filial',              # Responsável de Filial
         'criar_declaracao_unica',     # Criar DU
-        'gerir_clientes',            # Gerir Clientes (scope automático)
-        'gerir_financeiro',          # Gestão Financeira (scope automático)
+        'gerir_clientes_filial',      # Gerir Clientes (scope filial)
+        'gerir_financeiro_filial',    # Gestão Financeira (scope filial)
         'ver_pauta_aduaneira',        # Ver Pauta Aduaneira
         'alterar_perfil',             # Alterar Próprio Perfil
     ]
@@ -413,6 +398,9 @@ def _criar_colaborador_responsavel(request, banca, filial):
     """Cria novo colaborador e designa-o gestor da filial. Retorna (col, mensagem_email)."""
     nome = request.POST.get('nome', '').strip()
     email_gestor = request.POST.get('email', '').strip()
+
+    if not email_gestor:
+        return None, 'Gestor de filial precisa de email para aceder ao sistema.'
 
     if email_gestor and email_ja_existe(email_gestor):
         return None, 'Este email já está registado no sistema.'
@@ -772,34 +760,7 @@ def _gerar_faturas_processamento(processamento, request):
         )
 
 
-# Tabela IRT Angola (Imposto sobre Rendimento do Trabalho) - OGE 2026
-# Base: salário bruto mensal em KZ
-def _calcular_irt(salario: Decimal) -> Decimal:
-    """
-    Calcula o IRT segundo a tabela angolana vigente.
-    Escalões sobre o salário bruto mensal (KZ).
-    """
-    if salario <= Decimal('150000'):
-        irt = Decimal('0')
-    elif salario <= Decimal('200000'):
-        irt = (salario - Decimal('150000')) * Decimal('0.16')
-    elif salario <= Decimal('300000'):
-        irt = Decimal('8000') + (salario - Decimal('200000')) * Decimal('0.18')
-    elif salario <= Decimal('500000'):
-        irt = Decimal('26000') + (salario - Decimal('300000')) * Decimal('0.19')
-    elif salario <= Decimal('1000000'):
-        irt = Decimal('64000') + (salario - Decimal('500000')) * Decimal('0.20')
-    elif salario <= Decimal('1500000'):
-        irt = Decimal('164000') + (salario - Decimal('1000000')) * Decimal('0.21')
-    elif salario <= Decimal('2000000'):
-        irt = Decimal('269000') + (salario - Decimal('1500000')) * Decimal('0.22')
-    elif salario <= Decimal('5000000'):
-        irt = Decimal('379000') + (salario - Decimal('2000000')) * Decimal('0.23')
-    elif salario <= Decimal('10000000'):
-        irt = Decimal('1069000') + (salario - Decimal('5000000')) * Decimal('0.24')
-    else:
-        irt = Decimal('2269000') + (salario - Decimal('10000000')) * Decimal('0.25')
-    return Decimal(str(round(irt, 2)))
+# _calcular_irt imported from tax_utils
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -817,7 +778,7 @@ def banca_view(request):
             from rh.models import Colaborador
             col_id = request.session.get('colaborador_id')
             try:
-                col = Colaborador.objects.get(pk=col_id)
+                col = Colaborador.objects.select_related('banca', 'filial', 'gestor_filial__filial').get(pk=col_id)
                 banca = col.banca if col.banca_id else None
                 col_log, gestor, is_desp = col, col.gestor_filial, False
                 acc = (banca, col_log, gestor, is_desp) if banca else None
@@ -1106,8 +1067,37 @@ def filial_editar_view(request, pk):
 
 @_requer_sessao
 def filial_detalhe_view(request, pk):
-    """Redireciona para o dashboard completo da filial."""
-    return redirect('rh_filial_dashboard', pk=pk)
+    """Página de visualização simples da filial — dados, responsável, gestor e nº de colaboradores."""
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    from users.permissoes import get_usuario_permissoes
+    _perm_set = get_usuario_permissoes(request)
+    if not is_desp and not ('gerir_rh' in _perm_set and col_log and not col_log.filial_id):
+        messages.error(request, 'Apenas o despachante pode ver os dados da filial.')
+        return redirect('rh_banca')
+
+    try:
+        filial = FilialBanca.objects.get(pk=pk, banca=banca)
+    except FilialBanca.DoesNotExist:
+        messages.error(request, 'A filial que tentou aceder não existe ou foi removida.')
+        return redirect('rh_banca')
+
+    total_colaboradores = filial.colaboradores.count()
+
+    gestor_obj = None
+    if hasattr(filial, 'gestores'):
+        gestor_ativo = filial.gestores.select_related('colaborador').filter(ativo=True).first()
+        if gestor_ativo:
+            gestor_obj = gestor_ativo.colaborador
+
+    ctx = _ctx(request, sub='filial_visualizar', extra={
+        'filial': filial,
+        'gestor': gestor_obj,
+        'total_colaboradores': total_colaboradores,
+    })
+    return render(request, 'rh/filiais/visualizar.html', ctx)
 
 
 @_requer_sessao
@@ -1172,9 +1162,9 @@ def filial_dashboard_view(request, pk):
     total_clientes = Cliente.objects.filter(filial_id=pk, banca=banca).count()
 
     # ── Logs Recentes (paginados 20/20) ──
-    logs_qs = LogAtividade.objects.filter(filial_id=pk).select_related('usuario')
+    logs_qs = LogAtividade.objects.filter(filial_id=pk).select_related('usuario').order_by('-created_at')
     paginator = Paginator(logs_qs, 20)
-    page_num = request.GET.get('logs_page')
+    page_num = request.GET.get('page')
     logs_recentes = paginator.get_page(page_num)
 
     # ── Facturas recentes (últimos 10) ──
@@ -1364,27 +1354,21 @@ def _cargos_banca_para_gestor(banca, is_desp, pode_ver_todos=False):
 
 
 def _pode_gerir_cargo(col_alvo, col_log, gestor, is_desp, perm_set):
-    """Hierarquia: quem pode atribuir/remover cargo de col_alvo?"""
+    """Hierarquia: quem pode atribuir/remover cargo de col_alvo?
+    Apenas Despachantes (toda a banca) e Gestores de Filial (mesma filial)."""
     # Despachante: pode tudo
     if is_desp:
         return True
     # Ninguém se auto-atribui ou auto-remove cargo
     if col_alvo.pk == col_log.pk:
         return False
-    # Verificar se col_alvo é GestorFilial ativo
+    # GestorFilial: ninguém mais pode mexer no cargo de um gestor
     try:
         alvo_e_gestor = col_alvo.gestor_filial.ativo if col_alvo.gestor_filial else False
     except Exception:
         alvo_e_gestor = False
-    # RH Sede (gerir_rh sem filial): gere cargos de qualquer um, incluindo GestorFilial
-    if 'gerir_rh' in perm_set and not col_log.filial_id:
-        return True
-    # GestorFilial: ninguém mais pode mexer
     if alvo_e_gestor:
         return False
-    # RH com filial (gerir_rh + filial_id): gere cargos na própria filial
-    if 'gerir_rh' in perm_set and col_log.filial_id and col_alvo.filial_id == col_log.filial_id:
-        return True
     # Gestor de Filial: gere cargos na sua filial
     if gestor and gestor.filial_id and col_alvo.filial_id == gestor.filial_id:
         return True
@@ -1430,11 +1414,17 @@ def colaboradores_view(request):
     perm_set = get_usuario_permissoes(request)
     pode_ver_todos = not is_desp and 'gerir_rh' in perm_set and not col_log.filial_id
     cargos_banca = _cargos_banca_para_gestor(banca, is_desp, pode_ver_todos=pode_ver_todos)
+    stats = cols.aggregate(
+        total=Count('pk'),
+        ativos=Count('pk', filter=Q(estado='Ativo')),
+        inativos=Count('pk', filter=Q(estado='Inativo')),
+        suspensos=Count('pk', filter=Q(estado='Suspenso')),
+    )
     return render(request, 'rh/colaboradores/lista.html',
                   _ctx(request, 'colaboradores', {
                       'banca': banca, 'colaboradores': page_obj, 'filiais': filiais,
                       'filial_selected': filial_selected, 'page_obj': page_obj,
-                      'cargos_banca': cargos_banca,
+                      'cargos_banca': cargos_banca, 'stats': stats,
                   }))
 
 
@@ -1454,6 +1444,15 @@ def colaborador_novo_view(request):
     )
     filiais_sem_gestor = [f for f in filiais if not any(g.ativo for g in f.gestores.all())]
 
+    cargos_banca = _cargos_banca_para_gestor(banca, is_desp, pode_ver_todos=_pode_todos)
+    cargos_permissoes_json = json.dumps({
+        str(cb.pk): {
+            'nome': cb.nome,
+            'descricao': cb.descricao or '',
+            'permissoes': [{'codigo': p.codigo, 'nome': p.nome} for p in cb.permissoes.all()]
+        }
+        for cb in cargos_banca
+    })
     def _render(extra=None):
         return render(request, 'rh/colaboradores/form.html',
                       _ctx(request, 'colaboradores', {
@@ -1461,7 +1460,8 @@ def colaborador_novo_view(request):
                           'filiais_sem_gestor': filiais_sem_gestor,
                           'gestor_filial': None,
                           'cargos': CARGOS, 'estados': ESTADOS_COL,
-                          'cargos_banca': _cargos_banca_para_gestor(banca, is_desp, pode_ver_todos=_pode_todos),
+                          'cargos_banca': cargos_banca,
+                          'cargos_permissoes_json': cargos_permissoes_json,
                           'col': None, **(extra or {}),
                       }))
 
@@ -1522,8 +1522,17 @@ def colaborador_novo_view(request):
             pass
         cargo_gf_pk = str(cargo_gf.pk) if cargo_gf else ''
 
+        # Colaborador sem email não pode ter cargo ou função
+        if cargo_banca_pk and not email_colaborador:
+            messages.error(request, 'Colaborador sem email não pode receber cargos ou funções no sistema.')
+            return _render()
+
         if cargo_banca_pk and cargo_banca_pk == cargo_gf_pk:
             # ── "Gestor de Filial": requer filial e cria GestorFilial ──
+            if not email_colaborador:
+                messages.error(request, 'Gestor de filial precisa de email para aceder ao sistema.')
+                col.delete()
+                return _render()
             if not is_desp and not ('gerir_rh' in _perm_set and not col_log.filial_id):
                 messages.error(request, 'Não pode atribuir este cargo.')
                 return redirect('rh_colaboradores')
@@ -1653,13 +1662,23 @@ def colaborador_editar_view(request, pk):
             filiais_sem_gestor.append(f)
 
     _pode_todos = not is_desp and 'gerir_rh' in _perm_set and not col_log.filial_id
+    cargos_banca = _cargos_banca_para_gestor(banca, is_desp, pode_ver_todos=_pode_todos)
+    cargos_permissoes_json = json.dumps({
+        str(cb.pk): {
+            'nome': cb.nome,
+            'descricao': cb.descricao or '',
+            'permissoes': [{'codigo': p.codigo, 'nome': p.nome} for p in cb.permissoes.all()]
+        }
+        for cb in cargos_banca
+    })
 
     def _render(extra=None):
         return render(request, 'rh/colaboradores/form.html',
                       _ctx(request, 'colaboradores', {
                           'banca': banca, 'col': col, 'filiais': filiais,
                           'cargos': CARGOS, 'estados': ESTADOS_COL,
-                          'cargos_banca': _cargos_banca_para_gestor(banca, is_desp, pode_ver_todos=_pode_todos),
+                          'cargos_banca': cargos_banca,
+                          'cargos_permissoes_json': cargos_permissoes_json,
                           'gestor_filial': gestor_filial,
                           'filiais_sem_gestor': filiais_sem_gestor,
                           **(extra or {}),
@@ -1689,6 +1708,11 @@ def colaborador_editar_view(request, pk):
         if 'foto' in request.FILES:
             col.foto = request.FILES['foto']
 
+        # Colaborador sem email — limpar password e impedir cargos
+        email_vazio = not col.email
+        if email_vazio:
+            col.password = None
+
         # Processar cargo_banca com sincronização integrada do GestorFilial
         cargo_banca_pk = request.POST.get('cargo_banca', '').strip()
         cargo_mudou = cargo_banca_pk != (str(col.cargo_banca_id) if col.cargo_banca_id else '')
@@ -1701,8 +1725,16 @@ def colaborador_editar_view(request, pk):
             pass
         cargo_gf_pk = str(cargo_gf.pk) if cargo_gf else ''
 
+        # Colaborador sem email não pode ter cargo ou função
+        if cargo_banca_pk and email_vazio:
+            messages.error(request, 'Colaborador sem email não pode receber cargos ou funções no sistema.')
+            return _render()
+
         if cargo_banca_pk and cargo_banca_pk == cargo_gf_pk:
             # ── "Gestor de Filial": requer filial e cria/actualiza GestorFilial ──
+            if email_vazio:
+                messages.error(request, 'Gestor de filial precisa de email para aceder ao sistema.')
+                return _render()
             if cargo_mudou:
                 perm_set = get_usuario_permissoes(request)
                 if not _pode_gerir_cargo(col, col_log, gestor, is_desp, perm_set):
@@ -1796,6 +1828,23 @@ def colaborador_editar_view(request, pk):
             messages.success(request, f'{col.nome} actualizado{scope_msg}')
         return redirect('rh_colaboradores')
     return _render()
+
+
+@_requer_sessao
+def colaborador_detalhe_view(request, pk):
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    col = get_object_or_404(Colaborador, pk=pk, banca=banca)
+    if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, col):
+        messages.error(request, 'Sem permissão para visualizar este colaborador.')
+        return redirect('rh_colaboradores')
+    return render(request, 'rh/colaboradores/detalhe.html',
+                  _ctx(request, 'colaboradores', {
+                      'col': col,
+                      'cargos_banca': _cargos_banca_para_gestor(banca, is_desp),
+                  }))
 
 
 @_requer_sessao
@@ -2193,13 +2242,16 @@ def salario_novo_view(request):
 
         for col in cols_processar:
             salario = col.salario_efetivo
-            # Calcular faltas do mês
-            faltas = RegistoPresenca.objects.filter(
-                colaborador=col,
-                data__month=mes, data__year=ano,
-                tipo__in=['Falta', 'Falta_Justificada'],
-                estado='Aprovado'
-            ).count()
+            # Colaborador sem email não tem controlo de presença — faltas zero
+            if not col.email:
+                faltas = 0
+            else:
+                faltas = RegistoPresenca.objects.filter(
+                    colaborador=col,
+                    data__month=mes, data__year=ano,
+                    tipo='Falta',
+                    estado__in=['Pendente', 'Aprovado'],
+                ).count()
             # Dias úteis no mês; desconto proporcional por falta
             dias_uteis = Decimal(str(max(1, sum(
                 1 for d in range(1, calendar.monthrange(ano, mes)[1] + 1)
@@ -2514,10 +2566,13 @@ def salario_detalhe_view(request, pk):
                         subsidio_colab_ids[s.pk] = set(s.colaboradores_especificos.values_list('id', flat=True))
                 for col in cols_novos:
                     salario = col.salario_efetivo
-                    faltas = RegistoPresenca.objects.filter(
-                        colaborador=col, data__month=mes, data__year=ano,
-                        tipo__in=['Falta', 'Falta_Justificada'], estado='Aprovado'
-                    ).count()
+                    if not col.email:
+                        faltas = 0
+                    else:
+                        faltas = RegistoPresenca.objects.filter(
+                            colaborador=col, data__month=mes, data__year=ano,
+                            tipo__in=['Falta', 'Falta_Justificada'], estado='Aprovado'
+                        ).count()
                     dias_uteis = Decimal(str(max(1, sum(
                         1 for d in range(1, calendar.monthrange(ano, mes)[1] + 1)
                         if date(ano, mes, d).weekday() < 5
@@ -3130,22 +3185,29 @@ def presencas_view(request):
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
     hoje = timezone.now().date()
-    mes  = int(request.GET.get('mes') or hoje.month)
-    ano  = int(request.GET.get('ano') or hoje.year)
+    data_inicio = request.GET.get('data_inicio', '').strip()
+    data_fim    = request.GET.get('data_fim', '').strip()
     colaborador_id = request.GET.get('colaborador')
-    from datetime import date
-    primeiro_dia = date(ano, mes, 1)
-    if mes == 12:
-        ultimo_dia = date(ano, 12, 31)
-    else:
-        ultimo_dia = date(ano, mes + 1, 1) - timezone.timedelta(days=1)
     cols = escopo_colaboradores_ativos(banca, col_log, gestor, is_desp, request=request).only(
         'id', 'nome', 'cargo', 'cargo_personalizado', 'filial_id'
     )
+    # Excluir Gestores de Filial — estão isentos de marcar presença
+    gestor_ids = set(
+        banca.colaboradores.filter(
+            gestor_filial__isnull=False, gestor_filial__ativo=True
+        ).values_list('id', flat=True)
+    )
+    cols = cols.exclude(id__in=gestor_ids).exclude(email='')
 
     registos = RegistoPresenca.objects.filter(
-        colaborador__in=cols, data__month=mes, data__year=ano,
+        colaborador__in=cols,
     )
+    if data_inicio:
+        registos = registos.filter(data__gte=data_inicio)
+    if data_fim:
+        registos = registos.filter(data__lte=data_fim)
+    if not data_inicio and not data_fim:
+        registos = registos.filter(data__year=hoje.year, data__month=hoje.month)
     if colaborador_id:
         registos = registos.filter(colaborador_id=colaborador_id)
     registos = registos.select_related('colaborador').order_by('-data')
@@ -3154,9 +3216,16 @@ def presencas_view(request):
     ).select_related('colaborador').only(
         'id', 'colaborador_id', 'data_inicio', 'data_fim', 'motivo', 'estado', 'criado_em'
     )
+    hoje_dt = timezone.now()
+    primeiro_dia_mes = hoje_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if hoje_dt.month == 12:
+        ultimo_dia_mes = hoje_dt.replace(month=12, day=31, hour=23, minute=59, second=59)
+    else:
+        from datetime import timedelta
+        ultimo_dia_mes = (hoje_dt.replace(month=hoje_dt.month + 1, day=1) - timedelta(days=1)).replace(hour=23, minute=59, second=59)
     pedidos_todos = PedidoFerias.objects.filter(
         colaborador__in=cols,
-        data_inicio__lte=ultimo_dia, data_fim__gte=primeiro_dia,
+        data_inicio__lte=ultimo_dia_mes, data_fim__gte=primeiro_dia_mes,
     ).select_related('colaborador').order_by('-criado_em')
     # Anotar can_approve em cada registo
     for r in registos:
@@ -3178,14 +3247,25 @@ def presencas_view(request):
     paginator = Paginator(registos, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    extra_params = {}
+    for k in ('colaborador', 'data_inicio', 'data_fim'):
+        v = request.GET.get(k, '')
+        if v:
+            extra_params[k] = v
+    from urllib.parse import urlencode
+    extra_qs = urlencode(extra_params)
+
     return render(request, 'rh/presencas/lista.html',
                   _ctx(request, 'presencas', {
                       'banca': banca, 'colaboradores': cols,
                       'registos': page_obj, 'pedidos': pedidos_pendentes,
                       'page_obj': page_obj,
                       'pedidos_todos': pedidos_todos,
-                      'mes': mes, 'ano': ano, 'meses': MESES, 'hoje': hoje,
+                      'hoje': hoje,
                       'colaborador_id': colaborador_id,
+                      'data_inicio': data_inicio, 'data_fim': data_fim,
+                      'extra_params': extra_qs,
                   }))
 
 
@@ -3202,6 +3282,12 @@ def presenca_registar_view(request):
         if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, col):
             messages.error(request, 'Sem permissão para registar presença deste colaborador.')
             return redirect('rh_presencas')
+        if col.e_gestor_filial:
+            messages.error(request, 'Gestor de filial está isento de registar presença.')
+            return redirect('rh_presencas')
+        if not col.email:
+            messages.error(request, 'Colaborador sem acesso ao sistema não pode registar presença.')
+            return redirect('rh_presencas')
         try:
             data_str = request.POST.get('data')
             foi_criacao = not RegistoPresenca.objects.filter(colaborador=col, data=data_str).exists()
@@ -3209,6 +3295,10 @@ def presenca_registar_view(request):
                 colaborador=col,
                 data=data_str,
             )
+            pode_aprovar = pode_aprovar_presenca(request, banca, col_log, is_desp, col)
+            if not foi_criacao and reg.estado in ('Aprovado', 'Rejeitado') and not pode_aprovar:
+                messages.error(request, f'Registo já {reg.estado.lower()}, não pode ser alterado.')
+                return redirect('rh_presencas')
             estado_anterior = reg.estado if not foi_criacao else ''
             reg.tipo = request.POST.get('tipo', 'Entrada')
             reg.hora_entrada = request.POST.get('hora_entrada') or None
@@ -3228,7 +3318,7 @@ def presenca_registar_view(request):
             messages.success(request, 'Registo de presença salvo com sucesso.')
             # Notificar responsável
             responsavel = _encontrar_responsavel_aprovacao(banca, col)
-            if responsavel and responsavel.pk != col_log.pk:
+            if responsavel and (not col_log or responsavel.pk != col_log.pk):
                 notificar_presenca_pendente(reg, banca, responsavel, request)
         except ValidationError as e:
             if hasattr(e, 'message_dict'):
@@ -3288,27 +3378,47 @@ def ferias_pedir_view(request):
     if request.method == 'POST':
         col = get_object_or_404(Colaborador, pk=request.POST.get('colaborador'), banca=banca)
         if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, col):
-            messages.error(request, 'Sem permissão para criar pedido para este colaborador.')
+            messages.error(request, 'Sem permissão para criar/editar pedido para este colaborador.')
             return redirect('rh_presencas')
         try:
-            pedido = PedidoFerias.objects.create(
-                colaborador=col,
-                data_inicio=request.POST.get('data_inicio'),
-                data_fim=request.POST.get('data_fim'),
-                motivo=request.POST.get('motivo', '').strip(),
-            )
-            _registrar_historico_presenca(
-                banca=banca, filial=col.filial,
-                tipo_registo='ferias', registo_id=pedido.pk,
-                accao='CRIADA',
-                estado_anterior='', estado_novo='Pendente',
-                colaborador=col, aprovador=col_log,
-            )
-            messages.success(request, 'Pedido de férias submetido com sucesso.')
-            # Notificar responsável
-            responsavel = _encontrar_responsavel_aprovacao(banca, col)
-            if responsavel and responsavel.pk != col_log.pk:
-                notificar_ferias_pendente(pedido, banca, responsavel, request)
+            pedido_pk = request.POST.get('pedido_pk')
+            if pedido_pk:
+                pedido = get_object_or_404(PedidoFerias, pk=pedido_pk, colaborador__banca=banca)
+                if pedido.estado != 'Pendente':
+                    messages.error(request, 'Apenas pedidos pendentes podem ser editados.')
+                    return redirect('rh_presencas')
+                estado_anterior = pedido.estado
+                pedido.data_inicio = request.POST.get('data_inicio')
+                pedido.data_fim = request.POST.get('data_fim')
+                pedido.motivo = request.POST.get('motivo', '').strip()
+                pedido.full_clean()
+                pedido.save()
+                _registrar_historico_presenca(
+                    banca=banca, filial=col.filial,
+                    tipo_registo='ferias', registo_id=pedido.pk,
+                    accao='ALTERADA',
+                    estado_anterior=estado_anterior, estado_novo='Pendente',
+                    colaborador=col, aprovador=col_log,
+                )
+                messages.success(request, 'Pedido de férias actualizado com sucesso.')
+            else:
+                pedido = PedidoFerias.objects.create(
+                    colaborador=col,
+                    data_inicio=request.POST.get('data_inicio'),
+                    data_fim=request.POST.get('data_fim'),
+                    motivo=request.POST.get('motivo', '').strip(),
+                )
+                _registrar_historico_presenca(
+                    banca=banca, filial=col.filial,
+                    tipo_registo='ferias', registo_id=pedido.pk,
+                    accao='CRIADA',
+                    estado_anterior='', estado_novo='Pendente',
+                    colaborador=col, aprovador=col_log,
+                )
+                messages.success(request, 'Pedido de férias submetido com sucesso.')
+                responsavel = _encontrar_responsavel_aprovacao(banca, col)
+                if responsavel and (not col_log or responsavel.pk != col_log.pk):
+                    notificar_ferias_pendente(pedido, banca, responsavel, request)
         except ValidationError as e:
             if hasattr(e, 'message_dict'):
                 for field, messages_list in e.message_dict.items():
@@ -3379,6 +3489,8 @@ def presenca_apagar_view(request, pk):
     if request.method == 'POST':
         if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, reg.colaborador):
             messages.error(request, 'Sem permissão para remover este registo.')
+        elif not pode_aprovar_presenca(request, banca, col_log, is_desp, reg.colaborador):
+            messages.error(request, 'Sem autoridade para remover este registo.')
         else:
             _registrar_historico_presenca(
                 banca=banca, filial=reg.colaborador.filial,
@@ -3402,6 +3514,8 @@ def ferias_apagar_view(request, pk):
     if request.method == 'POST':
         if not pode_aceder_colaborador(banca, col_log, gestor, is_desp, pedido.colaborador):
             messages.error(request, 'Sem permissão para remover este pedido.')
+        elif not pode_aprovar_presenca(request, banca, col_log, is_desp, pedido.colaborador):
+            messages.error(request, 'Sem autoridade para remover este pedido.')
         else:
             _registrar_historico_presenca(
                 banca=banca, filial=pedido.colaborador.filial,
@@ -3780,7 +3894,7 @@ def _grupos_permissoes_banca(request, para_gestor=False):
         grupos = []
         # Grupo Aduaneiro — header: gerir_aduaneiro
         adu_header = perm_map.get('gerir_aduaneiro')
-        adu_items = [p for p in [perm_map.get(c) for c in ['gerir_aduaneiro', 'criar_declaracao_unica', 'ver_pauta_aduaneira', 'gerir_clientes']] if p]
+        adu_items = [p for p in [perm_map.get(c) for c in ['gerir_aduaneiro', 'criar_declaracao_unica', 'ver_pauta_aduaneira', 'gerir_clientes_filial']] if p]
         if adu_header or adu_items:
             grupos.append({'nome': 'Gestão Aduaneira', 'header': adu_header or adu_items[0], 'items': adu_items})
         # Grupo RH — header: gerir_rh
@@ -3791,9 +3905,9 @@ def _grupos_permissoes_banca(request, para_gestor=False):
         rh_items = [p for p in [perm_map.get(c) for c in rh_codes] if p]
         if rh_header or rh_items:
             grupos.append({'nome': 'Recursos Humanos', 'header': rh_header or rh_items[0], 'items': rh_items})
-        # Grupo Financeiro — header: gerir_financeiro
-        fin_header = perm_map.get('gerir_financeiro')
-        fin_codes = ['gerir_financeiro', 'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
+        # Grupo Financeiro — header: gerir_financeiro_filial
+        fin_header = perm_map.get('gerir_financeiro_filial')
+        fin_codes = ['gerir_financeiro_filial', 'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
                      'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros']
         fin_items = [p for p in [perm_map.get(c) for c in fin_codes] if p]
         if fin_header or fin_items:
@@ -3807,7 +3921,7 @@ def _grupos_permissoes_banca(request, para_gestor=False):
         {
             'nome': 'Gestão Aduaneira',
             'header_codigo': 'gerir_aduaneiro',
-            'items': ['gerir_aduaneiro', 'criar_declaracao_unica', 'ver_pauta_aduaneira', 'gerir_clientes'],
+            'items': ['gerir_aduaneiro', 'criar_declaracao_unica', 'ver_pauta_aduaneira', 'gerir_clientes', 'gerir_clientes_filial'],
         },
         {
             'nome': 'Recursos Humanos',
@@ -3820,7 +3934,8 @@ def _grupos_permissoes_banca(request, para_gestor=False):
             'nome': 'Gestão Financeira',
             'header_codigo': 'gerir_financeiro',
             'items': ['ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
-                      'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros'],
+                      'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros',
+                      'gerir_financeiro_filial'],
         },
         {
             'nome': 'Colaborador',
@@ -3873,8 +3988,11 @@ def cargo_novo_view(request):
         nome = request.POST.get('nome', '').strip()
         descricao = request.POST.get('descricao', '').strip()
         codigos_perm = set(request.POST.getlist('permissoes'))
+        erro_mistura = _validar_mistura_sede_filial(codigos_perm)
         if not nome:
             messages.error(request, 'O nome do cargo é obrigatório.')
+        elif erro_mistura:
+            messages.error(request, erro_mistura)
         elif banca.cargos.filter(nome__iexact=nome).exists():
             messages.error(request, f'Já existe um cargo com o nome "{nome}" nesta banca.')
         else:
@@ -3929,8 +4047,11 @@ def cargo_editar_view(request, pk):
         nome = request.POST.get('nome', '').strip()
         descricao = request.POST.get('descricao', '').strip()
         codigos_perm = set(request.POST.getlist('permissoes'))
+        erro_mistura = _validar_mistura_sede_filial(codigos_perm)
         if not nome:
             messages.error(request, 'O nome do cargo é obrigatório.')
+        elif erro_mistura:
+            messages.error(request, erro_mistura)
         elif banca.cargos.filter(nome__iexact=nome).exclude(pk=cargo.pk).exists():
             messages.error(request, f'Já existe um cargo com o nome "{nome}" nesta banca.')
         else:

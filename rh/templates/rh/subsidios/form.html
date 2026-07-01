@@ -1,8 +1,6 @@
-﻿{% load rh_extras %}{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
       <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
@@ -176,37 +174,4 @@
 
     </form>
 
-  </main>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const tipoCalculo = document.getElementById('tipo_calculo');
-  const campoValorFixo = document.getElementById('campo_valor_fixo');
-  const campoPercentual = document.getElementById('campo_percentual');
-  
-  function toggleCampos() {
-    const valor = tipoCalculo.value;
-    campoValorFixo.style.display = valor === 'PERCENTUAL' ? 'none' : 'block';
-    campoPercentual.style.display = valor === 'PERCENTUAL' ? 'block' : 'none';
-  }
-  
-  function toggleCamposELimpar() {
-    const valor = tipoCalculo.value;
-    if (valor === 'PERCENTUAL') {
-      campoValorFixo.style.display = 'none';
-      campoPercentual.style.display = 'block';
-      document.querySelector('input[name="valor_padrao"]').value = '0';
-    } else {
-      campoValorFixo.style.display = 'block';
-      campoPercentual.style.display = 'none';
-      document.querySelector('input[name="percentual"]').value = '';
-    }
-  }
-  
-  toggleCampos(); // Apenas mostrar/esconder, sem limpar valores
-  tipoCalculo.addEventListener('change', toggleCamposELimpar);
-});
-</script>
-
-{% include 'includes/footer.html' %}
+{% endblock %}

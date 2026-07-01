@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from clientes.models import Cliente
 from users.models import Usuario
 from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
-from users.auth_decorators import sessao_expirada
+from users.auth_decorators import sessao_expirada, requer_sessao_ativa
 from utils.validators import email_ja_existe
 from django.core.paginator import Paginator
 from rh.models import Colaborador, Banca
@@ -96,7 +96,7 @@ def du_view(request, du_uuid=None):
 
     # Apenas Despachante Oficial (ou quem tem permissão) pode criar nova DU
     if du_uuid is None and not _tem_permissao_ou_papel(request, 'criar_declaracao_unica'):
-        return redirect('du_lista')
+        return redirect('aduaneiro:du_lista')
 
     du = None
     dados_iniciais = '{}'
@@ -128,7 +128,7 @@ def du_view(request, du_uuid=None):
         # Só o dono ou Administrador pode editar
         e_admin = _is_admin_ou_acesso_total(request)
         if du.usuario_id != uid_atual and not e_admin:
-            return redirect('du_lista')
+            return redirect('aduaneiro:du_lista')
 
         dados_iniciais = du.dados_json
 
@@ -399,6 +399,22 @@ def _du_guardar_impl(request):
             except Colaborador.DoesNotExist:
                 pass
 
+    # Capturar estado anterior para versionamento
+    campos_alterados = {}
+    if du.pk:
+        old = DeclaracaoUnica.objects.get(pk=du.pk)
+        for campo in ('status', 'regime_aduaneiro', 'ref_despachante', 'exportador_nome',
+                      'destinatario_nome', 'total_geral', 'valor_fob', 'valor_frete', 'valor_seguro'):
+            old_val = str(getattr(old, campo, '') or '')
+            new_val = str(getattr(du, campo, '') or '')
+            if old_val != new_val:
+                campos_alterados[campo] = {'de': old_val, 'para': new_val}
+        old_dados = old.get_dados()
+        if old_dados != dados:
+            campos_alterados['dados_json'] = 'Dados do formulário alterados'
+    else:
+        campos_alterados['_criado'] = 'Nova Declaração Única criada'
+
     du.set_dados(dados)
 
     # Gerar UUID e código de processo se novo registo
@@ -408,11 +424,10 @@ def _du_guardar_impl(request):
         du.codigo_processo = DeclaracaoUnica.gerar_codigo_processo()
 
     if submeter:
-        du.status = 'Aprovada'
+        du.status = 'Submetida'
         if not du.numero_du:
             du.numero_du = du.gerar_numero()
         du.data_submissao = timezone.now()
-        du.data_aprovacao = timezone.now()
     else:
         du.status = 'Rascunho'
         # Rascunho não tem número — fica NULL até submeter
@@ -420,6 +435,11 @@ def _du_guardar_impl(request):
             du.numero_du = None
 
     du.save()
+
+    # Registar versão no histórico
+    if du.pk and campos_alterados:
+        from aduaneiro.signals import registrar_versao_du
+        registrar_versao_du(du, campos_alterados, request)
 
     return JsonResponse({
         'sucesso': True,
@@ -495,7 +515,7 @@ def du_detalhe(request, du_uuid):
 
     e_admin = _is_admin_ou_acesso_total(request)
     if du.usuario_id != uid and not e_admin:
-        return redirect('du_lista')
+        return redirect('aduaneiro:du_lista')
 
     ctx = _ctx_base(request)
     ctx.update({
@@ -515,10 +535,12 @@ def du_detalhe(request, du_uuid):
 def du_apagar(request, du_uuid):
     if not _sessao_ok(request):
         return JsonResponse({'erro': 'Não autorizado'}, status=401)
-    if not _is_admin_ou_acesso_total(request):
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
     du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
+
+    if du.status != 'Rascunho':
+        return JsonResponse({'erro': 'Apenas DUs em rascunho podem ser apagadas.'}, status=403)
+
     du.delete()
     return JsonResponse({'sucesso': True})
 
@@ -543,8 +565,17 @@ def du_alterar_status(request, du_uuid):
         return JsonResponse({'erro': 'Status inválido'}, status=400)
 
     du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
+
+    # Transições automáticas
+    if novo_status == 'Aprovada' and du.status in ('Submetida', 'Em Análise'):
+        du.data_aprovacao = timezone.now()
+        if not du.numero_du:
+            du.numero_du = du.gerar_numero()
+    if novo_status == 'Submetida':
+        du.data_submissao = timezone.now()
+
     du.status = novo_status
-    du.save(update_fields=['status', 'updated_at'])
+    du.save(update_fields=['status', 'data_aprovacao', 'data_submissao', 'numero_du', 'updated_at'])
     return JsonResponse({'sucesso': True, 'status': du.status})
 
 
@@ -559,7 +590,7 @@ def du_download_pdf(request, du_uuid):
     _, uid = _banca_owner(request)
 
     if du.usuario_id != uid and not _is_admin_ou_acesso_total(request):
-        return redirect('du_lista')
+        return redirect('aduaneiro:du_lista')
 
     try:
         from reportlab.lib import colors
@@ -1145,7 +1176,7 @@ def pauta_aduaneira_view(request):
     if not _sessao_ok(request):
         return redirect('login')
     if not _tem_permissao_ou_papel(request, 'ver_pauta_aduaneira'):
-        return redirect('du_lista')
+        return redirect('aduaneiro:du_lista')
 
     ctx = _ctx_base(request)
     ctx.update({
@@ -1550,3 +1581,29 @@ def api_vinhetas(request):
             for v in vinhetas_disponiveis
         ],
     })
+
+
+# ─── DU — Histórico de Versões ─────────────────────────────────────────
+
+
+@requer_sessao_ativa
+def du_historico(request, du_uuid):
+    try:
+        du = DeclaracaoUnica.objects.get(du_uuid=du_uuid)
+    except DeclaracaoUnica.DoesNotExist:
+        messages.error(request, 'Declaração Única não encontrada.')
+        return redirect('aduaneiro:du_lista')
+
+    historicos = du.historico_versoes.all().order_by('-criado_em')
+
+    ctx = _ctx_base(request)
+    ctx['active_menu'] = 'Aduaneiro'
+    ctx['active_sub'] = 'du'
+    ctx['du'] = du
+    # Parse campos_alterados de JSON string para dict
+    for h in historicos:
+        h.campos_alterados_dict = h.get_campos_alterados_dict()
+    ctx['historicos'] = historicos
+    ctx['total_versoes'] = historicos.count()
+
+    return render(request, 'aduaneiro/du_historico.html', ctx)

@@ -1,8 +1,5 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5 flex-wrap">
       <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
@@ -154,9 +151,6 @@
       </div>
 
     </form>
-  </main>
-</div>
-
 <script>
 function mudarTipo() {
   var v = document.getElementById('input-tipo').value;
@@ -169,4 +163,4 @@ function mudarTipo() {
 mudarTipo();
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

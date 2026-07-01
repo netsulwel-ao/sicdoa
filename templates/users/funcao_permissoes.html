@@ -1,10 +1,8 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
+{% extends 'base.html' %}
 {% load static %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  {% csrf_token %}
-  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+{% block main_classes %}p-4 md:p-6 lg:p-8 space-y-6{% endblock %}
+{% block content %}
+{% csrf_token %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5 flex-wrap">
       <a href="{% url 'dashboard' %}" class="hover:text-primary transition-colors">Dashboard</a>
@@ -87,9 +85,6 @@
       </div>
       {% endfor %}
     </div>
-
-  </main>
-</div>
 
 <script>
 (function() {
@@ -181,4 +176,4 @@
 })();
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

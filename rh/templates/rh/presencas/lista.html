@@ -1,4 +1,5 @@
-﻿{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'rh/base_rh.html' %}
+{% block conteudo %}
 <div class="flex items-center gap-2 text-sm text-gray-500 mb-5"><a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a><i class="fas fa-chevron-right text-xs"></i><span class="text-primary">RH</span><i class="fas fa-chevron-right text-xs"></i><span class="text-gray-700 dark:text-gray-300">Controlo de Presenças</span></div>
 
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -15,17 +16,19 @@
   <button data-tab-btn="ferias" class="px-5 py-2 text-sm font-semibold rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-all">Férias</button>
 </div>
 
-<!-- Filtro de mês -->
+<!-- Filtro por data e colaborador -->
 <form method="GET" class="flex items-center gap-3 mb-6 flex-wrap">
-  <select name="mes" class="px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm">
-    {% for m in meses %}<option value="{{ forloop.counter }}" {% if forloop.counter == mes %}selected{% endif %}>{{ m }}</option>{% endfor %}
-  </select>
-  <input type="number" name="ano" value="{{ ano }}" min="2020" max="2050" class="w-24 px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm" />
+  <input type="date" name="data_inicio" value="{{ data_inicio }}" class="px-3 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm" title="Data início">
+  <input type="date" name="data_fim" value="{{ data_fim }}" class="px-3 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm" title="Data fim">
+  <span class="text-gray-400 text-sm">—</span>
   <select name="colaborador" class="px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none text-sm">
     <option value="">Todos os colaboradores</option>
     {% for col in colaboradores %}<option value="{{ col.pk }}" {% if colaborador_id == col.pk|slugify %}selected{% endif %}>{{ col.nome }}</option>{% endfor %}
   </select>
   <button type="submit" class="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">Filtrar</button>
+  {% if data_inicio or data_fim or colaborador_id %}
+  <a href="{% url 'rh_presencas' %}" class="px-4 py-2.5 border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 rounded-xl text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Limpar</a>
+  {% endif %}
 </form>
 
 <!-- ══════════════ TAB: PRESENÇAS ══════════════ -->
@@ -91,16 +94,22 @@
             </div>
             {% if r.estado == 'Pendente' and r.can_approve %}
             <div class="flex gap-1">
-              <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
-              <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
+              <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check-circle text-base"></i></button></form>
+              <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button></form>
             </div>
             {% endif %}
-            <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-1">
+            {% if r.tipo == 'Falta' and r.estado == 'Pendente' %}
+            <div class="flex gap-1">
+              <button onclick="abrirJustificar({{ r.colaborador.pk }}, '{{ r.data|date:'Y-m-d' }}')" class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all" title="Justificar falta"><i class="fas fa-pencil-alt text-sm"></i></button>
+            </div>
+            {% endif %}
+            {% if r.estado == 'Pendente' %}
+            <button onclick="abrirEditarPresenca({{ r.colaborador.pk }}, '{{ r.data|date:'Y-m-d' }}', '{{ r.tipo }}', '{{ r.hora_entrada|default:'' }}', '{{ r.hora_saida|default:'' }}', '{{ r.justificacao|default:''|escapejs }}')" class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all" title="Editar"><i class="fas fa-edit text-sm"></i></button>
+            {% endif %}
               <form method="POST" action="{% url 'rh_presenca_apagar' r.pk %}" class="inline">{% csrf_token %}<button type="button" onclick="confirmarFormPost(this.form, { titulo: 'Remover registo', mensagem: 'Tem certeza que deseja remover este registo de presença?', textoBotao: 'Remover' })" class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" title="Remover"><i class="fas fa-trash-alt text-sm"></i></button></form>
             </div>
           </div>
         </div>
-      </div>
       {% endfor %}
     </div>
 
@@ -132,11 +141,17 @@
         {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
       </td>
       <td class="px-5 py-4 text-right">
-        <div class="flex items-center justify-end gap-1">
-          {% if r.estado == 'Pendente' and r.can_approve %}
-          <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
-          <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
-          {% endif %}
+          <div class="flex items-center justify-end gap-1">
+            {% if r.estado == 'Pendente' and r.can_approve %}
+             <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check-circle text-base"></i></button></form>
+             <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button></form>
+            {% endif %}
+            {% if r.tipo == 'Falta' and r.estado == 'Pendente' %}
+            <button onclick="abrirJustificar({{ r.colaborador.pk }}, '{{ r.data|date:'Y-m-d' }}')" class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all" title="Justificar falta"><i class="fas fa-pencil-alt text-sm"></i></button>
+            {% endif %}
+            {% if r.estado == 'Pendente' %}
+            <button onclick="abrirEditarPresenca({{ r.colaborador.pk }}, '{{ r.data|date:'Y-m-d' }}', '{{ r.tipo }}', '{{ r.hora_entrada|default:'' }}', '{{ r.hora_saida|default:'' }}', '{{ r.justificacao|default:''|escapejs }}')" class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all" title="Editar"><i class="fas fa-edit text-sm"></i></button>
+            {% endif %}
           <form method="POST" action="{% url 'rh_presenca_apagar' r.pk %}" class="inline">{% csrf_token %}<button type="button" onclick="confirmarFormPost(this.form, { titulo: 'Remover registo', mensagem: 'Tem certeza que deseja remover este registo de presença?', textoBotao: 'Remover' })" class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" title="Remover"><i class="fas fa-trash-alt text-base"></i></button></form>
         </div>
       </td>
@@ -145,7 +160,7 @@
     </tbody></table></div>
     {% if page_obj.has_other_pages %}
     <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
-      {% include 'includes/pagination.html' %}
+      {% include 'includes/pagination.html' with extra_params=extra_params %}
     </div>
     {% endif %}
     </div>
@@ -181,8 +196,11 @@
       <td class="px-5 py-4 text-right">
         <div class="flex items-center justify-end gap-1">
           {% if p.estado == 'Pendente' and p.can_approve %}
-          <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check text-base"></i></button></form>
-          <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times text-base"></i></button></form>
+          <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check-circle text-base"></i></button></form>
+          <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button></form>
+          {% endif %}
+          {% if p.estado == 'Pendente' %}
+          <button onclick="abrirEditarFerias({{ p.pk }}, {{ p.colaborador.pk }}, '{{ p.data_inicio|date:'Y-m-d' }}', '{{ p.data_fim|date:'Y-m-d' }}', '{{ p.motivo|default:''|escapejs }}')" class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all" title="Editar"><i class="fas fa-edit text-base"></i></button>
           {% endif %}
           <form method="POST" action="{% url 'rh_ferias_apagar' p.pk %}" class="inline">{% csrf_token %}<button type="button" onclick="confirmarFormPost(this.form, { titulo: 'Remover pedido de férias', mensagem: 'Tem certeza que deseja remover o pedido de férias de {{ p.colaborador.nome }}?', textoBotao: 'Remover' })" class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" title="Remover"><i class="fas fa-trash-alt text-base"></i></button></form>
         </div>
@@ -201,8 +219,36 @@ function togglePresencaFields() {
   var isJustif = tipo === 'Falta_Justificada';
   document.getElementById('presencaHoras').classList.toggle('hidden', !isEntrada);
   document.getElementById('presencaJustif').classList.toggle('hidden', !isJustif);
-  var he = document.querySelector('input[name="hora_entrada"]');
+  var he = document.querySelector('#modalPresenca input[name="hora_entrada"]');
   if (he) he.required = isEntrada;
+}
+function abrirJustificar(colId, data) {
+  var modal = document.getElementById('modalPresenca');
+  modal.querySelector('[name="colaborador"]').value = colId;
+  modal.querySelector('[name="data"]').value = data;
+  modal.querySelector('[name="tipo"]').value = 'Falta_Justificada';
+  togglePresencaFields();
+  modal.classList.remove('hidden');
+}
+function abrirEditarPresenca(colId, data, tipo, horaEntrada, horaSaida, justificacao) {
+  var modal = document.getElementById('modalPresenca');
+  modal.querySelector('[name="colaborador"]').value = colId;
+  modal.querySelector('[name="data"]').value = data;
+  modal.querySelector('[name="tipo"]').value = tipo;
+  if (modal.querySelector('[name="hora_entrada"]')) modal.querySelector('[name="hora_entrada"]').value = horaEntrada;
+  if (modal.querySelector('[name="hora_saida"]')) modal.querySelector('[name="hora_saida"]').value = horaSaida;
+  if (modal.querySelector('[name="justificacao"]')) modal.querySelector('[name="justificacao"]').value = justificacao;
+  togglePresencaFields();
+  modal.classList.remove('hidden');
+}
+function abrirEditarFerias(pedidoPk, colId, dataInicio, dataFim, motivo) {
+  var modal = document.getElementById('modalFerias');
+  modal.querySelector('[name="pedido_pk"]').value = pedidoPk;
+  modal.querySelector('[name="colaborador"]').value = colId;
+  modal.querySelector('[name="data_inicio"]').value = dataInicio;
+  modal.querySelector('[name="data_fim"]').value = dataFim;
+  modal.querySelector('[name="motivo"]').value = motivo;
+  modal.classList.remove('hidden');
 }
 (function(){
   var activeTab = new URLSearchParams(window.location.search).get('tab') || 'presencas';
@@ -269,6 +315,7 @@ function togglePresencaFields() {
     </div>
     <form method="POST" action="{% url 'rh_ferias_pedir' %}" class="p-6 space-y-4">{% csrf_token %}
       <input type="hidden" name="next" value="rh_presencas">
+      <input type="hidden" name="pedido_pk" value="">
       <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Colaborador</label><select name="colaborador" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none"><option value="">Selecione...</option>{% for f in colaboradores %}<option value="{{ f.pk }}">{{ f.nome }}</option>{% endfor %}</select></div>
       <div class="grid grid-cols-2 gap-4">
         <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Data Início</label><input type="date" name="data_inicio" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none" /></div>
@@ -279,4 +326,4 @@ function togglePresencaFields() {
     </form>
   </div>
 </div>
-</main></div>{% include 'includes/footer.html' %}
+{% endblock %}

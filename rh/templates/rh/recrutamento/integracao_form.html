@@ -1,8 +1,6 @@
-﻿{% load rh_extras %}{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
       <a href="{% url 'rh_candidatura_detalhe' cand.pk %}" class="hover:text-primary">{{ cand.nome }}</a>
@@ -160,8 +158,6 @@
       </form>
     </div>
 
-  </main>
-</div>
 <script>
 function toggleColForm() {
   document.getElementById('colFormDiv').classList.toggle('hidden', !document.getElementById('criarColCheck').checked);
@@ -284,4 +280,4 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
-{% include 'includes/footer.html' %}
+{% endblock %}

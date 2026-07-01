@@ -1,4 +1,5 @@
-{% include 'includes/head.html' %}{% include 'includes/sidebar.html' %}<div class="flex-1 ml-0 lg:ml-64 min-w-0">{% include 'includes/header.html' %}<main class="p-4 md:p-6 lg:p-8">
+{% extends 'rh/base_rh.html' %}
+{% block conteudo %}
 
 <div class="flex items-center justify-between mb-5">
   <div class="flex items-center gap-2 text-sm text-gray-500">
@@ -190,4 +191,4 @@
   </div>
 </div>
 
-</main></div>{% include 'includes/footer.html' %}
+{% endblock %}

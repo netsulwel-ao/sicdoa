@@ -1,9 +1,5 @@
-﻿{% include 'includes/head.html' %}
-{% include 'colaboradores/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'colaboradores/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+﻿{% extends 'colaboradores/base_colaboradores.html' %}
+{% block content %}
 
     {# ── Cabeçalho ───────────────────────────────────────────────────────── #}
     <div>
@@ -217,11 +213,7 @@
     </div>
     {% endif %}
 
-  </main>
-</div>
-
 <script>
-// Calcular dias entre datas
 const inicio = document.querySelector('input[name="data_inicio"]');
 const fim = document.querySelector('input[name="data_fim"]');
 const msgDias = document.getElementById('msg-dias');
@@ -243,12 +235,10 @@ function calcularDias() {
 inicio.addEventListener('change', calcularDias);
 fim.addEventListener('change', calcularDias);
 
-// Sincronizar data mínima do fim com o início
 inicio.addEventListener('change', function() {
   fim.min = this.value;
 });
 
-// Contar estados para os badges
 let pendentes = 0, aprovados = 0;
 document.querySelectorAll('.estado-badge').forEach(function(el) {
   if (el.dataset.estado === 'Pendente') pendentes++;
@@ -259,4 +249,4 @@ if (countPendentes) countPendentes.textContent = pendentes;
 const countAprovados = document.getElementById('count-aprovados');
 if (countAprovados) countAprovados.textContent = aprovados;
 </script>
-{% include 'includes/footer.html' %}
+{% endblock %}

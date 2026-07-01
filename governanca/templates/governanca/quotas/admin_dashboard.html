@@ -1,9 +1,6 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-{% include 'includes/header.html' %}
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
 {% csrf_token %}
-<main class="p-4 md:p-6 lg:p-8">
   <div class="mb-6 flex items-center justify-between">
     <div>
       <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Administração de Quotas</h1>
@@ -183,8 +180,6 @@
   </div>
 
   {% include 'includes/confirm-modal.html' %}
-  </main>
-</div>
 <script>
 // ─── Isenções ────────────────────────────────────────────────────────
 function abrirModalIsencao() {
@@ -293,4 +288,4 @@ async function definirEstado(pk) {
 
 
 </script>
-{% include 'includes/footer.html' %}
+{% endblock %}

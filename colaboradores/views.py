@@ -243,6 +243,3 @@ def buscar_view(request):
     }
     
     return render(request, 'colaboradores/buscar.html', contexto)
-
-
-@login_required

@@ -120,12 +120,14 @@ class Command(BaseCommand):
                 link=link,
             )
             if d.email:
-                _enviar('Quota Associativa Gerada',
+                multa_msg = f'Multa de {config.multa_percentual}%/dia após o vencimento.\n' if config.multa_percentual else ''
+                carencia_msg = f'Período de carência de {config.dias_carencia} dias.\n' if config.dias_carencia else ''
+                corpo = (
                     f'Olá {d.nome},\n\nA sua {descricao} no valor de Kz {config.valor} foi gerada.\n'
                     f'Data de vencimento: {config.data_vencimento}\n'
-                    f'{f"Multa de {config.multa_percentual}%/dia após o vencimento.\n" if config.multa_percentual else ""}'
-                    f'{f"Período de carência de {config.dias_carencia} dias.\n" if config.dias_carencia else ""}'
-                    f'\nAceda ao sistema para pagar.\n\nCDOA Angola',
-                    None, [d.email])
+                    f'{multa_msg}{carencia_msg}'
+                    '\nAceda ao sistema para pagar.\n\nCDOA Angola'
+                )
+                _enviar('Quota Associativa Gerada', corpo, None, [d.email])
             criadas += 1
         self.stdout.write(f'Geradas {criadas} quotas {tipo.nome} para {mes:02d}/{ano}')

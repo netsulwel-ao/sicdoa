@@ -1,11 +1,6 @@
-﻿{% load static %}
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0 aduaneiro-page">
-  {% include 'includes/header.html' %}
-
-  <main class="p-4 sm:p-6 max-w-7xl mx-auto">
+﻿{% extends 'base_aduaneiro.html' %}
+{% block content %}
+{% load static %}
 
     <!-- ── Breadcrumb + Título ── -->
     <div class="mb-6">
@@ -270,9 +265,6 @@
       </div>
     </div>
 
-  </main>
-</div>
-
 <!-- ── Modal de Detalhes ── -->
 <div id="detalhesModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
   <div class="bg-white dark:bg-gray-800 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -357,7 +349,7 @@
 
 <script>
 // ── Pauta Aduaneira — pesquisa via API ──────────────────────────────────────
-const API_URL = '{% url "pauta_aduaneira_api" %}';
+const API_URL = '{% url "aduaneiro:pauta_aduaneira_api" %}';
 
 async function pesquisarPauta() {
   const codigo    = document.getElementById('codigoPautal').value.trim();
@@ -585,4 +577,4 @@ document.getElementById('detalhesModal').addEventListener('click', function(e) {
 window.addEventListener('load', function() { pesquisarPauta(); });
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

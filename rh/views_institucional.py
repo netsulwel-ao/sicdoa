@@ -10,13 +10,13 @@ from django.db.models import Count, Prefetch, Q
 from django.core.paginator import Paginator
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from decimal import Decimal, InvalidOperation
-import bcrypt
+from decimal import Decimal
 
-from utils.format_kz import parse_kz, fmt_kz
+from utils.format_kz import fmt_kz
 from utils.email_utils import gerar_senha_aleatoria, enviar_senha_colaborador
 from utils.email_utils import enviar_resultado_candidatura, enviar_convocatoria_entrevista
 from utils.validators import email_ja_existe
+from .tax_utils import _dec, _hash_password, _calcular_irt, MESES
 from .acesso import obter_acesso_inst, obter_acesso_inst_modulo
 from users.models import (
     ColaboradorInstitucional, PresencaInstitucional, FeriasInstitucional,
@@ -28,8 +28,7 @@ from users.models import (
     MetricaAvaliacaoInstitucional, NotaMetricaInstitucional,
 )
 
-MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-         'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+# MESES imported from tax_utils
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────
@@ -79,45 +78,7 @@ def _ctx_inst(request, sub='', extra=None):
     return ctx
 
 
-def _dec(val, default=Decimal('0')):
-    try:
-        parsed = parse_kz(val)
-        return Decimal(str(parsed)) if parsed else default
-    except (InvalidOperation, ValueError, TypeError):
-        return default
-
-
-# Tabela IRT Angola (Imposto sobre Rendimento do Trabalho) - OGE 2026
-def _calcular_irt(salario: Decimal) -> Decimal:
-    if salario <= Decimal('150000'):
-        irt = Decimal('0')
-    elif salario <= Decimal('200000'):
-        irt = (salario - Decimal('150000')) * Decimal('0.16')
-    elif salario <= Decimal('300000'):
-        irt = Decimal('8000') + (salario - Decimal('200000')) * Decimal('0.18')
-    elif salario <= Decimal('500000'):
-        irt = Decimal('26000') + (salario - Decimal('300000')) * Decimal('0.19')
-    elif salario <= Decimal('1000000'):
-        irt = Decimal('64000') + (salario - Decimal('500000')) * Decimal('0.20')
-    elif salario <= Decimal('1500000'):
-        irt = Decimal('164000') + (salario - Decimal('1000000')) * Decimal('0.21')
-    elif salario <= Decimal('2000000'):
-        irt = Decimal('269000') + (salario - Decimal('1500000')) * Decimal('0.22')
-    elif salario <= Decimal('5000000'):
-        irt = Decimal('379000') + (salario - Decimal('2000000')) * Decimal('0.23')
-    elif salario <= Decimal('10000000'):
-        irt = Decimal('1069000') + (salario - Decimal('5000000')) * Decimal('0.24')
-    else:
-        irt = Decimal('2269000') + (salario - Decimal('10000000')) * Decimal('0.25')
-    return Decimal(str(round(irt, 2)))
-
-
-def _hash_password(senha):
-    if not senha:
-        return None
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(senha.encode('utf-8'), salt)
-    return hashed.decode('utf-8').replace('$2b$', '$2y$')
+# _dec, _calcular_irt, _hash_password imported from tax_utils
 
 
 def marcar_ferias_no_registo_inst(pedido):

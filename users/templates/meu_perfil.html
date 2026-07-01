@@ -1,11 +1,6 @@
-﻿{% load static %}
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-
-  <main class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-6">
+﻿{% extends 'base.html' %}
+{% load static %}
+{% block content %}
     <div class="max-w-5xl mx-auto">
 
       <!-- Cabeçalho -->
@@ -191,7 +186,7 @@
                 <span class="text-lg font-bold text-primary">{{ dus_mes }}</span>
               </div>
             </div>
-            <a href="{% url 'du_lista' %}"
+            <a href="{% url 'aduaneiro:du_lista' %}"
               class="block mt-4 text-center text-sm text-primary hover:text-primary/80 font-medium">
               Ver Todas as DUs <i class="fas fa-arrow-right text-xs ml-1"></i>
             </a>
@@ -202,13 +197,13 @@
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Ações Rápidas</h3>
             <div class="space-y-1">
               {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
-              <a href="{% url 'du' %}"
+              <a href="{% url 'aduaneiro:du' %}"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <i class="fas fa-plus-circle text-primary text-base"></i>
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Nova DU</span>
               </a>
               {% endif %}
-              <a href="{% url 'du_lista' %}"
+              <a href="{% url 'aduaneiro:du_lista' %}"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <i class="fas fa-list text-primary text-base"></i>
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Minhas DUs</span>
@@ -223,8 +218,6 @@
         </div>
       </div>
     </div>
-  </main>
-</div>
 
 {% if pode_editar_perfil %}
 <!-- ── Modal Editar Dados Pessoais ── -->
@@ -421,5 +414,4 @@ document.querySelectorAll('[id^="modal"]').forEach(m => {
   });
 })();
 </script>
-
-{% include 'includes/footer.html' %}
+{% endblock %}

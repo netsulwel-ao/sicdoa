@@ -1,8 +1,6 @@
-{% load rh_extras %}{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
       <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
@@ -65,7 +63,7 @@
         <div class="p-4 px-6 bg-blue-50 dark:bg-blue-900/10 border-b border-blue-200 dark:border-blue-800">
           <p class="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
             <i class="fas fa-info-circle mt-0.5"></i>
-            <span>O âmbito de cada permissão é determinado pela filial onde o colaborador estiver alocado: se tiver filial definida, aplica-se apenas à filial; caso contrário (Sede), aplica-se à banca toda.</span>
+            <span>O âmbito de cada permissão é determinado pela filial onde o colaborador estiver alocado: se tiver filial definida, aplica-se apenas à filial; caso contrário (Sede), aplica-se à banca toda. <strong>Não pode misturar permissões de Sede e Filial no mesmo cargo.</strong></span>
           </p>
         </div>
         <div class="p-6">
@@ -121,16 +119,25 @@
                   </div>
                 </label>
                 <div class="ml-5 space-y-0.5">
-                  {% for perm in grupo.items %}
-                  <label class="flex items-start gap-3 p-1.5 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors">
-                    <input type="checkbox" name="permissoes" value="{{ perm.codigo }}"
-                           class="mt-0.5 size-3.5 rounded border-gray-300 text-primary focus:ring-primary/30"
-                           data-sub="{{ grupo.header.codigo }}"
-                           {% if cargo and cargo.locked %}disabled{% endif %}
-                           {% if cargo and perm.pk in permissoes_ids %}checked{% endif %}>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ perm.nome }}</span>
-                  </label>
-                  {% endfor %}
+                   {% for perm in grupo.items %}
+                   <label class="flex items-start gap-3 p-1.5 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors">
+                     <input type="checkbox" name="permissoes" value="{{ perm.codigo }}"
+                            class="mt-0.5 size-3.5 rounded border-gray-300 text-primary focus:ring-primary/30"
+                            data-sub="{{ grupo.header.codigo }}"
+                            {% if cargo and cargo.locked %}disabled{% endif %}
+                            {% if cargo and perm.pk in permissoes_ids %}checked{% endif %}>
+                     <span class="text-sm text-gray-700 dark:text-gray-300">{{ perm.nome }}</span>
+                     {% if perm.codigo|slice:'-7:' == '_filial' %}
+                     <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50 flex-shrink-0">
+                       <i class="fas fa-store text-[10px]"></i> Filial
+                     </span>
+                     {% elif perm.codigo == 'gerir_clientes' or perm.codigo == 'gerir_financeiro' %}
+                     <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-700/50 flex-shrink-0">
+                       <i class="fas fa-building text-[10px]"></i> Sede
+                     </span>
+                     {% endif %}
+                   </label>
+                   {% endfor %}
                 </div>
               </div>
               {% endif %}
@@ -156,9 +163,6 @@
         </a>
       </div>
     </form>
-
-  </main>
-</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -193,7 +197,31 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
+
+  // Prevent mixing sede + filial permissions
+  var SEDE_FILIAL_PAIRS = {
+    'gerir_clientes': 'gerir_clientes_filial',
+    'gerir_financeiro': 'gerir_financeiro_filial',
+  };
+  var FILIAL_SEDE_PAIRS = {};
+  for (var sede in SEDE_FILIAL_PAIRS) {
+    FILIAL_SEDE_PAIRS[SEDE_FILIAL_PAIRS[sede]] = sede;
+  }
+  document.querySelectorAll('input[name="permissoes"]').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      if (!this.checked) return;
+      var opposite = SEDE_FILIAL_PAIRS[this.value] || FILIAL_SEDE_PAIRS[this.value];
+      if (!opposite) return;
+      var oppositeCb = document.querySelector('input[name="permissoes"][value="' + opposite + '"]');
+      if (oppositeCb && oppositeCb.checked) {
+        oppositeCb.checked = false;
+        // Notify header checkbox that a sub-item changed
+        var evt = new Event('change', { bubbles: true });
+        oppositeCb.dispatchEvent(evt);
+      }
+    });
+  });
 });
 </script>
 
-{% include 'includes/footer.html' %}
+{% endblock %}

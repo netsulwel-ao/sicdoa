@@ -1,0 +1,196 @@
+{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <a href="{% url 'rh_colaboradores' %}" class="hover:text-primary">Colaboradores</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">{{ col.nome }}</span>
+    </div>
+
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+          {% if col.foto %}
+          <img src="{{ col.foto.url }}" alt="" class="w-14 h-14 rounded-full object-cover">
+          {% else %}
+          <i class="fas fa-user text-primary text-2xl"></i>
+          {% endif %}
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">{{ col.nome }}</h1>
+          <p class="text-gray-500 mt-1 text-sm">{{ col.cargo_label }} · {{ col.local_trabalho }}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{% url 'rh_colaborador_editar' col.pk %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm text-sm">
+          <i class="fas fa-edit text-base"></i>Editar
+        </a>
+        <a href="{% url 'rh_colaboradores' %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+          <i class="fas fa-arrow-left text-base"></i>Voltar
+        </a>
+      </div>
+    </div>
+
+    <!-- Estado badge -->
+    <div class="mb-6">
+      {% if col.estado == 'Ativo' %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-700"><span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>Activo</span>
+      {% elif col.estado == 'Inativo' %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600"><span class="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>Inativo</span>
+      {% elif col.estado == 'Suspenso' %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-100 text-red-700"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>Suspenso</span>
+      {% else %}<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>{{ col.estado }}</span>{% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Dados Pessoais -->
+      <div class="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-user text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Dados Pessoais</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Nome Completo</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.nome }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Género</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.get_genero_display|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Nº BI</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.bi|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">NIF</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.nif|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Data de Nascimento</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.data_nascimento|date:"d/m/Y"|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Email</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.email|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Telefone</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.telefone|default:"—" }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar info -->
+      <div class="space-y-4">
+        <!-- Cargo & Permissões -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="flex items-center gap-3 px-5 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <i class="fas fa-shield-alt text-primary"></i>
+            <h3 class="font-semibold text-gray-900 dark:text-white text-sm">Cargo & Permissões</h3>
+          </div>
+          <div class="p-5 space-y-4">
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Cargo Funcional</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.cargo_label }}</p>
+            </div>
+            {% if col.departamento %}
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Departamento</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.departamento }}</p>
+            </div>
+            {% endif %}
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Cargo de Permissões</p>
+              {% if col.cargo_banca %}
+              <p class="text-sm font-medium text-primary">{{ col.cargo_banca.nome }}</p>
+              {% if col.cargo_banca.descricao %}<p class="text-xs text-gray-500 mt-0.5">{{ col.cargo_banca.descricao }}</p>{% endif %}
+              {% if col.cargo_banca.permissoes.exists %}
+              <div class="flex flex-wrap gap-1 mt-2">
+                {% for perm in col.cargo_banca.permissoes.all %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800">{{ perm.nome }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% else %}
+              <p class="text-sm text-gray-400">—</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Filial -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div class="flex items-center gap-3 px-5 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <i class="fas fa-map-marker-alt text-primary"></i>
+            <h3 class="font-semibold text-gray-900 dark:text-white text-sm">Localização</h3>
+          </div>
+          <div class="p-5 space-y-4">
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Filial</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.filial.provincia|default:"Sede" }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Data de Admissão</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.data_admissao|date:"d/m/Y"|default:"—" }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Salário e Observações -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-5 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-credit-card text-primary"></i>
+          <h3 class="font-semibold text-gray-900 dark:text-white text-sm">Salário</h3>
+        </div>
+        <div class="p-5">
+          <p class="text-2xl font-black text-gray-900 dark:text-white">{% if col.salario_efetivo %}{{ col.salario_efetivo|fmtkz }} KZ{% else %}—{% endif %}</p>
+          <p class="text-xs text-gray-500 mt-1">Salário base</p>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-5 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-sticky-note text-primary"></i>
+          <h3 class="font-semibold text-gray-900 dark:text-white text-sm">Observações</h3>
+        </div>
+        <div class="p-5">
+          <p class="text-sm text-gray-700 dark:text-gray-300">{{ col.observacoes|default:"Nenhuma observação registada."|linebreaksbr }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Documentos -->
+    {% if col.documentos.exists %}
+    <div class="mt-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-folder-open text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Documentos</h2>
+      </div>
+      <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for doc in col.documentos.all %}
+        <div class="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+          <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
+            <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-lg"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ doc.get_tipo_display }}</p>
+            <p class="text-xs text-gray-500">{{ doc.nome_arquivo }}</p>
+          </div>
+          <a href="{% url 'rh_documento_download' doc.pk %}" class="p-2 text-blue-500 hover:text-blue-700 transition-colors flex-shrink-0" title="Baixar">
+            <i class="fas fa-download"></i>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+{% endblock %}

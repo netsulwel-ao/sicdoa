@@ -1,9 +1,6 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-{% include 'includes/header.html' %}
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
 {% csrf_token %}
-<main class="p-4 md:p-6 lg:p-8">
   <div class="mb-6 flex items-center gap-4">
     <div class="flex-1">
       <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Faturas de Quotas</h1>
@@ -88,8 +85,6 @@
     {% endif %}
   </div>
   {% include 'includes/confirm-modal.html' %}
-  </main>
-</div>
 <script>
 async function marcarPaga(faturaUuid) {
   const ok = await showConfirm('Marcar como Paga', 'Tem certeza que deseja marcar esta quota como paga?'); if (!ok) return;
@@ -106,4 +101,4 @@ async function marcarPaga(faturaUuid) {
   } catch(e) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Paga'; }
 }
 </script>
-{% include 'includes/footer.html' %}
+{% endblock %}

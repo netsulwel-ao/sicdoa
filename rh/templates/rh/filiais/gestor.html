@@ -2,13 +2,16 @@
 
 {% block title %}Gestor - {{ filial.provincia }}{% endblock %}
 
-{% block breadcrumb_extra %}
-<li class="breadcrumb-item"><a href="{% url 'rh_banca' %}">Minha Banca</a></li>
-<li class="breadcrumb-item"><a href="{% url 'rh_filial_detalhe' filial.pk %}">{{ filial.provincia }}</a></li>
-<li class="breadcrumb-item active">Gestor</li>
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'rh_banca' %}" class="hover:text-primary transition-colors">Minha Banca</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'rh_filial_detalhe' filial.pk %}" class="hover:text-primary transition-colors">{{ filial.provincia }}</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300">Gestor</span>
 {% endblock %}
 
-{% block rh_content %}
+{% block conteudo %}
 <div class="container-fluid">
     <div class="row mb-3">
         <div class="col-12">

@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
 
+app_name = 'aduaneiro'
+
 urlpatterns = [
     # Formulário DU (criar / editar)
     path('',                             views.du_view,           name='du'),
@@ -10,6 +12,7 @@ urlpatterns = [
     path('lista/',                       views.du_lista,          name='du_lista'),
     path('<str:du_uuid>/ver/',           views.du_detalhe,        name='du_detalhe'),
     path('guardar/',                     views.du_guardar,        name='du_guardar'),
+    path('<str:du_uuid>/historico/',     views.du_historico,      name='du_historico'),
     path('<str:du_uuid>/apagar/',        views.du_apagar,         name='du_apagar'),
     path('<str:du_uuid>/status/',        views.du_alterar_status, name='du_alterar_status'),
     path('<str:du_uuid>/pdf/',           views.du_download_pdf,   name='du_pdf'),

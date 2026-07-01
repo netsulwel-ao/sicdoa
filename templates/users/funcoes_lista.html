@@ -1,8 +1,6 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0 flex flex-col">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8 space-y-6">
+{% extends 'base.html' %}
+{% block main_classes %}p-4 md:p-6 lg:p-8 space-y-6{% endblock %}
+{% block content %}
 
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
@@ -235,6 +233,4 @@
       </div>
     </div>
 
-  </main>
-</div>
-{% include 'includes/footer.html' %}
+{% endblock %}

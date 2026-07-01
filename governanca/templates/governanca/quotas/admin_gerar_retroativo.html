@@ -1,9 +1,6 @@
-{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-{% include 'includes/header.html' %}
+{% extends 'governanca/base_governanca.html' %}
+{% block content %}
 {% csrf_token %}
-<main class="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
 
   <!-- Header -->
   <div class="flex items-center justify-between">
@@ -134,9 +131,10 @@
 
 </main>
 </div>
+{{ configs_json|json_script:"configs-data" }}
 <script>
 // ─── Config Preview (local data) ─────────────────────────────────────
-var configsData = {{ configs_json|safe }};
+var configsData = JSON.parse(document.getElementById('configs-data').textContent);
 
 function buscarConfig() {
   var tipoId = document.getElementById('input-tipo').value;
@@ -277,4 +275,4 @@ async function gerarRetroativo() {
   btn.innerHTML = '<i class="fas fa-play"></i> Gerar Quotas Retroactivas';
 }
 </script>
-{% include 'includes/footer.html' %}
+{% endblock %}

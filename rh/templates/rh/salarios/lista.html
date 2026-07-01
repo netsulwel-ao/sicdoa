@@ -1,8 +1,6 @@
-﻿{% load rh_extras %}{% include 'includes/head.html' %}
-{% include 'includes/sidebar.html' %}
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
-  {% include 'includes/header.html' %}
-  <main class="p-4 md:p-6 lg:p-8">
+﻿{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
 
     {# ── Breadcrumb ──────────────────────────────────────────────────────── #}
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
@@ -157,9 +155,20 @@
                     </span>
                   </td>
                   <td class="px-5 py-4 text-right">
-                    <a href="{% url 'rh_salario_detalhe' proc.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-semibold hover:bg-primary/20 transition-all">
-                      <i class="fas fa-external-link-alt text-xs"></i>Abrir
-                    </a>
+                    <div class="flex items-center justify-end gap-1">
+                      <a href="{% url 'rh_salario_detalhe' proc.pk %}"
+                         class="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/10 transition-all"
+                         title="Abrir">
+                        <i class="fas fa-external-link-alt text-base"></i>
+                      </a>
+                      {% if proc.estado != 'Pago' %}
+                      <a href="{% url 'rh_salario_apagar' proc.pk %}"
+                         class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                         title="Apagar">
+                        <i class="fas fa-trash text-base"></i>
+                      </a>
+                      {% endif %}
+                    </div>
                   </td>
                 </tr>
                 {% endfor %}
@@ -177,6 +186,4 @@
     </div>
 
     {% endif %}
-  </main>
-</div>
-{% include 'includes/footer.html' %}
+{% endblock %}
