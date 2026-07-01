@@ -5,7 +5,9 @@ O envio é síncrono para que o caller saiba o resultado real.
 """
 import secrets
 import string
+import base64
 import logging
+import requests
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 
@@ -40,9 +42,21 @@ def _url_candidatura(vaga):
 
 
 def _enviar_sync(assunto, texto, html, destinatarios, anexos=None):
-    """Envia email de forma síncrona. Retorna (sucesso, mensagem)."""
+    """
+    Envia email de forma síncrona.
+    Usa o provider configurado em EMAIL_PROVIDER ('smtp' | 'brevo').
+    Retorna (sucesso, mensagem).
+    """
     if not destinatarios:
         return False, "Nenhum destinatário definido"
+    provider = getattr(settings, 'EMAIL_PROVIDER', 'smtp')
+    if provider == 'brevo':
+        return _enviar_brevo(assunto, texto, html, destinatarios, anexos)
+    return _enviar_smtp(assunto, texto, html, destinatarios, anexos)
+
+
+def _enviar_smtp(assunto, texto, html, destinatarios, anexos=None):
+    """Envia via SMTP (Django)."""
     prefixo = getattr(settings, 'EMAIL_SUBJECT_PREFIX', '') or ''
     if prefixo and not assunto.startswith(prefixo):
         assunto = f'{prefixo}{assunto}'
@@ -63,6 +77,63 @@ def _enviar_sync(assunto, texto, html, destinatarios, anexos=None):
         return True, "Email enviado com sucesso"
     except Exception as e:  # noqa: BLE001
         logger.error("Falha ao enviar email para %s: %s", destinatarios, str(e))
+        return False, f"Falha ao enviar email: {str(e)}"
+
+
+def _enviar_brevo(assunto, texto, html, destinatarios, anexos=None):
+    """Envia via API HTTP da Brevo (porta 443 — funciona em qualquer hosting)."""
+    api_key = getattr(settings, 'BREVO_API_KEY', '')
+    if not api_key:
+        return False, "BREVO_API_KEY não configurada"
+
+    prefixo = getattr(settings, 'EMAIL_SUBJECT_PREFIX', '') or ''
+    if prefixo and not assunto.startswith(prefixo):
+        assunto = f'{prefixo}{assunto}'
+
+    to_list = [{"email": e.strip()}
+               for e in (destinatarios if isinstance(destinatarios, list) else [destinatarios])]
+    attachment_list = []
+    if anexos:
+        for nome_ficheiro, conteudo, mime_type in anexos:
+            if isinstance(conteudo, str):
+                conteudo = conteudo.encode()
+            attachment_list.append({
+                "name": nome_ficheiro,
+                "content": base64.b64encode(conteudo).decode(),
+                "contentType": mime_type,
+            })
+
+    payload = {
+        "sender": {
+            "name": getattr(settings, 'BREVO_SENDER_NAME', 'SICDOA'),
+            "email": getattr(settings, 'BREVO_SENDER_EMAIL', ''),
+        },
+        "to": to_list,
+        "subject": assunto,
+        "htmlContent": html or texto,
+        "textContent": texto,
+    }
+    if attachment_list:
+        payload["attachment"] = attachment_list
+
+    try:
+        resp = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            json=payload,
+            headers={
+                "api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            timeout=30,
+        )
+        if resp.ok:
+            logger.info("Email enviado via Brevo para %s — assunto: %s", destinatarios, assunto)
+            return True, "Email enviado com sucesso"
+        logger.error("Brevo API %s: %s", resp.status_code, resp.text)
+        return False, f"Falha ao enviar email: Brevo API error {resp.status_code}"
+    except requests.RequestException as e:
+        logger.error("Falha ao enviar email via Brevo: %s", str(e))
         return False, f"Falha ao enviar email: {str(e)}"
 
 

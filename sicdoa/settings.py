@@ -237,6 +237,7 @@ SESSION_SAVE_EVERY_REQUEST = False
 
 # Email
 EMAIL_BACKEND = 'utils.email_backend.SSLRelaxedEmailBackend'
+EMAIL_PROVIDER = os.environ.get('EMAIL_PROVIDER', 'smtp')  # 'smtp' | 'brevo'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = True
@@ -246,6 +247,10 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', os.environ.get('EMAI
 DEFAULT_FROM_EMAIL = f'{os.environ.get("EMAIL_FROM_NAME", "SICDOA")} <{os.environ.get("EMAIL_FROM_ADDRESS", EMAIL_HOST_USER)}>'
 EMAIL_SUBJECT_PREFIX = '[SICDOA] '
 EMAIL_TIMEOUT = 30
+# Brevo (transaccional email via HTTP API — funciona em qualquer hosting)
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
+BREVO_SENDER_NAME = os.environ.get('BREVO_SENDER_NAME', 'SICDOA')
+BREVO_SENDER_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', os.environ.get('EMAIL_FROM_ADDRESS', ''))
 
 # URL pública do sistema (usada em emails — credenciais, convites, etc.)
 SITE_URL = os.environ.get('SITE_URL', 'https://sicdoa.cdoangola.co.ao').rstrip('/')
