@@ -7,6 +7,7 @@ import secrets
 import string
 import base64
 import logging
+import time
 import requests
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
@@ -56,28 +57,44 @@ def _enviar_sync(assunto, texto, html, destinatarios, anexos=None):
 
 
 def _enviar_smtp(assunto, texto, html, destinatarios, anexos=None):
-    """Envia via SMTP (Django)."""
+    """Envia via SMTP (Django) com retry em falhas de conexão."""
     prefixo = getattr(settings, 'EMAIL_SUBJECT_PREFIX', '') or ''
     if prefixo and not assunto.startswith(prefixo):
         assunto = f'{prefixo}{assunto}'
-    try:
-        msg = EmailMultiAlternatives(
-            subject=assunto,
-            body=texto,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=destinatarios if isinstance(destinatarios, list) else [destinatarios],
-        )
-        if html:
-            msg.attach_alternative(html, "text/html")
-        if anexos:
-            for nome_ficheiro, conteudo, mime_type in anexos:
-                msg.attach(nome_ficheiro, conteudo, mime_type)
-        msg.send(fail_silently=False)
-        logger.info("Email enviado para %s — assunto: %s", destinatarios, assunto)
-        return True, "Email enviado com sucesso"
-    except Exception as e:  # noqa: BLE001
-        logger.error("Falha ao enviar email para %s: %s", destinatarios, str(e))
-        return False, f"Falha ao enviar email: {str(e)}"
+
+    max_tentativas = 3
+    ultimo_erro = None
+
+    for tentativa in range(1, max_tentativas + 1):
+        try:
+            msg = EmailMultiAlternatives(
+                subject=assunto,
+                body=texto,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=destinatarios if isinstance(destinatarios, list) else [destinatarios],
+            )
+            if html:
+                msg.attach_alternative(html, "text/html")
+            if anexos:
+                for nome_ficheiro, conteudo, mime_type in anexos:
+                    msg.attach(nome_ficheiro, conteudo, mime_type)
+            msg.send(fail_silently=False)
+            logger.info("Email enviado para %s — assunto: %s", destinatarios, assunto)
+            return True, "Email enviado com sucesso"
+        except Exception as e:  # noqa: BLE001
+            ultimo_erro = e
+            logger.warning(
+                "Tentativa %d/%d falhou para %s: %s",
+                tentativa, max_tentativas, destinatarios, str(e),
+            )
+            if tentativa < max_tentativas:
+                time.sleep(tentativa * 2)  # backoff: 2s, 4s
+
+    logger.error(
+        "Falha definitiva ao enviar email para %s após %d tentativas: %s",
+        destinatarios, max_tentativas, str(ultimo_erro),
+    )
+    return False, f"Falha ao enviar email: {str(ultimo_erro)}"
 
 
 def _enviar_brevo(assunto, texto, html, destinatarios, anexos=None):

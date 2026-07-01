@@ -236,7 +236,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = False
 
 # Email
-EMAIL_BACKEND = 'utils.email_backend.SSLRelaxedEmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_PROVIDER = os.environ.get('EMAIL_PROVIDER', 'smtp')  # 'smtp' | 'brevo'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
@@ -246,7 +246,7 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', os.environ.get('EMAIL_PASS', ''))
 DEFAULT_FROM_EMAIL = f'{os.environ.get("EMAIL_FROM_NAME", "SICDOA")} <{os.environ.get("EMAIL_FROM_ADDRESS", EMAIL_HOST_USER)}>'
 EMAIL_SUBJECT_PREFIX = '[SICDOA] '
-EMAIL_TIMEOUT = 30
+EMAIL_TIMEOUT = 60
 # Brevo (transaccional email via HTTP API — funciona em qualquer hosting)
 BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
 BREVO_SENDER_NAME = os.environ.get('BREVO_SENDER_NAME', 'SICDOA')
