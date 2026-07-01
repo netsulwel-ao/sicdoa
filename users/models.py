@@ -33,7 +33,7 @@ class Usuario(models.Model):
     categoria = models.ForeignKey('governanca.CategoriaMembro', on_delete=models.SET_NULL, null=True, blank=True)
     sso_portal_id = models.IntegerField(null=True, blank=True)
     ultimo_acesso = models.DateTimeField(null=True, blank=True)
-    nif = models.TextField(blank=True, default='')
+    nif = models.TextField(blank=True, default='', db_index=True)
     is_secretario = models.BooleanField(default=False)
     is_vice_secretario = models.BooleanField(default=False)
     permissoes_diretas = models.ManyToManyField('Permissao', blank=True, related_name='usuarios_diretos')

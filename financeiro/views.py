@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.core.mail import EmailMultiAlternatives
-from django.db.models import Q
+from django.db.models import Q, Count, Prefetch
 from django.views.decorators.http import require_POST
 
 from django.conf import settings
@@ -2404,7 +2404,7 @@ def fluxo_aprovacao_criar(request):
         form = FluxoAprovacaoForm()
     from users.models import Funcao, Usuario
     funcoes = Funcao.objects.all().order_by('nome')
-    funcoes_contagem = {str(f.id): Usuario.objects.filter(funcao=f).count() for f in funcoes}
+    funcoes_contagem = {str(fid): total for fid, total in funcoes.annotate(total=Count('usuarios')).values_list('id', 'total')}
     ctx = {
         'form': form,
         'funcoes': funcoes,
@@ -2474,7 +2474,7 @@ def fluxo_aprovacao_editar(request, pk):
     niveis = fluxo.niveis.all().order_by('ordem')
     from users.models import Funcao, Usuario
     funcoes = Funcao.objects.all().order_by('nome')
-    funcoes_contagem = {str(f.id): Usuario.objects.filter(funcao=f).count() for f in funcoes}
+    funcoes_contagem = {str(fid): total for fid, total in funcoes.annotate(total=Count('usuarios')).values_list('id', 'total')}
     niveis_data = []
     for nivel in niveis:
         niveis_data.append({
@@ -2674,25 +2674,44 @@ def _get_contexto_aprovacao(requisicao, request):
     if not niveis.exists():
         return ctx
 
+    from collections import defaultdict
     usuario_id = request.session.get('usuario_id')
     from users.models import Usuario
+
+    # 1 query: prefetch todas as aprovacoes desta requisicao
+    niveis = niveis.prefetch_related(
+        Prefetch('aprovacoes',
+                 queryset=AprovacaoRequisicao.objects.filter(requisicao=requisicao),
+                 to_attr='_aprovacoes_req')
+    )
+
+    # 1 query: todos os usuarios das funcoes envolvidas
+    funcao_ids = [n.funcao_id for n in niveis if n.funcao_id]
+    usuarios_por_funcao = defaultdict(list)
+    if funcao_ids:
+        for u in Usuario.objects.filter(funcao_id__in=funcao_ids).select_related('funcao'):
+            usuarios_por_funcao[u.funcao_id].append(u)
+
     progresso = []
     nivel_atual_obj = None
+
     for nivel in niveis:
-        aprovacoes = nivel.aprovacoes.filter(requisicao=requisicao)
-        aprovadas = aprovacoes.filter(estado='Aprovada')
-        rejeitadas = aprovacoes.filter(estado='Rejeitada')
-        pendentes_count = aprovacoes.filter(estado='Pendente').count()
-        completo = aprovadas.count() >= nivel.qtde_aprovadores
+        aprovacoes = getattr(nivel, '_aprovacoes_req', [])
+        aprovadas = [a for a in aprovacoes if a.estado == 'Aprovada']
+        rejeitadas = [a for a in aprovacoes if a.estado == 'Rejeitada']
+        pendentes = [a for a in aprovacoes if a.estado == 'Pendente']
+        completo = len(aprovadas) >= nivel.qtde_aprovadores
 
         if nivel.ordem == requisicao.nivel_atual:
             nivel_atual_obj = nivel
 
-        # Resolve função → usuários com detalhe de voto
-        usuarios_com_funcao = Usuario.objects.filter(funcao=nivel.funcao) if nivel.funcao else Usuario.objects.none()
+        # Mapa de voto O(1) por aprovador
+        voto_por_aprovador = {a.aprovador_id: a for a in aprovacoes}
+
+        usuarios_com_funcao = usuarios_por_funcao.get(nivel.funcao_id, [])
         usuarios_detalhe = []
         for u in usuarios_com_funcao:
-            voto = aprovacoes.filter(aprovador=u).first()
+            voto = voto_por_aprovador.get(u.id)
             usuarios_detalhe.append({
                 'usuario_id': u.id,
                 'usuario_nome': u.nome,
@@ -2706,10 +2725,10 @@ def _get_contexto_aprovacao(requisicao, request):
             'funcao': nivel.funcao,
             'funcao_nome': nivel.funcao.nome if nivel.funcao else '(sem função)',
             'usuarios_detalhe': usuarios_detalhe,
-            'total_aprovadores': usuarios_com_funcao.count(),
+            'total_aprovadores': len(usuarios_com_funcao),
             'aprovadas': aprovadas,
             'rejeitadas': rejeitadas,
-            'pendentes': pendentes_count,
+            'pendentes': len(pendentes),
             'necessarias': nivel.qtde_aprovadores,
             'completo': completo,
             'is_current': nivel.ordem == requisicao.nivel_atual,

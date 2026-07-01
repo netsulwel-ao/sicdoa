@@ -61,9 +61,9 @@ class DeclaracaoUnica(models.Model):
     # ── Campos adicionados via migração ───────────────────────────────────────
     du_uuid           = models.CharField(max_length=36, blank=True, default='', db_index=True, db_column='du_uuid')
     codigo_processo   = models.CharField(max_length=8, blank=True, default='', unique=True)  # 8 dígitos, único, gerado automaticamente
-    ref_despachante   = models.CharField(max_length=100, blank=True, default='')
-    exportador_nome  = models.CharField(max_length=200, blank=True, default='')
-    destinatario_nome = models.CharField(max_length=200, blank=True, default='')
+    ref_despachante   = models.CharField(max_length=100, blank=True, default='', db_index=True)
+    exportador_nome  = models.CharField(max_length=200, blank=True, default='', db_index=True)
+    destinatario_nome = models.CharField(max_length=200, blank=True, default='', db_index=True)
     total_derimp     = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     total_iec        = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     total_emgead     = models.DecimalField(max_digits=18, decimal_places=2, default=0)
