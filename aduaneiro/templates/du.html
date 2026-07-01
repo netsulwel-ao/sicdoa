@@ -3392,7 +3392,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% if du and du.dados_json %}
 <!-- Pré-preenchimento do formulário em modo de edição -->
-{{ du.dados_json|json_script:"du-dados-raw" }}
+{{ du.get_dados|json_script:"du-dados-raw" }}
 <script>
 (function() {
   var _dadosRaw = JSON.parse(document.getElementById('du-dados-raw').textContent);

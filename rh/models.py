@@ -290,6 +290,10 @@ class Colaborador(models.Model):
     foto        = models.ImageField(upload_to='colaboradores/fotos/', null=True, blank=True)
     observacoes = models.TextField(blank=True, default='')
     password    = models.CharField(max_length=255, null=True, blank=True, help_text='Senha para acesso ao sistema')  # senha com hash bcrypt (ver _hash_password)
+    banco       = models.CharField(max_length=100, blank=True, default='', verbose_name='Banco')
+    num_conta   = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº de Conta')
+    iban        = models.CharField(max_length=50, blank=True, default='', verbose_name='IBAN')
+    titular_conta = models.CharField(max_length=255, blank=True, default='', verbose_name='Titular da Conta')
     criado_em   = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 

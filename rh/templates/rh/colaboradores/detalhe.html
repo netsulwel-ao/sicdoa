@@ -143,6 +143,44 @@
 
     </div>
 
+    <!-- Dados Bancários -->
+    {% if col.banco or col.num_conta or col.iban or col.titular_conta %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+      <div class="lg:col-span-3 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <i class="fas fa-university text-primary"></i>
+          <h2 class="font-semibold text-gray-900 dark:text-white">Dados Bancários</h2>
+        </div>
+        <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {% if col.banco %}
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Banco</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.banco }}</p>
+          </div>
+          {% endif %}
+          {% if col.num_conta %}
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Nº de Conta</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.num_conta }}</p>
+          </div>
+          {% endif %}
+          {% if col.iban %}
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">IBAN</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.iban }}</p>
+          </div>
+          {% endif %}
+          {% if col.titular_conta %}
+          <div>
+            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Titular da Conta</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ col.titular_conta }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Salário e Observações -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">

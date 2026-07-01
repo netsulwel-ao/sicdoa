@@ -305,6 +305,10 @@ def _colaborador_para_json(col):
         'data_admissao': col.data_admissao.isoformat() if col.data_admissao else '',
         'salario_base': str(col.salario_base) if col.salario_base is not None else '',
         'observacoes': col.observacoes,
+        'banco': col.banco,
+        'num_conta': col.num_conta,
+        'iban': col.iban,
+        'titular_conta': col.titular_conta,
     }
 
 
@@ -1506,10 +1510,20 @@ def colaborador_novo_view(request):
             estado=request.POST.get('estado', 'Ativo'),
             observacoes=request.POST.get('observacoes', '').strip(),
             password=senha_hash,
+            banco=request.POST.get('banco', '').strip(),
+            num_conta=request.POST.get('num_conta', '').strip(),
+            iban=request.POST.get('iban', '').strip(),
+            titular_conta=request.POST.get('titular_conta', '').strip(),
         )
         if 'foto' in request.FILES:
             col.foto = request.FILES['foto']
-        col.save()
+        try:
+            col.save()
+        except ValidationError as e:
+            for campo, erros in e.message_dict.items():
+                for erro in erros:
+                    messages.error(request, f'{campo}: {erro}')
+            return _render()
 
         # Atribuir cargo_banca com sincronização integrada do GestorFilial
         cargo_banca_pk = request.POST.get('cargo_banca', '').strip()
@@ -1705,6 +1719,10 @@ def colaborador_editar_view(request, pk):
         col.salario_base = _dec(request.POST.get('salario_base')) or None
         col.estado = request.POST.get('estado', 'Ativo')
         col.observacoes = request.POST.get('observacoes', '').strip()
+        col.banco = request.POST.get('banco', '').strip()
+        col.num_conta = request.POST.get('num_conta', '').strip()
+        col.iban = request.POST.get('iban', '').strip()
+        col.titular_conta = request.POST.get('titular_conta', '').strip()
         if 'foto' in request.FILES:
             col.foto = request.FILES['foto']
 
