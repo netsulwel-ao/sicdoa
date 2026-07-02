@@ -742,7 +742,8 @@ class Fatura(models.Model):
         return self.data_vencimento < timezone.now().date() and self.estado != 'Paga'
 
     def clean(self):
-        validate_date_range(self.data_emissao.date(), self.data_vencimento, "Data de Emissão", "Data de Vencimento")
+        if self.data_emissao:
+            validate_date_range(self.data_emissao.date(), self.data_vencimento, "Data de Emissão", "Data de Vencimento")
         if self.data_pagamento:
             validate_date_not_future(self.data_pagamento, field_name="Data de Pagamento")
 
