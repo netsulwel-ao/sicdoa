@@ -716,7 +716,7 @@ def _gerar_faturas_processamento(processamento, request):
     valor_total = sum(r.liquido for r in processamento.recibos.all())
 
     # Gerar fatura para o despachante (serviço de processamento salarial)
-    taxa_servico = valor_total * Decimal('0.05')  # 5% de taxa de serviço
+    taxa_servico = (valor_total * Decimal('0.05')).quantize(Decimal('0.01'))  # 5% de taxa de serviço
     codigo_despachante = f"FAT-DESP-{timezone.now().year}-{str(processamento.pk).zfill(4)}"
 
     Fatura.objects.create(
@@ -750,7 +750,7 @@ def _gerar_faturas_processamento(processamento, request):
             colaborador=recibo.colaborador,
             valor_bruto=recibo.bruto,
             valor_liquido=recibo.liquido,
-            valor_imposto=recibo.irt + recibo.inss_trabalhador,
+            valor_imposto=(recibo.irt + recibo.inss_trabalhador).quantize(Decimal('0.01')),
             data_vencimento=timezone.now().date() + timezone.timedelta(days=30),
             descricao=(
                 f"Pagamento de salário - {recibo.colaborador.nome} "
