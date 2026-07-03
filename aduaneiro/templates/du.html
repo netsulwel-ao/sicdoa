@@ -2503,9 +2503,8 @@ function adicionarNovaAdicao(dadosExistentes) {
           try { data = JSON.parse(xhr.responseText); } catch(e) { callback([]); return; }
           var filtrados;
           if (!termo.trim()) {
-            // Sem termo: mostrar aleatórios para dar ideia do formato
-            var shuffled = data.slice().sort(function() { return Math.random() - 0.5; });
-            filtrados = shuffled.slice(0, 5);
+            // Sem termo: mostrar todas as pautas (dropdown scrollável)
+            filtrados = data;
           } else {
             // Prioridade: códigos que COMEÇAM com o termo
             var porCodigo = data.filter(function(p) {
@@ -2515,7 +2514,7 @@ function adicionarNovaAdicao(dadosExistentes) {
               return !String(p.codigo_sh).replace(/\./g, '').startsWith(termo) &&
                      (p.descricao_mercadoria || '').toLowerCase().indexOf(termo.toLowerCase()) !== -1;
             });
-            filtrados = porCodigo.concat(porDescricao).slice(0, 8);
+            filtrados = porCodigo.concat(porDescricao);
           }
           var results = filtrados.map(function(p) {
             return {
