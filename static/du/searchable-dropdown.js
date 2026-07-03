@@ -175,6 +175,7 @@
       if (results.length === 0) {
         dropdown.innerHTML = '<div class="ac-no-results">Nenhum resultado encontrado</div>';
         dropdown.style.display = 'block';
+        positionDropdown();
         return;
       }
       results.forEach(function(o, idx) {
@@ -205,6 +206,7 @@
         dropdown.appendChild(item);
       });
       dropdown.style.display = 'block';
+      positionDropdown();
     }
 
     /* ── Selecionar ───────────────────────────────────────────── */
