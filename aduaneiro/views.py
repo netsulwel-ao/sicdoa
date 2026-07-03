@@ -355,6 +355,8 @@ def _du_guardar_impl(request):
     du.destinatario_nome  = (dados.get('destinatario_nome','') or '')[:200]
     du.nome_declarante    = (dados.get('exportador_nome',  '') or '')[:200]
     du.nif_declarante     = (dados.get('exportador_codigo','') or '')[:50]
+    du.nome_banco         = (dados.get('nome_banco',      '') or '')[:50]
+    du.termo_pagamento    = (dados.get('termo_pagamento', '') or '')[:5]
     du.codigo_pautal      = ''   # campo obrigatório na tabela — deixar vazio
     du.descricao_mercadoria = ''
     du.quantidade         = 0

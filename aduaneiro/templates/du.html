@@ -1892,6 +1892,12 @@ document.addEventListener('DOMContentLoaded', function() {
   sufixo.addEventListener('focus', function() {
     var len = this.value.length;
     this.setSelectionRange(len, len);
+    if (this.readOnly) return;
+    if (_vinhetasCache.length) {
+      filtrarVinhetas();
+    } else {
+      consultarVinhetas();
+    }
   });
 
   sufixo.addEventListener('keydown', function(e) {

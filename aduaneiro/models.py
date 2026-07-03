@@ -72,6 +72,8 @@ class DeclaracaoUnica(models.Model):
     total_iva        = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     total_geral      = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     dados_json       = models.TextField(default='{}')
+    nome_banco      = models.CharField(max_length=50, blank=True, default='')
+    termo_pagamento = models.CharField(max_length=5, blank=True, default='')
 
     class Meta:
         db_table = 'declaracoes_unicas'
