@@ -2971,49 +2971,6 @@ function formatarCodigoPautalDinamico(input) {
    .adicao-chevron             — ícone expandir/colapsar
 ---------------------------------------------------------- */
 
-// Função para calcular valores convertidos em KZ
-function calcularValoresConvertidos2semcambio() {
-  console.log('Calculando valores convertidos...');
-  
-  // FOB
-  const valorFob = parseFloat(document.getElementById('valor_fob')?.value) || 0;
-  const cambioFob = parseFloat(document.getElementById('cambio_fob')?.value) || 0;
-  const valorFobKz = document.getElementById('valor_fob_kz');
-  
-  if (valorFobKz) {
-    valorFobKz.value = (valorFob * cambioFob).toFixed(2);
-  }
-  
-  // Seguro
-  const valorSeguro = parseFloat(document.getElementById('valor_seguro')?.value) || 0;
-  const cambioSeguro = parseFloat(document.getElementById('cambio_seguro')?.value) || 0;
-  const valorSeguroKz = document.getElementById('valor_seguro_kz');
-  
-  if (valorSeguroKz) {
-    valorSeguroKz.value = (valorSeguro * cambioSeguro).toFixed(2);
-  }
-  
-  // Frete
-  const valorFrete = parseFloat(document.getElementById('valor_frete')?.value) || 0;
-  const cambioFrete = parseFloat(document.getElementById('cambio_frete')?.value) || 0;
-  const valorFreteKz = document.getElementById('valor_frete_kz');
-  
-  if (valorFreteKz) {
-    valorFreteKz.value = (valorFrete * cambioFrete).toFixed(2);
-  }
-  
-  // Montante Aduaneiro (KZ) = FOB (KZ) + Seguro (KZ) + Frete (KZ)
-  const montanteAduaneiro = document.getElementById('montante_aduaneiro_kz');
-  if (montanteAduaneiro) {
-    const fobKz = parseFloat(valorFobKz?.value) || 0;
-    const seguroKz = parseFloat(valorSeguroKz?.value) || 0;
-    const freteKz = parseFloat(valorFreteKz?.value) || 0;
-    
-    montanteAduaneiro.value = (fobKz + seguroKz + freteKz).toFixed(2);
-    
-    console.log('Montante Aduaneiro (KZ):', montanteAduaneiro.value);
-  }
-}
 async function calcularValoresConvertidos() {
   console.log('Calculando valores convertidos (Step 1)...');
 

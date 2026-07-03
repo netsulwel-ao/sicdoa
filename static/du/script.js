@@ -1285,42 +1285,6 @@ function atualizarCamposRegime() {
   }
 }
 
-// Função para calcular CIF automaticamente
-function calcularCIF() {
-  const fobField = document.getElementById('valor_fob');
-  const freteField = document.getElementById('frete');
-  const seguroField = document.getElementById('seguro');
-  const cifField = document.getElementById('valor_cif');
-  
-  if (!fobField || !freteField || !seguroField || !cifField) return;
-  
-  const fob = parseFloat(fobField.value) || 0;
-  const frete = parseFloat(freteField.value) || 0;
-  const seguro = parseFloat(seguroField.value) || 0;
-  
-  const cif = fob + frete + seguro;
-  cifField.value = cif.toFixed(2);
-  
-  // Atualizar cálculos se estiver no passo 4
-  if (currentStep === 4) {
-    calcularTaxas();
-  }
-}
-
-// Função para calcular CIF automaticamente
-function calcularCIF() {
-  const fob = parseFloat(document.getElementById('valor_fob')?.value) || 0;
-  const frete = parseFloat(document.getElementById('frete')?.value) || 0;
-  const seguro = parseFloat(document.getElementById('seguro')?.value) || 0;
-  const cifField = document.getElementById('valor_cif');
-  
-  if (cifField) {
-    // CIF = FOB + Frete + Seguro
-    const cif = fob + frete + seguro;
-    cifField.value = cif.toFixed(2);
-  }
-}
-
 // Função para calcular taxas — itera por cada adição e aplica as regras do documento.js
 function calcularTaxas() {
   console.log('=== INICIANDO CÁLCULO DE TAXAS ===');
@@ -2274,7 +2238,6 @@ window.toggleContainer = toggleContainer;
 window.consultarVinhetas = consultarVinhetas;
 window.selecionarVinheta = selecionarVinheta;
 window.consultarCodigoPautal = consultarCodigoPautal;
-window.calcularCIF = calcularCIF;
 window.pesquisaAutomaticaVinheta = pesquisaAutomaticaVinheta;
 window.adicionarContainer = adicionarContainer;
 window.removerContainer = removerContainer;
