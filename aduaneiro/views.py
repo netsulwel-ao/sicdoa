@@ -796,6 +796,8 @@ def du_download_pdf(request, du_uuid):
             ('Cambio Frete',        dados.get('cambio_frete', '')),
             ('Valor Frete (KZ)',     dados.get('valor_frete_kz', '')),
             ('Forma de Pagamento',  dados.get('forma_pagamento', '')),
+            ('Banco',               dados.get('nome_banco', '')),
+            ('Termo de Pagamento',  dados.get('termo_pagamento', '')),
         ])
         if t: story.append(t)
 

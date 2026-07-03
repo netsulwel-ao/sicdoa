@@ -636,6 +636,78 @@
               </div>
             </div>
 
+             <!-- Detalhes Bancários -->
+            <div class="form-card collapsible">
+              <div class="form-card-header clickable" onclick="toggleCollapse(this)">
+                <i class="fas fa-university"></i>
+                <h4>Detalhes Bancários</h4>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </div>
+              <div class="form-card-content collapse-content">
+                <div class="form-grid-2">
+                  <div class="form-field">
+                    <label class="form-label">Nome do Banco</label>
+                    <select name="nome_banco" class="form-input">
+                      <option value="">Selecione...</option>
+                      <option value="BANC">BANC – Banco Angolano de Negócios e Comércio, S.A.</option>
+                      <option value="BAI">BAI – Banco Angolano de Investimentos, S.A.</option>
+                      <option value="BCA">BCA – Banco Comercial Angolano, S.A.</option>
+                      <option value="BCGA">BCGA – Banco Caixa Geral Angola, S.A.</option>
+                      <option value="BCH">BCH – Banco Comercial do Huambo, S.A.</option>
+                      <option value="BCI">BCI – Banco de Comércio e Indústria, S.A.</option>
+                      <option value="BDA">BDA – Banco de Desenvolvimento de Angola, S.A.</option>
+                      <option value="BE">BE – Banco Económico, S.A.</option>
+                      <option value="BFA">BFA – Banco de Fomento Angola, S.A.</option>
+                      <option value="BIC">BIC – Banco BIC, S.A.</option>
+                      <option value="BIR">BIR – Banco de Investimento Rural, S.A.</option>
+                      <option value="BMA">BMA – Banco Millennium Atlântico, S.A.</option>
+                      <option value="BMF">BMF – Banco BAI Micro Finanças, S.A.</option>
+                      <option value="BNI">BNI – Banco de Negócios Internacional, S.A.</option>
+                      <option value="BPC">BPC – Banco de Poupança e Crédito, S.A.</option>
+                      <option value="BSOL">BSOL – Banco Sol, S.A.</option>
+                      <option value="BVALOR">BVALOR – Banco Valor, S.A.</option>
+                      <option value="BOC">BOC – Banco da China Limitada – Sucursal de Luanda</option>
+                      <option value="KEVE">KEVE – Banco Keve, S.A.</option>
+                      <option value="PRESTIGIO">PRESTÍGIO – Banco Prestígio, S.A.</option>
+                      <option value="SBA">SBA – Standard Bank de Angola, S.A.</option>
+                      <option value="VTB">VTB – Banco VTB África, S.A.</option>
+                      <option value="YETU">YETU – Banco Yetu, S.A.</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Termo de Pagamento</label>
+                    <select name="termo_pagamento" class="form-input">
+                      <option value="">Selecione...</option>
+                      <option value="CD">CD - Cobrança Documentária</option>
+                      <option value="DE">DE - Pagamento Efectuado Direc. no Exter</option>
+                      <option value="FE">FE - Pagamento Através de Crédito ou Fin</option>
+                      <option value="FP">FP - Fundos Próprios</option>
+                      <option value="IE">IE - Investimento Externo</option>
+                      <option value="LC">LC - Carta de Crédito ou Crédito Doc.</option>
+                      <option value="NR">NR - Não Reembolsável</option>
+                      <option value="PA">PA - Pagamento Antecipado</option>
+                      <option value="RD">RD - Remessa Documentária</option>
+                      <option value="1">1 - A pronto</option>
+                      <option value="2">2 - No fim do mês</option>
+                      <option value="3">3 - Data determinada</option>
+                      <option value="4">4 - Pagamento diferido</option>
+                      <option value="6">6 - Misto</option>
+                      <option value="7">7 - A longo prazo</option>
+                      <option value="9">9 - Mês seguinte</option>
+                      <option value="10">10 - Imediato</option>
+                      <option value="11">11 - Facultativo</option>
+                      <option value="12">12 - 10 dias úteis</option>
+                      <option value="16">16 - Não definida</option>
+                      <option value="17">17 - Pré-pagamento</option>
+                      <option value="18">18 - Data combinada</option>
+                      <option value="19">19 - Pagamento contra declaração</option>
+                      <option value="99">99 - Outros</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
              <!-- Localização e Armazém da mercadoria -->
             <div class="form-card collapsible">
               <div class="form-card-header clickable" onclick="toggleCollapse(this)">
@@ -3311,6 +3383,14 @@ document.addEventListener('DOMContentLoaded', function() {
     autocompleteSelect(document.querySelector('[name="forma_pagamento"]'), {
       placeholder: 'Digite a forma de pagamento'
     });
+    // Nome do Banco
+    autocompleteSelect(document.querySelector('[name="nome_banco"]'), {
+      placeholder: 'Digite o nome do banco'
+    });
+    // Termo de Pagamento
+    autocompleteSelect(document.querySelector('[name="termo_pagamento"]'), {
+      placeholder: 'Digite o código ou descrição do termo'
+    });
     console.log('Autocomplete inicializado para campos principais');
   } else {
     console.error('autocompleteSelect não está disponível');
@@ -3458,6 +3538,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Dados contabilísticos
     preencherCampoSimples('conta_credito',   d.conta_credito);
     preencherCampoSimples('conta_garantias', d.conta_garantias);
+    preencherCampoSimples('nome_banco', d.nome_banco);
+    preencherCampoSimples('termo_pagamento', d.termo_pagamento);
     preencherCampoSimples('localizacao_mercadoria', d.localizacao_mercadoria);
     preencherCampoSimples('identificacao_armzem',   d.identificacao_armzem);
 

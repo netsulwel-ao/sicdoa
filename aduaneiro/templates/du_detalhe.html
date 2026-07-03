@@ -315,6 +315,24 @@
             </div>
           </div>
 
+          <!-- Detalhes Bancários -->
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i class="fas fa-university text-base text-primary"></i>
+              Detalhes Bancários
+            </h2>
+            <div class="space-y-2.5">
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Banco</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ dados.nome_banco|default:"—" }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Termo de Pagamento</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ dados.termo_pagamento|default:"—" }}</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Acções rápidas -->
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Acções</h2>
