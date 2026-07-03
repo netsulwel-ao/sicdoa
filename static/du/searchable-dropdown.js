@@ -24,7 +24,7 @@
                min-width:200px;
                background:#fff !important; border:2px solid #137fec !important; border-radius:0.5rem;
                box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);
-               z-index:999999 !important; display:none; }
+               z-index:999999 !important; display:none; top:-9999px; left:-9999px; }
 .ac-option  { padding:0.625rem 1rem; cursor:pointer; font-size:0.9375rem;
               color:#111827; border-bottom:1px solid #f3f4f6;
               transition:background .15s; }
@@ -93,11 +93,18 @@
     var _ajax = opts.ajax || null;
 
     /* ── Posicionar dropdown sobre o input ────────────────────── */
+    var _posRetries = 0;
     function positionDropdown() {
       var rect = input.getBoundingClientRect();
-      dropdown.style.top  = (rect.bottom + 4) + 'px';
-      dropdown.style.left = rect.left + 'px';
-      dropdown.style.width = rect.width + 'px';
+      if (rect && rect.width > 0 && rect.height > 0) {
+        dropdown.style.top  = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+        _posRetries = 0;
+      } else if (_posRetries < 10) {
+        _posRetries++;
+        requestAnimationFrame(positionDropdown);
+      }
     }
 
     /* Reposicionar em scroll/resize se o dropdown estiver visível */
