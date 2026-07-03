@@ -24,6 +24,7 @@ class DeclaracaoUnica(models.Model):
         ('Em Análise', 'Em Análise'),
         ('Aprovada',   'Aprovada'),
         ('Rejeitada',  'Rejeitada'),
+        ('Finalizada', 'Finalizada'),
     ]
 
     # ── Campos originais da tabela ────────────────────────────────────────────

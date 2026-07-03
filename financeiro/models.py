@@ -291,6 +291,16 @@ class FacturaCliente(models.Model):
                 cliente.save(update_fields=['saldo_conta_corrente'])
             self.cliente.refresh_from_db()
 
+        # Finalizar DU se a fatura foi paga e está vinculada a um processo aduaneiro
+        if self.estado == 'Paga' and self.processo_aduaneiro_id:
+            try:
+                du = DeclaracaoUnica.objects.get(pk=self.processo_aduaneiro_id)
+                if du.status != 'Finalizada':
+                    du.status = 'Finalizada'
+                    du.save(update_fields=['status'])
+            except DeclaracaoUnica.DoesNotExist:
+                pass
+
     def __str__(self):
         return f"Factura {self.numero_factura} - {self.cliente.nome} - {self.valor_total}"
 

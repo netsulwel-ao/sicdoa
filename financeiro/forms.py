@@ -193,7 +193,7 @@ class FacturaClienteForm(forms.ModelForm):
                 nif = Cliente.objects.filter(id=cliente_id).values_list('nif', flat=True).first()
                 if nif:
                     self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
-                        nif_declarante=nif
+                        nif_declarante=nif, status='Aprovada'
                     )
             except (ValueError, TypeError):
                 pass

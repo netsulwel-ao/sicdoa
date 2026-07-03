@@ -186,10 +186,10 @@ class FacturasHomeView(BaseContextMixin, TemplateView):
 @requer_sessao_ativa
 def du_custos_json(request, pk):
     if _user_tem_acesso_total(request):
-        du = get_object_or_404(DeclaracaoUnica, pk=pk)
+        du = get_object_or_404(DeclaracaoUnica, pk=pk, status='Aprovada')
     else:
         usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-        du = get_object_or_404(DeclaracaoUnica, pk=pk, despachante_id=usuario_id)
+        du = get_object_or_404(DeclaracaoUnica, pk=pk, status='Aprovada', despachante_id=usuario_id)
     taxas = float(str(du.total_impostos or 0))
     emolumentos = float(str(du.total_emgead or 0))
     iva_val = float(str(du.iva or 0))
@@ -614,7 +614,7 @@ class FacturaClienteCreateView(BaseContextMixin, SuccessMessageMixin, CreateView
         if filtro_cliente:
             clientes_qs = clientes_qs.filter(**filtro_cliente)
         context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
-        processos_qs = DeclaracaoUnica.objects.all()
+        processos_qs = DeclaracaoUnica.objects.filter(status='Aprovada')
         context['processos_json'] = json.dumps(list(processos_qs.values('id', 'nif_declarante', 'numero_du')))
         return context
 
