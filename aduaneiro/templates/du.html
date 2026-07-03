@@ -2503,8 +2503,8 @@ function adicionarNovaAdicao(dadosExistentes) {
           try { data = JSON.parse(xhr.responseText); } catch(e) { callback([]); return; }
           var filtrados;
           if (!termo.trim()) {
-            // Sem termo: mostrar todas as pautas (dropdown scrollável)
-            filtrados = data;
+            // Sem termo: mostrar as primeiras 200 pautas (dropdown scrollável)
+            filtrados = data.slice(0, 200);
           } else {
             // Prioridade: códigos que COMEÇAM com o termo
             var porCodigo = data.filter(function(p) {
