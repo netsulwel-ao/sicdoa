@@ -163,7 +163,8 @@
         </a>
       </li>
       {% endif %}
-      {% if 'admin' in permissoes %}
+      {# FluxoAprovacao feature removed in migration 0024 - feature disabled #}
+      {# {% if 'admin' in permissoes %}
       <li>
         <a href="{% url 'financeiro:fluxo_aprovacao_lista' %}"
           class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
@@ -172,7 +173,7 @@
           Fluxos de Aprovação
         </a>
       </li>
-      {% endif %}
+      {% endif %} #}
       {% if 'gerir_financeiro' in permissoes or 'ver_recibos' in permissoes %}
       <li>
         <a href="{% url 'financeiro:recibo_lista' %}"

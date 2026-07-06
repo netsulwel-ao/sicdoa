@@ -18,7 +18,7 @@ from clientes.models import Cliente
 from .models import (
     RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo, HistoricoFinanceiro
 )
-from .views import BaseContextMixin
+from .views import BaseContextMixin, _tem_escopo_filial
 from utils.format_kz import fmt_kz
 
 
@@ -96,30 +96,27 @@ class RelatorioRequisicaoFundosView(OperacionalMixin, ReportMixin, TemplateView)
         estado = self.request.GET.get('estado', '')
 
         qs = RequisicaoFundo.objects.all()
-        filtro = self._get_user_requisicao_filter()
+        filtro = self._get_user_filter_direct()
         if filtro:
-            qs = qs.filter(filtro)
+            qs = qs.filter(**filtro)
         if di:
-            qs = qs.filter(data__date__gte=di)
+            qs = qs.filter(data_emissao__date__gte=di)
         if df:
-            qs = qs.filter(data__date__lte=df)
+            qs = qs.filter(data_emissao__date__lte=df)
         if estado:
             qs = qs.filter(estado=estado)
-
-        total_solicitado = qs.aggregate(t=Sum('valor_solicitado'))['t'] or 0
-        total_aprovado = qs.filter(estado='Aprovada').aggregate(t=Sum('valor_solicitado'))['t'] or 0
 
         context.update({
             'summary_cards': [
                 {'label': 'Total de Requisições', 'value': qs.count(), 'color': 'primary'},
-                {'label': 'Valor Total Solicitado', 'value': f'{fmt_kz(total_solicitado)} Kz', 'color': 'warning'},
-                {'label': 'Valor Aprovado', 'value': f'{fmt_kz(total_aprovado)} Kz', 'color': 'success'},
+                {'label': 'Estado Pendente', 'value': qs.filter(estado='Pendente').count(), 'color': 'warning'},
+                {'label': 'Estado Aceite', 'value': qs.filter(estado='Aceite').count(), 'color': 'success'},
             ],
-            'columns': ['Nº', 'Cliente', 'Valor', 'Estado', 'Data', 'Solicitante'],
+            'columns': ['Nº', 'Cliente', 'Estado', 'Data', 'Criador'],
             'rows': [
                 {
-                    'cells': [r.numero_requisicao, r.cliente.nome, f'{fmt_kz(r.valor_solicitado)}',
-                              r.estado, r.data.strftime('%d/%m/%Y'), r.solicitante_nome],
+                    'cells': [r.numero_requisicao, r.cliente.nome if r.cliente else 'N/D',
+                              r.estado, r.data_emissao.strftime('%d/%m/%Y'), r.criado_por_nome],
                     'url': 'financeiro:requisicao_detalhe',
                     'pk': r.pk,
                 }
@@ -128,7 +125,7 @@ class RelatorioRequisicaoFundosView(OperacionalMixin, ReportMixin, TemplateView)
             'filtro_estado': estado,
             'filtro_data_ini': data_ini,
             'filtro_data_fim': data_fim,
-            'estados': ['Pendente', 'Em Aprovação', 'Aprovada', 'Rejeitada', 'Cancelada'],
+            'estados': ['Pendente', 'Aceite', 'Rejeitada', 'Anulada'],
         })
         return context
 
@@ -166,7 +163,7 @@ class RelatorioFacturacaoView(OperacionalMixin, ReportMixin, TemplateView):
             'columns': ['Factura', 'Cliente', 'Valor Total', 'Valor Pago', 'Estado', 'Emissão'],
             'rows': [
                 {
-                    'cells': [f.numero_factura, f.cliente.nome, f'{fmt_kz(f.valor_total)}',
+                    'cells': [f.numero_factura, f.cliente.nome if f.cliente else 'N/D', f'{fmt_kz(f.valor_total)}',
                               f'{fmt_kz(f.valor_pago)}', f.estado, f.data_emissao.strftime('%d/%m/%Y')],
                     'url': 'financeiro:factura_detalhe',
                     'pk': f.pk,
@@ -214,7 +211,7 @@ class RelatorioRecibosView(OperacionalMixin, ReportMixin, TemplateView):
             'columns': ['Recibo', 'Cliente', 'Valor', 'Forma Pagamento', 'Data', 'Responsável'],
             'rows': [
                 {
-                    'cells': [r.numero_recibo, r.cliente.nome, f'{fmt_kz(r.valor_recebido)}',
+                    'cells': [r.numero_recibo, r.cliente.nome if r.cliente else 'N/D', f'{fmt_kz(r.valor_recebido)}',
                               r.forma_pagamento, r.data_pagamento.strftime('%d/%m/%Y'),
                               r.utilizador_responsavel_nome],
                     'url': 'financeiro:recibo_detalhe',
@@ -295,7 +292,7 @@ class RelatorioNotasCreditoView(OperacionalMixin, ReportMixin, TemplateView):
             'columns': ['NC', 'Cliente', 'Factura', 'Valor', 'Estado', 'Data', 'Motivo'],
             'rows': [
                 {
-                    'cells': [n.numero_nota, n.cliente.nome, n.factura_relacionada.numero_factura,
+                    'cells': [n.numero_nota, n.cliente.nome if n.cliente else 'N/D', n.factura_relacionada.numero_factura if n.factura_relacionada else 'N/D',
                               f'{fmt_kz(n.valor_creditado)}', n.estado, n.data.strftime('%d/%m/%Y'), n.motivo[:50]],
                     'url': 'financeiro:nota_credito_detalhe',
                     'pk': n.pk,
@@ -345,7 +342,7 @@ class RelatorioNotasDebitoView(OperacionalMixin, ReportMixin, TemplateView):
             'columns': ['ND', 'Cliente', 'Factura', 'Valor', 'Estado', 'Data', 'Motivo'],
             'rows': [
                 {
-                    'cells': [n.numero_nota, n.cliente.nome, n.factura_relacionada.numero_factura,
+                    'cells': [n.numero_nota, n.cliente.nome if n.cliente else 'N/D', n.factura_relacionada.numero_factura if n.factura_relacionada else 'N/D',
                               f'{fmt_kz(n.valor)}', n.estado, n.data.strftime('%d/%m/%Y'), n.motivo[:50]],
                     'url': 'financeiro:nota_debito_detalhe',
                     'pk': n.pk,
@@ -391,7 +388,7 @@ class RelatorioContasAReceberView(ReportMixin, TemplateView):
             'columns': ['Factura', 'Cliente', 'Valor', 'Pago', 'Saldo', 'Vencimento', 'Estado'],
             'rows': [
                 {
-                    'cells': [f.numero_factura, f.cliente.nome, f'{fmt_kz(f.valor_total)}',
+                    'cells': [f.numero_factura, f.cliente.nome if f.cliente else 'N/D', f'{fmt_kz(f.valor_total)}',
                               f'{fmt_kz(f.valor_pago)}', f'{fmt_kz(f.valor_total - f.valor_pago)}',
                               f.data_vencimento.strftime('%d/%m/%Y'), f.estado],
                     'url': 'financeiro:factura_detalhe',
@@ -521,20 +518,31 @@ class RelatorioFluxoCaixaView(ReportMixin, TemplateView):
 @requer_sessao_ativa
 def fluxo_caixa_json(request):
     """API JSON com dados de fluxo de caixa mensal para gráficos."""
+    from .views import _user_tem_acesso_total
+    
     ano = request.GET.get('ano', str(timezone.now().year))
     try:
         ano = int(ano)
     except ValueError:
         ano = timezone.now().year
 
-    clientes = Cliente.objects.all()
+    # Aplicar filtragem correta por papel/permissão
     filtro = {}
-    papel = request.session.get('usuario', {}).get('papel', '')
-    if papel != 'Administrador':
-        usuario_id = request.session.get('usuario_id')
-        if usuario_id:
-            filtro = {'usuario_id': usuario_id}
-            clientes = clientes.filter(**filtro)
+    if not _user_tem_acesso_total(request):
+        from users.permissoes import get_usuario_permissoes
+        perm_set = get_usuario_permissoes(request)
+        banca_id = request.session.get('banca_id')
+        if not banca_id:
+            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+            if usuario_id:
+                filtro = {'usuario_id': usuario_id}
+        else:
+            filtro = {'banca_id': banca_id}
+            filial_id = request.session.get('colaborador_filial_id')
+            if filial_id and _tem_escopo_filial(perm_set, filial_id):
+                filtro['filial_id'] = filial_id
+    
+    clientes = Cliente.objects.filter(**filtro) if filtro else Cliente.objects.all()
 
     meses_labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
     entradas = []
@@ -710,15 +718,25 @@ def dashboard_financeiro_json(request):
     from django.db.models import Sum
     from clientes.models import Cliente
     from .models import FacturaCliente, ReciboCliente, FacturaRecibo, NotaCredito, NotaDebito
+    from .views import _user_tem_acesso_total
 
-    clientes = Cliente.objects.all()
+    # Aplicar filtragem correta por papel/permissão
     filtro = {}
-    papel = request.session.get('usuario', {}).get('papel', '')
-    if papel != 'Administrador':
-        usuario_id = request.session.get('usuario_id')
-        if usuario_id:
-            filtro = {'usuario_id': usuario_id}
-            clientes = clientes.filter(**filtro)
+    if not _user_tem_acesso_total(request):
+        from users.permissoes import get_usuario_permissoes
+        perm_set = get_usuario_permissoes(request)
+        banca_id = request.session.get('banca_id')
+        if not banca_id:
+            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+            if usuario_id:
+                filtro = {'usuario_id': usuario_id}
+        else:
+            filtro = {'banca_id': banca_id}
+            filial_id = request.session.get('colaborador_filial_id')
+            if filial_id and _tem_escopo_filial(perm_set, filial_id):
+                filtro['filial_id'] = filial_id
+    
+    clientes = Cliente.objects.filter(**filtro) if filtro else Cliente.objects.all()
 
     ano_atual = timezone.now().year
 

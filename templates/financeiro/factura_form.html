@@ -124,9 +124,42 @@
 
         <div class="flex items-center justify-end gap-3">
           <a href="{% url 'financeiro:factura_lista' %}" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors">Cancelar</a>
-          <button type="submit" class="px-5 py-2.5 bg-primary hover:bg-primary/90 rounded-xl text-sm font-semibold text-white transition-colors shadow-sm active:scale-95">Emitir Factura</button>
+          <button type="submit" class="px-5 py-2.5 bg-primary hover:bg-primary/90 rounded-xl text-sm font-semibold text-white transition-colors shadow-sm active:scale-95">
+            {% if form.instance.pk %}Guardar Alterações{% else %}Emitir Factura{% endif %}
+          </button>
         </div>
       </form>
 
     </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var inputs = document.querySelectorAll('.moeda');
+  var totalSpan = document.getElementById('calculo-total');
+  function obterValor(inp) {
+    try {
+      if (inp.imask && inp.imask.unmaskedValue) {
+        return parseFloat(inp.imask.unmaskedValue) || 0;
+      }
+    } catch(e) {}
+    var v = inp.value.trim();
+    if (!v) return 0;
+    if (typeof parseNumber === 'function') return parseNumber(v);
+    return parseFloat(v.replace(/\s/g, '').replace(',', '.')) || 0;
+  }
+  function fmtKz(val) {
+    return val.toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' Kz';
+  }
+  function recalcular() {
+    var total = 0;
+    inputs.forEach(function(inp) { total += obterValor(inp); });
+    totalSpan.textContent = fmtKz(total);
+  }
+  inputs.forEach(function(inp) {
+    inp.addEventListener('input', recalcular);
+    inp.addEventListener('change', recalcular);
+  });
+  recalcular();
+});
+</script>
 {% endblock %}

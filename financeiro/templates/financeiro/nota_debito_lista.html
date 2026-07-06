@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Notas de Débito{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto w-full">
+
+  <!-- Breadcrumb + Cabeçalho -->
+  <div class="mb-8">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
+      <span>Financeiro</span>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-primary font-medium">Notas de Débito</span>
+    </div>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-1">Notas de Débito</h1>
+        <p class="text-gray-600 dark:text-gray-300">Gestão de notas de débito de clientes</p>
+      </div>
+      
+      <a href="{% url 'financeiro:nota_debito_criar' %}" 
+        class="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors shadow-sm">
+        <i class="fas fa-plus"></i>Nova Nota de Débito
+      </a>
+    </div>
+  </div>
+
+  <!-- Filtros e Pesquisa -->
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex-1 min-w-xs">
+        <div class="relative">
+          <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          <input type="text" placeholder="Pesquisar por número, cliente..." 
+            class="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500" />
+        </div>
+      </div>
+      <select class="px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500">
+        <option value="">Todos os Estados</option>
+        <option value="Pendente">Pendente</option>
+        <option value="Aprovada">Aprovada</option>
+        <option value="Rejeitada">Rejeitada</option>
+        <option value="Cancelada">Cancelada</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Tabela de Notas -->
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    
+    {% if object_list %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+          <tr>
+            <th class="px-6 py-4 text-left font-semibold text-gray-700 dark:text-gray-300">Número</th>
+            <th class="px-6 py-4 text-left font-semibold text-gray-700 dark:text-gray-300">Cliente</th>
+            <th class="px-6 py-4 text-left font-semibold text-gray-700 dark:text-gray-300">Factura</th>
+            <th class="px-6 py-4 text-right font-semibold text-gray-700 dark:text-gray-300">Valor</th>
+            <th class="px-6 py-4 text-left font-semibold text-gray-700 dark:text-gray-300">Data</th>
+            <th class="px-6 py-4 text-center font-semibold text-gray-700 dark:text-gray-300">Estado</th>
+            <th class="px-6 py-4 text-center font-semibold text-gray-700 dark:text-gray-300">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+          {% for nota in object_list %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <td class="px-6 py-4">
+              <a href="{% url 'financeiro:nota_debito_detalhe' nota.id %}" 
+                class="font-semibold text-red-600 hover:text-red-700 transition-colors">
+                {{ nota.numero_nota }}
+              </a>
+            </td>
+            <td class="px-6 py-4 text-gray-900 dark:text-white">
+              {{ nota.cliente.nome }}
+            </td>
+            <td class="px-6 py-4">
+              <a href="{% url 'financeiro:factura_detalhe' nota.factura_relacionada.id %}" 
+                class="text-blue-600 dark:text-blue-400 hover:underline">
+                {{ nota.factura_relacionada.numero_factura }}
+              </a>
+            </td>
+            <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">
+              {{ nota.valor|floatformat:2 }} KZ
+            </td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400">
+              {{ nota.data|date:"d/m/Y" }}
+            </td>
+            <td class="px-6 py-4 text-center">
+              <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold
+                {% if nota.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
+                {% elif nota.estado == 'Aprovada' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                {% elif nota.estado == 'Rejeitada' %}bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400
+                {% elif nota.estado == 'Cancelada' %}bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400{% endif %}">
+                {{ nota.get_estado_display }}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-center">
+              <a href="{% url 'financeiro:nota_debito_detalhe' nota.id %}" 
+                class="text-red-600 hover:text-red-700 text-sm" title="Ver detalhes">
+                <i class="fas fa-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div class="text-sm text-gray-600 dark:text-gray-400">
+        Página <span class="font-semibold">{{ page_number }}</span> de <span class="font-semibold">{{ paginator.num_pages }}</span>
+      </div>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?page=1" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium transition-colors">
+          <i class="fas fa-chevron-left"></i>
+        </a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium transition-colors">
+          <i class="fas fa-chevron-right"></i>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Estado Vazio -->
+    <div class="px-6 py-16 text-center">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
+        <i class="fas fa-receipt text-2xl text-gray-400 dark:text-gray-500"></i>
+      </div>
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Nenhuma nota de débito</h3>
+      <p class="text-gray-600 dark:text-gray-400 mb-6">Não existem notas de débito registadas no sistema.</p>
+      <a href="{% url 'financeiro:nota_debito_criar' %}" 
+        class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors">
+        <i class="fas fa-plus"></i>Criar Primeira Nota
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+
+</div>
+
+{% endblock %}

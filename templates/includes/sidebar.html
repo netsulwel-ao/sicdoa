@@ -319,15 +319,6 @@
         </a>
       </li>
       {% endif %}
-      {% if papel == 'Administrador' or 'admin' in user_permissoes %}
-      <li>
-        <a href="{% url 'financeiro:fluxo_aprovacao_lista' %}"
-           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
-                  {% if sub == 'fluxos_aprovacao' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-layer-group text-base"></i>Fluxos de Aprovação
-        </a>
-      </li>
-      {% endif %}
       {% if papel == 'Administrador' or papel == 'Despachante Oficial' or 'gerir_financeiro' in user_permissoes or 'ver_recibos' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:recibo_lista' %}"

@@ -1,0 +1,1112 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto w-full">
+
+  <!-- Breadcrumb + Cabeçalho -->
+  <div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+      <a href="{% url 'financeiro:requisicao_lista' %}" class="hover:text-primary transition-colors">Requisições de Fundos</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-900 dark:text-white font-medium">
+        {% if form.instance.pk %}Editar{% else %}Nova Requisição{% endif %}
+      </span>
+    </div>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+          {% if form.instance.pk %}Editar Requisição{% else %}Criar Requisição de Fundos{% endif %}
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          Fatura Proforma com estimativa de custos
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-6">
+
+    <!-- Formulário -->
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- Seção 1: Dados da Instituição -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-bank text-base text-primary"></i>
+          Dados da Instituição
+          <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" id="institution-auto-badge" style="display:none;">
+            <i class="fas fa-check-circle"></i>
+            Auto-preenchido
+          </span>
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="id_banca" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+              Banca <span class="text-gray-400 text-xs">(automática)</span>
+            </label>
+            <div class="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
+              <p class="text-sm font-semibold text-gray-900 dark:text-white" id="banca-display">
+                {% if form.instance.pk and form.instance.banca %}{{ form.instance.banca.nome }}{% else %}⏳ Carregando...{% endif %}
+              </p>
+            </div>
+            <!-- Campo hidden para submissão do formulário -->
+            <select id="id_banca" name="banca" style="display: none;"></select>
+          </div>
+          <div>
+            <label for="id_filial" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Filial</label>
+            {{ form.filial }}
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex items-start gap-3">
+          <i class="fas fa-lightbulb text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"></i>
+          <p class="text-xs text-blue-900 dark:text-blue-100">
+            A instituição é definida automaticamente com base no seu perfil.
+          </p>
+        </div>
+      </div>
+
+      <!-- Seção 2: Dados do Cliente -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-user-circle text-base text-primary"></i>
+          Dados do Cliente
+          <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" id="cliente-auto-badge" style="display:none;">
+            <i class="fas fa-info-circle"></i>
+            Dados carregados
+          </span>
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="id_cliente" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+              Cliente <span class="text-red-500">*</span>
+            </label>
+            {{ form.cliente }}
+            {% if form.cliente.errors %}<p class="text-red-500 text-sm mt-1">{{ form.cliente.errors.0 }}</p>{% endif %}
+          </div>
+
+          <div>
+            <label for="id_pessoa_contacto" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Pessoa de Contacto</label>
+            {{ form.pessoa_contacto }}
+          </div>
+
+          <div class="md:col-span-2">
+            <label for="id_processo_aduaneiro" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+              Processo Aduaneiro <span class="text-red-500">*</span>
+            </label>
+            {{ form.processo_aduaneiro }}
+            {% if form.processo_aduaneiro.errors %}<p class="text-red-500 text-sm mt-1">{{ form.processo_aduaneiro.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex items-start gap-3">
+          <i class="fas fa-lightbulb text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"></i>
+          <p class="text-xs text-blue-900 dark:text-blue-100">
+            Selecione um cliente para carregar automaticamente os seus dados e processos aduaneiros.
+          </p>
+        </div>
+      </div>
+
+      <!-- Seção 3: Referências da Carga -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-ship text-base text-primary"></i>
+          Referências da Carga
+          <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" id="cargo-auto-badge" style="display:none;">
+            <i class="fas fa-check-circle"></i>
+            Auto-preenchido
+          </span>
+        </h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Ligação entre o dinheiro e a mercadoria</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="id_numero_bl_awb" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">B/L ou AWB</label>
+            {{ form.numero_bl_awb }}
+          </div>
+
+          <div>
+            <label for="id_meio_transporte" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Transporte</label>
+            {{ form.meio_transporte }}
+          </div>
+
+          <div>
+            <label for="id_origem" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Porto/País Origem</label>
+            {{ form.origem }}
+          </div>
+
+          <div>
+            <label for="id_destino" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Porto/País Destino</label>
+            {{ form.destino }}
+          </div>
+
+          <div class="md:col-span-2">
+            <label for="id_mercadoria_descricao" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Descrição da Mercadoria</label>
+            {{ form.mercadoria_descricao }}
+          </div>
+
+          <div>
+            <label for="id_peso_bruto_kg" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Peso Bruto (Kg)</label>
+            {{ form.peso_bruto_kg }}
+          </div>
+
+          <div>
+            <label for="id_peso_liquido_kg" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Peso Líquido (Kg)</label>
+            {{ form.peso_liquido_kg }}
+          </div>
+
+          <div>
+            <label for="id_cbm_metros_cubicos" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Volume (m³)</label>
+            {{ form.cbm_metros_cubicos }}
+          </div>
+
+          <div>
+            <label for="id_quantidade_volumes" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Quantidade de Volumes</label>
+            {{ form.quantidade_volumes }}
+          </div>
+
+          <div class="md:col-span-2">
+            <label for="id_valor_cif" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Valor CIF</label>
+            {{ form.valor_cif }}
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex items-start gap-3">
+          <i class="fas fa-lightbulb text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"></i>
+          <p class="text-xs text-blue-900 dark:text-blue-100">
+            Selecione um processo aduaneiro para preencher automaticamente todos os dados da carga.
+          </p>
+        </div>
+      </div>
+
+      <!-- Seção 5: Válidade e Referências -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-calendar text-base text-primary"></i>
+          Validade
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="id_data_validade" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+              Data de Validade <span class="text-red-500">*</span>
+            </label>
+            {{ form.data_validade }}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Por flutuação cambial</p>
+          </div>
+
+          <div>
+            <label for="id_moeda_referencia" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Moeda</label>
+            {{ form.moeda_referencia }}
+          </div>
+
+          <div>
+            <label for="id_cambio_referencia" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Câmbio BNA</label>
+            {{ form.cambio_referencia }}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Opcional</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção 6: Dados Bancários -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-credit-card text-base text-primary"></i>
+          Dados Bancários
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="id_banco" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Banco</label>
+            {{ form.banco }}
+          </div>
+
+          <div>
+            <label for="id_numero_conta" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Nº da Conta</label>
+            {{ form.numero_conta }}
+          </div>
+
+          <div class="md:col-span-2">
+            <label for="id_iban" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">IBAN</label>
+            {{ form.iban }}
+          </div>
+
+          <div class="md:col-span-2">
+            <label for="id_instrucoes_envio" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Instruções de Pagamento</label>
+            {{ form.instrucoes_envio }}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ex: Enviar comprovativo para email XXX</p>
+          </div>
+        </div>
+      </div>
+
+      {% if requisicao.pk %}
+      <!-- Seção 4: Linhas de Custos REORGANIZADO -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent">
+          <div>
+            <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
+              <i class="fas fa-list-check text-base text-primary"></i>Custos Orçados
+            </h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Organize os custos em categorias documentadas e não-documentadas</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Parcial</p>
+            <p class="text-xl font-bold text-primary" id="total-parcial">0.00 KZ</p>
+          </div>
+        </div>
+
+        <!-- Tabs para Categoria -->
+        <div class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+          <div class="flex overflow-x-auto">
+            <button type="button" class="categoria-tab px-6 py-4 text-sm font-semibold border-b-2 border-primary text-primary whitespace-nowrap" data-categoria="impostos" id="tab-impostos">
+              <i class="fas fa-landmark mr-2"></i>Impostos & Taxas
+              <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-primary/20 text-primary rounded-full count-impostos">0</span>
+            </button>
+            <button type="button" class="categoria-tab px-6 py-4 text-sm font-semibold border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-primary hover:border-primary transition-all whitespace-nowrap" data-categoria="despesas-port" id="tab-despesas-port">
+              <i class="fas fa-anchor mr-2"></i>Portuárias
+              <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full count-despesas-port">0</span>
+            </button>
+            <button type="button" class="categoria-tab px-6 py-4 text-sm font-semibold border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-primary hover:border-primary transition-all whitespace-nowrap" data-categoria="logistica" id="tab-logistica">
+              <i class="fas fa-truck mr-2"></i>Logística
+              <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full count-logistica">0</span>
+            </button>
+            <button type="button" class="categoria-tab px-6 py-4 text-sm font-semibold border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-primary hover:border-primary transition-all whitespace-nowrap" data-categoria="honorarios" id="tab-honorarios">
+              <i class="fas fa-handshake mr-2"></i>Honorários
+              <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full count-honorarios">0</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Conteúdo dos Custos por Categoria -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm categoria-table" data-categoria="impostos">
+            <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 sticky top-0">
+              <tr>
+                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Descrição</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Tipo</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Doc.</th>
+                <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Valor (KZ)</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+              {% for custo in requisicao.linhas.all %}
+                {% if custo.tipo_custo == 'Impostos e Taxas Aduaneiras (AGT)' %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors linha-custo" data-linha-id="{{ custo.id }}">
+                  <td class="px-6 py-4 text-gray-900 dark:text-white font-medium">{{ custo.descricao }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-gray-600 dark:text-gray-400">
+                    <span class="px-2 py-1 rounded-full bg-orange-100/50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">{{ custo.despesa_tipo }}</span>
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    {% if custo.documentada %}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">✓</span>
+                    {% else %}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ custo.valor|floatformat:2 }}</td>
+                  <td class="px-6 py-4 text-center space-x-2 flex justify-center">
+                    <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="text-primary hover:text-primary/80 text-sm p-1 hover:bg-primary/10 rounded transition-all" title="Editar"><i class="fas fa-edit"></i></a>
+                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="text-red-600 hover:text-red-700 text-sm p-1 hover:bg-red-50 rounded transition-all" title="Eliminar"><i class="fas fa-trash"></i></a>
+                  </td>
+                </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <table class="w-full text-sm categoria-table" data-categoria="despesas-port" style="display:none;">
+            <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 sticky top-0">
+              <tr>
+                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Descrição</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Tipo</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Doc.</th>
+                <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Valor (KZ)</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+              {% for custo in requisicao.linhas.all %}
+                {% if custo.tipo_custo == 'Despesas Portuárias e Terminais' %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors linha-custo" data-linha-id="{{ custo.id }}">
+                  <td class="px-6 py-4 text-gray-900 dark:text-white font-medium">{{ custo.descricao }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-gray-600 dark:text-gray-400">
+                    <span class="px-2 py-1 rounded-full bg-blue-100/50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">{{ custo.despesa_tipo }}</span>
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    {% if custo.documentada %}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">✓</span>
+                    {% else %}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ custo.valor|floatformat:2 }}</td>
+                  <td class="px-6 py-4 text-center space-x-2 flex justify-center">
+                    <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="text-primary hover:text-primary/80 text-sm p-1 hover:bg-primary/10 rounded transition-all" title="Editar"><i class="fas fa-edit"></i></a>
+                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="text-red-600 hover:text-red-700 text-sm p-1 hover:bg-red-50 rounded transition-all" title="Eliminar"><i class="fas fa-trash"></i></a>
+                  </td>
+                </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <table class="w-full text-sm categoria-table" data-categoria="logistica" style="display:none;">
+            <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 sticky top-0">
+              <tr>
+                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Descrição</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Tipo</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Doc.</th>
+                <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Valor (KZ)</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+              {% for custo in requisicao.linhas.all %}
+                {% if custo.tipo_custo == 'Logística e Transporte' %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors linha-custo" data-linha-id="{{ custo.id }}">
+                  <td class="px-6 py-4 text-gray-900 dark:text-white font-medium">{{ custo.descricao }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-gray-600 dark:text-gray-400">
+                    <span class="px-2 py-1 rounded-full bg-green-100/50 dark:bg-green-900/30 text-green-700 dark:text-green-400">{{ custo.despesa_tipo }}</span>
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    {% if custo.documentada %}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">✓</span>
+                    {% else %}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ custo.valor|floatformat:2 }}</td>
+                  <td class="px-6 py-4 text-center space-x-2 flex justify-center">
+                    <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="text-primary hover:text-primary/80 text-sm p-1 hover:bg-primary/10 rounded transition-all" title="Editar"><i class="fas fa-edit"></i></a>
+                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="text-red-600 hover:text-red-700 text-sm p-1 hover:bg-red-50 rounded transition-all" title="Eliminar"><i class="fas fa-trash"></i></a>
+                  </td>
+                </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <table class="w-full text-sm categoria-table" data-categoria="honorarios" style="display:none;">
+            <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 sticky top-0">
+              <tr>
+                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Descrição</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Tipo</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Doc.</th>
+                <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Valor (KZ)</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+              {% for custo in requisicao.linhas.all %}
+                {% if custo.tipo_custo == 'Honorários do Despachante' %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors linha-custo" data-linha-id="{{ custo.id }}">
+                  <td class="px-6 py-4 text-gray-900 dark:text-white font-medium">{{ custo.descricao }}</td>
+                  <td class="px-6 py-4 text-center text-xs text-gray-600 dark:text-gray-400">
+                    <span class="px-2 py-1 rounded-full bg-purple-100/50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">{{ custo.despesa_tipo }}</span>
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    {% if custo.documentada %}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">✓</span>
+                    {% else %}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ custo.valor|floatformat:2 }}</td>
+                  <td class="px-6 py-4 text-center space-x-2 flex justify-center">
+                    <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="text-primary hover:text-primary/80 text-sm p-1 hover:bg-primary/10 rounded transition-all" title="Editar"><i class="fas fa-edit"></i></a>
+                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="text-red-600 hover:text-red-700 text-sm p-1 hover:bg-red-50 rounded transition-all" title="Eliminar"><i class="fas fa-trash"></i></a>
+                  </td>
+                </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Seção vazia -->
+        {% if not requisicao.linhas.all %}
+        <div class="px-6 py-12 text-center">
+          <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
+          <p class="text-gray-500 dark:text-gray-400 mb-4">Nenhum custo adicionado</p>
+          <a href="{% url 'financeiro:requisicao_linha_adicionar' requisicao.pk %}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors">
+            <i class="fas fa-plus"></i>Adicionar Primeiro Custo
+          </a>
+        </div>
+        {% endif %}
+
+        <!-- Botão para adicionar nova linha -->
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-end gap-2">
+          <a href="{% url 'financeiro:requisicao_linha_adicionar' requisicao.pk %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all shadow-sm">
+            <i class="fas fa-plus-circle"></i>Adicionar Custo
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Seção 7: Observações -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-file-alt text-base text-primary"></i>
+          Notas
+        </h2>
+
+        <div>
+          <label for="id_observacoes" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Observações (Opcional)</label>
+          {{ form.observacoes }}
+        </div>
+      </div>
+
+      <!-- Info Box -->
+      <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4">
+        <div class="flex gap-3">
+          <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0 text-sm"></i>
+          <div class="text-sm text-blue-900 dark:text-blue-100">
+            <p class="font-semibold mb-2">Próximos Passos:</p>
+            <ol class="list-decimal list-inside space-y-1 text-xs">
+              <li>Criar esta requisição com dados básicos</li>
+              <li>Após criar, adicionar linhas de custos na página de detalhe</li>
+              <li>Gerar PDF para envio ao cliente</li>
+              <li>Enviar por email com instruções de pagamento</li>
+              <li>Após confirmação, gerar fatura final</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botões -->
+      <div class="flex gap-3">
+        <button type="submit" class="px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors font-semibold flex items-center gap-2">
+          <i class="fas fa-save"></i>
+          {% if form.instance.pk %}Guardar Alterações{% else %}Criar Requisição{% endif %}
+        </button>
+        <a href="{% url 'financeiro:requisicao_lista' %}" class="px-6 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-semibold text-center">
+          Cancelar
+        </a>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<style>
+  /* ────────────────────────────────────────────────────────
+     Estilos dos Campos de Formulário
+     Design: Moderno, limpo e muito agradável
+  ──────────────────────────────────────────────────────────── */
+  
+  /* MODO CLARO - Cores claras e limpas */
+  .light input[type="text"],
+  .light input[type="date"],
+  .light input[type="number"],
+  .light input[type="email"],
+  .light select,
+  .light textarea {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: #111827;
+    background-color: #ffffff;
+    border: 2px solid #dbe0e6;
+    border-radius: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    box-shadow: none;
+  }
+  
+  .light input[type="text"]:focus,
+  .light input[type="date"]:focus,
+  .light input[type="number"]:focus,
+  .light input[type="email"]:focus,
+  .light select:focus,
+  .light textarea:focus {
+    border-color: #137fec;
+    box-shadow: 0 0 0 3px rgba(19, 127, 236, 0.12);
+    background-color: #ffffff;
+  }
+  
+  .light input[type="text"]:hover:not(:focus),
+  .light input[type="date"]:hover:not(:focus),
+  .light input[type="number"]:hover:not(:focus),
+  .light input[type="email"]:hover:not(:focus),
+  .light select:hover:not(:focus),
+  .light textarea:hover:not(:focus) {
+    background-color: #ffffff;
+    border-color: #cbd5e1;
+  }
+  
+  .light input[type="text"]::placeholder,
+  .light input[type="date"]::placeholder,
+  .light input[type="number"]::placeholder,
+  .light input[type="email"]::placeholder,
+  .light textarea::placeholder {
+    color: #94a3b8;
+  }
+  
+  /* ────────────────────────────────────────────────────────
+     MODO ESCURO - Cores agradáveis (não muito escuras)
+  ──────────────────────────────────────────────────────────── */
+  
+  .dark input[type="text"],
+  .dark input[type="date"],
+  .dark input[type="number"],
+  .dark input[type="email"],
+  .dark select,
+  .dark textarea {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: #f1f5f9;
+    background-color: #2d3748;
+    border: 2px solid #4b5563;
+    border-radius: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    box-shadow: none;
+  }
+  
+  .dark input[type="text"]:focus,
+  .dark input[type="date"]:focus,
+  .dark input[type="number"]:focus,
+  .dark input[type="email"]:focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+    background-color: #374151;
+  }
+  
+  .dark input[type="text"]:hover:not(:focus),
+  .dark input[type="date"]:hover:not(:focus),
+  .dark input[type="number"]:hover:not(:focus),
+  .dark input[type="email"]:hover:not(:focus),
+  .dark select:hover:not(:focus),
+  .dark textarea:hover:not(:focus) {
+    background-color: #374151;
+    border-color: #5b6678;
+  }
+  
+  .dark input[type="text"]::placeholder,
+  .dark input[type="date"]::placeholder,
+  .dark input[type="number"]::placeholder,
+  .dark input[type="email"]::placeholder,
+  .dark textarea::placeholder {
+    color: #94a3b8;
+  }
+  
+  /* ────────────────────────────────────────────────────────
+     Estados Disabled/Readonly
+  ──────────────────────────────────────────────────────────── */
+  
+  .light input[type="text"]:disabled,
+  .light input[type="date"]:disabled,
+  .light input[type="number"]:disabled,
+  .light input[type="email"]:disabled,
+  .light select:disabled,
+  .light textarea:disabled {
+    background-color: #f3f4f6;
+    border-color: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  
+  .dark input[type="text"]:disabled,
+  .dark input[type="date"]:disabled,
+  .dark input[type="number"]:disabled,
+  .dark input[type="email"]:disabled,
+  .dark select:disabled,
+  .dark textarea:disabled {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #6b7280;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  
+  /* ────────────────────────────────────────────────────────
+     Fallback para prefers-color-scheme (quando não há .light/.dark)
+  ──────────────────────────────────────────────────────────── */
+  
+  input[type="text"],
+  input[type="date"],
+  input[type="number"],
+  input[type="email"],
+  select,
+  textarea {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: #111827;
+    background-color: #ffffff;
+    border: 2px solid #dbe0e6;
+    border-radius: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    box-shadow: none;
+  }
+  
+  input[type="text"]:focus,
+  input[type="date"]:focus,
+  input[type="number"]:focus,
+  input[type="email"]:focus,
+  select:focus,
+  textarea:focus {
+    border-color: #137fec;
+    box-shadow: 0 0 0 3px rgba(19, 127, 236, 0.12);
+    background-color: #ffffff;
+  }
+  
+  input[type="text"]:hover:not(:focus),
+  input[type="date"]:hover:not(:focus),
+  input[type="number"]:hover:not(:focus),
+  input[type="email"]:hover:not(:focus),
+  select:hover:not(:focus),
+  textarea:hover:not(:focus) {
+    background-color: #ffffff;
+    border-color: #cbd5e1;
+  }
+  
+  input[type="text"]::placeholder,
+  input[type="date"]::placeholder,
+  input[type="number"]::placeholder,
+  input[type="email"]::placeholder,
+  textarea::placeholder {
+    color: #94a3b8;
+  }
+</style>
+
+<!-- JavaScript para Auto-preenchimento em Cascata -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // ════════════════════════════════════════════════════════════════════════════════
+  // AUTO-PREENCHIMENTO EM CASCATA: BANCA → CLIENTE → PROCESSO → DADOS
+  // ════════════════════════════════════════════════════════════════════════════════
+  
+  // ────────────────────────────────────────────────────────────────────────────────
+  // 1️⃣ AUTO-PREENCHER BANCA/FILIAL DO USUÁRIO LOGADO (ao carregar página)
+  // ────────────────────────────────────────────────────────────────────────────────
+  
+  function initBancaFilial() {
+    const bancaSelect = document.getElementById('id_banca');
+    const bancaDisplay = document.getElementById('banca-display');
+    
+    console.log('🔍 initBancaFilial() iniciando...');
+    console.log('📍 bancaSelect encontrado:', !!bancaSelect);
+    console.log('📍 bancaDisplay encontrado:', !!bancaDisplay);
+    
+    // ┌─ Se estamos editando, carregar valor da banca que já existe ─────┐
+    if (bancaSelect && bancaSelect.value && bancaSelect.value.trim()) {
+      console.log('✏️ Modo edição detectado - banca_id:', bancaSelect.value);
+      const selectedOption = bancaSelect.querySelector(`option[value="${bancaSelect.value}"]`);
+      if (selectedOption && bancaDisplay) {
+        const bancaNome = selectedOption.textContent || selectedOption.value;
+        bancaDisplay.textContent = bancaNome;
+        console.log('✏️ Banca exibida (modo edição):', bancaNome);
+      }
+    }
+    
+    // ┌─ Carregar banca/filial do servidor ───────────────────────────┐
+    fetch('/financeiro/api/usuario-banca/')
+      .then(response => {
+        console.log('📡 API resposta status:', response.status);
+        return response.json();
+      })
+      .then(data => {
+        console.log('📡 API resposta data:', data);
+        
+        if (data.success && data.banca) {
+          console.log('✅ Banca recebida:', data.banca.nome);
+          
+          // Garantir que o select existe e tem a opção
+          if (bancaSelect) {
+            // Limpar opções anteriores (exceto a default)
+            while (bancaSelect.options.length > 0) {
+              bancaSelect.remove(0);
+            }
+            
+            // Adicionar a opção da banca
+            const option = document.createElement('option');
+            option.value = data.banca.id;
+            option.textContent = data.banca.nome;
+            bancaSelect.appendChild(option);
+            
+            // Selecionar a opção
+            bancaSelect.value = data.banca.id;
+            console.log('✅ Select preenchido com banca:', data.banca.nome);
+            
+            bancaSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            highlightField(bancaSelect, 'filled');
+          }
+          
+          // Atualizar o display da Banca
+          if (bancaDisplay) {
+            bancaDisplay.textContent = data.banca.nome;
+            console.log('✅ Display atualizado:', data.banca.nome);
+          }
+          
+          // Preencher Filial (se houver)
+          const filialSelect = document.getElementById('id_filial');
+          if (filialSelect && data.filial) {
+            filialSelect.value = data.filial.id;
+            filialSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            highlightField(filialSelect, 'filled');
+            console.log('✅ Filial preenchida:', data.filial.nome);
+          }
+          
+          // Mostrar badge de auto-preenchimento
+          const badge = document.getElementById('institution-auto-badge');
+          if (badge) {
+            badge.style.display = 'inline-flex';
+          }
+          
+          showToast('✅ Instituição carregada automaticamente', 'success');
+        } else {
+          console.warn('❌ Erro na resposta da API:', data.error);
+          if (bancaDisplay) {
+            bancaDisplay.textContent = '❌ Erro ao carregar';
+          }
+          showToast('⚠️ Não foi possível carregar a instituição', 'error');
+        }
+      })
+      .catch(err => {
+        console.error('❌ Erro ao carregar dados da banca:', err);
+        if (bancaDisplay) {
+          bancaDisplay.textContent = '❌ Erro de conexão';
+        }
+        showToast('⚠️ Erro ao carregar instituição', 'error');
+      });
+  }
+  
+  // Inicializar ao carregar
+  initBancaFilial();
+  
+  // ────────────────────────────────────────────────────────────────────────────────
+  // 2️⃣ QUANDO CLIENTE É SELECIONADO → AUTO-PREENCHER DADOS E FILTRAR PROCESSOS
+  // ────────────────────────────────────────────────────────────────────────────────
+  
+  const clienteSelect = document.getElementById('id_cliente');
+  const processoSelect = document.getElementById('id_processo_aduaneiro');
+  
+  if (clienteSelect && processoSelect) {
+    clienteSelect.addEventListener('change', function() {
+      const clienteId = this.value;
+      
+      if (!clienteId) {
+        processoSelect.innerHTML = '<option value="">Selecione um cliente primeiro</option>';
+        processoSelect.disabled = true;
+        document.getElementById('cliente-auto-badge').style.display = 'none';
+        return;
+      }
+      
+      // ┌─ Buscar e preencher dados do cliente ─────────────────────────────────┐
+      fetch(`/financeiro/api/dados-cliente/?cliente_id=${clienteId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success && data.cliente) {
+            // Auto-preencher pessoa de contacto se houver email
+            const pessoaContactoField = document.getElementById('id_pessoa_contacto');
+            if (pessoaContactoField && data.cliente.email && !pessoaContactoField.value) {
+              pessoaContactoField.value = data.cliente.email || data.cliente.nome;
+              highlightField(pessoaContactoField, 'filled');
+            }
+            
+            // Mostrar badge
+            document.getElementById('cliente-auto-badge').style.display = 'inline-flex';
+          }
+        })
+        .catch(err => console.error('Erro ao carregar dados do cliente:', err));
+      
+      // ┌─ Carregar e filtrar processos do cliente ──────────────────────────────┐
+      processoSelect.innerHTML = '<option value="">⏳ Carregando processos...</option>';
+      processoSelect.disabled = true;
+      
+      fetch(`/financeiro/api/processos-cliente/?cliente_id=${clienteId}`)
+        .then(response => response.json())
+        .then(data => {
+          processoSelect.innerHTML = '<option value="">📋 Selecione um processo</option>';
+          
+          if (data.success && data.processos && data.processos.length > 0) {
+            // Mostrar feedback de filtro no console (para debugging)
+            console.log(`✅ Filtrando processos para: ${data.cliente_nome}`);
+            console.log(`✅ Total encontrado: ${data.total_encontrados} processo(s)`);
+            
+            data.processos.forEach(processo => {
+              const option = document.createElement('option');
+              option.value = processo.id;
+              
+              // Formatar texto com ícone de status
+              let statusIcon = '📄';
+              if (processo.status === 'Submetida') statusIcon = '✅';
+              else if (processo.status === 'Finalizada') statusIcon = '🔒';
+              else if (processo.status === 'Rejeitada') statusIcon = '❌';
+              else if (processo.status === 'Em Análise') statusIcon = '🔄';
+              else if (processo.status === 'Aprovada') statusIcon = '✓';
+              
+              option.textContent = `${statusIcon} ${processo.numero_du || 'DU-' + processo.id} - ${processo.ref_despachante || 'Sem ref.'} (${processo.status})`;
+              processoSelect.appendChild(option);
+            });
+            
+            // Toast com info detalhada
+            const msg = `✅ ${data.total_encontrados} processo(s) encontrado(s) para "${data.cliente_nome}"`;
+            showToast(msg, 'success');
+          } else {
+            processoSelect.innerHTML = '<option value="">ℹ️ Nenhum processo encontrado</option>';
+            const msg = `ℹ️ Nenhum processo aduaneiro cadastrado para este cliente`;
+            showToast(msg, 'info');
+          }
+          
+          processoSelect.disabled = false;
+        })
+        .catch(err => {
+          console.error('Erro ao carregar processos:', err);
+          processoSelect.innerHTML = '<option value="">❌ Erro ao carregar processos</option>';
+          processoSelect.disabled = false;
+          showToast('❌ Erro ao carregar processos do cliente', 'error');
+        });
+      
+      highlightField(clienteSelect, 'selected');
+    });
+    
+    // ────────────────────────────────────────────────────────────────────────────────
+    // 3️⃣ QUANDO PROCESSO É SELECIONADO → AUTO-PREENCHER CAMPOS DA CARGA
+    // ────────────────────────────────────────────────────────────────────────────────
+    
+    processoSelect.addEventListener('change', function() {
+      const processoId = this.value;
+      
+      if (!processoId) {
+        // Limpar campos de carga se nenhum processo selecionado
+        clearCargoFields();
+        document.getElementById('cargo-auto-badge').style.display = 'none';
+        return;
+      }
+      
+      console.log('🔍 Processo selecionado:', processoId);
+      
+      // Mostrar loading
+      showToast('⏳ Carregando dados do processo...', 'info');
+      
+      // Buscar dados completos do processo
+      fetch(`/financeiro/api/dados-processo/?processo_id=${processoId}`)
+        .then(response => {
+          console.log('📡 API resposta status:', response.status);
+          return response.json();
+        })
+        .then(data => {
+          console.log('📡 API resposta completa:', data);
+          
+          if (data.success && data.processo) {
+            const p = data.processo;
+            let camposPreencher = 0;
+            
+            // Log detalhado dos dados recebidos
+            console.log('✅ Dados do processo carregados:');
+            console.log('  - numero_du:', p.numero_du);
+            console.log('  - numero_bl_awb:', p.numero_bl_awb);
+            console.log('  - meio_transporte:', p.meio_transporte);
+            console.log('  - origem:', p.origem);
+            console.log('  - destino:', p.destino);
+            console.log('  - mercadoria_descricao:', p.mercadoria_descricao);
+            console.log('  - peso_bruto_kg:', p.peso_bruto_kg);
+            console.log('  - peso_liquido_kg:', p.peso_liquido_kg);
+            console.log('  - cbm_metros_cubicos:', p.cbm_metros_cubicos);
+            console.log('  - quantidade_volumes:', p.quantidade_volumes);
+            console.log('  - valor_cif:', p.valor_cif);
+            console.log('  - nome_banco:', p.nome_banco);
+            console.log('  - _dados_json (completo):', p._dados_json);
+            
+            // Auto-preencher campos da Seção 3 (Referências da Carga)
+            if (setFieldValue('id_numero_bl_awb', p.numero_bl_awb)) {
+              console.log('✅ Campo id_numero_bl_awb preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_meio_transporte', p.meio_transporte)) {
+              console.log('✅ Campo id_meio_transporte preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_origem', p.origem)) {
+              console.log('✅ Campo id_origem preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_destino', p.destino)) {
+              console.log('✅ Campo id_destino preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_mercadoria_descricao', p.mercadoria_descricao)) {
+              console.log('✅ Campo id_mercadoria_descricao preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_peso_bruto_kg', p.peso_bruto_kg)) {
+              console.log('✅ Campo id_peso_bruto_kg preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_peso_liquido_kg', p.peso_liquido_kg)) {
+              console.log('✅ Campo id_peso_liquido_kg preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_cbm_metros_cubicos', p.cbm_metros_cubicos)) {
+              console.log('✅ Campo id_cbm_metros_cubicos preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_quantidade_volumes', p.quantidade_volumes)) {
+              console.log('✅ Campo id_quantidade_volumes preenchido');
+              camposPreencher++;
+            }
+            if (setFieldValue('id_valor_cif', p.valor_cif)) {
+              console.log('✅ Campo id_valor_cif preenchido');
+              camposPreencher++;
+            }
+            
+            // Auto-preencher campos da Seção 6 (Dados Bancários) se disponível
+            if (setFieldValue('id_banco', p.nome_banco)) {
+              console.log('✅ Campo id_banco preenchido');
+              camposPreencher++;
+            }
+            
+            // Mostrar feedback visual
+            if (camposPreencher > 0) {
+              showToast(`✅ ${camposPreencher} campo(s) preenchido(s) automaticamente!`, 'success');
+              // Mostrar badge
+              document.getElementById('cargo-auto-badge').style.display = 'inline-flex';
+              highlightField(processoSelect, 'filled');
+              console.log(`📊 Total de campos preenchidos: ${camposPreencher}`);
+            } else {
+              showToast('ℹ️ Processo carregado, mas sem dados para preencher', 'info');
+              console.warn('⚠️ Nenhum campo foi preenchido - verifique dados_json');
+            }
+          } else {
+            showToast(`❌ ${data.error || 'Erro ao carregar processo'}`, 'error');
+            console.error('❌ Erro da API:', data);
+          }
+        })
+        .catch(err => {
+          console.error('❌ Erro ao carregar dados do processo:', err);
+          showToast('❌ Erro ao carregar dados do processo', 'error');
+        });
+    });
+  }
+  
+  // ════════════════════════════════════════════════════════════════════════════════
+  // FUNÇÕES AUXILIARES
+  // ════════════════════════════════════════════════════════════════════════════════
+  
+  /**
+   * Define o valor de um campo se estiver vazio
+   * @returns {boolean} true se o campo foi preenchido
+   */
+  function setFieldValue(fieldId, value) {
+    const field = document.getElementById(fieldId);
+    if (!field) return false;
+    
+    // Se o campo já tem valor, não sobrescreve
+    if (field.value && field.value.trim()) return false;
+    
+    // Se o novo valor está vazio/null/undefined, não preenche
+    // Mas aceita "0" como valor válido
+    if (value === null || value === undefined) return false;
+    
+    // Converter para string e verificar se está vazio
+    const valueStr = String(value).trim();
+    if (!valueStr || valueStr === 'None' || valueStr === 'null') return false;
+    
+    field.value = valueStr;
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    highlightField(field, 'filled');
+    return true;
+  }
+  
+  /**
+   * Limpar campos de carga
+   */
+  function clearCargoFields() {
+    const campos = [
+      'id_numero_bl_awb', 'id_meio_transporte', 'id_origem', 'id_destino',
+      'id_mercadoria_descricao', 'id_peso_bruto_kg', 'id_peso_liquido_kg',
+      'id_cbm_metros_cubicos', 'id_quantidade_volumes', 'id_valor_cif',
+      'id_banco'
+    ];
+    
+    campos.forEach(fieldId => {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.value = '';
+        field.style.backgroundColor = '';
+      }
+    });
+  }
+  
+  /**
+   * Realçar um campo quando é preenchido automaticamente
+   */
+  function highlightField(field, type = 'filled') {
+    if (!field) return;
+    
+    // Remover destaques anteriores
+    field.style.transition = 'background-color 0.3s ease, box-shadow 0.3s ease';
+    
+    if (type === 'filled') {
+      // Destacar em verde quando preenchido
+      field.style.backgroundColor = 'rgba(34, 197, 94, 0.08)';
+      field.style.borderColor = '#22c55e';
+      
+      // Remover destaque após 2 segundos
+      setTimeout(() => {
+        field.style.backgroundColor = '';
+        field.style.borderColor = '';
+      }, 2000);
+    } else if (type === 'selected') {
+      // Destacar em azul quando selecionado
+      field.style.backgroundColor = 'rgba(59, 130, 246, 0.08)';
+      field.style.borderColor = '#3b82f6';
+      
+      setTimeout(() => {
+        field.style.backgroundColor = '';
+        field.style.borderColor = '';
+      }, 2000);
+    }
+  }
+  
+  /**
+   * Mostrar notificação toast com ícone
+   */
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    
+    let bgColor, borderColor;
+    if (type === 'success') {
+      bgColor = 'bg-green-50 dark:bg-green-900/30';
+      borderColor = 'border-green-200 dark:border-green-700';
+    } else if (type === 'error') {
+      bgColor = 'bg-red-50 dark:bg-red-900/30';
+      borderColor = 'border-red-200 dark:border-red-700';
+    } else {
+      bgColor = 'bg-blue-50 dark:bg-blue-900/30';
+      borderColor = 'border-blue-200 dark:border-blue-700';
+    }
+    
+    toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg border ${bgColor} ${borderColor} shadow-lg z-50 max-w-sm`;
+    toast.innerHTML = `<p class="text-sm font-medium">${message}</p>`;
+    
+    document.body.appendChild(toast);
+    
+    // Remover após 4 segundos
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ object.numero_recibo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto w-full">
+
+  <!-- Breadcrumb + Cabeçalho -->
+  <div class="mb-8">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
+      <a href="{% url 'financeiro:recibo_lista' %}" class="hover:text-primary transition-colors">Recibos</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-900 dark:text-white font-medium">{{ object.numero_recibo }}</span>
+    </div>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ object.numero_recibo }}</h1>
+          <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+            PAGO
+          </span>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Emitido em {{ object.data_pagamento|date:"d/m/Y" }} • {{ object.cliente.nome }}</p>
+      </div>
+
+      <!-- Ações -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <a href="{% url 'financeiro:recibo_pdf' object.id %}" 
+          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+          <i class="fas fa-download"></i>PDF
+        </a>
+        <a href="{% url 'financeiro:recibo_enviar_email' object.id %}" 
+          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+          <i class="fas fa-envelope"></i>Email
+        </a>
+        <button onclick="window.print()" 
+          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+          <i class="fas fa-print"></i>Imprimir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Documento Profissional -->
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+    
+    <!-- Cabeçalho Empresa -->
+    <div class="p-8 border-b-4 border-green-500 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-gray-800">
+      <div class="grid grid-cols-3 gap-8 items-start mb-6">
+        <!-- Logo/Empresa -->
+        <div>
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">{{ object.banca.nome }}</h2>
+          <p class="text-sm text-gray-600 dark:text-gray-400">{{ object.banca.nif }}</p>
+          {% if object.filial %}
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">Filial: {{ object.filial.nome }}</p>
+          {% endif %}
+        </div>
+        
+        <!-- Tipo de Documento -->
+        <div class="text-center">
+          <div class="inline-block px-4 py-2 bg-green-100 dark:bg-green-900/30 rounded-lg border-2 border-green-500">
+            <p class="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider">Recibo de Pagamento</p>
+            <p class="text-2xl font-bold text-green-700 dark:text-green-400 mt-1">{{ object.numero_recibo }}</p>
+          </div>
+        </div>
+        
+        <!-- Data -->
+        <div class="text-right">
+          <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Data do Pagamento</p>
+          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ object.data_pagamento|date:"d/m/Y" }}</p>
+        </div>
+      </div>
+
+      <!-- Linha divisória -->
+      <div class="border-t-2 border-gray-300 dark:border-gray-600 pt-6">
+        <div class="grid grid-cols-2 gap-8">
+          <div>
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Telefone</p>
+            <p class="text-sm text-gray-900 dark:text-white">{{ object.banca.telefone|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Email</p>
+            <p class="text-sm text-gray-900 dark:text-white">{{ object.banca.email|default:"—" }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <div class="p-8 space-y-8">
+
+      <!-- Cliente -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <i class="fas fa-user-circle text-green-600 text-xl"></i>
+          <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cliente / Pagador</h3>
+        </div>
+        <div class="grid grid-cols-3 gap-6 bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+          <div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase">Nome</p>
+            <p class="font-semibold text-gray-900 dark:text-white">{{ object.cliente.nome }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase">NIF</p>
+            <p class="font-mono text-gray-900 dark:text-white">{{ object.cliente.nif }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase">Localização</p>
+            <p class="text-gray-900 dark:text-white">{{ object.cliente.localizacao|default:"—" }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalhes do Pagamento -->
+      <div class="border-t-2 border-gray-300 dark:border-gray-600 pt-6">
+        <div class="grid grid-cols-2 gap-8">
+          <!-- Factura Relacionada -->
+          <div>
+            <div class="flex items-center gap-2 mb-4">
+              <i class="fas fa-receipt text-green-600 text-lg"></i>
+              <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">Factura Relacionada</h4>
+            </div>
+            <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700">
+              <p class="text-xs text-green-600 dark:text-green-400 mb-1 uppercase font-semibold">Número</p>
+              <p class="text-lg font-bold text-green-700 dark:text-green-300">{{ object.factura.numero_factura }}</p>
+              <p class="text-xs text-green-600 dark:text-green-400 mt-2">{{ object.factura.data_emissao|date:"d/m/Y" }}</p>
+            </div>
+          </div>
+
+          <!-- Forma de Pagamento -->
+          <div>
+            <div class="flex items-center gap-2 mb-4">
+              <i class="fas fa-money-bill text-green-600 text-lg"></i>
+              <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">Forma de Pagamento</h4>
+            </div>
+            <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+              <p class="text-gray-900 dark:text-white font-semibold">{{ object.forma_pagamento }}</p>
+              {% if object.referencia_bancaria %}
+              <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">Ref. Bancária: {{ object.referencia_bancaria }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Valor -->
+      <div class="border-t-2 border-gray-300 dark:border-gray-600 pt-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-coins text-green-600 text-xl"></i>
+            <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">Valor Recebido</h4>
+          </div>
+        </div>
+        <div class="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-xl border-2 border-green-300 dark:border-green-700">
+          <p class="text-xs text-green-600 dark:text-green-400 mb-2 uppercase font-semibold">Valor</p>
+          <p class="text-4xl font-bold text-green-700 dark:text-green-300">{{ object.valor_recebido|floatformat:2 }} <span class="text-lg">KZ</span></p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Rodapé -->
+    <div class="bg-gray-50 dark:bg-gray-900/50 p-8 border-t border-gray-200 dark:border-gray-700">
+      <div class="grid grid-cols-2 gap-6 mb-8">
+        <!-- Emitido Por -->
+        <div>
+          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Emitido por</p>
+          <p class="text-sm text-gray-900 dark:text-white">{{ object.utilizador_responsavel_nome|default:"—" }}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">{{ object.data_pagamento|date:"d/m/Y" }}</p>
+        </div>
+
+        <!-- Estado -->
+        <div>
+          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Estado</p>
+          <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+            PAGO
+          </span>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-300 dark:border-gray-600 pt-4 text-center">
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+          <i class="fas fa-lock text-xs mr-1"></i>
+          Documento gerado automaticamente pelo sistema SICDOA
+        </p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Botões de Ação Adicionais -->
+  <div class="mt-6 flex gap-3 justify-center">
+    <a href="{% url 'financeiro:recibo_lista' %}" 
+      class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+      <i class="fas fa-arrow-left mr-2"></i>Voltar
+    </a>
+  </div>
+
+</div>
+
+<style media="print">
+  body { background: white; }
+  .no-print { display: none; }
+  .dark { background: white; color: black; }
+  .dark * { background: white; color: black; border-color: #e5e7eb; }
+</style>
+
+{% endblock %}

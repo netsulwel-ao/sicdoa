@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Requisições de Fundos{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto w-full">
+  
+  <!-- Cabeçalho -->
+  <div class="mb-6">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Requisições de Fundos</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Gerir estimativas de custos e faturas proforma</p>
+      </div>
+      <a href="{% url 'financeiro:requisicao_criar' %}" 
+        class="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-sm">
+        <i class="fas fa-plus"></i>
+        Nova Requisição
+      </a>
+    </div>
+  </div>
+
+  <!-- Tabela -->
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    
+    <!-- Barra de Busca -->
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+      <form method="get" class="flex gap-3">
+        <div class="flex-1 relative">
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input type="text" name="q" value="{{ request.GET.q }}" 
+            placeholder="Buscar por número, cliente..." 
+            class="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+        </div>
+        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+          Buscar
+        </button>
+      </form>
+    </div>
+
+    <!-- Tabela de Dados -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+          <tr>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Número</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Cliente</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Data</th>
+            <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total</th>
+            <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Estado</th>
+            <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+          {% for requisicao in requisicoes %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <td class="px-6 py-4 font-mono font-bold text-primary">{{ requisicao.numero_requisicao }}</td>
+            <td class="px-6 py-4 text-gray-900 dark:text-white font-medium">{{ requisicao.cliente.nome }}</td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ requisicao.data_emissao|date:"d/m/Y" }}</td>
+            <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ requisicao.total_geral|floatformat:2 }} KZ</td>
+            <td class="px-6 py-4 text-center">
+              {% if requisicao.estado == 'Pendente' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendente</span>
+              {% elif requisicao.estado == 'Aceite' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">Aceite</span>
+              {% elif requisicao.estado == 'Rejeitada' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Rejeitada</span>
+              {% else %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">Anulada</span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <a href="{% url 'financeiro:requisicao_detalhe' requisicao.pk %}" 
+                  class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Ver">
+                  <i class="fas fa-eye"></i>
+                </a>
+                <a href="{% url 'financeiro:requisicao_editar' requisicao.pk %}"
+                  class="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors" title="Editar">
+                  <i class="fas fa-edit"></i>
+                </a>
+                <form method="post" action="{% url 'financeiro:requisicao_eliminar' requisicao.pk %}" class="inline" id="del-req-{{ requisicao.pk }}">
+                  {% csrf_token %}
+                  <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Eliminar Requisição', mensagem:'Eliminar permanentemente {{ requisicao.numero_requisicao|escapejs }}?', textoBotao:'Sim, Eliminar', textoCancelar:'Voltar' })" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border-0 bg-transparent cursor-pointer" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center">
+              <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
+              <p class="text-gray-500 dark:text-gray-400 mb-4">Nenhuma requisição encontrada</p>
+              <a href="{% url 'financeiro:requisicao_criar' %}" class="text-primary hover:text-primary/80 font-medium text-sm">Criar primeira requisição →</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between">
+      <p class="text-sm text-gray-600 dark:text-gray-400">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</p>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?page=1" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><i class="fas fa-chevron-left"></i></a>
+          <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Anterior</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Próxima</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><i class="fas fa-chevron-right"></i></a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

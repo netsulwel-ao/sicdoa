@@ -24,6 +24,9 @@ def sessao_expirada(request):
         try:
             from datetime import datetime
             login_time = datetime.fromisoformat(login_time)
+            # Se for naive, fazer aware com UTC
+            if login_time.tzinfo is None:
+                login_time = timezone.make_aware(login_time, timezone.utc)
         except (ValueError, TypeError):
             return True
     
@@ -71,6 +74,9 @@ def tempo_restante_sessao(request):
         login_time_str = request.session['login_time']
         if isinstance(login_time_str, str):
             login_time = datetime.fromisoformat(login_time_str)
+            # Se for naive, fazer aware com UTC
+            if login_time.tzinfo is None:
+                login_time = timezone.make_aware(login_time, timezone.utc)
         else:
             login_time = login_time_str
         

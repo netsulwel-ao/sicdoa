@@ -11,17 +11,23 @@ urlpatterns = [
     path('requisicoes/', views.RequisicaoFundoListView.as_view(), name='requisicao_lista'),
     path('requisicoes/criar/', views.RequisicaoFundoCreateView.as_view(), name='requisicao_criar'),
     path('requisicoes/<int:pk>/', views.RequisicaoFundoDetailView.as_view(), name='requisicao_detalhe'),
-    path('requisicoes/<int:pk>/aprovar/', views.aprovar_requisicao, name='requisicao_aprovar'),
-    path('requisicoes/<int:pk>/rejeitar/', views.rejeitar_requisicao, name='requisicao_rejeitar'),
+    path('requisicoes/<int:pk>/editar/', views.RequisicaoFundoUpdateView.as_view(), name='requisicao_editar'),
     path('requisicoes/<int:pk>/cancelar/', views.cancelar_requisicao, name='requisicao_cancelar'),
     path('requisicoes/<int:pk>/eliminar/', views.eliminar_requisicao, name='requisicao_eliminar'),
-    path('requisicoes/<int:pk>/editar/', views.editar_requisicao, name='requisicao_editar'),
-
-    # Fluxos de Aprovação
-    path('fluxos-aprovacao/', views.fluxo_aprovacao_lista, name='fluxo_aprovacao_lista'),
-    path('fluxos-aprovacao/criar/', views.fluxo_aprovacao_criar, name='fluxo_aprovacao_criar'),
-    path('fluxos-aprovacao/<int:pk>/editar/', views.fluxo_aprovacao_editar, name='fluxo_aprovacao_editar'),
-    path('fluxos-aprovacao/<int:pk>/eliminar/', views.fluxo_aprovacao_eliminar, name='fluxo_aprovacao_eliminar'),
+    path('requisicoes/<int:pk>/aceitar/', views.aceitar_requisicao, name='requisicao_aceitar'),
+    path('requisicoes/<int:pk>/rejeitar/', views.rejeitar_requisicao, name='requisicao_rejeitar'),
+    path('requisicoes/<int:pk>/pdf/', views.requisicao_pdf, name='requisicao_pdf'),
+    path('requisicoes/<int:pk>/enviar-email/', views.requisicao_enviar_email, name='requisicao_enviar_email'),
+    path('requisicoes/<int:pk>/criar-factura/', views.criar_factura_de_requisicao, name='requisicao_criar_factura'),
+    path('requisicoes/<int:pk>/linha/adicionar/', views.adicionar_linha_requisicao, name='requisicao_linha_adicionar'),
+    path('requisicoes/<int:pk>/linha/<int:linha_id>/editar/', views.editar_linha_requisicao, name='requisicao_linha_editar'),
+    path('requisicoes/<int:pk>/linha/<int:linha_id>/eliminar/', views.eliminar_linha_requisicao, name='requisicao_linha_eliminar'),
+    
+    # APIs para Auto-preenchimento
+    path('api/usuario-banca/', views.api_dados_usuario_banca, name='api_dados_usuario_banca'),
+    path('api/dados-cliente/', views.api_dados_cliente, name='api_dados_cliente'),
+    path('api/processos-cliente/', views.api_processos_cliente, name='api_processos_cliente'),
+    path('api/dados-processo/', views.api_dados_processo, name='api_dados_processo'),
 
     # Facturas Finais
     path('facturas/', views.FacturaClienteListView.as_view(), name='factura_lista'),
@@ -30,6 +36,7 @@ urlpatterns = [
     path('facturas/<int:pk>/pdf/', views.factura_pdf, name='factura_pdf'),
     path('facturas/<int:pk>/editar/', views.FacturaClienteUpdateView.as_view(), name='factura_editar'),
     path('facturas/<int:pk>/cancelar/', views.cancelar_factura, name='factura_cancelar'),
+    path('facturas/<int:pk>/eliminar/', views.eliminar_factura, name='factura_eliminar'),
     path('facturas/<int:pk>/enviar-email/', views.factura_enviar_email, name='factura_enviar_email'),
     path('facturas/du-custos/<int:pk>/', views.du_custos_json, name='factura_du_custos'),
 

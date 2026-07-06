@@ -1,110 +1,54 @@
-from django.contrib import admin, messages
-from .models import RequisicaoFundo, FluxoAprovacao, NivelAprovacao, AprovacaoRequisicao
+from django.contrib import admin
+from .models import (
+    FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo,
+    RequisicaoFundo, RequisicaoFundoLinha
+)
 
 
-ADMIN = ('Administrador',)
-
-
-def _pode_aprovar(request):
-    papel = getattr(request.user, 'papel', '')
-    return papel in ADMIN
-
-
-@admin.action(description='Aprovar requisições seleccionadas')
-def aprovar_requicoes(modeladmin, request, queryset):
-    if not _pode_aprovar(request):
-        messages.error(request, 'Apenas Administrador pode aprovar.')
-        return
-    objs = list(queryset.filter(estado__in=('Pendente', 'Em Aprovação')))
-    for obj in objs:
-        obj.estado = 'Aprovada'
-        obj.responsavel_aprovacao_id_usuario = request.user.id
-        obj.responsavel_aprovacao_nome = request.user.nome
-    RequisicaoFundo.objects.bulk_update(
-        objs, fields=['estado', 'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome']
-    )
-    messages.success(request, f'{len(objs)} requisição(ões) aprovada(s).')
-
-
-@admin.action(description='Rejeitar requisições seleccionadas')
-def rejeitar_requicoes(modeladmin, request, queryset):
-    if not _pode_aprovar(request):
-        messages.error(request, 'Apenas Administrador pode rejeitar.')
-        return
-    objs = list(queryset.filter(estado__in=('Pendente', 'Em Aprovação')))
-    for obj in objs:
-        obj.estado = 'Rejeitada'
-        obj.responsavel_aprovacao_id_usuario = request.user.id
-        obj.responsavel_aprovacao_nome = request.user.nome
-    RequisicaoFundo.objects.bulk_update(
-        objs, fields=['estado', 'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome']
-    )
-    messages.success(request, f'{len(objs)} requisição(ões) rejeitada(s).')
-
-
-@admin.action(description='Cancelar requisições seleccionadas')
-def cancelar_requicoes(modeladmin, request, queryset):
-    if not _pode_aprovar(request):
-        messages.error(request, 'Apenas Administrador pode cancelar.')
-        return
-    objs = list(queryset.filter(estado__in=('Pendente', 'Em Aprovação')))
-    for obj in objs:
-        obj.estado = 'Cancelada'
-    RequisicaoFundo.objects.bulk_update(objs, fields=['estado'])
-    messages.success(request, f'{len(objs)} requisição(ões) cancelada(s).')
+class RequisicaoFundoLinhaInline(admin.TabularInline):
+    model = RequisicaoFundoLinha
+    extra = 0
+    fields = ('tipo_custo', 'descricao', 'documentada', 'despesa_tipo', 'valor', 'ordem')
 
 
 @admin.register(RequisicaoFundo)
 class RequisicaoFundoAdmin(admin.ModelAdmin):
-    list_display = ('numero_requisicao', 'cliente', 'valor_solicitado', 'estado', 'solicitante_nome', 'data')
-    list_filter = ('estado', 'data')
-    search_fields = ('numero_requisicao', 'cliente__nome', 'solicitante_nome')
-    ordering = ('-data',)
-    actions = [aprovar_requicoes, rejeitar_requicoes, cancelar_requicoes]
+    list_display = ('numero_requisicao', 'cliente', 'total_geral', 'estado', 'criado_por_nome', 'data_emissao')
+    list_filter = ('estado', 'data_emissao', 'data_validade')
+    search_fields = ('numero_requisicao', 'cliente__nome', 'criado_por_nome')
+    readonly_fields = ('numero_requisicao', 'data_emissao', 'subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral')
+    ordering = ('-data_emissao',)
+    inlines = [RequisicaoFundoLinhaInline]
     fieldsets = (
-        (None, {'fields': ('numero_requisicao', 'cliente', 'processo_aduaneiro', 'estado')}),
-        ('Valores', {'fields': ('valor_solicitado',)}),
-        ('Detalhes', {'fields': ('justificacao', 'documento_justificativo')}),
-        ('Responsáveis', {'fields': ('solicitante_id', 'solicitante_nome',
-                                      'responsavel_aprovacao_id_usuario', 'responsavel_aprovacao_nome')}),
+        ('Documento', {'fields': ('numero_requisicao', 'data_emissao', 'data_validade', 'moeda_referencia', 'cambio_referencia')}),
+        ('Cliente', {'fields': ('cliente', 'pessoa_contacto', 'processo_aduaneiro')}),
+        ('Totalizações', {'fields': ('subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral', 'valor_pago')}),
+        ('Status', {'fields': ('estado',)}),
+        ('Metadados', {'fields': ('criado_por_id', 'criado_por_nome', 'observacoes')}),
     )
 
-    def has_add_permission(self, request):
-        return False
 
-    def has_delete_permission(self, request, obj=None):
-        if not request or not hasattr(request, 'user'):
-            return False
-        papel = getattr(request.user, 'papel', '')
-        return papel == 'Administrador'
-
-    def get_readonly_fields(self, request, obj=None):
-        if obj:
-            return [f.name for f in self.model._meta.fields]
-        return self.readonly_fields or []
-
-    def get_actions(self, request):
-        actions = super().get_actions(request)
-        if not _pode_aprovar(request):
-            return {}
-        return actions
+@admin.register(RequisicaoFundoLinha)
+class RequisicaoFundoLinhaAdmin(admin.ModelAdmin):
+    list_display = ('requisicao', 'tipo_custo', 'descricao', 'valor', 'documentada')
+    list_filter = ('tipo_custo', 'documentada')
+    search_fields = ('requisicao__numero_requisicao', 'descricao')
+    ordering = ('requisicao', 'ordem')
 
 
-@admin.register(FluxoAprovacao)
-class FluxoAprovacaoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'ativo', 'criado_em', 'criado_por')
-    list_filter = ('ativo',)
-    search_fields = ('nome',)
+@admin.register(FacturaCliente)
+class FacturaClienteAdmin(admin.ModelAdmin):
+    list_display = ('numero_factura', 'cliente', 'valor_total', 'estado', 'criado_por_nome', 'data_emissao')
+    list_filter = ('estado', 'data_emissao', 'data_vencimento')
+    search_fields = ('numero_factura', 'cliente__nome', 'criado_por_nome')
+    readonly_fields = ('numero_factura', 'data_emissao', 'valor_total')
+    ordering = ('-data_emissao',)
+    fieldsets = (
+        ('Documento', {'fields': ('numero_factura', 'data_emissao', 'data_vencimento', 'descricao')}),
+        ('Cliente', {'fields': ('cliente', 'processo_aduaneiro')}),
+        ('Detalhes de Custos', {'fields': ('honorarios_despachante', 'taxas_aduaneiras', 'emolumentos', 'despesas_operacionais', 'iva', 'outros_encargos')}),
+        ('Totalizações', {'fields': ('valor_total', 'valor_pago')}),
+        ('Status', {'fields': ('estado',)}),
+        ('Metadados', {'fields': ('criado_por_id', 'criado_por_nome')}),
+    )
 
-
-@admin.register(NivelAprovacao)
-class NivelAprovacaoAdmin(admin.ModelAdmin):
-    list_display = ('fluxo', 'ordem', 'nome', 'funcao', 'qtde_aprovadores')
-    list_filter = ('fluxo',)
-    ordering = ('fluxo', 'ordem')
-
-
-@admin.register(AprovacaoRequisicao)
-class AprovacaoRequisicaoAdmin(admin.ModelAdmin):
-    list_display = ('requisicao', 'nivel', 'aprovador', 'estado', 'created_at')
-    list_filter = ('estado',)

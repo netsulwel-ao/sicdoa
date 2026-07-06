@@ -1,192 +1,343 @@
 from datetime import date as date_type
 from decimal import Decimal
+import json
 
 from django.db import models, transaction
 from django.db.models import F
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
 
 
-class FluxoAprovacao(models.Model):
-    nome = models.CharField(max_length=100, verbose_name='Nome do Fluxo', db_index=True)
-    descricao = models.TextField(blank=True, default='', verbose_name='Descrição')
-    banca = models.ForeignKey('rh.Banca', null=True, blank=True, on_delete=models.CASCADE,
-                               related_name='fluxos_aprovacao', verbose_name='Banca')
-    criado_por = models.ForeignKey(
-        'users.Usuario', on_delete=models.SET_NULL,
-        null=True, blank=True, verbose_name='Criado por'
-    )
-    criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
-    ativo = models.BooleanField(default=True, verbose_name='Activo', db_index=True)
-
-    class Meta:
-        db_table = 'financeiro_fluxo_aprovacao'
-        verbose_name = 'Fluxo de Aprovação'
-        verbose_name_plural = 'Fluxos de Aprovação'
-        ordering = ['nome']
-
-    def __str__(self):
-        return self.nome
-
-
-class NivelAprovacao(models.Model):
-    fluxo = models.ForeignKey(
-        FluxoAprovacao, on_delete=models.CASCADE,
-        related_name='niveis', verbose_name='Fluxo'
-    )
-    banca = models.ForeignKey('rh.Banca', null=True, blank=True, on_delete=models.CASCADE,
-                               related_name='niveis_aprovacao', verbose_name='Banca')
-    ordem = models.PositiveSmallIntegerField(verbose_name='Ordem', db_index=True)
-    nome = models.CharField(max_length=100, verbose_name='Nome do Nível', db_index=True)
-    qtde_aprovadores = models.PositiveSmallIntegerField(
-        default=1, verbose_name='Quantidade de Aprovadores Necessários'
-    )
-    funcao = models.ForeignKey(
-        'users.Funcao', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='niveis_aprovacao', verbose_name='Função Aprovadora'
-    )
-
-    class Meta:
-        db_table = 'financeiro_nivel_aprovacao'
-        verbose_name = 'Nível de Aprovação'
-        verbose_name_plural = 'Níveis de Aprovação'
-        ordering = ['fluxo', 'ordem']
-        unique_together = [['fluxo', 'ordem'], ['fluxo', 'funcao']]
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-        if self.funcao_id is None:
-            dupes = NivelAprovacao.objects.filter(
-                fluxo=self.fluxo, funcao__isnull=True
-            )
-        else:
-            dupes = NivelAprovacao.objects.filter(
-                fluxo=self.fluxo, funcao=self.funcao
-            )
-        if self.pk:
-            dupes = dupes.exclude(pk=self.pk)
-        if dupes.exists():
-            raise ValidationError('Já existe um nível com esta configuração.')
-
-    def save(self, *args, **kwargs):
-        if not kwargs.get('update_fields'):
-            self.full_clean()
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f'{self.fluxo.nome} — Nível {self.ordem}: {self.nome}'
-
-
-class AprovacaoRequisicao(models.Model):
-    ESTADOS = [
-        ('Pendente', 'Pendente'),
-        ('Aprovada', 'Aprovada'),
-        ('Rejeitada', 'Rejeitada'),
-    ]
-
-    requisicao = models.ForeignKey(
-        'RequisicaoFundo', on_delete=models.CASCADE,
-        related_name='aprovacoes', verbose_name='Requisição'
-    )
-    nivel = models.ForeignKey(
-        NivelAprovacao, on_delete=models.CASCADE,
-        related_name='aprovacoes', verbose_name='Nível'
-    )
-    aprovador = models.ForeignKey(
-        'users.Usuario', on_delete=models.CASCADE,
-        related_name='votos_aprovacao', verbose_name='Aprovador'
-    )
-    estado = models.CharField(
-        max_length=20, choices=ESTADOS, default='Pendente',
-        db_index=True, verbose_name='Estado'
-    )
-    observacao = models.TextField(blank=True, default='', verbose_name='Observação')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Criado em', db_index=True)
-    respondida_em = models.DateTimeField(null=True, blank=True, verbose_name='Respondida em')
-
-    class Meta:
-        db_table = 'financeiro_aprovacao_requisicao'
-        verbose_name = 'Aprovação de Requisição'
-        verbose_name_plural = 'Aprovações de Requisições'
-        ordering = ['nivel__ordem', 'created_at']
-        unique_together = ['requisicao', 'nivel', 'aprovador']
-
-    def __str__(self):
-        return f'{self.requisicao.numero_requisicao} — {self.aprovador.nome} — {self.estado}'
-
-
 class RequisicaoFundo(models.Model):
-    """Modelo para Requisição de Fundos para processos aduaneiros"""
+    """Modelo para Requisição de Fundos - Fatura Proforma"""
     
     ESTADOS = [
         ('Pendente', 'Pendente'),
-        ('Em Aprovação', 'Em Aprovação'),
-        ('Aprovada', 'Aprovada'),
+        ('Aceite', 'Aceite'),
         ('Rejeitada', 'Rejeitada'),
-        ('Cancelada', 'Cancelada'),
+        ('Anulada', 'Anulada'),
     ]
-
-    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE, related_name='requisicoes_fundo',
-                               null=True, blank=True)
+    
+    # Cabeçalho - Documento
+    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE, related_name='requisicoes_fundos',
+                               null=True, blank=True, verbose_name='Banca')
     filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
-                                null=True, blank=True, related_name='requisicoes_fundo')
-    numero_requisicao = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Requisição')
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='requisicoes_fundos', verbose_name='Cliente')
-    processo_aduaneiro = models.ForeignKey(DeclaracaoUnica, on_delete=models.CASCADE, related_name='requisicoes_fundos', verbose_name='Processo Aduaneiro')
-    valor_solicitado = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Solicitado')
-    justificacao = models.TextField(verbose_name='Justificação')
-    data = models.DateTimeField(auto_now_add=True, verbose_name='Data', db_index=True)
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', db_index=True, verbose_name='Estado')
-    solicitante_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Solicitante', db_index=True)
-    solicitante_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Solicitante')
-    responsavel_aprovacao_id_usuario = models.IntegerField(null=True, blank=True, verbose_name='ID do Aprovador')
-    responsavel_aprovacao_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Aprovador')
-    documento_justificativo = models.FileField(upload_to='requisicoes_fundos/', null=True, blank=True, verbose_name='Documento Justificativo')
-    motivo_rejeicao = models.TextField(blank=True, default='', verbose_name='Motivo da Rejeição')
-    fluxo_aprovacao = models.ForeignKey(
-        FluxoAprovacao, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='requisicoes',
-        verbose_name='Fluxo de Aprovação'
-    )
-    nivel_atual = models.PositiveSmallIntegerField(default=0, verbose_name='Nível Actual', db_index=True)
-
+                                null=True, blank=True, related_name='requisicoes_fundos',
+                                verbose_name='Filial')
+    numero_requisicao = models.CharField(max_length=50, unique=True, blank=True,
+                                        verbose_name='Número da Requisição', db_index=True)
+    data_emissao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Emissão', db_index=True)
+    data_validade = models.DateField(verbose_name='Data de Validade', db_index=True)
+    moeda_referencia = models.CharField(max_length=3, default='AOA', verbose_name='Moeda')
+    cambio_referencia = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,
+                                            verbose_name='Câmbio de Referência')
+    
+    # Dados do Cliente
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='requisicoes_fundos',
+                                verbose_name='Cliente')
+    pessoa_contacto = models.CharField(max_length=200, blank=True, verbose_name='Pessoa de Contacto')
+    
+    # Referências do Processo Aduaneiro
+    processo_aduaneiro = models.ForeignKey(DeclaracaoUnica, on_delete=models.CASCADE,
+                                          related_name='requisicoes_fundos',
+                                          verbose_name='Processo Aduaneiro')
+    
+    # Status
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente',
+                             db_index=True, verbose_name='Estado')
+    
+    # Totalizações
+    subtotal_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                        verbose_name='Subtotal Geral')
+    iva_honorarios = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                        verbose_name='IVA (Honorários)')
+    retencao = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                   verbose_name='Retenção')
+    total_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                     verbose_name='Total Geral a Pagar')
+    valor_pago = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                    verbose_name='Valor Pago')
+    
+    # Metadados
+    criado_por_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador', db_index=True)
+    criado_por_nome = models.CharField(max_length=200, blank=True, default='',
+                                      verbose_name='Nome do Criador')
+    observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
+    
+    # Seção 3 - Referências do Processo Aduaneiro (Carga) - Extraídos do DeclaracaoUnica
+    numero_bl_awb = models.CharField(max_length=100, blank=True, verbose_name='Número B/L/AWB/Carta Porte')
+    meio_transporte = models.CharField(max_length=100, blank=True, verbose_name='Meio de Transporte/Navio/Voo')
+    origem = models.CharField(max_length=100, blank=True, verbose_name='Origem (País/Porto/Aeroporto)')
+    destino = models.CharField(max_length=100, blank=True, verbose_name='Destino (País/Porto/Aeroporto)')
+    mercadoria_descricao = models.TextField(blank=True, verbose_name='Descrição Sumária da Mercadoria')
+    peso_bruto_kg = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Peso Bruto (Kg)')
+    peso_liquido_kg = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Peso Líquido (Kg)')
+    cbm_metros_cubicos = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, verbose_name='CBM (Metros cúbicos)')
+    quantidade_volumes = models.CharField(max_length=100, blank=True, verbose_name='Quantidade e Tipo de Volumes')
+    valor_cif = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name='Valor CIF')
+    
+    # Seção 6 - Condições de Pagamento e Dados Bancários
+    banco = models.CharField(max_length=200, blank=True, verbose_name='Nome do Banco')
+    numero_conta = models.CharField(max_length=50, blank=True, verbose_name='Número de Conta')
+    iban = models.CharField(max_length=50, blank=True, verbose_name='IBAN')
+    instrucoes_envio = models.TextField(blank=True, verbose_name='Instruções de Envio')
+    
+    # Seção 7 - Validação e Fecho
+    assinatura_digital = models.TextField(blank=True, verbose_name='Assinatura Digital (Base64)')
+    codigo_qr = models.ImageField(upload_to='requisicoes_fundos/qr/%Y/%m/%d/', null=True, blank=True, verbose_name='Código QR')
+    
     class Meta:
         db_table = 'financeiro_requisicao_fundo'
-        verbose_name = 'Requisição de Fundo'
+        verbose_name = 'Requisição de Fundos'
         verbose_name_plural = 'Requisições de Fundos'
-        ordering = ['-data']
+        ordering = ['-data_emissao']
+        indexes = [
+            models.Index(fields=['estado', '-data_emissao'], name='ix_rf_estado_data'),
+            models.Index(fields=['cliente', 'estado'], name='ix_rf_cliente_estado'),
+        ]
 
     def _gerar_numero_requisicao(self):
-        """Gera número sequencial: REQ-AAAA-NNNN."""
+        """Gera número sequencial: RF-2026/001"""
         ano = timezone.now().year
         ultimo = (
             RequisicaoFundo.objects
-            .filter(numero_requisicao__startswith=f'REQ-{ano}-')
+            .filter(numero_requisicao__startswith=f'RF-{ano}/')
             .order_by('-numero_requisicao')
             .first()
         )
         if ultimo and ultimo.numero_requisicao:
             try:
-                seq = int(ultimo.numero_requisicao.split('-')[-1]) + 1
-            except ValueError:
+                seq = int(ultimo.numero_requisicao.split('/')[-1]) + 1
+            except (ValueError, IndexError):
                 seq = 1
         else:
             seq = 1
-        return f'REQ-{ano}-{seq:04d}'
+        return f'RF-{ano}/{seq:03d}'
 
     def save(self, *args, **kwargs):
         if not self.numero_requisicao:
             self.numero_requisicao = self._gerar_numero_requisicao()
+        
+        # Salvar primeiro para ter ID (necessário para acessar relacionamentos)
         super().save(*args, **kwargs)
+        
+        # Recalcular totais APÓS salvar (agora tem ID)
+        self._recalcular_totais()
+        
+        # Salvar novamente com totais recalculados
+        super().save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
 
-    @property
-    def editavel(self):
-        return self.estado == 'Pendente'
+    def _recalcular_totais(self):
+        """Recalcula todos os totais baseado nos items"""
+        linhas = self.linhas.all()
+        
+        # Subtotal = soma de todos os items
+        self.subtotal_geral = sum(
+            (linha.valor or 0) for linha in linhas
+        )
+        
+        # IVA e Retenção apenas sobre Honorários do Despachante
+        honorarios_linha = linhas.filter(tipo_custo='Honorários do Despachante').first()
+        
+        if honorarios_linha:
+            honorarios_valor = honorarios_linha.valor or Decimal('0')
+            
+            # Aplicar mínimo de 45.000kz para honorários conforme CDOA
+            if honorarios_valor > Decimal('0') and honorarios_valor < Decimal('45000'):
+                honorarios_valor = Decimal('45000')
+            
+            # IVA 14% sobre honorários
+            self.iva_honorarios = (honorarios_valor * Decimal('0.14')).quantize(Decimal('0.01'))
+            # Retenção 6.5% sobre honorários
+            self.retencao = (honorarios_valor * Decimal('0.065')).quantize(Decimal('0.01'))
+        else:
+            self.iva_honorarios = Decimal('0')
+            self.retencao = Decimal('0')
+        
+        # Total = Subtotal + IVA - Retenção
+        self.total_geral = (self.subtotal_geral + self.iva_honorarios - self.retencao).quantize(Decimal('0.01'))
 
     def __str__(self):
-        return f"Req {self.numero_requisicao} - {self.cliente.nome} - {self.valor_solicitado}"
+        return f"RF {self.numero_requisicao} - {self.cliente.nome}"
+    
+    @property
+    def valor_total_extenso(self):
+        """Converte o valor total para extenso em Kwanzas"""
+        def numero_para_extenso(num):
+            if num == 0:
+                return 'zero'
+
+            unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove']
+            dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa']
+            teens = ['dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezasseis', 'dezassete', 'dezoito', 'dezanove']
+            centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos']
+
+            def ate_999(n):
+                """Converte número de 0 a 999 para extenso. Retorna '' para 0."""
+                if n == 0:
+                    return ''
+                elif n < 10:
+                    return unidades[n]
+                elif n < 20:
+                    return teens[n - 10]
+                elif n < 100:
+                    d, u = divmod(n, 10)
+                    if u == 0:
+                        return dezenas[d]
+                    return f"{dezenas[d]} e {unidades[u]}"
+                else:
+                    c, resto = divmod(n, 100)
+                    if c == 1 and resto == 0:
+                        return 'cem'
+                    elif resto == 0:
+                        return centenas[c]
+                    return f"{centenas[c]} e {ate_999(resto)}"
+
+            # Bilhões (até 999 bilhões)
+            if num >= 1_000_000_000:
+                bilhoes, resto = divmod(num, 1_000_000_000)
+                b_txt = 'um bilhão' if bilhoes == 1 else f"{ate_999(bilhoes)} bilhões"
+                if resto == 0:
+                    return b_txt
+                return f"{b_txt} e {numero_para_extenso(resto)}"
+
+            # Milhões
+            if num >= 1_000_000:
+                milhoes, resto = divmod(num, 1_000_000)
+                m_txt = 'um milhão' if milhoes == 1 else f"{ate_999(milhoes)} milhões"
+                if resto == 0:
+                    return m_txt
+                elif resto < 1000:
+                    return f"{m_txt} e {ate_999(resto)}"
+                else:
+                    return f"{m_txt} e {numero_para_extenso(resto)}"
+
+            # Milhares
+            if num >= 1000:
+                milhares, resto = divmod(num, 1000)
+                m_txt = 'mil' if milhares == 1 else f"{ate_999(milhares)} mil"
+                if resto == 0:
+                    return m_txt
+                # Usar "e" quando o resto é < 100 ou é múltiplo de 100, senão vírgula
+                conector = ' e ' if resto < 100 or resto % 100 == 0 else ' e '
+                return f"{m_txt}{conector}{ate_999(resto)}"
+
+            return ate_999(num)
+
+        try:
+            total = int(self.total_geral)
+            if total < 0:
+                return f"menos {numero_para_extenso(-total).capitalize()} kwanzas"
+            extenso = numero_para_extenso(total)
+            # Incluir os cêntimos se existirem
+            centavos = round((self.total_geral - int(self.total_geral)) * 100)
+            if centavos > 0:
+                centavos_txt = numero_para_extenso(int(centavos))
+                return f"{extenso.capitalize()} kwanzas e {centavos_txt} cêntimos"
+            return f"{extenso.capitalize()} kwanzas"
+        except Exception:
+            return f"{self.total_geral} kwanzas"
+
+
+class RequisicaoFundoLinha(models.Model):
+    """Linhas de custos da Requisição de Fundos"""
+    
+    TIPOS_CUSTO = [
+        ('Impostos e Taxas Aduaneiras (AGT)', 'Impostos e Taxas Aduaneiras (AGT)'),
+        ('Despesas Portuárias e Terminais', 'Despesas Portuárias e Terminais'),
+        ('Logística e Transporte', 'Logística e Transporte'),
+        ('Honorários do Despachante', 'Honorários do Despachante'),
+    ]
+    
+    DESPESAS_DOCUMENTADAS = [
+        ('Direitos e importações', 'Direitos e importações'),
+        ('Emolumentos Gerais AD', 'Emolumentos Gerais AD'),
+        ('IEC na Importação', 'IEC na Importação'),
+        ('IVA na Importação', 'IVA na Importação'),
+        ('Multas', 'Multas'),
+        ('Emissão DAR', 'Emissão DAR'),
+        ('Validação Carta porte', 'Validação Carta porte'),
+        ('Validação B/L', 'Validação B/L'),
+        ('Emissão/Correção – AWB', 'Emissão/Correção – AWB'),
+        ('Emissão Pertence', 'Emissão Pertence'),
+        ('ENANA', 'ENANA'),
+        ('EP 13', 'EP 13'),
+        ('EP 14', 'EP 14'),
+        ('EP 15', 'EP 15'),
+        ('Adicional EP 17', 'Adicional EP 17'),
+        ('Emissão de Certificados', 'Emissão de Certificados'),
+        ('Transport', 'Transport'),
+        ('Transporte Inter-provincial', 'Transporte Inter-provincial'),
+        ('Caução do Contentor', 'Caução do Contentor'),
+        ('Sobrestadia de Serviço', 'Sobrestadia de Serviço'),
+        ('Pagamento do PIP', 'Pagamento do PIP'),
+        ('EP 17 – FAYOL', 'EP 17 – FAYOL'),
+        ('Validação do Delivery', 'Validação do Delivery'),
+        ('Taxa Administrativa', 'Taxa Administrativa'),
+        ('Inspeção Sanitária', 'Inspeção Sanitária'),
+        ('JUP', 'JUP'),
+        ('Factura de Exportação', 'Factura de Exportação'),
+        ('Multas e Desdobramento', 'Multas e Desdobramento'),
+        ('Outras despesas', 'Outras despesas'),
+    ]
+    
+    DESPESAS_NAODOCUMENTADAS = [
+        ('Honorários', 'Honorários'),
+        ('Franquias', 'Franquias'),
+        ('Inerentes', 'Inerentes'),
+        ('DU Provisório', 'DU Provisório'),
+        ('Prestação de Serviço', 'Prestação de Serviço'),
+        ('Impressos e Selos', 'Impressos e Selos'),
+        ('Fotocopias', 'Fotocopias'),
+        ('Carga/Descarga', 'Carga/Descarga'),
+        ('Licenciamento', 'Licenciamento'),
+        ('Nossa Agencia', 'Nossa Agencia'),
+        ('Viação e Transito', 'Viação e Transito'),
+        ('Aluguer de Pronto Soc', 'Aluguer de Pronto Soc'),
+        ('Agencia Exportação', 'Agencia Exportação'),
+        ('Estiva', 'Estiva'),
+        ('Risco', 'Risco'),
+        ('Transporte', 'Transporte'),
+        ('Outras despesas', 'Outras despesas'),
+        ('Diversos', 'Diversos'),
+    ]
+    
+    requisicao = models.ForeignKey(RequisicaoFundo, on_delete=models.CASCADE,
+                                   related_name='linhas', verbose_name='Requisição')
+    tipo_custo = models.CharField(max_length=50, choices=TIPOS_CUSTO,
+                                 verbose_name='Tipo de Custo', db_index=True)
+    descricao = models.CharField(max_length=255, verbose_name='Descrição')
+    documentada = models.BooleanField(default=False, verbose_name='Documentada')
+    despesa_tipo = models.CharField(max_length=50, blank=True, null=True,
+                                   verbose_name='Tipo de Despesa')
+    valor = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor')
+    documento_justificativo = models.FileField(upload_to='requisicoes_fundos/%Y/%m/%d/',
+                                               null=True, blank=True,
+                                               verbose_name='Documento Justificativo')
+    ordem = models.PositiveSmallIntegerField(default=0, verbose_name='Ordem')
+    
+    class Meta:
+        db_table = 'financeiro_requisicao_fundo_linha'
+        verbose_name = 'Linha de Requisição'
+        verbose_name_plural = 'Linhas de Requisição'
+        ordering = ['ordem']
+
+    def save(self, *args, **kwargs):
+        # Validar honorário mínimo
+        if self.tipo_custo == 'Honorários do Despachante' and self.valor < 45000:
+            self.valor = Decimal('45000.00')
+        
+        super().save(*args, **kwargs)
+        # Recalcular totais da requisição
+        self.requisicao._recalcular_totais()
+        self.requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
+
+    def __str__(self):
+        return f"{self.requisicao.numero_requisicao} - {self.descricao}"
 
 
 class FacturaCliente(models.Model):
@@ -208,15 +359,15 @@ class FacturaCliente(models.Model):
     processo_aduaneiro = models.ForeignKey(DeclaracaoUnica, on_delete=models.SET_NULL, null=True, blank=True, related_name='facturas_cliente', verbose_name='Processo Aduaneiro')
     
     # Detalhes dos custos
-    honorarios_despachante = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name='Honorários do Despachante')
-    taxas_aduaneiras = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name='Taxas Aduaneiras')
-    emolumentos = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name='Emolumentos')
-    despesas_operacionais = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name='Despesas Operacionais')
-    iva = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name='IVA')
-    outros_encargos = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name='Outros Encargos')
+    honorarios_despachante = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Honorários do Despachante')
+    taxas_aduaneiras = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Taxas Aduaneiras')
+    emolumentos = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Emolumentos')
+    despesas_operacionais = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Despesas Operacionais')
+    iva = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='IVA')
+    outros_encargos = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Outros Encargos')
     
     valor_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Total')
-    valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name='Valor Pago')
+    valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor Pago')
     estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', db_index=True, verbose_name='Estado')
     data_emissao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Emissão', db_index=True)
     data_vencimento = models.DateField(verbose_name='Data de Vencimento', db_index=True)
@@ -224,6 +375,11 @@ class FacturaCliente(models.Model):
     
     criado_por_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador', db_index=True)
     criado_por_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Criador')
+
+    requisicao_fundo = models.ForeignKey(
+        'RequisicaoFundo', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='facturas', verbose_name='Requisição de Fundos'
+    )
 
     class Meta:
         db_table = 'financeiro_factura_cliente'
@@ -323,6 +479,8 @@ class ReciboCliente(models.Model):
     numero_recibo = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número do Recibo')
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='recibos_cliente', verbose_name='Cliente')
     factura = models.ForeignKey(FacturaCliente, on_delete=models.CASCADE, related_name='recibos', verbose_name='Factura')
+    requisicao_fundo = models.ForeignKey(RequisicaoFundo, on_delete=models.SET_NULL, null=True, blank=True,
+                                         related_name='recibos_pagamento', verbose_name='Requisição de Fundo')
     valor_recebido = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Recebido')
     forma_pagamento = models.CharField(max_length=50, choices=FORMAS_PAGAMENTO, verbose_name='Forma de Pagamento', db_index=True)
     data_pagamento = models.DateField(verbose_name='Data do Pagamento', db_index=True)
@@ -414,6 +572,11 @@ class ReciboCliente(models.Model):
                 cliente.saldo_conta_corrente += diff
                 cliente.save(update_fields=['saldo_conta_corrente'])
             self.cliente.refresh_from_db()
+
+            # Nota: RequisicaoFundo é uma Fatura Pró-forma (proposta comercial).
+            # Pagamentos são registados apenas contra a FacturaCliente (Fatura Final).
+            # O campo requisicao_fundo em ReciboCliente é mantido apenas para
+            # compatibilidade com dados legados; não actualiza estado/valor_pago da RF.
 
     @property
     def editavel(self):

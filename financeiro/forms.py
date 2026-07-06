@@ -1,167 +1,216 @@
 from django import forms
+from decimal import Decimal, InvalidOperation
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
 from utils.format_kz import fmt_kz, parse_kz
 from .models import (
-    RequisicaoFundo, FluxoAprovacao, NivelAprovacao,
     FacturaCliente, ReciboCliente,
-    NotaCredito, NotaDebito, FacturaRecibo
+    NotaCredito, NotaDebito, FacturaRecibo,
+    RequisicaoFundo, RequisicaoFundoLinha
 )
-
-
-class FluxoAprovacaoForm(forms.ModelForm):
-    class Meta:
-        model = FluxoAprovacao
-        fields = ['nome', 'descricao', 'ativo']
-        widgets = {
-            'nome': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all',
-                'placeholder': 'Ex: Fluxo Padrão'
-            }),
-            'descricao': forms.Textarea(attrs={
-                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none',
-                'rows': 3,
-                'placeholder': 'Descrição do fluxo de aprovação...'
-            }),
-            'ativo': forms.CheckboxInput(attrs={
-                'class': 'size-4 rounded border-gray-300 text-primary focus:ring-primary/30'
-            }),
-        }
-
-
-class NivelAprovacaoForm(forms.ModelForm):
-    class Meta:
-        model = NivelAprovacao
-        fields = ['nome', 'qtde_aprovadores', 'funcao']
-        widgets = {
-            'nome': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all',
-                'placeholder': 'Ex: 1ª Aprovação'
-            }),
-            'qtde_aprovadores': forms.NumberInput(attrs={
-                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all',
-                'min': 1,
-                'placeholder': '1'
-            }),
-            'funcao': forms.Select(attrs={
-                'class': 'w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all',
-            }),
-        }
 
 
 class RequisicaoFundoForm(forms.ModelForm):
     class Meta:
         model = RequisicaoFundo
-        fields = ['cliente', 'processo_aduaneiro', 'valor_solicitado', 'justificacao', 'documento_justificativo', 'fluxo_aprovacao']
+        fields = ['banca', 'filial', 'cliente', 'pessoa_contacto', 'processo_aduaneiro', 
+                 'numero_bl_awb', 'meio_transporte', 'origem', 'destino', 'mercadoria_descricao',
+                 'peso_bruto_kg', 'peso_liquido_kg', 'cbm_metros_cubicos', 'quantidade_volumes', 'valor_cif',
+                 'data_validade', 'moeda_referencia', 'cambio_referencia', 'observacoes',
+                 'banco', 'numero_conta', 'iban', 'instrucoes_envio']
         widgets = {
+            'banca': forms.Select(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
+            }),
+            'filial': forms.Select(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
+            }),
             'cliente': forms.Select(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
+            }),
+            'pessoa_contacto': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Nome da pessoa de contacto'
             }),
             'processo_aduaneiro': forms.Select(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
             }),
-            'valor_solicitado': forms.TextInput(attrs={
+            'numero_bl_awb': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Ex: BL123456 ou AWB1234567'
+            }),
+            'meio_transporte': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Ex: Navio MSC - 2026 ou Voo TAP-100'
+            }),
+            'origem': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Ex: Lisboa / Porto de Lisboa'
+            }),
+            'destino': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Ex: Luanda / Porto de Luanda'
+            }),
+            'mercadoria_descricao': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
+                'rows': '2',
+                'placeholder': 'Descrição resumida da mercadoria'
+            }),
+            'peso_bruto_kg': forms.NumberInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'step': '0.01',
+                'placeholder': '0.00'
+            }),
+            'peso_liquido_kg': forms.NumberInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'step': '0.01',
+                'placeholder': '0.00'
+            }),
+            'cbm_metros_cubicos': forms.NumberInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'step': '0.001',
+                'placeholder': '0.00'
+            }),
+            'quantidade_volumes': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Ex: 2 Contentores de 40ft ou 15 Paletes'
+            }),
+            'valor_cif': forms.TextInput(attrs={
                 'class': 'moeda w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
                 'placeholder': '0,00',
                 'inputmode': 'decimal'
             }),
-            'justificacao': forms.Textarea(attrs={
+            'data_validade': forms.DateInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'type': 'date'
+            }, format='%Y-%m-%d'),
+            'moeda_referencia': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'value': 'AOA'
+            }),
+            'cambio_referencia': forms.TextInput(attrs={
+                'class': 'moeda w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': '0,00',
+                'inputmode': 'decimal'
+            }),
+            'observacoes': forms.Textarea(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
-                'rows': '4',
-                'placeholder': 'Justifique o pedido de fundos...'
+                'rows': '3',
+                'placeholder': 'Observações adicionais...'
             }),
-            'documento_justificativo': forms.FileInput(attrs={
-                'class': 'w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer'
+            'banco': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Nome do Banco'
             }),
-            'fluxo_aprovacao': forms.Select(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
+            'numero_conta': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Ex: 1234567890'
+            }),
+            'iban': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Ex: AO06001400000000000000100001'
+            }),
+            'instrucoes_envio': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
+                'rows': '2',
+                'placeholder': 'Ex: Por favor, enviar o comprovativo de transferência com a referência do número da Requisição'
             }),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['fluxo_aprovacao'].queryset = FluxoAprovacao.objects.filter(ativo=True)
-        self.fields['fluxo_aprovacao'].empty_label = None
-        self.fields['fluxo_aprovacao'].required = True
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
                 nif = Cliente.objects.filter(id=cliente_id).values_list('nif', flat=True).first()
                 if nif:
                     self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
-                        nif_declarante=nif
+                        nif_declarante=nif, status='Aprovada'
                     )
             except (ValueError, TypeError):
                 pass
 
-    def clean(self):
-        cleaned_data = super().clean()
-        cliente = cleaned_data.get('cliente')
-        valor_solicitado = cleaned_data.get('valor_solicitado')
-        processo_aduaneiro = cleaned_data.get('processo_aduaneiro')
-        fluxo_aprovacao = cleaned_data.get('fluxo_aprovacao')
-        if not fluxo_aprovacao:
-            self.add_error('fluxo_aprovacao', 'Seleccione um Fluxo de Aprovação. A requisição não pode ser submetida sem um fluxo definido.')
 
-        if cliente and processo_aduaneiro:
-            nif_cliente = (cliente.nif or '').strip()
-            nif_processo = (processo_aduaneiro.nif_declarante or '').strip()
-            if nif_cliente and nif_processo and nif_cliente != nif_processo:
-                self.add_error(
-                    'processo_aduaneiro',
-                    f'Atenção: O processo aduaneiro selecionado pertence ao NIF "{nif_processo}", '
-                    f'mas o cliente escolhido tem o NIF "{nif_cliente}". '
-                    'Selecione um processo que corresponda ao cliente.'
-                )
-
-        if cliente and valor_solicitado:
-            if valor_solicitado <= 0:
-                self.add_error('valor_solicitado', 'O valor solicitado deve ser maior que zero.')
-                return cleaned_data
-
-            from django.db.models import Sum
-            requisicoes_ativas = RequisicaoFundo.objects.filter(
-                cliente=cliente,
-                estado__in=['Pendente', 'Em Aprovação', 'Aprovada']
-            )
-            if self.instance.pk:
-                requisicoes_ativas = requisicoes_ativas.exclude(pk=self.instance.pk)
-
-            total_comprometido = requisicoes_ativas.aggregate(total=Sum('valor_solicitado'))['total'] or 0
-            novo_total = total_comprometido + valor_solicitado
-            limite = cliente.limite_financeiro
-
-            if limite == 0:
-                self.add_error(
-                    'cliente',
-                    'Este cliente não tem um limite financeiro atribuído (Limite = 0). '
-                    'Configure o limite de crédito do cliente antes de solicitar fundos.'
-                )
-            elif novo_total > limite:
-                self.add_error(
-                    'valor_solicitado',
-                    f'Este valor ultrapassa o limite de crédito do cliente. '
-                    f'Limite: {fmt_kz(limite)} Kz | Comprometido: {fmt_kz(total_comprometido)} Kz | '
-                    f'Disponível: {fmt_kz(limite - total_comprometido)} Kz.'
-                )
-
-        return cleaned_data
-
-
-class RequisicaoFundoUpdateForm(forms.ModelForm):
+class RequisicaoFundoLinhaForm(forms.ModelForm):
     class Meta:
-        model = RequisicaoFundo
-        fields = ['justificacao', 'documento_justificativo']
+        model = RequisicaoFundoLinha
+        fields = ['tipo_custo', 'descricao', 'documentada', 'despesa_tipo', 'valor', 'documento_justificativo']
         widgets = {
-            'justificacao': forms.Textarea(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
-                'rows': '4',
-                'placeholder': 'Justifique o pedido de fundos...'
+            'tipo_custo': forms.RadioSelect(attrs={
+                'class': 'hidden'
+            }),
+            'descricao': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': 'Descrição do custo'
+            }),
+            'documentada': forms.RadioSelect(attrs={
+                'class': 'hidden'
+            }),
+            'despesa_tipo': forms.Select(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'id': 'id_despesa_tipo'
+            }),
+            'valor': forms.TextInput(attrs={
+                'class': 'moeda w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
+                'placeholder': '0,00',
+                'inputmode': 'decimal',
+                'id': 'id_valor'
             }),
             'documento_justificativo': forms.FileInput(attrs={
                 'class': 'w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer'
             }),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Definir valores padrão se for criação nova
+        if not self.instance.pk:
+            # Padrão: Impostos e Documentada=Sim
+            if not self.data:
+                self.initial['tipo_custo'] = 'Impostos e Taxas Aduaneiras (AGT)'
+                self.initial['documentada'] = True
+        
+        # Carregar opções de despesa_tipo baseado em documentada
+        documentada = self.instance.documentada if self.instance.pk else self.initial.get('documentada', True)
+        
+        if documentada:
+            self.fields['despesa_tipo'].choices = [('', 'Selecione uma despesa')] + RequisicaoFundoLinha.DESPESAS_DOCUMENTADAS
+        else:
+            self.fields['despesa_tipo'].choices = [('', 'Selecione uma despesa')] + RequisicaoFundoLinha.DESPESAS_NAODOCUMENTADAS
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        documentada = cleaned_data.get('documentada')
+        documento_justificativo = cleaned_data.get('documento_justificativo')
+        despesa_tipo = cleaned_data.get('despesa_tipo')
+        tipo_custo = cleaned_data.get('tipo_custo')
+        valor = cleaned_data.get('valor')
+        
+        # Validar valor numérico se for string
+        if valor and isinstance(valor, str):
+            # Remover espaços e substituir vírgula por ponto
+            valor_clean = valor.replace(' ', '').replace(',', '.')
+            try:
+                cleaned_data['valor'] = Decimal(valor_clean)
+            except (ValueError, InvalidOperation):
+                raise forms.ValidationError('Valor inválido. Use formato: 1000.00 ou 1.000,00')
+        
+        # Se documentada=True, o documento é obrigatório (mas só em criação ou se não tinha documento antes)
+        if documentada and not documento_justificativo:
+            # Verificar se já existe um documento na instância (edição)
+            if not self.instance.pk or not self.instance.documento_justificativo:
+                raise forms.ValidationError(
+                    'Comprovativo da despesa é obrigatório quando a despesa é documentada.'
+                )
+        
+        # despesa_tipo sempre obrigatório
+        if not despesa_tipo:
+            raise forms.ValidationError(
+                'Tipo de despesa é obrigatório.'
+            )
+        
+        return cleaned_data
 
 
 class FacturaClienteForm(forms.ModelForm):
@@ -181,7 +230,7 @@ class FacturaClienteForm(forms.ModelForm):
             'despesas_operacionais': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'iva': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'outros_encargos': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
-            'data_vencimento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
+            'data_vencimento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
             'descricao': forms.Textarea(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-none', 'rows': '3'}),
         }
 
@@ -224,7 +273,7 @@ class ReciboClienteForm(forms.ModelForm):
             'factura': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'valor_recebido': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'data_pagamento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
+            'data_pagamento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
             'referencia_bancaria': forms.TextInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
         }
 
@@ -266,7 +315,7 @@ class ReciboClienteUpdateForm(forms.ModelForm):
         widgets = {
             'valor_recebido': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'data_pagamento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
+            'data_pagamento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
             'referencia_bancaria': forms.TextInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
         }
 
@@ -285,7 +334,7 @@ class NotaCreditoForm(forms.ModelForm):
                 ('Devolução de valores', 'Devolução de valores'),
                 ('Ajustes contabilísticos', 'Ajustes contabilísticos'),
             ], attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
+            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
         }
 
     def __init__(self, *args, **kwargs):
@@ -328,7 +377,7 @@ class NotaDebitoForm(forms.ModelForm):
                 ('Correções de valores', 'Correções de valores'),
                 ('Encargos não considerados inicialmente', 'Encargos não considerados inicialmente'),
             ], attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
+            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
         }
 
     def __init__(self, *args, **kwargs):
@@ -367,7 +416,7 @@ class FacturaReciboForm(forms.ModelForm):
             'factura': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'valor': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}),
+            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
         }
 
     def __init__(self, *args, **kwargs):

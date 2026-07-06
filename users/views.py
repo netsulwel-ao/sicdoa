@@ -462,7 +462,7 @@ def dashboard_view(request):
 
     from aduaneiro.models import DeclaracaoUnica
     from clientes.models import Cliente
-    from financeiro.models import RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo
+    from financeiro.models import FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo
     from governanca.models import Notificacao
     from rh.models import Banca
     from django.utils import timezone as tz
@@ -509,17 +509,7 @@ def dashboard_view(request):
         data_emissao__gte=_ms, data_emissao__lt=_me
     ).count()
 
-    # ── 4. Requisições Pendentes ───────────────────────────────────────────
-    if e_gestor:
-        req_pend_qs = RequisicaoFundo.objects.filter(estado__in=['Pendente', 'Em Aprovação'])
-    else:
-        req_pend_qs = RequisicaoFundo.objects.filter(
-            Q(estado__in=['Pendente', 'Em Aprovação']) &
-            (Q(solicitante_id=uid) | Q(cliente__usuario_id=uid))
-        )
-    stats_requisicoes_pendentes = req_pend_qs.count()
-
-    # ── 5. Colaboradores ────────────────────────────────────────────────────
+    # ── 4. Colaboradores ────────────────────────────────────────────────────
     if e_gestor:
         cols_qs = Colaborador.objects.all()
     else:
@@ -542,7 +532,7 @@ def dashboard_view(request):
         usuario_id=uid, lida=False
     ).count()
 
-    # ── Pendentes de Aprovação (NC + ND) ───────────────────────────────────
+    # ── Pendentes de Aprovação (NC + ND + Requisições de Fundos) ──────────
     if e_gestor:
         nc_pend = NotaCredito.objects.filter(estado='Pendente').count()
         nd_pend = NotaDebito.objects.filter(estado='Pendente').count()
@@ -551,6 +541,15 @@ def dashboard_view(request):
         nd_pend = NotaDebito.objects.filter(estado='Pendente', cliente__usuario_id=uid).count()
     stats_nc_pendentes = nc_pend
     stats_nd_pendentes = nd_pend
+
+    # ── Requisições de Fundos Pendentes ─────────────────────────────────
+    from financeiro.models import RequisicaoFundo
+    if e_gestor:
+        stats_requisicoes_pendentes = RequisicaoFundo.objects.filter(estado='Pendente').count()
+    else:
+        stats_requisicoes_pendentes = RequisicaoFundo.objects.filter(
+            estado='Pendente', cliente__usuario_id=uid
+        ).count()
 
     # ── Top devedores (clientes com saldo negativo — devem dinheiro) ──────
     top_devedores = clientes_qs.filter(ativo=True, saldo_conta_corrente__lt=0
@@ -627,7 +626,7 @@ def dashboard_colaborador_view(request):
     if 'ver_dashboard' in permissoes:
         from aduaneiro.models import DeclaracaoUnica
         from clientes.models import Cliente
-        from financeiro.models import RequisicaoFundo, FacturaCliente
+        from financeiro.models import FacturaCliente
         from governanca.models import Notificacao
         from django.utils import timezone as tz
         from django.db.models import Sum, Q
@@ -644,10 +643,6 @@ def dashboard_colaborador_view(request):
 
         dus_qs = DeclaracaoUnica.objects.filter(usuario_id=dono_id)
         clientes_qs = Cliente.objects.filter(usuario_id=dono_id)
-        req_pend_qs = RequisicaoFundo.objects.filter(
-            Q(estado__in=['Pendente', 'Em Aprovação']) &
-            (Q(solicitante_id=dono_id) | Q(cliente__usuario_id=dono_id))
-        )
         fact_mes_qs = FacturaCliente.objects.filter(cliente__usuario_id=dono_id)
 
         dus_ativas = dus_qs.order_by("-created_at")[:8]

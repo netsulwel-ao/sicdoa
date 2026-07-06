@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Editar{% else %}Nova{% endif %} Nota de Débito{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto w-full">
+
+  <!-- Breadcrumb + Cabeçalho -->
+  <div class="mb-8">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
+      <a href="{% url 'financeiro:nota_debito_lista' %}" class="hover:text-primary transition-colors">Notas de Débito</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-900 dark:text-white font-medium">{% if object %}Editar{% else %}Novo{% endif %}</span>
+    </div>
+
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+      {% if object %}Editar Nota de Débito{% else %}Criar Nota de Débito{% endif %}
+    </h1>
+    <p class="text-gray-600 dark:text-gray-300">
+      {% if object %}Actualize os detalhes da nota de débito{% else %}Preencha o formulário para criar uma nova nota de débito{% endif %}
+    </p>
+  </div>
+
+  <!-- Formulário -->
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- Seção: Identificação -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center gap-2 mb-6">
+        <i class="fas fa-file-invoice text-red-600 text-lg"></i>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Identificação</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Cliente -->
+        <div>
+          <label for="{{ form.cliente.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Cliente <span class="text-red-500">*</span>
+          </label>
+          {% if form.cliente.errors %}
+            {{ form.cliente }}
+            <p class="text-red-600 dark:text-red-400 text-xs mt-1">{{ form.cliente.errors|join:", " }}</p>
+          {% else %}
+            {{ form.cliente }}
+          {% endif %}
+        </div>
+
+        <!-- Factura Relacionada -->
+        <div>
+          <label for="{{ form.factura_relacionada.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Factura Relacionada <span class="text-red-500">*</span>
+          </label>
+          {% if form.factura_relacionada.errors %}
+            {{ form.factura_relacionada }}
+            <p class="text-red-600 dark:text-red-400 text-xs mt-1">{{ form.factura_relacionada.errors|join:", " }}</p>
+          {% else %}
+            {{ form.factura_relacionada }}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Seção: Detalhes da Nota -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center gap-2 mb-6">
+        <i class="fas fa-info-circle text-red-600 text-lg"></i>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Detalhes da Nota</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Data -->
+        <div>
+          <label for="{{ form.data.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Data <span class="text-red-500">*</span>
+          </label>
+          {% if form.data.errors %}
+            {{ form.data }}
+            <p class="text-red-600 dark:text-red-400 text-xs mt-1">{{ form.data.errors|join:", " }}</p>
+          {% else %}
+            {{ form.data }}
+          {% endif %}
+        </div>
+
+        <!-- Valor -->
+        <div>
+          <label for="{{ form.valor.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Valor Debitado (KZ) <span class="text-red-500">*</span>
+          </label>
+          {% if form.valor.errors %}
+            {{ form.valor }}
+            <p class="text-red-600 dark:text-red-400 text-xs mt-1">{{ form.valor.errors|join:", " }}</p>
+          {% else %}
+            {{ form.valor }}
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Motivo -->
+      <div class="mt-6">
+        <label for="{{ form.motivo.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Motivo <span class="text-red-500">*</span>
+        </label>
+        {% if form.motivo.errors %}
+          {{ form.motivo }}
+          <p class="text-red-600 dark:text-red-400 text-xs mt-1">{{ form.motivo.errors|join:", " }}</p>
+        {% else %}
+          {{ form.motivo }}
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Descreva o motivo da nota de débito (ex: serviços adicionais, multa, ajuste, etc.)</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Seção: Estado -->
+    {% if object %}
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center gap-2 mb-6">
+        <i class="fas fa-toggle-on text-red-600 text-lg"></i>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Estado</h2>
+      </div>
+
+      <div>
+        <label for="{{ form.estado.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Estado
+        </label>
+        {% if form.estado.errors %}
+          {{ form.estado }}
+          <p class="text-red-600 dark:text-red-400 text-xs mt-1">{{ form.estado.errors|join:", " }}</p>
+        {% else %}
+          {{ form.estado }}
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Mensagens de Erro Globais -->
+    {% if form.non_field_errors %}
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl p-4">
+      <div class="flex items-start gap-3">
+        <i class="fas fa-exclamation-circle text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0"></i>
+        <div class="text-sm text-red-700 dark:text-red-400">
+          <strong>Erro ao processar o formulário:</strong>
+          <ul class="list-disc list-inside mt-2">
+            {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Botões -->
+    <div class="flex gap-3 justify-end">
+      <a href="{% url 'financeiro:nota_debito_lista' %}" 
+        class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+        Cancelar
+      </a>
+      <button type="submit" 
+        class="px-6 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center gap-2">
+        <i class="fas fa-save"></i>
+        {% if object %}Actualizar{% else %}Criar{% endif %} Nota de Débito
+      </button>
+    </div>
+
+  </form>
+
+</div>
+
+<style>
+  select, input[type="text"], input[type="date"], input[type="number"], textarea {
+    @apply w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors;
+  }
+
+  select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    padding-right: 2.5rem;
+    appearance: none;
+  }
+
+  .dark select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23d1d5db' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  }
+</style>
+
+{% endblock %}

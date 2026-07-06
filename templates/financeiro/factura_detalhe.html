@@ -11,6 +11,12 @@
             <span class="text-primary font-semibold">Detalhes</span>
           </div>
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Factura {{ factura.numero_factura }}</h1>
+          {% if factura.requisicao_fundo %}
+          <a href="{% url 'financeiro:requisicao_detalhe' factura.requisicao_fundo.pk %}"
+             class="inline-flex items-center gap-1.5 mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+            <i class="fas fa-link"></i> Gerada de {{ factura.requisicao_fundo.numero_requisicao }}
+          </a>
+          {% endif %}
         </div>
         <div class="flex items-center gap-2">
           <a href="{% url 'financeiro:factura_lista' %}"
@@ -128,7 +134,16 @@
         {% endif %}
 
         {% if factura.estado == 'Pendente' or factura.estado == 'Parcialmente Paga' %}
-        <div class="pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+        <div class="pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-end gap-3">
+          {% if factura.estado == 'Pendente' %}
+          <form method="post" action="{% url 'financeiro:factura_eliminar' factura.pk %}">
+            {% csrf_token %}
+            <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Eliminar Factura', mensagem:'Tem a certeza que pretende ELIMINAR permanentemente esta Factura? Esta acção não pode ser desfeita.', textoBotao:'Sim, Eliminar', textoCancelar:'Voltar' })"
+              class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors active:scale-95 shadow-sm">
+              <i class="fas fa-trash"></i> Eliminar Factura
+            </button>
+          </form>
+          {% endif %}
           <form method="post" action="{% url 'financeiro:factura_cancelar' factura.pk %}">
             {% csrf_token %}
             <button type="button" onclick="confirmarFormPost(this.form, { tipo:'warning', titulo:'Cancelar Factura', mensagem:'Tem a certeza que pretende CANCELAR esta Factura?', textoBotao:'Cancelar', textoCancelar:'Voltar' })"
