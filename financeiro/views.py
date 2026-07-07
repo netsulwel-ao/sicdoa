@@ -4218,25 +4218,22 @@ def api_processos_cliente(request):
 @requer_sessao_ativa
 @require_http_methods(["GET"])
 def api_dados_processo(request):
-    """API: Retorna dados completos do processo aduaneiro selecionado com campos corretos"""
+    """API: Retorna dados completos do processo aduaneiro com mapeamento correcto dos campos de carga"""
     try:
         processo_id = request.GET.get('processo_id')
         if not processo_id:
             return JsonResponse({'success': False, 'error': 'ID do processo é obrigatório'})
         
-        # ┌─ Verificar permissões ───────────────────────────────────────────┐
         filtro = {'id': processo_id}
         if not _user_tem_acesso_total(request):
             usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
             if usuario_id:
-                # Campo correto é 'usuario_id', não 'despachante_id'
                 filtro['usuario_id'] = usuario_id
         
         try:
             processo = DeclaracaoUnica.objects.get(**filtro)
             
-            # ┌─ Extrair dados do processo ──────────────────────────────────┐
-            # Tentar extrair de dados_json primeiro, depois dos campos diretos
+            # Extrair dados_json
             dados_dict = {}
             if hasattr(processo, 'dados_json') and processo.dados_json:
                 try:
@@ -4245,53 +4242,108 @@ def api_dados_processo(request):
                 except (json.JSONDecodeError, TypeError):
                     dados_dict = {}
             
-            # Helper para converter valores
-            def get_value(json_key, model_attr, default=''):
-                """Retorna valor de json_key ou model_attr, convertendo para string se numérico"""
-                json_val = dados_dict.get(json_key)
-                model_val = getattr(processo, model_attr, None) if model_attr else None
-                
-                # Preferir JSON, depois modelo
-                val = json_val if json_val else model_val
-                
-                # Se valor existe, converter para string
-                if val is not None and val != '':
-                    return str(val).strip()
+            # Extrair primeira adição (se existir)
+            adicoes = dados_dict.get('adicoes') or []
+            primeira_adicao = adicoes[0] if adicoes else {}
+            
+            # Helper: extrair valor de dados_json ou modelo
+            def _val(json_key, model_attr=None, default=''):
+                v = dados_dict.get(json_key)
+                if v not in (None, '', 0):
+                    return str(v).strip()
+                if model_attr:
+                    m = getattr(processo, model_attr, None)
+                    if m not in (None, '', 0):
+                        return str(m).strip()
                 return default
             
-            # ┌─ Construir resposta com prioridade: JSON → Campo Direto ────┐
+            # Helper: extrair valor da primeira adição
+            def _ad(val_key, default=''):
+                v = primeira_adicao.get(val_key)
+                if v not in (None, '', 0):
+                    return str(v).strip()
+                return default
+            
+            # Somar pesos de todas as adições
+            peso_bruto_total = 0
+            peso_liquido_total = 0
+            for ad in adicoes:
+                try:
+                    peso_bruto_total += float(ad.get('peso_bruto', 0) or 0)
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    peso_liquido_total += float(ad.get('peso_liquido', 0) or 0)
+                except (TypeError, ValueError):
+                    pass
+            # Fallback para modelo se soma for zero
+            if peso_bruto_total == 0 and processo.peso_bruto:
+                peso_bruto_total = float(processo.peso_bruto)
+            if peso_liquido_total == 0 and processo.peso_liquido:
+                peso_liquido_total = float(processo.peso_liquido)
+            
+            # Construir descrição concatenada de todas as adições
+            descricoes = []
+            for ad in adicoes:
+                d = ad.get('descricao_mercadoria', '').strip()
+                if d:
+                    descricoes.append(d)
+            descricao_final = ' | '.join(descricoes) if descricoes else ''
+            if not descricao_final and processo.descricao_mercadoria:
+                descricao_final = processo.descricao_mercadoria
+            
+            # Construir quantidade_volumes a partir da primeira adição
+            qtd_volumes = ''
+            nv = primeira_adicao.get('numero_volume', '').strip()
+            tv = primeira_adicao.get('tipo_volume', '').strip()
+            if nv or tv:
+                qtd_volumes = f'{nv} {tv}'.strip()
+            if not qtd_volumes:
+                qtd_volumes = _val('quantidade_volumes', 'quantidade')
+            
+            # País de origem: da primeira adição (fallback modelo)
+            pais_origem = _ad('pais_origem')
+            if not pais_origem and processo.pais_origem:
+                pais_origem = str(processo.pais_origem).strip()
+            
+            # Helper para combinar porto + país
+            def _combinar_porto_pais(porto_key, pais_val):
+                porto_val = _val(porto_key) or ''
+                if porto_val and pais_val:
+                    return f'{porto_val} / {pais_val}'
+                return porto_val or pais_val or ''
+            
             return JsonResponse({
                 'success': True,
                 'processo': {
                     'id': processo.id,
-                    'numero_du': get_value('numero_du', 'numero_du'),
-                    'ref_despachante': get_value('ref_despachante', 'ref_despachante'),
-                    'exportador_nome': get_value('exportador_nome', 'exportador_nome'),
-                    'destinatario_nome': get_value('destinatario_nome', 'destinatario_nome'),
+                    'numero_du': _val('numero_du', 'numero_du'),
+                    'ref_despachante': _val('ref_despachante', 'ref_despachante'),
+                    'exportador_nome': _val('exportador_nome', 'exportador_nome'),
+                    'destinatario_nome': _val('destinatario_nome', 'destinatario_nome'),
                     'status': processo.status or 'Rascunho',
                     
-                    # Dados da carga (Referências da Carga)
-                    'numero_bl_awb': get_value('numero_bl_awb', None),  # Busca apenas em dados_json
-                    'meio_transporte': get_value('meio_transporte', 'meio_transporte'),
-                    'origem': get_value('origem', 'pais_origem'),
-                    'destino': get_value('destino', 'porto_desembarque'),
-                    'mercadoria_descricao': get_value('mercadoria_descricao', 'descricao_mercadoria'),
-                    'peso_bruto_kg': get_value('peso_bruto_kg', 'peso_bruto'),
-                    'peso_liquido_kg': get_value('peso_liquido_kg', 'peso_liquido'),
-                    'cbm_metros_cubicos': get_value('cbm_metros_cubicos', None),
-                    'quantidade_volumes': get_value('quantidade_volumes', 'quantidade'),
+                    # Dados da carga — mapeamento correcto do formulário DU
+                    'numero_bl_awb': _val('numero_conhecimento'),  # DU usa "Conhecimento" não "B/L AWB"
+                    'meio_transporte': _val('transporte_identidade', 'meio_transporte'),  # DU: "Identidade Meio Transporte"
+                    'origem': _combinar_porto_pais('porto_embarque', pais_origem),  # DU: porto + país de origem
+                    'destino': _combinar_porto_pais('porto_desembarque', dados_dict.get('pais_destino_campo53', '')),  # DU: porto + país destino automático
+                    'mercadoria_descricao': descricao_final,  # Concatena descrições das adições
+                    'peso_bruto_kg': str(peso_bruto_total) if peso_bruto_total > 0 else '',
+                    'peso_liquido_kg': str(peso_liquido_total) if peso_liquido_total > 0 else '',
+                    'cbm_metros_cubicos': _val('cbm_metros_cubicos'),  # Sem equivalente directo na DU
+                    'quantidade_volumes': qtd_volumes,
                     'valor_cif': str(processo.valor_cif) if processo.valor_cif else '',
                     
                     # Dados bancários
-                    'nome_banco': get_value('nome_banco', 'nome_banco'),
-                    'termo_pagamento': get_value('termo_pagamento', 'termo_pagamento'),
+                    'nome_banco': _val('nome_banco', 'nome_banco'),
+                    'termo_pagamento': _val('termo_pagamento', 'termo_pagamento'),
                     
-                    # Dados adicionais (FOB, Frete, Seguro - para contexto)
+                    # Dados adicionais
                     'valor_fob': str(processo.valor_fob) if processo.valor_fob else '',
                     'valor_frete': str(processo.valor_frete) if processo.valor_frete else '',
                     'valor_seguro': str(processo.valor_seguro) if processo.valor_seguro else '',
                     
-                    # Debug: retornar também os dados_json completos
                     '_dados_json': dados_dict,
                 }
             })

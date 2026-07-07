@@ -358,10 +358,32 @@ def _du_guardar_impl(request):
     du.nome_banco         = (dados.get('nome_banco',      '') or '')[:50]
     du.termo_pagamento    = (dados.get('termo_pagamento', '') or '')[:5]
     du.codigo_pautal      = ''   # campo obrigatório na tabela — deixar vazio
-    du.descricao_mercadoria = ''
-    du.quantidade         = 0
-    du.peso_bruto         = 0
-    du.peso_liquido       = 0
+    
+    # Extrair dados de carga das adições para campos desnormalizados
+    adicoes_lista = dados.get('adicoes') or []
+    if adicoes_lista:
+        descs = [a.get('descricao_mercadoria', '').strip() for a in adicoes_lista if a.get('descricao_mercadoria', '').strip()]
+        du.descricao_mercadoria = ' | '.join(descs)[:500] if descs else ''
+        du.peso_bruto = sum(float(a.get('peso_bruto', 0) or 0) for a in adicoes_lista)
+        du.peso_liquido = sum(float(a.get('peso_liquido', 0) or 0) for a in adicoes_lista)
+        du.quantidade = sum(int(a.get('quantidade', 0) or 0) for a in adicoes_lista)
+    else:
+        du.descricao_mercadoria = ''
+        du.quantidade = 0
+        du.peso_bruto = 0
+        du.peso_liquido = 0
+    
+    # Extrair campos de transporte/origem/destino
+    du.meio_transporte = (dados.get('transporte_identidade', '') or '')[:50]
+    du.porto_embarque = (dados.get('porto_embarque', '') or '')[:100]
+    du.porto_desembarque = (dados.get('porto_desembarque', '') or '')[:100]
+    # País de origem: da primeira adição ou do campo directo
+    pais_origem = ''
+    if adicoes_lista:
+        pais_origem = adicoes_lista[0].get('pais_origem', '') or ''
+    if not pais_origem:
+        pais_origem = dados.get('pais_origem', '') or ''
+    du.pais_origem = pais_origem[:100]
 
     # Totais por imposto
     du.total_derimp  = t_derimp
