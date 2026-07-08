@@ -49,7 +49,7 @@ class RequisicaoFundoForm(forms.ModelForm):
                  'numero_bl_awb', 'meio_transporte', 'origem', 'destino', 'mercadoria_descricao',
                  'peso_bruto_kg', 'peso_liquido_kg', 'cbm_metros_cubicos', 'quantidade_volumes', 'valor_cif',
                  'data_validade', 'moeda_referencia', 'cambio_referencia', 'observacoes',
-                 'banco', 'numero_conta', 'iban', 'instrucoes_envio']
+                  'instrucoes_envio']
         widgets = {
             'banca': forms.Select(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
@@ -126,18 +126,6 @@ class RequisicaoFundoForm(forms.ModelForm):
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
                 'rows': '3',
                 'placeholder': 'Observações adicionais...'
-            }),
-            'banco': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'placeholder': 'Nome do Banco'
-            }),
-            'numero_conta': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'placeholder': 'Ex: 1234567890'
-            }),
-            'iban': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'placeholder': 'Ex: AO06001400000000000000100001'
             }),
             'instrucoes_envio': forms.Textarea(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',

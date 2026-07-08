@@ -86,6 +86,50 @@
       </div>
     </div>
 
+    <!-- ── Logotipo ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-image text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Logotipo</h2>
+      </div>
+      <div class="p-6">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Logotipo da Banca</label>
+        <input type="file" name="logo" accept="image/*"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 transition-all" />
+        <p class="text-xs text-gray-500 mt-1">Este logotipo será exibido nas facturas finais emitidas pela sua banca.</p>
+      </div>
+    </div>
+
+    <!-- ── Dados Bancários ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <i class="fas fa-university text-primary"></i>
+        <h2 class="font-semibold text-gray-900 dark:text-white">Dados Bancários</h2>
+      </div>
+      <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Banco</label>
+          <input type="text" name="banco" placeholder="Ex: BAI, BFA, BIC ..."
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nº da Conta</label>
+          <input type="text" name="numero_conta" placeholder="Ex: 123456789"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">IBAN</label>
+          <input type="text" name="iban" placeholder="Ex: AO06 0040 0000 1234 5678 9010 0"
+                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Instruções de Pagamento</label>
+          <textarea name="instrucoes_pagamento" rows="2" placeholder="Ex: Transferência bancária para a conta acima indicada ..."
+                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"></textarea>
+        </div>
+      </div>
+    </div>
+
     <div class="flex justify-end">
       <button type="submit"
               class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">

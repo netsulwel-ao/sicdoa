@@ -889,7 +889,9 @@ def banca_criar_view(request):
     if request.method == 'POST':
         dados = {k: request.POST.get(k, '').strip() for k in
                  ['nome', 'nif', 'tipo', 'email', 'telefone',
-                  'endereco', 'provincia', 'municipio', 'licenca_cdoa']}
+                  'endereco', 'provincia', 'municipio', 'licenca_cdoa',
+                  'banco', 'numero_conta', 'iban']}
+        dados['instrucoes_pagamento'] = request.POST.get('instrucoes_pagamento', '').strip()
         if not dados['nome'] or not dados['nif']:
             return _render({'erro': 'Nome e NIF são obrigatórios.'})
 
@@ -906,6 +908,8 @@ def banca_criar_view(request):
             banca.logo = request.FILES['logo']
         banca.save()
 
+        from django.contrib import messages
+        messages.success(request, 'Banca criada com sucesso.')
         return redirect('rh_banca')
 
     return _render()
@@ -924,6 +928,9 @@ def banca_editar_view(request):
             'email': banca.email, 'telefone': banca.telefone,
             'endereco': banca.endereco, 'provincia': banca.provincia,
             'municipio': banca.municipio, 'licenca_cdoa': banca.licenca_cdoa,
+            'banco': banca.banco,
+            'numero_conta': banca.numero_conta, 'iban': banca.iban,
+            'instrucoes_pagamento': banca.instrucoes_pagamento,
         }
         return render(request, 'rh/banca/editar.html', _ctx(request, 'banca', {
             'banca': banca, 'banca_tipos': BANCA_TIPOS,
@@ -933,7 +940,9 @@ def banca_editar_view(request):
     if request.method == 'POST':
         dados = {k: request.POST.get(k, '').strip() for k in
                  ['nome', 'nif', 'tipo', 'email', 'telefone',
-                  'endereco', 'provincia', 'municipio', 'licenca_cdoa']}
+                  'endereco', 'provincia', 'municipio', 'licenca_cdoa',
+                  'banco', 'numero_conta', 'iban']}
+        dados['instrucoes_pagamento'] = request.POST.get('instrucoes_pagamento', '').strip()
         if not dados['nome'] or not dados['nif']:
             return _render({'erro': 'Nome e NIF são obrigatórios.'})
 
@@ -951,6 +960,8 @@ def banca_editar_view(request):
             banca.logo = request.FILES['logo']
         banca.save()
 
+        from django.contrib import messages
+        messages.success(request, 'Dados da banca actualizados com sucesso.')
         return redirect('rh_banca')
 
     return _render()

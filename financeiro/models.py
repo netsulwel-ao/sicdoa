@@ -80,10 +80,6 @@ class RequisicaoFundo(models.Model):
     quantidade_volumes = models.CharField(max_length=100, blank=True, verbose_name='Quantidade e Tipo de Volumes')
     valor_cif = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name='Valor CIF')
     
-    # Seção 6 - Condições de Pagamento e Dados Bancários
-    banco = models.CharField(max_length=200, blank=True, verbose_name='Nome do Banco')
-    numero_conta = models.CharField(max_length=50, blank=True, verbose_name='Número de Conta')
-    iban = models.CharField(max_length=50, blank=True, verbose_name='IBAN')
     instrucoes_envio = models.TextField(blank=True, verbose_name='Instruções de Envio')
     
     # Seção 7 - Validação e Fecho

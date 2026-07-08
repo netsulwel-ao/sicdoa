@@ -292,36 +292,6 @@
         </div>
       </div>
 
-      <!-- Seção 6: Dados Bancários -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <i class="fas fa-credit-card text-base text-primary"></i>
-          Dados Bancários
-        </h2>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label for="id_banco" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Banco</label>
-            {{ form.banco }}
-          </div>
-
-          <div>
-            <label for="id_numero_conta" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Nº da Conta</label>
-            {{ form.numero_conta }}
-          </div>
-
-          <div class="md:col-span-2">
-            <label for="id_iban" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">IBAN</label>
-            {{ form.iban }}
-          </div>
-
-          <div class="md:col-span-2">
-            <label for="id_instrucoes_envio" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Instruções de Pagamento</label>
-            {{ form.instrucoes_envio }}
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ex: Enviar comprovativo para email XXX</p>
-          </div>
-        </div>
-      </div>
 
       <!-- Seção 4: Custos (sempre visível) -->
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -437,6 +407,12 @@
         <div>
           <label for="id_observacoes" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Observações (Opcional)</label>
           {{ form.observacoes }}
+        </div>
+
+        <div class="mt-4">
+          <label for="id_instrucoes_envio" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Instruções de Envio</label>
+          {{ form.instrucoes_envio }}
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ex: Enviar comprovativo para email XXX</p>
         </div>
       </div>
 
@@ -967,12 +943,6 @@ document.addEventListener('DOMContentLoaded', function() {
               camposPreencher++;
             }
             
-            // Auto-preencher campos da Seção 6 (Dados Bancários) se disponível
-            if (setFieldValue('id_banco', p.nome_banco)) {
-              console.log('✅ Campo id_banco preenchido');
-              camposPreencher++;
-            }
-            
             // ── Moeda e Câmbio (Seção 5 - Válidade e Referências) ──
             if (setFieldValue('id_moeda_referencia', p.moeda_du)) {
               console.log('✅ Campo id_moeda_referencia preenchido');
@@ -1091,8 +1061,7 @@ document.addEventListener('DOMContentLoaded', function() {
       'id_numero_bl_awb', 'id_meio_transporte', 'id_origem', 'id_destino',
       'id_mercadoria_descricao', 'id_peso_bruto_kg', 'id_peso_liquido_kg',
       'id_quantidade_volumes', 'id_valor_cif',
-      'id_moeda_referencia', 'id_cambio_referencia',
-      'id_banco'
+      'id_moeda_referencia', 'id_cambio_referencia'
     ];
     
     campos.forEach(fieldId => {

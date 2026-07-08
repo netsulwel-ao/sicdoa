@@ -59,7 +59,14 @@ class Banca(models.Model):
     provincia   = models.CharField(max_length=100, blank=True, default='')
     municipio   = models.CharField(max_length=100, blank=True, default='')
     licenca_cdoa = models.CharField(max_length=100, blank=True, default='')
-    logo        = models.ImageField(upload_to='bancas/logos/', null=True, blank=True)
+    logo        = models.ImageField(upload_to='bancas/logos/', null=True, blank=True, verbose_name='Logotipo')
+
+    # Dados Bancários
+    banco               = models.CharField(max_length=255, blank=True, default='', verbose_name='Banco')
+    numero_conta        = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº da Conta')
+    iban                = models.CharField(max_length=50, blank=True, default='', verbose_name='IBAN')
+    instrucoes_pagamento = models.TextField(blank=True, default='', verbose_name='Instruções de Pagamento')
+
     ativa       = models.BooleanField(default=True)
     criado_em   = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)

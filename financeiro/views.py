@@ -1,4 +1,4 @@
-﻿import json
+import json
 import io
 import logging
 from decimal import Decimal
@@ -2832,7 +2832,7 @@ def factura_pdf(request, pk):
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
         leftMargin=MARGIN, rightMargin=MARGIN,
-        topMargin=MARGIN, bottomMargin=1.5 * cm,
+        topMargin=0.4 * cm, bottomMargin=1.5 * cm,
         title=f"Factura {factura.numero_factura}",
     )
 
@@ -2866,18 +2866,7 @@ def factura_pdf(request, pk):
     story = []
 
     # ══════════════════════════════════════════════════════════════════════════
-    # BLOCO 1 — Linha superior: paginação + hora + data (direita)
-    # ══════════════════════════════════════════════════════════════════════════
-    agora = datetime.now()
-    top_info = Paragraph(
-        f'<font size="7" color="#64748b">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
-        st('top_right', alignment=TA_RIGHT, fontSize=7, textColor=COR_CINZA),
-    )
-    story.append(top_info)
-    story.append(Spacer(1, 0.2 * cm))
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # BLOCO 2 — Cabeçalho: Logo (esquerda) + Nome/NIF (direita)
+    # BLOCO 1+2 — Cabeçalho: Logo (esquerda) + Paginação/NIF (direita)
     # ══════════════════════════════════════════════════════════════════════════
     logo_path = None
     if banca and hasattr(banca, 'logo') and banca.logo:
@@ -2889,22 +2878,30 @@ def factura_pdf(request, pk):
     col_logo = []
     if logo_path:
         try:
-            col_logo.append(RLImage(logo_path, width=2.8 * cm, height=2.0 * cm))
+            col_logo.append(RLImage(logo_path, width=4.0 * cm, height=3.0 * cm))
         except Exception:
             col_logo.append(Paragraph('', s_small))
     else:
         col_logo.append(Paragraph('', s_small))
 
+    agora = datetime.now()
     nif_txt  = banca.nif if banca else 'N/D'
     nome_txt = banca.nome if banca else 'Despachante Oficial'
-    col_nif  = [Paragraph(f'<b>NIF: {nif_txt}</b>', st('nif', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT))]
 
-    t_logo = Table([[col_logo, col_nif]], colWidths=[W * 0.5, W * 0.5])
+    col_info = [
+        Paragraph(f'<font size="7" color="#64748b">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
+                  st('top_right', alignment=TA_RIGHT, fontSize=7, textColor=COR_CINZA)),
+        Spacer(1, 0.2 * cm),
+        Paragraph(f'<b>NIF: {nif_txt}</b>', st('nif', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+    ]
+
+    t_logo = Table([[col_logo, col_info]], colWidths=[W * 0.5, W * 0.5])
     t_logo.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN',  (1, 0), (1, 0),  'RIGHT'),
         ('LEFTPADDING',  (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING',   (0, 0), (-1, -1), 0),
     ]))
     story.append(t_logo)
     story.append(Spacer(1, 0.15 * cm))
@@ -3262,6 +3259,30 @@ def factura_pdf(request, pk):
         ('ALIGN',  (1, 0), (1, 0),  'CENTER'),
     ]))
     story.append(t_ass)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BLOCO 8 — Dados Bancários
+    # ══════════════════════════════════════════════════════════════════════════
+    if banca and (banca.banco or banca.numero_conta or banca.iban or banca.instrucoes_pagamento):
+        story.append(Spacer(1, 0.3 * cm))
+        story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+        story.append(Spacer(1, 0.15 * cm))
+
+        bancos_data = []
+        if banca.banco:
+            bancos_data.append(f'<b>Banco:</b> {banca.banco}')
+        if banca.numero_conta:
+            bancos_data.append(f'<b>Nº da Conta:</b> {banca.numero_conta}')
+        if banca.iban:
+            bancos_data.append(f'<b>IBAN:</b> {banca.iban}')
+        if banca.instrucoes_pagamento:
+            texto_pagamento = banca.instrucoes_pagamento.replace('\n', '<br/>').replace('\r', '')
+            bancos_data.append(f'<br/><b>Instruções de Pagamento:</b><br/>{texto_pagamento}')
+
+        story.append(Paragraph('<b>Dados Bancários</b>', st('bank_title', fontSize=9, fontName='Helvetica-Bold')))
+        story.append(Spacer(1, 0.1 * cm))
+        for linha in bancos_data:
+            story.append(Paragraph(f'<font size="8">{linha}</font>', st('bank_row', fontSize=8, leading=11)))
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONSTRUIR E RETORNAR
