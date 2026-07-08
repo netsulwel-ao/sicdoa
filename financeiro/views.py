@@ -36,6 +36,37 @@ from utils.format_kz import fmt_kz
 logger = logging.getLogger(__name__)
 
 
+def parse_valor_monetario(valor_str):
+    """
+    Parse flexível para valores monetários.
+    Suporta: 2000000, 2.000.000, 2,000000, 2000000.00, 2.000.000,00, etc.
+    """
+    try:
+        valor_str = valor_str.strip().replace(' ', '')
+        
+        if not valor_str:
+            return Decimal('0')
+        
+        # Se tem vírgula, é formato europeu (1.234.567,89)
+        if ',' in valor_str:
+            valor_str = valor_str.replace('.', '').replace(',', '.')
+        # Se tem ponto, precisa validar se é separador de milhar ou decimal
+        elif '.' in valor_str:
+            partes = valor_str.split('.')
+            # Se múltiplos pontos OU último grupo tem 3 dígitos (milhar), remove todos
+            if len(partes) > 2:
+                # Múltiplos pontos = todos são separadores de milhar
+                valor_str = valor_str.replace('.', '')
+            elif len(partes) == 2 and len(partes[1]) == 3:
+                # Último grupo tem 3 dígitos = é separador de milhar
+                valor_str = valor_str.replace('.', '')
+            # Senão, deixa como está (é decimal tipo 20.00)
+        
+        return Decimal(valor_str)
+    except Exception:
+        return Decimal('0')
+
+
 def _user_tem_acesso_total(request):
     """True se user tem bypass de scoping (Admin ou permissão admin)."""
     from users.permissoes import _is_admin_ou_acesso_total
@@ -171,6 +202,11 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
     def get_success_url(self):
         return reverse('financeiro:requisicao_detalhe', kwargs={'pk': self.object.pk})
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
+
     def form_valid(self, form):
         form.instance.criado_por_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
@@ -178,6 +214,7 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
         form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
+        self._salvar_custos(self.object)
         registrar_historico(
             'Requisicao', self.object.pk, self.object.numero_requisicao, 'Criada',
             estado_novo='Pendente', valor=self.object.total_geral,
@@ -186,6 +223,47 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
             banca_id=self.object.banca_id, filial_id=self.object.filial_id,
         )
         return response
+
+    def _salvar_custos(self, requisicao):
+        import re
+        prefix = 'custo_'
+        custo_indices = set()
+        for key in self.request.POST:
+            m = re.match(rf'^{prefix}(\d+)_descricao$', key)
+            if m:
+                custo_indices.add(int(m.group(1)))
+        for i in sorted(custo_indices):
+            descricao = self.request.POST.get(f'{prefix}{i}_descricao', '').strip()
+            if not descricao:
+                continue
+            documentada = self.request.POST.get(f'{prefix}{i}_documentada') == 'true'
+            despesa_tipo = self.request.POST.get(f'{prefix}{i}_despesa_tipo', '').strip()
+            valor_raw = self.request.POST.get(f'{prefix}{i}_valor', '0').strip()
+            
+            logger.debug(f"CUSTO DEBUG [CREATE]: descricao={descricao}, valor_raw='{valor_raw}'")
+            
+            valor = parse_valor_monetario(valor_raw)
+            
+            logger.debug(f"CUSTO DEBUG [CREATE]: valor_raw='{valor_raw}' => valor={valor}")
+            
+            # Honorários do Despachante: mínimo 45.000 KZ
+            if despesa_tipo == 'Honorários' and valor < Decimal('45000'):
+                valor = Decimal('45000')
+            
+            documento = self.request.FILES.get(f'{prefix}{i}_documento_justificativo')
+            tipo_custo = 'Honorários do Despachante' if despesa_tipo == 'Honorários' else 'Outras Despesas'
+            linha = RequisicaoFundoLinha(
+                requisicao=requisicao,
+                tipo_custo=tipo_custo,
+                descricao=descricao,
+                documentada=documentada,
+                despesa_tipo=despesa_tipo if despesa_tipo else None,
+                valor=valor,
+                ordem=requisicao.linhas.count() + 1
+            )
+            if documento:
+                linha.documento_justificativo = documento
+            linha.save()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -203,7 +281,7 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
     context_object_name = 'requisicao'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('cliente', 'processo_aduaneiro', 'banca')
         filtro = self._get_user_cliente_filter()
         if filtro:
             qs = qs.filter(**filtro)
@@ -211,6 +289,11 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # Garantir que os totais estão recalculados (compatibilidade com dados antigos)
+        self.object._recalcular_totais()
+        self.object.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
+        
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'requisicoes'
         context['linhas'] = self.object.linhas.all().order_by('ordem')
@@ -219,6 +302,17 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
         context['historico'] = HistoricoFinanceiro.objects.filter(
             tipo_documento='Requisicao', documento_id=self.object.pk
         )[:20]
+
+        # Verificar se já existe Factura-Recibo associada (via FacturaCliente)
+        facturas = self.object.facturas.all()
+        context['tem_factura_recibo'] = FacturaRecibo.objects.filter(factura__in=facturas).exists()
+
+        # Formulário inline para adicionar custos
+        context['custo_form'] = RequisicaoFundoLinhaForm()
+        context['despesas_documentadas'] = RequisicaoFundoLinha.DESPESAS_DOCUMENTADAS
+        context['despesas_nao_documentadas'] = RequisicaoFundoLinha.DESPESAS_NAODOCUMENTADAS
+        context['despesas_documentadas_json'] = json.dumps(RequisicaoFundoLinha.DESPESAS_DOCUMENTADAS)
+        context['despesas_nao_documentadas_json'] = json.dumps(RequisicaoFundoLinha.DESPESAS_NAODOCUMENTADAS)
         return context
 
 
@@ -233,12 +327,82 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
     def get_success_url(self):
         return reverse('financeiro:requisicao_detalhe', kwargs={'pk': self.object.pk})
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
+
     def get_queryset(self):
         qs = super().get_queryset()
         filtro = self._get_user_cliente_filter()
         if filtro:
             qs = qs.filter(**filtro)
         return qs
+    
+    def get_form(self, form_class=None):
+        """Bloqueia edição de requisições em estado final"""
+        form = super().get_form(form_class)
+        
+        # Bloquear edição se requisição não está em Pendente
+        if self.object and self.object.estado != 'Pendente':
+            for field in form.fields:
+                form.fields[field].disabled = True
+                form.fields[field].widget.attrs['readonly'] = True
+        
+        return form
+    
+    def form_valid(self, form):
+        # Verificar se requisição está em estado editável
+        if self.object.estado != 'Pendente':
+            from django.contrib import messages
+            messages.error(self.request, 
+                f"Não é possível editar uma requisição em estado {self.object.get_estado_display()}")
+            return self.form_invalid(form)
+        
+        response = super().form_valid(form)
+        self._salvar_custos(self.object)
+        return response
+
+    def _salvar_custos(self, requisicao):
+        import re
+        prefix = 'custo_'
+        custo_indices = set()
+        for key in self.request.POST:
+            m = re.match(rf'^{prefix}(\d+)_descricao$', key)
+            if m:
+                custo_indices.add(int(m.group(1)))
+        for i in sorted(custo_indices):
+            descricao = self.request.POST.get(f'{prefix}{i}_descricao', '').strip()
+            if not descricao:
+                continue
+            documentada = self.request.POST.get(f'{prefix}{i}_documentada') == 'true'
+            despesa_tipo = self.request.POST.get(f'{prefix}{i}_despesa_tipo', '').strip()
+            valor_raw = self.request.POST.get(f'{prefix}{i}_valor', '0').strip()
+            
+            logger.debug(f"CUSTO DEBUG [UPDATE]: descricao={descricao}, valor_raw='{valor_raw}'")
+            
+            valor = parse_valor_monetario(valor_raw)
+            
+            logger.debug(f"CUSTO DEBUG [UPDATE]: valor_raw='{valor_raw}' => valor={valor}")
+            
+            # Honorários do Despachante: mínimo 45.000 KZ
+            if despesa_tipo == 'Honorários' and valor < Decimal('45000'):
+                valor = Decimal('45000')
+            
+            documento = self.request.FILES.get(f'{prefix}{i}_documento_justificativo')
+            tipo_custo = 'Honorários do Despachante' if despesa_tipo == 'Honorários' else 'Outras Despesas'
+            linha = RequisicaoFundoLinha(
+                requisicao=requisicao,
+                tipo_custo=tipo_custo,
+                descricao=descricao,
+                documentada=documentada,
+                despesa_tipo=despesa_tipo if despesa_tipo else None,
+                valor=valor,
+                ordem=requisicao.linhas.count() + 1
+            )
+            if documento:
+                linha.documento_justificativo = documento
+            linha.save()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -246,6 +410,7 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
         context['requisicao'] = context.get('object') or self.object
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'requisicoes'
+        context['bloqueado'] = self.object and self.object.estado != 'Pendente'
         return context
 
 
@@ -358,77 +523,103 @@ def rejeitar_requisicao(request, pk):
 @requer_sessao_ativa
 @requer_escrita_financeira
 def adicionar_linha_requisicao(request, pk):
-    requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     
     if requisicao.estado in ('Anulada', 'Aceite', 'Rejeitada'):
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': 'Não é possível adicionar linhas a uma requisição neste estado.'})
         messages.error(request, 'Não é possível adicionar linhas a uma requisição neste estado.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
 
-    if request.method == 'POST':
-        form = RequisicaoFundoLinhaForm(request.POST, request.FILES)
-        if form.is_valid():
-            linha = form.save(commit=False)
-            linha.requisicao = requisicao
-            linha.ordem = requisicao.linhas.count() + 1
-            linha.save()
-            messages.success(request, 'Linha adicionada com sucesso.')
-            return redirect('financeiro:requisicao_detalhe', pk=pk)
-    else:
-        form = RequisicaoFundoLinhaForm()
+    if request.method != 'POST':
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': 'Método não permitido.'})
+        return redirect('financeiro:requisicao_detalhe', pk=pk)
 
-    context = {
-        'form': form,
-        'requisicao': requisicao,
-        'titulo': 'Adicionar Linha',
-        'active_menu': 'Financeiro',
-        'active_sub': 'requisicoes',
-    }
-    if request.session.get('usuario'):
-        context['usuario'] = request.session['usuario']
-        context['papel'] = request.session['usuario'].get('papel', '')
-        context['nome'] = request.session['usuario'].get('nome', '')
-    return render(request, 'financeiro/requisicao_fundo_linha_form.html', context)
+    form = RequisicaoFundoLinhaForm(request.POST, request.FILES)
+    if form.is_valid():
+        ajustado = getattr(form, '_valor_auto_corrigido', False)
+        linha = form.save(commit=False)
+        linha.requisicao = requisicao
+        linha.ordem = requisicao.linhas.count() + 1
+        linha.save()
+
+        requisicao._recalcular_totais()
+        requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
+
+        if is_ajax:
+            return JsonResponse({
+                'success': True,
+                'message': 'Linha adicionada com sucesso.',
+                'auto_ajustado': ajustado,
+                'linha': {
+                    'id': linha.id,
+                    'despesa_tipo': linha.despesa_tipo,
+                    'descricao': linha.descricao,
+                    'documentada': linha.documentada,
+                    'valor': float(linha.valor),
+                    'has_documento': bool(linha.documento_justificativo),
+                    'documento_url': linha.documento_justificativo.url if linha.documento_justificativo else None,
+                },
+                'totais': {
+                    'subtotal_geral': float(requisicao.subtotal_geral),
+                    'iva_honorarios': float(requisicao.iva_honorarios),
+                    'retencao': float(requisicao.retencao),
+                    'total_geral': float(requisicao.total_geral),
+                }
+            })
+
+        if ajustado:
+            messages.info(request, 'O valor mínimo para Honorários do Despachante é 45.000 KZ — o valor foi ajustado automaticamente.')
+        messages.success(request, 'Linha adicionada com sucesso.')
+        return redirect('financeiro:requisicao_detalhe', pk=pk)
+
+    if is_ajax:
+        erros = []
+        for field, msgs in form.errors.items():
+            for msg in msgs:
+                erros.append(f'{field}: {msg}')
+        return JsonResponse({'success': False, 'errors': erros})
+
+    for error in form.errors.values():
+        for msg in error:
+            messages.error(request, msg)
+    return redirect('financeiro:requisicao_detalhe', pk=pk)
 
 
 @requer_sessao_ativa
 @requer_escrita_financeira
 def editar_linha_requisicao(request, pk, linha_id):
-    requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
     linha = get_object_or_404(RequisicaoFundoLinha, pk=linha_id, requisicao=requisicao)
     
     if requisicao.estado in ('Anulada', 'Aceite', 'Rejeitada'):
         messages.error(request, 'Não é possível editar linhas de uma requisição neste estado.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
 
-    if request.method == 'POST':
-        form = RequisicaoFundoLinhaForm(request.POST, request.FILES, instance=linha)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Linha actualizada com sucesso.')
-            return redirect('financeiro:requisicao_detalhe', pk=pk)
-    else:
-        form = RequisicaoFundoLinhaForm(instance=linha)
+    if request.method != 'POST':
+        return redirect('financeiro:requisicao_detalhe', pk=pk)
 
-    context = {
-        'form': form,
-        'requisicao': requisicao,
-        'linha': linha,
-        'titulo': 'Editar Linha',
-        'active_menu': 'Financeiro',
-        'active_sub': 'requisicoes',
-    }
-    if request.session.get('usuario'):
-        context['usuario'] = request.session['usuario']
-        context['papel'] = request.session['usuario'].get('papel', '')
-        context['nome'] = request.session['usuario'].get('nome', '')
-    return render(request, 'financeiro/requisicao_fundo_linha_form.html', context)
+    form = RequisicaoFundoLinhaForm(request.POST, request.FILES, instance=linha)
+    if form.is_valid():
+        if getattr(form, '_valor_auto_corrigido', False):
+            messages.info(request, 'O valor mínimo para Honorários do Despachante é 45.000 KZ — o valor foi ajustado automaticamente.')
+        form.save()
+        messages.success(request, 'Linha actualizada com sucesso.')
+        return redirect('financeiro:requisicao_detalhe', pk=pk)
+
+    for error in form.errors.values():
+        for msg in error:
+            messages.error(request, msg)
+    return redirect('financeiro:requisicao_detalhe', pk=pk)
 
 
 @requer_sessao_ativa
 @requer_escrita_financeira
 @require_POST
 def eliminar_linha_requisicao(request, pk, linha_id):
-    requisicao = get_object_or_404(RequisicaoFundo, pk=pk)
+    requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
     linha = get_object_or_404(RequisicaoFundoLinha, pk=linha_id, requisicao=requisicao)
     
     if requisicao.estado in ('Anulada', 'Aceite', 'Rejeitada'):
@@ -447,259 +638,281 @@ def eliminar_linha_requisicao(request, pk, linha_id):
 
 @requer_sessao_ativa
 def requisicao_pdf(request, pk):
-    """Gera PDF da Requisição de Fundos (Fatura Proforma) com design profissional"""
+    """Gera PDF da Requisição de Fundos com layout profissional e dados reais"""
+    from datetime import datetime
+    from decimal import Decimal
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus.flowables import HRFlowable
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from users.models import Usuario
+    
     requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
     buffer = io.BytesIO()
     
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import cm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
-    from reportlab.platypus.flowables import HRFlowable
-    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    PAGE_W, PAGE_H = A4
+    MARGIN = 0.7 * cm
+    W = PAGE_W - 2 * MARGIN
     
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        leftMargin=0.8*cm, rightMargin=0.8*cm,
-        topMargin=0.8*cm, bottomMargin=1.5*cm,
+        leftMargin=MARGIN, rightMargin=MARGIN,
+        topMargin=0.5 * cm, bottomMargin=1.0 * cm,
         title=f"Requisição de Fundos {requisicao.numero_requisicao}",
     )
-    W = A4[0] - 1.6*cm
     
-    # ─── Cores ──────────────────────────────────────────────────────────────
-    cor_cabecalho = colors.HexColor('#0f172a')
-    cor_primaria = colors.HexColor('#137fec')
-    cor_cinza_claro = colors.HexColor('#f1f5f9')
-    cor_borda = colors.HexColor('#cbd5e1')
-    cor_linha_par = colors.HexColor('#f8fafc')
+    # Cores
+    COR_PRETO = colors.HexColor('#0f172a')
+    COR_CINZA = colors.HexColor('#64748b')
+    COR_VERDE = colors.HexColor('#059669')
+    COR_BORDA = colors.HexColor('#cbd5e1')
+    COR_VERMELHO = colors.HexColor('#dc2626')
     
-    # ─── Estilos ────────────────────────────────────────────────────────────
-    s_titulo = ParagraphStyle('titulo', fontSize=16, fontName='Helvetica-Bold', textColor=cor_cabecalho, alignment=TA_CENTER, spaceAfter=4)
-    s_subtitulo = ParagraphStyle('subtitulo', fontSize=9, fontName='Helvetica', textColor=colors.HexColor('#64748b'), alignment=TA_CENTER, spaceAfter=2)
-    s_label = ParagraphStyle('label', fontSize=8, fontName='Helvetica-Bold', textColor=colors.HexColor('#475569'))
-    s_normal = ParagraphStyle('normal', fontSize=9, fontName='Helvetica', textColor=cor_cabecalho, leading=11)
-    s_small = ParagraphStyle('small', fontSize=8, fontName='Helvetica', textColor=colors.HexColor('#64748b'), leading=10)
-    s_tabla_header = ParagraphStyle('tabla_h', fontSize=9, fontName='Helvetica-Bold', textColor=colors.white, alignment=TA_CENTER)
-    s_tabla_cell = ParagraphStyle('tabla_c', fontSize=9, fontName='Helvetica', textColor=cor_cabecalho, leading=11)
+    # Estilos
+    def st(name, **kw):
+        defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRETO, leading=11)
+        defaults.update(kw)
+        return ParagraphStyle(name, **defaults)
     
-    story = []
+    s_small = st('small', fontSize=6.5, textColor=COR_CINZA, leading=8)
+    s_normal = st('normal', fontSize=8, leading=9)
     
-    # ─── CABEÇALHO: Logo + Dados da Banca ────────────────────────────────────
     banca = requisicao.banca
-    logo_path = None
-    if banca and hasattr(banca, 'logo') and banca.logo:
-        logo_path = banca.logo.path
-    
-    # Construir cabeçalho com logo e dados
-    cabecalho_data = []
-    
-    # Coluna 1: Logo (se existir)
-    col1 = []
-    if logo_path:
-        try:
-            img = RLImage(logo_path, width=2.2*cm, height=1.5*cm)
-            col1.append(img)
-        except:
-            col1.append(Paragraph('<i>Logo não encontrado</i>', s_small))
-    else:
-        col1.append(Paragraph('', s_small))  # Espaço vazio
-    
-    # Coluna 2: Dados da Banca
-    col2_text = f"""<b>{banca.nome if banca else 'Banca'}</b><br/>
-<font size="7">NIF: {banca.nif if banca and hasattr(banca, 'nif') else 'N/D'}<br/>
-Licença CDOA: {banca.licenca_cdoa if banca and hasattr(banca, 'licenca_cdoa') and banca.licenca_cdoa else 'N/D'}<br/>
-{banca.endereco if banca and hasattr(banca, 'endereco') else ''}<br/>
-Tel: {banca.telefone if banca and hasattr(banca, 'telefone') else 'N/D'}</font>"""
-    col2 = [Paragraph(col2_text, ParagraphStyle('banca_info', fontSize=10, fontName='Helvetica', textColor=cor_cabecalho, leading=12))]
-    
-    # Coluna 3: Dados do documento (direita)
-    col3_text = f"""<b>REQUISIÇÃO DE FUNDOS</b><br/>
-<font size="8">Nº: {requisicao.numero_requisicao}<br/>
-Data: {requisicao.data_emissao.strftime('%d/%m/%Y')}<br/>
-Válida até: {requisicao.data_validade.strftime('%d/%m/%Y')}</font>"""
-    col3 = [Paragraph(col3_text, ParagraphStyle('doc_info', fontSize=10, fontName='Helvetica-Bold', textColor=cor_primaria, leading=12, alignment=TA_RIGHT))]
-    
-    t_cabecalho = Table([[col1, col2, col3]], colWidths=[2.5*cm, W/2 - 1.25*cm, W/2 - 1.25*cm])
-    t_cabecalho.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-    ]))
-    story.append(t_cabecalho)
-    story.append(Spacer(1, 0.3*cm))
-    story.append(HRFlowable(width=W, thickness=1.5, color=cor_primaria))
-    story.append(Spacer(1, 0.3*cm))
-    
-    # ─── DADOS DO CLIENTE E PROCESSO ─────────────────────────────────────────
     cliente = requisicao.cliente
     processo = requisicao.processo_aduaneiro
     
-    # Dois blocos: Esquerda (Cliente) e Direita (Processo)
-    cliente_text = f"""<b>CLIENTE</b><br/>
-<font size="8">{cliente.nome}<br/>
-NIF: {cliente.nif}<br/>
-Pessoa Contacto: {requisicao.pessoa_contacto or cliente.nome}<br/>
-Tel: {cliente.telefone or 'N/D'}<br/>
-Email: {cliente.email or 'N/D'}</font>"""
+    # Buscar nome do despachante responsável (dono da banca)
+    responsavel_nome = 'DESPACHANTE OFICIAL'
+    if banca:
+        try:
+            usuario_banca = Usuario.objects.get(id=banca.usuario_id)
+            responsavel_nome = (usuario_banca.nome or 'DESPACHANTE OFICIAL').upper()
+        except:
+            responsavel_nome = 'DESPACHANTE OFICIAL'
     
-    processo_text = f"""<b>PROCESSO ADUANEIRO</b><br/>
-<font size="8">DU: {processo.numero_du if processo else 'N/D'}<br/>
-Ref. Despachante: {processo.ref_despachante if processo and hasattr(processo, 'ref_despachante') else 'N/D'}<br/>
-Exportador: {processo.exportador_nome if processo else 'N/D'}<br/>
-Mercadoria: {requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else 'N/D')}<br/>
-Valor CIF: {fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else 'N/D'}</font>"""
+    story = []
     
-    t_cliente_proc = Table([[
-        Paragraph(cliente_text, ParagraphStyle('cliente', fontSize=9, fontName='Helvetica', textColor=cor_cabecalho, leading=11)),
-        Paragraph(processo_text, ParagraphStyle('processo', fontSize=9, fontName='Helvetica', textColor=cor_cabecalho, leading=11))
-    ]], colWidths=[W/2 - 0.2*cm, W/2 - 0.2*cm])
-    t_cliente_proc.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), cor_cinza_claro),
-        ('GRID', (0, 0), (-1, -1), 0.5, cor_borda),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    # CABEÇALHO: Data, hora na parte superior direita
+    agora = datetime.now()
+    top_line = Table([[
+        Paragraph(f'', st('empty')),
+        Paragraph(f'<font size="6.5" color="#999">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>', st('top', alignment=TA_RIGHT, fontSize=6.5))
+    ]], colWidths=[W * 0.6, W * 0.4])
+    top_line.setStyle(TableStyle([
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
-    story.append(t_cliente_proc)
-    story.append(Spacer(1, 0.4*cm))
+    story.append(top_line)
+    story.append(Spacer(1, 0.1 * cm))
     
-    # ─── TABELA DE CUSTOS ────────────────────────────────────────────────────
-    story.append(Paragraph('<b>DISCRIMINAÇÃO DE CUSTOS</b>', ParagraphStyle('tab_titulo', fontSize=10, fontName='Helvetica-Bold', textColor=cor_primaria, spaceAfter=6)))
+    story.append(Spacer(1, 0.1 * cm))
     
-    # Cabeçalho da tabela
-    linhas_tabela = [['Item', 'Descrição', 'Tipo de Custo', 'Valor (KZ)']]
+    # LOGO E NIF
+    nif_txt = f"NIF: {banca.nif}" if banca else 'N/D'
+    nome_txt = banca.nome if banca else 'Despachante Oficial'
     
-    # Dados das linhas
-    for idx, linha in enumerate(requisicao.linhas.all().order_by('ordem'), 1):
-        linhas_tabela.append([
-            str(idx),
-            linha.descricao[:40] + ('...' if len(linha.descricao) > 40 else ''),
-            linha.get_tipo_custo_display(),
-            fmt_kz(linha.valor or 0)
-        ])
-    
-    # Se não há linhas, mostrar linha vazia
-    if len(linhas_tabela) == 1:
-        linhas_tabela.append(['', 'Sem custos adicionados', '', '0,00 KZ'])
-    
-    # Criar tabela
-    col_widths = [0.8*cm, W/2 - 0.4*cm, 2.5*cm, 2.2*cm]
-    t_custos = Table(linhas_tabela, colWidths=col_widths)
-    t_custos.setStyle(TableStyle([
-        # Cabeçalho
-        ('BACKGROUND', (0, 0), (-1, 0), cor_primaria),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, 0), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-        
-        # Corpo
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, cor_linha_par]),
-        ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
-        ('ALIGN', (0, 1), (0, -1), 'CENTER'),
-        ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    header_table = Table([[
+        Paragraph(f'<font size="10"><b>{nome_txt}</b></font>', st('nome', fontName='Helvetica-Bold', fontSize=10.5)),
+        Paragraph(f'<font size="8" color="#666"><b>{nif_txt}</b></font>', st('nif', fontSize=8, alignment=TA_RIGHT))
+    ]], colWidths=[W * 0.7, W * 0.3])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
-    story.append(t_custos)
-    story.append(Spacer(1, 0.4*cm))
+    story.append(header_table)
     
-    # ─── RESUMO FINANCEIRO ───────────────────────────────────────────────────
-    # Tabela com cálculos
-    resumo_dados = [
-        ['Subtotal Geral', fmt_kz(requisicao.subtotal_geral or 0)],
-        ['IVA 14% (Honorários)', fmt_kz(requisicao.iva_honorarios or 0)],
-        ['Retenção 6.5% (Honorários)', fmt_kz(requisicao.retencao or 0)],
-    ]
+    # DESPACHANTE RESPONSÁVEL EM VERDE E BOLD
+    story.append(Paragraph(
+        f'<font size="9" color="#059669"><b>{responsavel_nome}</b></font>',
+        st('resp', fontName='Helvetica-Bold', fontSize=9)
+    ))
+    story.append(Spacer(1, 0.05 * cm))
     
-    t_resumo = Table(resumo_dados, colWidths=[W - 3*cm, 3*cm])
-    t_resumo.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), cor_cinza_claro),
-        ('BACKGROUND', (1, 0), (1, -1), colors.white),
-        ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+    # Info: Banca - HASH e outros dados
+    story.append(Paragraph(
+        f'<font size="7"><b>{nome_txt} - HASH</b></font>',
+        st('hash', fontName='Helvetica-Bold', fontSize=7)
+    ))
+    story.append(Paragraph(
+        '<font size="6.5">Processado por programa válido nº35/AGT/2019</font>',
+        s_small
+    ))
+    
+    # Endereço e contatos
+    endereco = banca.endereco if banca else ''
+    telefone = banca.telefone if banca else ''
+    email_b = banca.email if banca else ''
+    cdoa = banca.licenca_cdoa if banca else ''
+    
+    for info in filter(None, [endereco, 'ANGOLA', f'Tel: {telefone}' if telefone else '', f'Email: {email_b}' if email_b else '', f'Cédula CDOA: {cdoa}' if cdoa else '']):
+        story.append(Paragraph(f'<font size="6.5" color="#666">{info}</font>', s_small))
+    
+    story.append(Spacer(1, 0.15 * cm))
+    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.15 * cm))
+    
+    story.append(Spacer(1, 0.15 * cm))
+    
+    # REQUISIÇÃO Nº E DATA
+    data_emissao = requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else 'N/D'
+    
+    req_table = Table([[
+        Paragraph(f'<font size="9.5"><b>Requisição Nº: {requisicao.numero_requisicao}</b></font>', st('req', fontName='Helvetica-Bold', fontSize=9.5)),
+        Paragraph(f'<font size="9.5"><b>Data: {data_emissao}</b></font>', st('data', fontName='Helvetica-Bold', fontSize=9.5, alignment=TA_RIGHT))
+    ]], colWidths=[W * 0.55, W * 0.45])
+    req_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(req_table)
+    story.append(Spacer(1, 0.15 * cm))
+    
+    story.append(Spacer(1, 0.15 * cm))
+    
+    # TABELA DE 3 COLUNAS: Designação | Direitos | Despesas Inerentes
+    valor_aduaneiro = processo.valor_total if processo and hasattr(processo, 'valor_total') else requisicao.valor_cif or Decimal('0')
+    
+    # Coluna 1: Designação
+    designacao_text = f"""<b>Designação da mercadoria</b>
+
+Pelo desembarque de:
+<b>{requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else 'N/D')}</b>
+
+<b>Documentos</b>
+BL ou Carta: {requisicao.numero_bl_awb or '—'}
+Procedência: {requisicao.origem or '—'}
+Navio/Avião: {requisicao.meio_transporte or '—'}
+Nr DU: {processo.numero_du if processo else '—'}
+Valor CIF: {fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else '—'}
+Câmbio: {requisicao.cambio_referencia or '—'}
+Valor aduaneiro: {fmt_kz(valor_aduaneiro)}"""
+    
+    # Coluna 2: Direitos e mais imposições (DOCUMENTADAS)
+    despesas_doc = requisicao.linhas.filter(documentada=True)
+    total_direitos = Decimal('0')
+    direitos_text = '<b>Direitos e mais imposições</b>\n\n'
+    
+    for linha in despesas_doc:
+        if linha.valor and linha.valor > 0:
+            direitos_text += f"{linha.despesa_tipo or 'Despesa'} ..... {fmt_kz(linha.valor)}\n"
+            total_direitos += linha.valor
+    
+    if total_direitos == 0:
+        direitos_text += "EP 14 .................\nEP 15 .................\nEP 17 ..................."
+    
+    # Coluna 3: Despesas inerentes (NÃO DOCUMENTADAS)
+    despesas_nao_doc = requisicao.linhas.filter(documentada=False)
+    total_despesas = Decimal('0')
+    despesas_text = '<b>Despesas inerentes</b>\n\n'
+    
+    for linha in despesas_nao_doc:
+        if linha.valor and linha.valor > 0:
+            despesas_text += f"{linha.despesa_tipo or 'Despesa'} ..... {fmt_kz(linha.valor)}\n"
+            total_despesas += linha.valor
+    
+    if total_despesas == 0:
+        despesas_text += "Honorários: —"
+    
+    # Criar tabela 3 colunas
+    tres_colunas = Table([[
+        Paragraph(designacao_text, st('designacao', fontSize=6.5, leading=8)),
+        Paragraph(direitos_text, st('direitos', fontSize=6.5, leading=8)),
+        Paragraph(despesas_text, st('despesas', fontSize=6.5, leading=8))
+    ]], colWidths=[W/3 - 0.15*cm, W/3 - 0.15*cm, W/3 - 0.15*cm])
+    
+    tres_colunas.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.75, COR_BORDA),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
     ]))
-    story.append(t_resumo)
-    story.append(Spacer(1, 0.3*cm))
+    story.append(tres_colunas)
+    story.append(Spacer(1, 0.15 * cm))
+    story.append(Spacer(1, 0.15 * cm))
     
-    # TOTAL GERAL
-    t_total = Table([
-        ['TOTAL GERAL A PAGAR', fmt_kz(requisicao.total_geral or 0)]
-    ], colWidths=[W - 3*cm, 3*cm])
-    t_total.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), cor_cabecalho),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 12),
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    # TOTALIZAÇÕES EM VERMELHO
+    cambio = Decimal(requisicao.cambio_referencia or 1)
+    if cambio == 0:
+        cambio = Decimal(1)
+    valor_usd = requisicao.total_geral / cambio if requisicao.total_geral else Decimal('0')
+    
+    totais = Table([
+        [Paragraph('<font size="7"><b>Mercadorias</b></font>', st('tot')), Paragraph(f'<font size="7" color="{COR_VERMELHO}"><b>{fmt_kz(total_direitos)}</b></font>', st('tot')), 
+         Paragraph('<font size="7"><b>Serviços</b></font>', st('tot')), Paragraph(f'<font size="7" color="{COR_VERMELHO}"><b>{fmt_kz(total_despesas)}</b></font>', st('tot'))],
+        [Paragraph('<font size="7">Outros</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot')), 
+         Paragraph('<font size="7">IEC</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot'))],
+        [Paragraph('<font size="7">Retenção</font>', st('tot')), Paragraph(f'<font size="7">{fmt_kz(requisicao.retencao) if requisicao.retencao else "0,00"}</font>', st('tot')), 
+         Paragraph('<font size="7">Descontos</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot'))],
+        [Paragraph('<font size="7"><b>TOTAL Kz:</b></font>', st('tot', fontName='Helvetica-Bold')), 
+         Paragraph(f'<font size="8" color="{COR_VERMELHO}"><b>{fmt_kz(requisicao.total_geral or 0)}</b></font>', st('tot', fontName='Helvetica-Bold')), 
+         Paragraph('<font size="7"><b>TOTAL USD:</b></font>', st('tot', fontName='Helvetica-Bold')), 
+         Paragraph(f'<font size="8" color="{COR_VERMELHO}"><b>{fmt_kz(valor_usd)}</b></font>', st('tot', fontName='Helvetica-Bold'))],
+    ], colWidths=[2.2*cm, 2.5*cm, 2.2*cm, 2.5*cm])
+    
+    totais.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, COR_BORDA),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
     ]))
-    story.append(t_total)
-    story.append(Spacer(1, 0.3*cm))
+    story.append(totais)
+    story.append(Spacer(1, 0.2 * cm))
     
-    # ─── VALOR POR EXTENSO ───────────────────────────────────────────────────
-    extenso_box = Table([
-        [Paragraph(f'<i>{requisicao.valor_total_extenso}</i>', ParagraphStyle('extenso', fontSize=9, fontName='Helvetica-Oblique', textColor=colors.HexColor('#475569'), alignment=TA_CENTER))]
-    ], colWidths=[W])
-    extenso_box.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef3c7')),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#f59e0b')),
+    # NOTA
+    story.append(Paragraph(
+        '<font size="6.5"><i>NOTA: Os originais das contas referidas vão devediamente selecionadas pelo valor dos honorários</i></font>',
+        st('nota', fontSize=6.5, alignment=TA_CENTER)
+    ))
+    story.append(Spacer(1, 0.2 * cm))
+    
+    # ASSINATURA
+    assinatura = Table([
+        [Paragraph('Recebeu em: _____/_____/______', st('ass', fontSize=7)), 
+         Paragraph('O Cliente', st('ass', fontSize=7, alignment=TA_CENTER))],
+        [Paragraph('', st('ass', fontSize=1)), 
+         Paragraph(f'<b>{responsavel_nome}</b>', st('ass', fontSize=7.5, fontName='Helvetica-Bold', alignment=TA_CENTER))],
+    ], colWidths=[W/2, W/2])
+    
+    assinatura.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
-    story.append(extenso_box)
-    story.append(Spacer(1, 0.6*cm))
+    story.append(assinatura)
+    story.append(Spacer(1, 0.15 * cm))
     
-    # ─── DADOS BANCÁRIOS ─────────────────────────────────────────────────────
-    if requisicao.banco or requisicao.numero_conta or requisicao.iban:
-        story.append(Paragraph('<b>DADOS PARA PAGAMENTO</b>', ParagraphStyle('banco_titulo', fontSize=9, fontName='Helvetica-Bold', textColor=cor_primaria, spaceAfter=4)))
-        banco_text = f"""Banco: {requisicao.banco or 'N/D'}<br/>
-Conta: {requisicao.numero_conta or 'N/D'}<br/>
-IBAN: {requisicao.iban or 'N/D'}<br/>
-Instruções: {requisicao.instrucoes_envio or 'Sem instruções especiais'}"""
-        story.append(Paragraph(banco_text, s_small))
-        story.append(Spacer(1, 0.4*cm))
+    # DADOS DO CLIENTE (FINAL)
+    cliente_nome = cliente.nome if cliente else 'Nome do Cliente'
+    cliente_loc = cliente.localizacao if cliente else 'Endereço'
+    cliente_tel = cliente.telefone if cliente else 'Telefone'
     
-    # ─── NOTAS / OBSERVAÇÕES ────────────────────────────────────────────────
-    if requisicao.observacoes:
-        story.append(Paragraph('<b>OBSERVAÇÕES</b>', ParagraphStyle('obs_titulo', fontSize=9, fontName='Helvetica-Bold', textColor=cor_primaria, spaceAfter=4)))
-        story.append(Paragraph(requisicao.observacoes, s_small))
-        story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(f'<font size="8"><b>{cliente_nome}</b></font>', st('cli', fontName='Helvetica-Bold', fontSize=8)))
+    story.append(Paragraph(f'<font size="6.5">{cliente_loc} - Tel {cliente_tel}</font>', s_small))
     
-    # ─── ESPAÇO PARA ASSINATURA ─────────────────────────────────────────────
-    story.append(Spacer(1, 0.5*cm))
-    story.append(HRFlowable(width=4*cm, thickness=0.5, color=colors.HexColor('#94a3b8'), hAlign='CENTER'))
-    story.append(Paragraph('Assinatura do Responsável', ParagraphStyle('ass', fontSize=7, fontName='Helvetica', alignment=TA_CENTER)))
-    
-    # ─── RODAPÉ ─────────────────────────────────────────────────────────────
-    story.append(Spacer(1, 0.5*cm))
-    rodape_text = f"""<font size="7" color="#64748b">
-Esta Requisição de Fundos é uma Fatura Proforma e não é documento contabilístico final. Estará sujeita a alterações conforme a execução do despacho aduaneiro.
-Emitido em: {requisicao.data_emissao.strftime('%d de %B de %Y às %H:%M')} por {requisicao.criado_por_nome or 'Sistema'}
-    </font>"""
-    story.append(Paragraph(rodape_text, ParagraphStyle('rodape', fontSize=7, fontName='Helvetica', textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)))
-    
+    # BUILD DO PDF
     doc.build(story)
     
     buffer.seek(0)
@@ -770,12 +983,16 @@ def requisicao_enviar_email(request, pk):
         
         col2_text = f"""<b>{banca.nome if banca else 'Banca'}</b><br/>
 <font size="7">NIF: {banca.nif if banca and hasattr(banca, 'nif') else 'N/D'}<br/>
-{banca.endereco if banca and hasattr(banca, 'endereco') else ''}</font>"""
+Licença CDOA: {banca.licenca_cdoa if banca and hasattr(banca, 'licenca_cdoa') and banca.licenca_cdoa else 'N/D'}<br/>
+{banca.endereco if banca and hasattr(banca, 'endereco') else ''}<br/>
+Tel: {banca.telefone if banca and hasattr(banca, 'telefone') else 'N/D'}<br/>
+Email: {banca.email if banca and hasattr(banca, 'email') else 'N/D'}</font>"""
         col2 = [Paragraph(col2_text, ParagraphStyle('banca_info', fontSize=10, fontName='Helvetica', textColor=cor_cabecalho, leading=12))]
         
         col3_text = f"""<b>REQUISIÇÃO DE FUNDOS</b><br/>
 <font size="8">Nº: {requisicao.numero_requisicao}<br/>
-Data: {requisicao.data_emissao.strftime('%d/%m/%Y')}</font>"""
+Data: {requisicao.data_emissao.strftime('%d/%m/%Y')}<br/>
+Validade: {requisicao.data_validade.strftime('%d/%m/%Y')}</font>"""
         col3 = [Paragraph(col3_text, ParagraphStyle('doc_info', fontSize=10, fontName='Helvetica-Bold', textColor=cor_primaria, leading=12, alignment=TA_RIGHT))]
         
         t_cabecalho = Table([[col1, col2, col3]], colWidths=[2.5*cm, W/2 - 1.25*cm, W/2 - 1.25*cm])
@@ -789,20 +1006,19 @@ Data: {requisicao.data_emissao.strftime('%d/%m/%Y')}</font>"""
         # ─── TABELA DE CUSTOS ────────────────────────────────────────────────────
         story.append(Paragraph('<b>DISCRIMINAÇÃO DE CUSTOS</b>', ParagraphStyle('tab_titulo', fontSize=10, fontName='Helvetica-Bold', textColor=cor_primaria, spaceAfter=6)))
         
-        linhas_tabela = [['Item', 'Descrição', 'Tipo de Custo', 'Valor (KZ)']]
+        linhas_tabela = [['Item', 'Descrição', 'Tipo', 'Doc.', 'Valor (KZ)']]
         
         for idx, linha in enumerate(requisicao.linhas.all().order_by('ordem'), 1):
+            desc = linha.descricao[:40] + ('...' if len(linha.descricao) > 40 else '')
+            doc_label = 'Sim' if linha.documentada else 'Não'
             linhas_tabela.append([
-                str(idx),
-                linha.descricao[:40] + ('...' if len(linha.descricao) > 40 else ''),
-                linha.get_tipo_custo_display(),
-                fmt_kz(linha.valor or 0)
+            str(idx), desc, linha.despesa_tipo or '—', doc_label, fmt_kz(linha.valor or 0)
             ])
         
         if len(linhas_tabela) == 1:
-            linhas_tabela.append(['', 'Sem custos adicionados', '', '0,00 KZ'])
+            linhas_tabela.append(['', 'Sem custos adicionados', '', '', '0,00 KZ'])
         
-        col_widths = [0.8*cm, W/2 - 0.4*cm, 2.5*cm, 2.2*cm]
+        col_widths = [0.8*cm, W/2 - 0.4*cm, 2.5*cm, 1.2*cm, 2.2*cm]
         t_custos = Table(linhas_tabela, colWidths=col_widths)
         t_custos.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), cor_primaria),
@@ -819,7 +1035,8 @@ Data: {requisicao.data_emissao.strftime('%d/%m/%Y')}</font>"""
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('ALIGN', (0, 1), (0, -1), 'CENTER'),
-            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+            ('ALIGN', (3, 1), (3, -1), 'CENTER'),
+            ('ALIGN', (4, 1), (4, -1), 'RIGHT'),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ('LEFTPADDING', (0, 0), (-1, -1), 6),
@@ -970,27 +1187,48 @@ def criar_factura_de_requisicao(request, pk):
         return redirect('financeiro:requisicao_detalhe', pk=pk)
     
     def _mapear_linhas(linhas_qs):
-        """Classifica as linhas da RF nos campos da FacturaCliente"""
+        """Classifica as linhas da RF nos campos da FacturaCliente
+        
+        Regras:
+        - Honorários do Despachante (tipo_custo ou despesa_tipo ~ Honorários) → honorarios
+        - Despesas documentadas com perfil fiscal/taxas → taxas_aduaneiras
+        - Despesas documentadas portuárias/terminais → emolumentos
+        - Restantes (não-documentadas operacionais, etc.) → despesas_operacionais
+        """
+        DESP_TAXAS = {'Direitos Aduaneiros', 'Taxa Administrativa', 'Inspeção Sanitária',
+                       'Multas e Desdobramento', 'Multas'}
+        DESP_EMOL = {'JUP', 'Factura de Exportação', 'Emissão DAR'}
+        
         honorarios = Decimal('0')
         taxas_aduaneiras = Decimal('0')
         emolumentos = Decimal('0')
         despesas_operacionais = Decimal('0')
-        outros = Decimal('0')
         
         for linha in linhas_qs:
             valor = linha.valor or Decimal('0')
-            if linha.tipo_custo == 'Honorários do Despachante':
+            if not valor:
+                continue
+            tc = (linha.tipo_custo or '').strip()
+            dt = (linha.despesa_tipo or '').strip()
+            
+            # Honorários — por tipo_custo ou despesa_tipo
+            if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
                 honorarios += valor
-            elif linha.tipo_custo == 'Impostos e Taxas Aduaneiras (AGT)':
+            elif tc == 'Impostos e Taxas Aduaneiras (AGT)':
                 taxas_aduaneiras += valor
-            elif linha.tipo_custo == 'Despesas Portuárias e Terminais':
+            elif tc == 'Despesas Portuárias e Terminais':
                 emolumentos += valor
-            elif linha.tipo_custo == 'Logística e Transporte':
-                despesas_operacionais += valor
+            elif tc in ('Logística e Transporte', 'Outros') or not tc:
+                # Classificar por despesa_tipo quando tipo_custo é genérico
+                if dt in DESP_TAXAS:
+                    taxas_aduaneiras += valor
+                elif dt in DESP_EMOL:
+                    emolumentos += valor
+                else:
+                    despesas_operacionais += valor
             else:
-                outros += valor
+                despesas_operacionais += valor
         
-        despesas_operacionais += outros
         iva = (honorarios * Decimal('0.14')).quantize(Decimal('0.01'))
         valor_total = honorarios + taxas_aduaneiras + emolumentos + despesas_operacionais + iva
         
@@ -1068,8 +1306,20 @@ def criar_factura_de_requisicao(request, pk):
     # GET - mostrar confirmação
     honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, valor_total = _mapear_linhas(requisicao.linhas.all())
     
+    # Calcular próximo número de factura
+    ano = timezone.now().year
+    ultimo = FacturaCliente.objects.filter(numero_factura__startswith=f'FT-{ano}-').order_by('-numero_factura').first()
+    prox_seq = 1
+    if ultimo and ultimo.numero_factura:
+        try:
+            prox_seq = int(ultimo.numero_factura.split('-')[-1]) + 1
+        except ValueError:
+            pass
+    proximo_numero_factura = f'FT-{ano}-{prox_seq:04d}'
+    
     context = {
         'requisicao': requisicao,
+        'proximo_numero_factura': proximo_numero_factura,
         'honorarios': fmt_kz(honorarios),
         'taxas_aduaneiras': fmt_kz(taxas_aduaneiras),
         'emolumentos': fmt_kz(emolumentos),
@@ -1087,6 +1337,84 @@ def criar_factura_de_requisicao(request, pk):
         context['nome'] = request.session['usuario'].get('nome', '')
     
     return render(request, 'financeiro/criar_factura_de_requisicao.html', context)
+
+
+@requer_sessao_ativa
+@requer_escrita_financeira
+def requisicao_criar_factura_recibo(request, pk):
+    """Cria uma Factura-Recibo a partir de uma Requisição de Fundos"""
+    requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
+
+    if requisicao.estado != 'Aceite':
+        messages.error(request, 'Apenas requisições Aceites podem gerar Factura-Recibo.')
+        return redirect('financeiro:requisicao_detalhe', pk=pk)
+
+    factura = requisicao.facturas.first()
+
+    if not factura:
+        messages.error(request, 'A Requisição não possui uma Factura Final associada. Crie a Factura Final primeiro.')
+        return redirect('financeiro:requisicao_detalhe', pk=pk)
+
+    if request.method == 'POST':
+        forma_pagamento = request.POST.get('forma_pagamento', '').strip()
+        data_str = request.POST.get('data', '').strip()
+
+        erros = []
+        if not forma_pagamento:
+            erros.append('Selecione a forma de pagamento.')
+        if not data_str:
+            erros.append('Informe a data.')
+
+        if erros:
+            for e in erros:
+                messages.error(request, e)
+        else:
+            from datetime import datetime as dt
+            data = dt.strptime(data_str, '%Y-%m-%d').date()
+
+            if data > timezone.now().date():
+                messages.error(request, 'A data não pode estar no futuro.')
+            else:
+                recibo = FacturaRecibo(
+                    banca=requisicao.banca,
+                    filial=requisicao.filial,
+                    cliente=requisicao.cliente,
+                    factura=factura,
+                    requisicao_fundo=requisicao,
+                    valor=requisicao.total_geral,
+                    forma_pagamento=forma_pagamento,
+                    data=data,
+                    estado='Paga',
+                    utilizador_responsavel_id=request.session.get('usuario_id'),
+                    utilizador_responsavel_nome=request.session.get('usuario', {}).get('nome', ''),
+                )
+                recibo.save()
+
+                registrar_historico(
+                    'FacturaRecibo', recibo.pk, recibo.numero_factura_recibo, 'Criada de Requisição',
+                    valor=recibo.valor,
+                    utilizador_id=recibo.utilizador_responsavel_id,
+                    utilizador_nome=recibo.utilizador_responsavel_nome,
+                    cliente_nome=recibo.cliente.nome,
+                    banca_id=recibo.banca_id,
+                    filial_id=recibo.filial_id,
+                )
+
+                messages.success(request, f'Factura-Recibo {recibo.numero_factura_recibo} emitida com sucesso.')
+                return redirect('financeiro:factura_recibo_detalhe', pk=recibo.pk)
+
+    context = {
+        'requisicao': requisicao,
+        'factura': factura,
+        'hoje': timezone.now().strftime('%Y-%m-%d'),
+        'active_menu': 'Financeiro',
+        'active_sub': 'requisicoes',
+    }
+    if request.session.get('usuario'):
+        context['usuario'] = request.session['usuario']
+        context['papel'] = request.session['usuario'].get('papel', '')
+        context['nome'] = request.session['usuario'].get('nome', '')
+    return render(request, 'financeiro/criar_factura_recibo_de_requisicao.html', context)
 
 
 def _user_tem_acesso_total(request):
@@ -1291,44 +1619,45 @@ class FacturaClienteListView(BaseContextMixin, ListView):
         context['active_sub'] = 'facturas_finais'
         return context
 
-@method_decorator(requer_sessao_ativa, name='dispatch')
-@method_decorator(requer_escrita_financeira, name='dispatch')
-class FacturaClienteCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
-    model = FacturaCliente
-    form_class = FacturaClienteForm
-    template_name = 'financeiro/factura_form.html'
-    success_url = reverse_lazy('financeiro:factura_lista')
-    success_message = "Factura Final criada com sucesso!"
-
-    def form_valid(self, form):
-        form.instance.criado_por_id = self.request.session.get('usuario_id')
-        usuario_data = self.request.session.get('usuario', {})
-        form.instance.criado_por_nome = usuario_data.get('nome', '')
-        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
-        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
-        response = super().form_valid(form)
-        registrar_historico(
-            'Factura', self.object.pk, self.object.numero_factura, 'Criada',
-            estado_novo=self.object.estado, valor=self.object.valor_total,
-            utilizador_id=self.object.criado_por_id, utilizador_nome=self.object.criado_por_nome,
-            cliente_nome=self.object.cliente.nome,
-            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
-        )
-        return response
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['titulo'] = "Nova Factura Final"
-        context['active_menu'] = 'Financeiro'
-        context['active_sub'] = 'facturas_finais'
-        clientes_qs = Cliente.objects.filter(ativo=True)
-        filtro_cliente = self._get_user_filter_direct()
-        if filtro_cliente:
-            clientes_qs = clientes_qs.filter(**filtro_cliente)
-        context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
-        processos_qs = DeclaracaoUnica.objects.filter(status='Aprovada')
-        context['processos_json'] = json.dumps(list(processos_qs.values('id', 'nif_declarante', 'numero_du')))
-        return context
+# ELIMINADO: Criacão standalone substituída pela criacão a partir da Requisição de Fundo
+# @method_decorator(requer_sessao_ativa, name='dispatch')
+# @method_decorator(requer_escrita_financeira, name='dispatch')
+# class FacturaClienteCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
+#     model = FacturaCliente
+#     form_class = FacturaClienteForm
+#     template_name = 'financeiro/factura_form.html'
+#     success_url = reverse_lazy('financeiro:factura_lista')
+#     success_message = "Factura Final criada com sucesso!"
+# 
+#     def form_valid(self, form):
+#         form.instance.criado_por_id = self.request.session.get('usuario_id')
+#         usuario_data = self.request.session.get('usuario', {})
+#         form.instance.criado_por_nome = usuario_data.get('nome', '')
+#         form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+#         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+#         response = super().form_valid(form)
+#         registrar_historico(
+#             'Factura', self.object.pk, self.object.numero_factura, 'Criada',
+#             estado_novo=self.object.estado, valor=self.object.valor_total,
+#             utilizador_id=self.object.criado_por_id, utilizador_nome=self.object.criado_por_nome,
+#             cliente_nome=self.object.cliente.nome,
+#             banca_id=self.object.banca_id, filial_id=self.object.filial_id,
+#         )
+#         return response
+# 
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context['titulo'] = "Nova Factura Final"
+#         context['active_menu'] = 'Financeiro'
+#         context['active_sub'] = 'facturas_finais'
+#         clientes_qs = Cliente.objects.filter(ativo=True)
+#         filtro_cliente = self._get_user_filter_direct()
+#         if filtro_cliente:
+#             clientes_qs = clientes_qs.filter(**filtro_cliente)
+#         context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
+#         processos_qs = DeclaracaoUnica.objects.filter(status='Aprovada')
+#         context['processos_json'] = json.dumps(list(processos_qs.values('id', 'nif_declarante', 'numero_du')))
+#         return context
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class FacturaClienteDetailView(BaseContextMixin, DetailView):
@@ -1337,7 +1666,7 @@ class FacturaClienteDetailView(BaseContextMixin, DetailView):
     context_object_name = 'factura'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('cliente', 'processo_aduaneiro', 'requisicao_fundo')
         filtro = self._get_user_cliente_filter()
         if filtro:
             qs = qs.filter(**filtro)
@@ -1386,14 +1715,13 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
         return context
 
     def form_valid(self, form):
-        form.instance.criado_por_id = self.request.session.get('usuario_id')
-        usuario_data = self.request.session.get('usuario', {})
-        form.instance.criado_por_nome = usuario_data.get('nome', '')
+        # Não sobrescrever criador em edição
         response = super().form_valid(form)
         registrar_historico(
             'Factura', self.object.pk, self.object.numero_factura, 'Editada',
             estado_novo=self.object.estado, valor=self.object.valor_total,
-            utilizador_id=self.object.criado_por_id, utilizador_nome=self.object.criado_por_nome,
+            utilizador_id=self.request.session.get('usuario_id'),
+            utilizador_nome=self.request.session.get('usuario', {}).get('nome', ''),
             cliente_nome=self.object.cliente.nome,
             banca_id=self.object.banca_id, filial_id=self.object.filial_id,
         )
@@ -1621,7 +1949,7 @@ class ReciboClienteDetailView(BaseContextMixin, DetailView):
     context_object_name = 'recibo'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('cliente', 'factura')
         filtro = self._get_user_cliente_filter()
         if filtro:
             qs = qs.filter(**filtro)
@@ -1778,7 +2106,7 @@ class NotaCreditoDetailView(BaseContextMixin, DetailView):
     context_object_name = 'nota'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('cliente', 'factura_relacionada')
         filtro = self._get_user_cliente_filter()
         if filtro:
             qs = qs.filter(**filtro)
@@ -2024,7 +2352,7 @@ class NotaDebitoDetailView(BaseContextMixin, DetailView):
     context_object_name = 'nota'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('cliente', 'factura_relacionada')
         filtro = self._get_user_cliente_filter()
         if filtro:
             qs = qs.filter(**filtro)
@@ -2223,47 +2551,48 @@ class FacturaReciboListView(BaseContextMixin, ListView):
         context['active_sub'] = 'facturas_recibo'
         return context
 
-@method_decorator(requer_sessao_ativa, name='dispatch')
-@method_decorator(requer_escrita_financeira, name='dispatch')
-class FacturaReciboCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
-    model = FacturaRecibo
-    form_class = FacturaReciboForm
-    template_name = 'financeiro/factura_recibo_form.html'
-    success_url = reverse_lazy('financeiro:factura_recibo_lista')
-    success_message = "Factura-Recibo emitida com sucesso!"
-
-    def form_valid(self, form):
-        form.instance.utilizador_responsavel_id = self.request.session.get('usuario_id')
-        usuario_data = self.request.session.get('usuario', {})
-        form.instance.utilizador_responsavel_nome = usuario_data.get('nome', '')
-        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
-        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
-        response = super().form_valid(form)
-        registrar_historico(
-            'FacturaRecibo', self.object.pk, self.object.numero_factura_recibo, 'Criada',
-            estado_novo='Paga', valor=self.object.valor,
-            utilizador_id=self.object.utilizador_responsavel_id, utilizador_nome=self.object.utilizador_responsavel_nome,
-            cliente_nome=self.object.cliente.nome,
-            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
-        )
-        return response
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['titulo'] = "Nova Factura-Recibo"
-        context['active_menu'] = 'Financeiro'
-        context['active_sub'] = 'facturas_recibo'
-        clientes_qs = Cliente.objects.filter(ativo=True)
-        filtro_cliente = self._get_user_filter_direct()
-        if filtro_cliente:
-            clientes_qs = clientes_qs.filter(**filtro_cliente)
-        context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
-        facturas_qs = FacturaCliente.objects.filter(estado__in=['Pendente', 'Parcialmente Paga'])
-        filtro_factura = self._get_user_cliente_filter()
-        if filtro_factura:
-            facturas_qs = facturas_qs.filter(**filtro_factura)
-        context['facturas_json'] = json.dumps(list(facturas_qs.values('id', 'cliente_id', 'numero_factura', 'valor_total', 'valor_pago')), cls=DjangoJSONEncoder)
-        return context
+# ELIMINADO: Criacão standalone substituída pela criacão a partir da Requisição de Fundo
+# @method_decorator(requer_sessao_ativa, name='dispatch')
+# @method_decorator(requer_escrita_financeira, name='dispatch')
+# class FacturaReciboCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
+#     model = FacturaRecibo
+#     form_class = FacturaReciboForm
+#     template_name = 'financeiro/factura_recibo_form.html'
+#     success_url = reverse_lazy('financeiro:factura_recibo_lista')
+#     success_message = "Factura-Recibo emitida com sucesso!"
+# 
+#     def form_valid(self, form):
+#         form.instance.utilizador_responsavel_id = self.request.session.get('usuario_id')
+#         usuario_data = self.request.session.get('usuario', {})
+#         form.instance.utilizador_responsavel_nome = usuario_data.get('nome', '')
+#         form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+#         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+#         response = super().form_valid(form)
+#         registrar_historico(
+#             'FacturaRecibo', self.object.pk, self.object.numero_factura_recibo, 'Criada',
+#             estado_novo='Paga', valor=self.object.valor,
+#             utilizador_id=self.object.utilizador_responsavel_id, utilizador_nome=self.object.utilizador_responsavel_nome,
+#             cliente_nome=self.object.cliente.nome,
+#             banca_id=self.object.banca_id, filial_id=self.object.filial_id,
+#         )
+#         return response
+# 
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context['titulo'] = "Nova Factura-Recibo"
+#         context['active_menu'] = 'Financeiro'
+#         context['active_sub'] = 'facturas_recibo'
+#         clientes_qs = Cliente.objects.filter(ativo=True)
+#         filtro_cliente = self._get_user_filter_direct()
+#         if filtro_cliente:
+#             clientes_qs = clientes_qs.filter(**filtro_cliente)
+#         context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
+#         facturas_qs = FacturaCliente.objects.filter(estado__in=['Pendente', 'Parcialmente Paga'])
+#         filtro_factura = self._get_user_cliente_filter()
+#         if filtro_factura:
+#             facturas_qs = facturas_qs.filter(**filtro_factura)
+#         context['facturas_json'] = json.dumps(list(facturas_qs.values('id', 'cliente_id', 'numero_factura', 'valor_total', 'valor_pago')), cls=DjangoJSONEncoder)
+#         return context
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 @method_decorator(requer_escrita_financeira, name='dispatch')
@@ -2322,7 +2651,7 @@ class FacturaReciboDetailView(BaseContextMixin, DetailView):
     context_object_name = 'factura_recibo'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('cliente', 'factura')
         filtro = self._get_user_cliente_filter()
         if filtro:
             qs = qs.filter(**filtro)
@@ -2629,10 +2958,13 @@ def factura_pdf(request, pk):
     du_num         = processo.numero_du if processo else 'N/D'
     bl_awb         = ''
     navio_voo      = ''
+    data_entrada   = ''
     if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
         rf = factura.requisicao_fundo
         bl_awb    = rf.numero_bl_awb or ''
         navio_voo = rf.meio_transporte or ''
+    if processo and hasattr(processo, 'data_submissao') and processo.data_submissao:
+        data_entrada = processo.data_submissao.strftime('%d/%m/%Y')
 
     meta_linhas = [
         ('Data | Date',             data_emissao),
@@ -2641,9 +2973,9 @@ def factura_pdf(request, pk):
         ('Moeda | Currency',        'AKZ'),
         ('Câmbio | Exch. Rate',     ''),
         ('BL:',                     bl_awb),
-        ('Manifesto:',              ''),
+        ('Manifesto:',              du_num if du_num != 'N/D' else ''),
         ('Navio / Avião:',          navio_voo),
-        ('Data de Entrada:',        ''),
+        ('Data de Entrada:',        data_entrada),
         ('Valor Aduaneiro:',        ''),
         ('Valor CIF:',              fmt_kz(rf.valor_cif) if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo and factura.requisicao_fundo.valor_cif else ''),
     ]
@@ -2667,10 +2999,24 @@ def factura_pdf(request, pk):
     )
 
     # V/Ref e Tipo de mercadorias
+    vref_nome  = ''
+    merc_tipo  = ''
+    peso_str   = ''
+    if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
+        rf = factura.requisicao_fundo
+        vref_nome = rf.pessoa_contacto or ''
+        merc_tipo = rf.mercadoria_descricao or ''
+        if rf.peso_bruto_kg:
+            peso_str = f'{rf.peso_bruto_kg:.2f}'
+    if not merc_tipo and processo and hasattr(processo, 'descricao_mercadoria'):
+        merc_tipo = processo.descricao_mercadoria or ''
+    if not peso_str and processo and hasattr(processo, 'peso_bruto') and processo.peso_bruto:
+        peso_str = f'{processo.peso_bruto:.2f}'
+
     vref_block = Paragraph(
-        f'<font size="7" color="#475569">V/Ref:</font><br/>'
-        f'<font size="7" color="#475569">Tipo de mercadorias:</font><br/>'
-        f'<font size="7" color="#475569">Peso em Kgs:</font>',
+        f'<font size="7" color="#475569">V/Ref: {vref_nome}</font><br/>'
+        f'<font size="7" color="#475569">Tipo de mercadorias: {merc_tipo}</font><br/>'
+        f'<font size="7" color="#475569">Peso em Kgs: {peso_str}</font>',
         s_small,
     )
 
@@ -2711,27 +3057,69 @@ def factura_pdf(request, pk):
     cw = [1.4*cm, 0.6*cm, W - 1.4*cm - 0.6*cm - 1.8*cm - 2.0*cm - 1.2*cm - 1.2*cm - 2.0*cm,
           1.8*cm, 2.0*cm, 1.2*cm, 1.2*cm, 2.0*cm]
 
-    # Construir linhas de itens a partir dos campos da FacturaCliente
+    # Construir linhas de itens a partir da Requisição (classificação correcta)
     ITENS = [ITENS_HEADER]
+    DESP_TAXAS = {'Direitos Aduaneiros', 'Taxa Administrativa', 'Inspeção Sanitária',
+                   'Multas e Desdobramento', 'Multas', 'Direitos e importações', 'EP 14', 'EP 15', 'EP 17'}
+    DESP_EMOL  = {'JUP', 'Factura de Exportação', 'Emissão DAR', 'Emolumentos Gerais AD'}
+
+    taxas_total = Decimal('0')
+    emol_total  = Decimal('0')
+    oper_total  = Decimal('0')
+    honor_total = Decimal('0')
+    outros_total = Decimal('0')
+    
+    if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
+        for linha in factura.requisicao_fundo.linhas.all():
+            v = linha.valor or Decimal('0')
+            if not v or v <= 0:
+                continue
+            tc = (linha.tipo_custo or '').strip()
+            dt = (linha.despesa_tipo or '').strip()
+            
+            # Classificar pelo tipo de custo primeiro
+            if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
+                honor_total += v
+            elif tc == 'Impostos e Taxas Aduaneiras (AGT)' or dt in DESP_TAXAS:
+                taxas_total += v
+            elif tc == 'Despesas Portuárias e Terminais' or dt in DESP_EMOL:
+                emol_total += v
+            elif tc == 'Logística e Transporte':
+                oper_total += v
+            else:
+                outros_total += v
+
+    # Fallback para Facturas sem requisição vinculada
+    if not honor_total and not taxas_total and not emol_total and not oper_total and not outros_total:
+        taxas_total = factura.taxas_aduaneiras
+        emol_total  = factura.emolumentos
+        oper_total  = factura.despesas_operacionais
+        honor_total = factura.honorarios_despachante
+        outros_total = factura.outros_encargos
+
     item_map = [
-        ('06', 'Impostos e Taxas Aduaneiras',  factura.taxas_aduaneiras),
-        ('07', 'Emolumentos Gerais',            factura.emolumentos),
-        ('08', 'Despesas Operacionais',         factura.despesas_operacionais),
-        ('14', 'Honorários do Despachante',     factura.honorarios_despachante),
+        ('06', 'Impostos e Taxas Aduaneiras', taxas_total),
+        ('07', 'Emolumentos Gerais', emol_total),
+        ('08', 'Despesas Operacionais', oper_total),
+        ('14', 'Honorários do Despachante', honor_total),
     ]
-    if factura.outros_encargos:
-        item_map.append(('15', 'Outros Encargos', factura.outros_encargos))
 
     for ref, desc, valor in item_map:
+        if not valor or valor <= 0:
+            continue
+        if ref == '14':
+            pct_iva = '14%'
+        else:
+            pct_iva = 'M00'
         ITENS.append([
             Paragraph(ref,  s_td_cent),
             Paragraph('1',  s_td_cent),
             Paragraph(desc, s_td),
             Paragraph('1,00 UN', s_td_cent),
+            Paragraph(fmt_kz(valor), s_td_cent),
             Paragraph('—', s_td_cent),
-            Paragraph('—', s_td_cent),
-            Paragraph('M00', s_td_cent),
-            Paragraph('—', s_td_right),
+            Paragraph(pct_iva, s_td_cent),
+            Paragraph(fmt_kz(valor), s_td_right),
         ])
 
     # Linhas em branco para preencher o espaço (mínimo 8 linhas de itens)
@@ -2778,9 +3166,9 @@ def factura_pdf(request, pk):
         [Paragraph('<b>Resumo IVA</b>', st('iva_t', fontSize=8, fontName='Helvetica-Bold')),'','',''],
         [Paragraph('<b>Cód. IVA</b>', s_th), Paragraph('<b>Incidência</b>', s_th),
          Paragraph('<b>%IVA</b>', s_th), Paragraph('<b>Valor Motivo</b>', s_th)],
-        ['M00',
-         Paragraph('0,00', s_td_right),
-         Paragraph('0,00', s_td_right),
+        ['14%',
+         Paragraph(fmt_kz(factura.honorarios_despachante), s_td_right),
+         Paragraph('14,00', s_td_right),
          Paragraph(f'{fmt_kz(factura.iva)} IVA - Regime Simplificado', s_td)],
         ['', Paragraph('<b>0,00</b>', s_td_right), Paragraph('<b>0,00</b>', s_td_right), ''],
     ]
@@ -2812,12 +3200,16 @@ def factura_pdf(request, pk):
                        st(f'totv_{label}', fontSize=fs, fontName=fn, alignment=TA_RIGHT)),
         ]
 
+    retencao_valor = Decimal('0')
+    if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
+        retencao_valor = factura.requisicao_fundo.retencao or Decimal('0')
+
     tot_rows = [
-        _tot_row('Mercadorias',  fmt_kz(factura.taxas_aduaneiras + factura.emolumentos + factura.despesas_operacionais)),
-        _tot_row('Serviços',     fmt_kz(factura.honorarios_despachante)),
+        _tot_row('Mercadorias',  fmt_kz(taxas_total + emol_total + oper_total + outros_total)),
+        _tot_row('Serviços',     fmt_kz(honor_total)),
         _tot_row('Outros',       fmt_kz(factura.outros_encargos)),
         _tot_row('IEC',          '0,00'),
-        _tot_row('Retenção',     '0,00'),
+        _tot_row('Retenção',     fmt_kz(retencao_valor) if retencao_valor > 0 else '0,00'),
         _tot_row('Descontos',    '0,00'),
         _tot_row('Total IVA',    fmt_kz(factura.iva)),
         _tot_row(f'Total (AKZ):', fmt_kz(factura.valor_total), bold=True, big=True),
@@ -3588,10 +3980,22 @@ def factura_recibo_pdf(request, pk):
         ('Estado', fr.estado),
     ]
 
-    colunas = ['Descrição / Venda Direta', 'Valor Pago (KZ)']
-    linhas = [
-        ['Prestação de Serviços de Despacho com pagamento imediato', fmt_kz(fr.valor)]
-    ]
+    # Breakdown de custos se houver requisição associada
+    requisicao = fr.requisicao_fundo or (fr.factura.requisicao_fundo if fr.factura_id else None)
+    if requisicao:
+        colunas = ['Rubrica', 'Valor (KZ)']
+        linhas = []
+        for linha in requisicao.linhas.all():
+            if linha.valor:
+                desc = linha.despesa_tipo or linha.tipo_custo or 'Outros'
+                linhas.append([desc, fmt_kz(linha.valor)])
+        if not linhas:
+            linhas = [['Honorários do Despachante (Pacote)', fmt_kz(fr.valor)]]
+    else:
+        colunas = ['Descrição / Venda Direta', 'Valor Pago (KZ)']
+        linhas = [
+            ['Prestação de Serviços de Despacho com pagamento imediato', fmt_kz(fr.valor)]
+        ]
 
     _construir_pdf_base(
         buffer, 
@@ -3790,6 +4194,10 @@ def factura_recibo_enviar_email(request, pk):
     fr = _get_object_or_404_com_scope(request, FacturaRecibo, pk)
     cliente = fr.cliente
 
+    if fr.estado == 'Cancelada':
+        messages.error(request, 'Não é possível enviar email de uma Factura-Recibo cancelada.')
+        return redirect('financeiro:factura_recibo_detalhe', pk=pk)
+
     if not cliente.email:
         messages.error(request, f'O cliente {cliente.nome} nÃ£o possui endereÃ§o de email configurado.')
         return redirect('financeiro:factura_recibo_detalhe', pk=pk)
@@ -3806,10 +4214,21 @@ def factura_recibo_enviar_email(request, pk):
             ('Emitido Por', fr.utilizador_responsavel_nome),
             ('Estado', fr.estado),
         ]
-        colunas_pdf = ['DescriÃ§Ã£o / Venda Direta', 'Valor Pago (KZ)']
-        linhas_pdf = [
-            ['PrestaÃ§Ã£o de ServiÃ§os de Despacho com pagamento imediato', fmt_kz(fr.valor)]
-        ]
+        requisicao = fr.requisicao_fundo or (fr.factura.requisicao_fundo if fr.factura_id else None)
+        if requisicao:
+            colunas_pdf = ['Rubrica', 'Valor (KZ)']
+            linhas_pdf = []
+            for linha in requisicao.linhas.all():
+                if linha.valor:
+                    desc = linha.despesa_tipo or linha.tipo_custo or 'Outros'
+                    linhas_pdf.append([desc, fmt_kz(linha.valor)])
+            if not linhas_pdf:
+                linhas_pdf = [['HonorÃ¡rios do Despachante (Pacote)', fmt_kz(fr.valor)]]
+        else:
+            colunas_pdf = ['DescriÃ§Ã£o / Venda Direta', 'Valor Pago (KZ)']
+            linhas_pdf = [
+                ['PrestaÃ§Ã£o de ServiÃ§os de Despacho com pagamento imediato', fmt_kz(fr.valor)]
+            ]
         _construir_pdf_base(
             buffer, f"Factura-Recibo {fr.numero_factura_recibo}",
             "Venda a Pronto Pagamento", "PAGO",
@@ -4090,6 +4509,11 @@ def api_dados_usuario_banca(request):
             banca_data = {
                 'id': banca.id,
                 'nome': banca.nome,
+                'nif': banca.nif,
+                'licenca_cdoa': banca.licenca_cdoa,
+                'endereco': banca.endereco,
+                'telefone': banca.telefone,
+                'email': banca.email,
             }
         except Banca.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Banca não encontrada'})
@@ -4242,11 +4666,11 @@ def api_dados_processo(request):
                 except (json.JSONDecodeError, TypeError):
                     dados_dict = {}
             
-            # Extrair primeira adição (se existir)
+            # Extrair adições da dados_json
             adicoes = dados_dict.get('adicoes') or []
             primeira_adicao = adicoes[0] if adicoes else {}
             
-            # Helper: extrair valor de dados_json ou modelo
+            # Helper: valor de dados_json com fallback para modelo
             def _val(json_key, model_attr=None, default=''):
                 v = dados_dict.get(json_key)
                 if v not in (None, '', 0):
@@ -4313,12 +4737,14 @@ def api_dados_processo(request):
                     return f'{porto_val} / {pais_val}'
                 return porto_val or pais_val or ''
             
+            # ┌─ Construir resposta ─────────────────────────────────────────┐
             return JsonResponse({
                 'success': True,
                 'processo': {
                     'id': processo.id,
                     'numero_du': _val('numero_du', 'numero_du'),
                     'ref_despachante': _val('ref_despachante', 'ref_despachante'),
+                    'regime_aduaneiro': _val('regime_aduaneiro', 'regime_aduaneiro'),
                     'exportador_nome': _val('exportador_nome', 'exportador_nome'),
                     'destinatario_nome': _val('destinatario_nome', 'destinatario_nome'),
                     'status': processo.status or 'Rascunho',
@@ -4343,6 +4769,11 @@ def api_dados_processo(request):
                     'valor_fob': str(processo.valor_fob) if processo.valor_fob else '',
                     'valor_frete': str(processo.valor_frete) if processo.valor_frete else '',
                     'valor_seguro': str(processo.valor_seguro) if processo.valor_seguro else '',
+                    'total_geral': str(processo.total_geral) if processo.total_geral else '',
+                    
+                    # Moeda e câmbio usados na DU (moeda_fob / cambio_fob)
+                    'moeda_du': _val('moeda_fob'),
+                    'cambio_du': _val('cambio_fob'),
                     
                     '_dados_json': dados_dict,
                 }

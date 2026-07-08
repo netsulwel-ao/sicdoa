@@ -1,0 +1,362 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║               FLUXO DE AUTO-PREENCHIMENTO EM CASCATA                         ║
+║                    Requisição de Fundos - Versão 2.0                         ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         1️⃣ CARREGAR PÁGINA                                   │
+│                                                                              │
+│  Utilizador abre /financeiro/requisicoes/criar/                             │
+│                                                                              │
+│  ↓                                                                            │
+│  JavaScript executa initBancaFilial()                                        │
+│                                                                              │
+│  ↓                                                                            │
+│  Fetch → GET /financeiro/api/usuario-banca/                                 │
+│         (sem parâmetros, usa session)                                        │
+│                                                                              │
+│  ↓                                                                            │
+│  API retorna:                                                                │
+│  {                                                                            │
+│    "success": true,                                                          │
+│    "banca": {"id": 1, "nome": "Banca A"},                                   │
+│    "filial": {"id": 5, "nome": "Filial Luanda"}                            │
+│  }                                                                            │
+│                                                                              │
+│  ↓                                                                            │
+│  ✅ Setar id_banca.value = 1                                                │
+│  ✅ Setar id_filial.value = 5                                               │
+│  ✅ Trigger change event                                                    │
+│  ✅ Mostrar badge verde "Auto-preenchido"                                   │
+│  ✅ Toast verde: "✅ Instituição carregada automaticamente"                 │
+│  ✅ Highlight campos (2 segundos)                                           │
+│                                                                              │
+│  RESULTADO: Seção 1 ✅ 100% PRONTA                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    2️⃣ UTILIZADOR SELECIONA CLIENTE                          │
+│                                                                              │
+│  Clica em dropdown "Cliente" → Seleciona "Cliente XYZ" (id: 42)             │
+│                                                                              │
+│  ↓ Event listener dispara                                                   │
+│  clienteSelect.addEventListener('change', ...)                              │
+│                                                                              │
+│  ↓ Validação                                                                │
+│  if (!clienteId) → return (sem fazer nada)                                  │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────┐       │
+│  │ PARALELO 1: Buscar Dados do Cliente                             │       │
+│  │                                                                  │       │
+│  │ Fetch → GET /financeiro/api/dados-cliente/?cliente_id=42       │       │
+│  │                                                                  │       │
+│  │ API retorna:                                                    │       │
+│  │ {                                                                │       │
+│  │   "success": true,                                              │       │
+│  │   "cliente": {                                                  │       │
+│  │     "id": 42,                                                   │       │
+│  │     "nome": "Cliente XYZ",                                     │       │
+│  │     "email": "contacto@clientexyz.com",                        │       │
+│  │     "telefone": "+244..."                                      │       │
+│  │   }                                                              │       │
+│  │ }                                                                │       │
+│  │                                                                  │       │
+│  │ ✅ Setar id_pessoa_contacto.value = "contacto@clientexyz.com" │       │
+│  │ ✅ Highlight campo                                             │       │
+│  │                                                                  │       │
+│  └──────────────────────────────────────────────────────────────────┘       │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────┐       │
+│  │ PARALELO 2: Carregar e Filtrar Processos                        │       │
+│  │                                                                  │       │
+│  │ processoSelect.innerHTML = "⏳ Carregando processos..."         │       │
+│  │ processoSelect.disabled = true                                  │       │
+│  │                                                                  │       │
+│  │ Fetch → GET /financeiro/api/processos-cliente/?cliente_id=42   │       │
+│  │                                                                  │       │
+│  │ API retorna:                                                    │       │
+│  │ {                                                                │       │
+│  │   "success": true,                                              │       │
+│  │   "processos": [                                                │       │
+│  │     {                                                            │       │
+│  │       "id": 100,                                                │       │
+│  │       "numero_du": "DU-2026-000001",                           │       │
+│  │       "ref_despachante": "REF-2024-ABC",                       │       │
+│  │       "status": "Submetida"                                     │       │
+│  │     },                                                           │       │
+│  │     {                                                            │       │
+│  │       "id": 101,                                                │       │
+│  │       "numero_du": "DU-2026-000002",                           │       │
+│  │       "ref_despachante": "REF-2024-DEF",                       │       │
+│  │       "status": "Rascunho"                                      │       │
+│  │     }                                                            │       │
+│  │   ]                                                              │       │
+│  │ }                                                                │       │
+│  │                                                                  │       │
+│  │ ✅ Popular dropdown:                                             │       │
+│  │    - "✅ DU-2026-000001 - REF-2024-ABC"                        │       │
+│  │    - "📄 DU-2026-000002 - REF-2024-DEF"                        │       │
+│  │ ✅ processoSelect.disabled = false                              │       │
+│  │ ✅ Toast azul: "✅ 2 processo(s) encontrado(s)"                 │       │
+│  │                                                                  │       │
+│  └──────────────────────────────────────────────────────────────────┘       │
+│                                                                              │
+│  ✅ Mostrar badge azul "Dados carregados"                                    │
+│  ✅ Highlight cliente select (2 segundos)                                   │
+│                                                                              │
+│  RESULTADO: Seção 2 ✅ 50% PRONTA                                            │
+│              Pessoa de Contacto preenchida                                   │
+│              Processos filtrados e mostrados                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    3️⃣ UTILIZADOR SELECIONA PROCESSO                         │
+│                                                                              │
+│  Clica em dropdown "Processo Aduaneiro" → Seleciona processo (id: 100)      │
+│                                                                              │
+│  ↓ Event listener dispara                                                   │
+│  processoSelect.addEventListener('change', ...)                             │
+│                                                                              │
+│  ↓ Validação                                                                │
+│  if (!processoId) → return (sem fazer nada)                                 │
+│                                                                              │
+│  ↓                                                                            │
+│  Fetch → GET /financeiro/api/dados-processo/?processo_id=100               │
+│                                                                              │
+│  ↓                                                                            │
+│  API retorna:                                                                │
+│  {                                                                            │
+│    "success": true,                                                          │
+│    "processo": {                                                             │
+│      "id": 100,                                                              │
+│      "numero_du": "DU-2026-000001",                                         │
+│      "numero_bl_awb": "BL-2026-ABC-123",                                   │
+│      "meio_transporte": "Navio",                                            │
+│      "origem": "Xangai, China",                                             │
+│      "destino": "Porto de Luanda",                                          │
+│      "mercadoria_descricao": "Peças de reposição",                         │
+│      "peso_bruto_kg": 5000,                                                 │
+│      "peso_liquido_kg": 4800,                                               │
+│      "cbm_metros_cubicos": 25.5,                                            │
+│      "quantidade_volumes": 100,                                             │
+│      "valor_cif": 250000,                                                   │
+│      "nome_banco": "BPC",                                                   │
+│      "termo_pagamento": "LC"                                                │
+│    }                                                                          │
+│  }                                                                            │
+│                                                                              │
+│  ↓ Loop através de 12 campos                                                │
+│                                                                              │
+│  Campo 1: numero_bl_awb                                                     │
+│  ✅ setFieldValue('id_numero_bl_awb', 'BL-2026-ABC-123')                   │
+│  ✅ id_numero_bl_awb.value = 'BL-2026-ABC-123'                             │
+│  ✅ Highlight (verde, 2s)                                                   │
+│  ✅ Trigger change event                                                    │
+│  ✅ Contador: 1/12 ✅                                                        │
+│                                                                              │
+│  Campo 2: meio_transporte                                                   │
+│  ✅ setFieldValue('id_meio_transporte', 'Navio')                           │
+│  ✅ Contador: 2/12 ✅                                                        │
+│                                                                              │
+│  Campo 3: origem                                                            │
+│  ✅ setFieldValue('id_origem', 'Xangai, China')                            │
+│  ✅ Contador: 3/12 ✅                                                        │
+│                                                                              │
+│  Campo 4: destino                                                           │
+│  ✅ setFieldValue('id_destino', 'Porto de Luanda')                         │
+│  ✅ Contador: 4/12 ✅                                                        │
+│                                                                              │
+│  Campo 5: mercadoria_descricao                                              │
+│  ✅ setFieldValue('id_mercadoria_descricao', 'Peças de reposição')        │
+│  ✅ Contador: 5/12 ✅                                                        │
+│                                                                              │
+│  Campo 6: peso_bruto_kg                                                     │
+│  ✅ setFieldValue('id_peso_bruto_kg', '5000')                              │
+│  ✅ Contador: 6/12 ✅                                                        │
+│                                                                              │
+│  Campo 7: peso_liquido_kg                                                   │
+│  ✅ setFieldValue('id_peso_liquido_kg', '4800')                            │
+│  ✅ Contador: 7/12 ✅                                                        │
+│                                                                              │
+│  Campo 8: cbm_metros_cubicos                                                │
+│  ✅ setFieldValue('id_cbm_metros_cubicos', '25.5')                         │
+│  ✅ Contador: 8/12 ✅                                                        │
+│                                                                              │
+│  Campo 9: quantidade_volumes                                                │
+│  ✅ setFieldValue('id_quantidade_volumes', '100')                          │
+│  ✅ Contador: 9/12 ✅                                                        │
+│                                                                              │
+│  Campo 10: valor_cif                                                        │
+│  ✅ setFieldValue('id_valor_cif', '250000')                                │
+│  ✅ Contador: 10/12 ✅                                                       │
+│                                                                              │
+│  Campo 11: banco                                                            │
+│  ✅ setFieldValue('id_banco', 'BPC')                                        │
+│  ✅ Contador: 11/12 ✅                                                       │
+│                                                                              │
+│  Campo 12: termo_pagamento                                                  │
+│  ✅ setFieldValue('id_termo_pagamento', 'LC')                              │
+│  ✅ Contador: 12/12 ✅                                                       │
+│                                                                              │
+│  ↓ Fim do loop                                                               │
+│                                                                              │
+│  if (camposPreencher > 0) {                                                  │
+│    ✅ Mostrar badge verde "Auto-preenchido" na Seção 3                     │
+│    ✅ Toast verde: "✅ 12 campo(s) preenchido(s) automaticamente!"         │
+│    ✅ Highlight processo select (2 segundos)                               │
+│  }                                                                            │
+│                                                                              │
+│  RESULTADO: Seção 3 ✅ 100% PRONTA                                           │
+│              12 campos preenchidos!                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                          RESULTADO FINAL                                      ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║  SEÇÃO 1 - Dados da Instituição                                             ║
+║  ✅ Banca: Banca A (auto-preenchido)                                         ║
+║  ✅ Filial: Filial Luanda (auto-preenchido)                                  ║
+║  Badge: ✅ Verde "Auto-preenchido"                                          ║
+║                                                                               ║
+║  SEÇÃO 2 - Dados do Cliente                                                 ║
+║  ✅ Cliente: Cliente XYZ (selecionado)                                       ║
+║  ✅ Pessoa de Contacto: contacto@clientexyz.com (auto-preenchido)          ║
+║  ✅ Processo Aduaneiro: DU-2026-000001 (selecionado)                        ║
+║  Badge: ✅ Azul "Dados carregados"                                           ║
+║                                                                               ║
+║  SEÇÃO 3 - Referências da Carga                                             ║
+║  ✅ B/L/AWB: BL-2026-ABC-123 (auto-preenchido)                              ║
+║  ✅ Transporte: Navio (auto-preenchido)                                      ║
+║  ✅ Origem: Xangai, China (auto-preenchido)                                 ║
+║  ✅ Destino: Porto de Luanda (auto-preenchido)                              ║
+║  ✅ Mercadoria: Peças de reposição (auto-preenchido)                        ║
+║  ✅ Peso Bruto: 5000 Kg (auto-preenchido)                                   ║
+║  ✅ Peso Líquido: 4800 Kg (auto-preenchido)                                 ║
+║  ✅ CBM: 25.5 m³ (auto-preenchido)                                          ║
+║  ✅ Volumes: 100 (auto-preenchido)                                           ║
+║  ✅ Valor CIF: 250000 (auto-preenchido)                                     ║
+║  Badge: ✅ Verde "Auto-preenchido"                                          ║
+║                                                                               ║
+║  SEÇÃO 6 - Dados Bancários                                                  ║
+║  ✅ Banco: BPC (auto-preenchido)                                             ║
+║  ✅ Termo de Pagamento: LC (auto-preenchido)                                 ║
+║                                                                               ║
+║  ─────────────────────────────────────────────────────────────────────       ║
+║  PRONTO PARA ENVIAR! 🚀                                                      ║
+║  Restam apenas campos opcionais (IBAN, observações, etc)                     ║
+║  ─────────────────────────────────────────────────────────────────────       ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                          TEMPO ECONOMIZADO                                    ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║  ANTES (SEM AUTO-PREENCHIMENTO):                                            ║
+║  ────────────────────────────────                                            ║
+║  1. Selecionar Banca                    ~30 segundos                          ║
+║  2. Selecionar Filial                   ~30 segundos                          ║
+║  3. Selecionar Cliente                  ~30 segundos                          ║
+║  4. Digitar Pessoa de Contacto          ~60 segundos                          ║
+║  5. Selecionar Processo                 ~60 segundos                          ║
+║  6. Copiar B/L/AWB manualmente          ~30 segundos                          ║
+║  7. Copiar Transporte manualmente       ~30 segundos                          ║
+║  8. Copiar Origem manualmente           ~30 segundos                          ║
+║  9. Copiar Destino manualmente          ~30 segundos                          ║
+║  10. Copiar Mercadoria manualmente      ~30 segundos                          ║
+║  11. Copiar Pesos manualmente           ~60 segundos                          ║
+║  12. Copiar CBM manualmente             ~30 segundos                          ║
+║  13. Copiar Volumes manualmente         ~30 segundos                          ║
+║  14. Copiar Valor CIF manualmente       ~30 segundos                          ║
+║  15. Selecionar Banco                   ~30 segundos                          ║
+║  16. Selecionar Termo de Pagamento      ~30 segundos                          ║
+║  ─────────────────────────────────────────────────────────────────────       ║
+║  TOTAL: ~8-10 MINUTOS                                                        ║
+║                                                                               ║
+║                                                                               ║
+║  DEPOIS (COM AUTO-PREENCHIMENTO):                                            ║
+║  ──────────────────────────────────                                          ║
+║  1. Página carrega                      ~2 segundos (auto)                    ║
+║  2. Selecionar Cliente                  ~20 segundos (manual)                 ║
+║     └─ Pessoa contacto preenche auto    ~0 segundos (auto)                   ║
+║     └─ Processos filtram auto           ~0 segundos (auto)                   ║
+║  3. Selecionar Processo                 ~15 segundos (manual)                 ║
+║     └─ 12 campos preenchem auto         ~0 segundos (auto)                   ║
+║  4. Revisar dados                       ~30 segundos (manual)                 ║
+║  ─────────────────────────────────────────────────────────────────────       ║
+║  TOTAL: ~1-2 MINUTOS                                                         ║
+║                                                                               ║
+║                                                                               ║
+║  ECONOMIA: 80-85% DO TEMPO! 🎉                                               ║
+║  ───────────────────────────────────                                         ║
+║  De ~8-10 minutos para ~1-2 minutos                                          ║
+║  Por requisição, economiza 6-9 minutos                                       ║
+║  Se 10 requisições/dia: 60-90 minutos economizados/dia!                     ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                      FLUXO COM TOASTS E BADGES                               ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║  CARREGAR PÁGINA:                                                            ║
+║  ┌──────────────────────────────────┐                                        ║
+║  │ 🟢 ✅ Instituição carregada     │  ← Toast aparece canto inferior direito │
+║  │    automaticamente               │     por 4 segundos                     ║
+║  └──────────────────────────────────┘                                        ║
+║                                                                               ║
+║  Seção 1 cabeçalho:                                                          ║
+║  ┌─────────────────────────────────────────────────────────┐                 ║
+║  │ 🏦 Dados da Instituição   [✅ Auto-preenchido]         │                 ║
+║  │                            ▲                           │                 ║
+║  │                            └─ Badge verde              │                 ║
+║  └─────────────────────────────────────────────────────────┘                 ║
+║                                                                               ║
+║  ─────────────────────────────────────────────────────────────────────       ║
+║                                                                               ║
+║  SELECIONAR CLIENTE:                                                         ║
+║  ┌──────────────────────────────────┐                                        ║
+║  │ 🟢 ✅ 2 processo(s)              │                                        ║
+║  │    encontrado(s)                 │                                        ║
+║  └──────────────────────────────────┘                                        ║
+║                                                                               ║
+║  Seção 2 cabeçalho:                                                          ║
+║  ┌─────────────────────────────────────────────────────────┐                 ║
+║  │ 👤 Dados do Cliente   [ℹ️ Dados carregados]            │                 ║
+║  │                        ▲                               │                 ║
+║  │                        └─ Badge azul                   │                 ║
+║  └─────────────────────────────────────────────────────────┘                 ║
+║                                                                               ║
+║  ─────────────────────────────────────────────────────────────────────       ║
+║                                                                               ║
+║  SELECIONAR PROCESSO:                                                        ║
+║  ┌──────────────────────────────────────────┐                                ║
+║  │ 🟢 ✅ 12 campo(s) preenchido(s)          │                                ║
+║  │    automaticamente!                      │                                ║
+║  └──────────────────────────────────────────┘                                ║
+║                                                                               ║
+║  Seção 3 cabeçalho:                                                          ║
+║  ┌─────────────────────────────────────────────────────────┐                 ║
+║  │ 🚢 Referências da Carga   [✅ Auto-preenchido]         │                 ║
+║  │                            ▲                           │                 ║
+║  │                            └─ Badge verde              │                 ║
+║  └─────────────────────────────────────────────────────────┘                 ║
+║                                                                               ║
+║  Campos com efeito visual:                                                   ║
+║  ┌─────────────────────────────────────────────────────────┐                 ║
+║  │ B/L / AWB:  [BL-2026-ABC-123]   ← destaque verde 2s   │                 ║
+║  │ Transporte: [Navio]              ← destaque verde 2s   │                 ║
+║  │ Origem:     [Xangai, China]      ← destaque verde 2s   │                 ║
+║  │ ...                                                     │                 ║
+║  └─────────────────────────────────────────────────────────┘                 ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝

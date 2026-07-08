@@ -318,6 +318,10 @@
       </h2>
       <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Envie a factura, guia ou recibo</p>
 
+      <label for="id_documento_justificativo" class="block text-sm font-semibold text-gray-900 dark:text-white mb-4">
+        Arquivo <span class="text-red-500" style="display: {% if form.instance.documentada %}inline{% else %}none{% endif %};">*</span>
+      </label>
+
       <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-10 text-center hover:border-primary dark:hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all cursor-pointer group" id="file-upload-area" onclick="document.getElementById('id_documento_justificativo').click()">
         {{ form.documento_justificativo }}
         <i class="fas fa-cloud-upload-alt text-5xl text-gray-300 dark:text-gray-600 mb-4 block group-hover:text-primary transition-colors"></i>
@@ -512,17 +516,122 @@ const despesasData = {
 function updateDocumentationStatus() {
   const documentadaRadios = document.querySelectorAll('input[name="documentada"]');
   const documentSection = document.getElementById('documento-section');
+  const fileUpload = document.getElementById('id_documento_justificativo');
+  const uploadArea = document.getElementById('file-upload-area');
 
-  const checkedRadio = Array.from(documentadaRadios).find(r => r.checked);
-  if (!checkedRadio) return;
+  documentadaRadios.forEach(radio => {
+    radio.addEventListener('change', function() {
+      if (this.value === '1') {
+        // Documentada = true: mostrar seção e tornar upload obrigatório
+        documentSection.style.display = 'block';
+        fileUpload.setAttribute('required', 'required');
+        uploadArea.classList.add('border-red-300', 'dark:border-red-600');
+        uploadArea.title = 'Upload de comprovativo é OBRIGATÓRIO';
+        
+        // Adicionar asterisco vermelho ao label
+        const label = document.querySelector('label[for="id_documento_justificativo"]');
+        if (label && !label.querySelector('.text-red-500')) {
+          const span = document.createElement('span');
+          span.className = 'text-red-500';
+          span.textContent = ' *';
+          label.appendChild(span);
+        }
+      } else {
+        // Não documentada: ocultar seção e upload opcional
+        documentSection.style.display = 'none';
+        fileUpload.removeAttribute('required');
+        uploadArea.classList.remove('border-red-300', 'dark:border-red-600');
+        uploadArea.title = '';
+        
+        // Remover asterisco vermelho
+        const label = document.querySelector('label[for="id_documento_justificativo"]');
+        if (label) {
+          const redSpan = label.querySelector('.text-red-500');
+          if (redSpan) redSpan.remove();
+        }
+        
+        // Limpar arquivo selecionado
+        fileUpload.value = '';
+        document.getElementById('file-name').style.display = 'none';
+      }
+    });
+  });
 
-  const isDocumentada = checkedRadio.value === '1';
-  if (documentSection) {
-    documentSection.style.display = isDocumentada ? 'block' : 'none';
+  // Inicializar no load
+  const checkedRadio = document.querySelector('input[name="documentada"]:checked');
+  if (checkedRadio && checkedRadio.value === '1') {
+    fileUpload.setAttribute('required', 'required');
+    uploadArea.classList.add('border-red-300', 'dark:border-red-600');
+  }
+}
+
+// Validar upload antes de submit
+document.addEventListener('DOMContentLoaded', function() {
+  updateDocumentationStatus();
+
+  const form = document.querySelector('form');
+  const fileUpload = document.getElementById('id_documento_justificativo');
+
+  form.addEventListener('submit', function(e) {
+    const documentada = document.querySelector('input[name="documentada"]:checked');
+    
+    if (documentada && documentada.value === '1') {
+      // Despesa documentada: upload é obrigatório
+      if (!fileUpload.files || fileUpload.files.length === 0) {
+        e.preventDefault();
+        alert('✗ Arquivo obrigatório!\n\nComo a despesa é documentada, você DEVE enviar um comprovativo (factura, guia, recibo ou certificado).');
+        fileUpload.focus();
+        return false;
+      }
+    }
+  });
+
+  // Drag and drop para o arquivo
+  const fileUploadArea = document.getElementById('file-upload-area');
+  const fileInput = document.getElementById('id_documento_justificativo');
+  const fileName = document.getElementById('file-name');
+
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
   }
 
-  updateDespesaTipoOptions();
-}
+  ['dragenter', 'dragover'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, () => {
+      fileUploadArea.classList.add('border-primary', 'bg-primary/10');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    fileUploadArea.addEventListener(eventName, () => {
+      fileUploadArea.classList.remove('border-primary', 'bg-primary/10');
+    });
+  });
+
+  fileUploadArea.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    fileInput.files = files;
+    displayFileName(files);
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    displayFileName(e.target.files);
+  });
+
+  function displayFileName(files) {
+    if (files && files.length > 0) {
+      fileName.style.display = 'flex';
+      fileName.querySelector('span').textContent = files[0].name;
+    } else {
+      fileName.style.display = 'none';
+    }
+  }
+});
 
 function updateDespesaTipoOptions() {
   const tipoCustoRadio = document.querySelector('input[name="tipo_custo"]:checked');
@@ -596,10 +705,20 @@ function numeroParaExtenso(num) {
   return mit + ', ' + numeroParaExtenso(r);
 }
 
+function obterValorNumerico(input) {
+  try {
+    if (input && input.imask && input.imask.unmaskedValue !== undefined) {
+      return (typeof parseNumber !== 'undefined' ? parseNumber : parseFloat)(input.imask.unmaskedValue) || 0;
+    }
+  } catch(e) {}
+  var raw = input ? input.value : '0';
+  return (typeof parseNumber !== 'undefined' ? parseNumber(raw) : parseFloat(raw)) || 0;
+}
+
 function calcularImpacto() {
   const valorInput = document.getElementById('id_valor');
   const tipoCustoRadios = document.querySelectorAll('input[name="tipo_custo"]:checked');
-  const valor = parseFloat(valorInput?.value || 0);
+  const valor = obterValorNumerico(valorInput);
 
   if (!valor || valor <= 0) return;
 

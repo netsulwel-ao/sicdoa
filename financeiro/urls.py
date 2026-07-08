@@ -19,6 +19,7 @@ urlpatterns = [
     path('requisicoes/<int:pk>/pdf/', views.requisicao_pdf, name='requisicao_pdf'),
     path('requisicoes/<int:pk>/enviar-email/', views.requisicao_enviar_email, name='requisicao_enviar_email'),
     path('requisicoes/<int:pk>/criar-factura/', views.criar_factura_de_requisicao, name='requisicao_criar_factura'),
+    path('requisicoes/<int:pk>/criar-factura-recibo/', views.requisicao_criar_factura_recibo, name='requisicao_criar_factura_recibo'),
     path('requisicoes/<int:pk>/linha/adicionar/', views.adicionar_linha_requisicao, name='requisicao_linha_adicionar'),
     path('requisicoes/<int:pk>/linha/<int:linha_id>/editar/', views.editar_linha_requisicao, name='requisicao_linha_editar'),
     path('requisicoes/<int:pk>/linha/<int:linha_id>/eliminar/', views.eliminar_linha_requisicao, name='requisicao_linha_eliminar'),
@@ -31,7 +32,8 @@ urlpatterns = [
 
     # Facturas Finais
     path('facturas/', views.FacturaClienteListView.as_view(), name='factura_lista'),
-    path('facturas/criar/', views.FacturaClienteCreateView.as_view(), name='factura_criar'),
+    # ELIMINADO: Criacão apenas a partir da Requisição de Fundo (financeiro:requisicao_criar_factura)
+    # path('facturas/criar/', views.FacturaClienteCreateView.as_view(), name='factura_criar'),
     path('facturas/<int:pk>/', views.FacturaClienteDetailView.as_view(), name='factura_detalhe'),
     path('facturas/<int:pk>/pdf/', views.factura_pdf, name='factura_pdf'),
     path('facturas/<int:pk>/editar/', views.FacturaClienteUpdateView.as_view(), name='factura_editar'),
@@ -79,7 +81,8 @@ urlpatterns = [
 
     # Facturas-Recibo
     path('facturas-recibo/', views.FacturaReciboListView.as_view(), name='factura_recibo_lista'),
-    path('facturas-recibo/criar/', views.FacturaReciboCreateView.as_view(), name='factura_recibo_criar'),
+    # ELIMINADO: Criacão apenas a partir da Requisição de Fundo
+    # path('facturas-recibo/criar/', views.FacturaReciboCreateView.as_view(), name='factura_recibo_criar'),
     path('facturas-recibo/<int:pk>/', views.FacturaReciboDetailView.as_view(), name='factura_recibo_detalhe'),
     path('facturas-recibo/<int:pk>/pdf/', views.factura_recibo_pdf, name='factura_recibo_pdf'),
     path('facturas-recibo/<int:pk>/enviar-email/', views.factura_recibo_enviar_email, name='factura_recibo_enviar_email'),

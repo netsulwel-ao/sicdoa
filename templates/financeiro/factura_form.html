@@ -138,8 +138,8 @@ document.addEventListener('DOMContentLoaded', function() {
   var totalSpan = document.getElementById('calculo-total');
   function obterValor(inp) {
     try {
-      if (inp.imask && inp.imask.unmaskedValue) {
-        return parseFloat(inp.imask.unmaskedValue) || 0;
+      if (inp.imask && inp.imask.unmaskedValue !== undefined) {
+        return (typeof parseNumber === 'function' ? parseNumber(inp.imask.unmaskedValue) : parseFloat(inp.imask.unmaskedValue)) || 0;
       }
     } catch(e) {}
     var v = inp.value.trim();

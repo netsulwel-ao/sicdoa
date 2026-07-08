@@ -1,0 +1,287 @@
+╔═════════════════════════════════════════════════════════════════════════════╗
+║                     GUIA VISUAL - ONDE ESTÃO OS CAMPOS?                   ║
+║                      Módulo Requisição de Fundos                           ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ PASSO 1: CRIAR REQUISIÇÃO BASE                                          ┃
+┃ URL: /financeiro/requisicoes/criar/                                     ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+PÁGINA DO NAVEGADOR:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   CRIAR UMA FATURA PROFORMA                             │
+│                                                                         │
+│  1. DADOS DA INSTITUIÇÃO                                                │
+│  ┌───────────────────────────────────────────────────────────────┐    │
+│  │ Banca:              [Banca01            ▼]                   │    │
+│  │ Filial:             [Banca01 — Bengo    ▼]                   │    │
+│  └───────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  2. DADOS DO CLIENTE (IMPORTADOR/EXPORTADOR)                           │
+│  ┌───────────────────────────────────────────────────────────────┐    │
+│  │ Cliente *:          [Nunes Memba        ▼]                   │    │
+│  │ Pessoa de Contacto: [João Silva              ]                │    │
+│  │ Processo Aduaneiro *: [DU-2026-000001  ▼]                   │    │
+│  └───────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  3. REFERÊNCIAS DO PROCESSO ADUANEIRO (CARGA)                          │
+│  ┌───────────────────────────────────────────────────────────────┐    │
+│  │ Número B/L/AWB:     [BL123456               ]                │    │
+│  │ Transporte:         [Navio MSC 2026        ]                │    │
+│  │ Origem:             [Lisboa                 ]                │    │
+│  │ Destino:            [Luanda                 ]                │    │
+│  │ Mercadoria:         [Equipamentos...        ]                │    │
+│  │ Peso Bruto (Kg):    [5000.00               ]                │    │
+│  │ Peso Líquido (Kg):  [4500.00               ]                │    │
+│  │ CBM (m³):           [25.50                 ]                │    │
+│  │ Volumes:            [2 Contentores 40ft    ]                │    │
+│  │ Valor CIF:          [150000.00             ]                │    │
+│  └───────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  5. VÁLIDADE E REFERÊNCIAS                                              │
+│  ┌───────────────────────────────────────────────────────────────┐    │
+│  │ Data de Validade *: [2026-07-10           ]                 │    │
+│  │ Moeda:              [AOA                    ]                │    │
+│  │ Câmbio:             [590.50                ]                │    │
+│  └───────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  6. CONDIÇÕES DE PAGAMENTO E DADOS BANCÁRIOS                           │
+│  ┌───────────────────────────────────────────────────────────────┐    │
+│  │ Banco:              [Banco de Desenvolvimento Angolano       ]    │
+│  │ Número de Conta:    [1234567890                ]              │    │
+│  │ IBAN:               [AO06001400000000...      ]              │    │
+│  │ Instruções:         [Por favor enviar comp...  ]              │    │
+│  └───────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  7. OBSERVAÇÕES                                                         │
+│  ┌───────────────────────────────────────────────────────────────┐    │
+│  │ Notas Adicionais: [                                         ]    │
+│  │                   [                                         ]    │
+│  └───────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  ┌──────────────────────┐          ┌──────────────┐                   │
+│  │ CRIAR REQUISIÇÃO     │          │  CANCELAR    │                   │
+│  └──────────────────────┘          └──────────────┘                   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+📝 Campos neste passo: 23 campos
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ PASSO 2: VER DETALHES E ADICIONAR CUSTOS                                ┃
+┃ URL: /financeiro/requisicoes/<ID>/                                     ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+APÓS CLICAR "CRIAR REQUISIÇÃO", vai para esta página:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                  RF 2026/001 - Nunes Memba                              │
+│                                                                         │
+│ [✏️ EDITAR] [📄 PDF] [📧 EMAIL] [➕ CRIAR FATURA] [❌ ANULAR]         │
+│                                                                         │
+│ TODAS AS 7 SEÇÕES APARECEM AQUI:                                       │
+│ ├─ Seção 1: Dados do Despachante (Banca)                               │
+│ ├─ Seção 2: Dados do Cliente                                           │
+│ ├─ Seção 3: Referências Aduaneiras                                     │
+│ │                                                                      │
+│ ├─ Seção 4: DISCRIMINAÇÃO DE CUSTOS ← AQUI ESTÁ!                      │
+│ │   ┌───────────────────────────────────────────────────────┐         │
+│ │   │ Tipo | Descrição | Documentado | Valor    | Ações    │         │
+│ │   ├───────────────────────────────────────────────────────┤         │
+│ │   │ (nenhum custo adicionado)                             │         │
+│ │   └───────────────────────────────────────────────────────┘         │
+│ │   [➕ ADICIONAR CUSTO]  ← CLIQUE AQUI!                             │
+│ │                                                                      │
+│ ├─ Seção 5: Resumo Financeiro                                          │
+│ │   Subtotal: 0,00 AOA                                                 │
+│ │   IVA 14%: 0,00 AOA                                                  │
+│ │   Retenção 6.5%: 0,00 AOA                                           │
+│ │   TOTAL: 0,00 AOA                                                    │
+│ │   Extenso: (vazio)                                                   │
+│ │                                                                      │
+│ ├─ Seção 6: Condições de Pagamento                                     │
+│ │   Banco, Conta, IBAN                                                 │
+│ │                                                                      │
+│ └─ Seção 7: Validação e Fecho                                          │
+│     Assinatura, QR Code                                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ PASSO 3: ADICIONAR CUSTO (ONDE APARECEM AS 29 + 18 DESPESAS!)           ┃
+┃ URL: /financeiro/requisicoes/<ID>/linha/adicionar/                     ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+CLIQUE NO BOTÃO "➕ ADICIONAR CUSTO" E VAI PARA ESTA PÁGINA:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     ADICIONAR LINHA DE CUSTO                            │
+│                Requisição: RF 2026/001                                  │
+│                                                                         │
+│ Cliente: Nunes Memba                                                   │
+│ Processo Aduaneiro: DU-2026-000001                                     │
+│ Estado: Pendente                                                       │
+│                                                                         │
+│ ═════════════════════════════════════════════════════════════════      │
+│                                                                         │
+│ TIPO DE CUSTO *                                                         │
+│ ┌─────────────────────────────────────────────────────────────────┐   │
+│ │ ▼ Selecione uma opção:                                          │   │
+│ │   - Impostos e Taxas Aduaneiras (AGT)                          │   │
+│ │   - Despesas Portuárias e Terminais                            │   │
+│ │   - Logística e Transporte                                     │   │
+│ │   - Honorários do Despachante                                  │   │
+│ └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│ DESCRIÇÃO *                                                             │
+│ ┌─────────────────────────────────────────────────────────────────┐   │
+│ │ [Descrição do custo                        ]                   │   │
+│ └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│ ☐ DESPESA DOCUMENTADA ← MARCA AQUI!                                   │
+│   (Marcar se tem DAR, B/L, AWB, etc.)                                  │
+│                                                                         │
+│ TIPO DE DESPESA * ← MUDA CONFORME ACIMA!                              │
+│ ┌─────────────────────────────────────────────────────────────────┐   │
+│ │ ▼ SE NÃO MARCADO "DOCUMENTADA":                                │   │
+│ │   - Honorários                                                 │   │
+│ │   - Franquias                                                  │   │
+│ │   - Inerentes                                                  │   │
+│ │   - DU Provisório                                              │   │
+│ │   - Prestação de Serviço                                       │   │
+│ │   - Impressos e Selos                                          │   │
+│ │   - Fotocopias                                                 │   │
+│ │   - Carga/Descarga                                             │   │
+│ │   - Licenciamento                                              │   │
+│ │   - Nossa Agencia                                              │   │
+│ │   - Viação e Transito                                          │   │
+│ │   - Aluguer de Pronto Soc                                      │   │
+│ │   - Agencia Exportação                                         │   │
+│ │   - Estiva                                                     │   │
+│ │   - Risco                                                      │   │
+│ │   - Transporte                                                 │   │
+│ │   - Outras despesas                                            │   │
+│ │   - Diversos                                                   │   │
+│ │                                                                │   │
+│ │ ▼ SE MARCADO "DOCUMENTADA":                                   │   │
+│ │   - Direitos e importações                                     │   │
+│ │   - Emolumentos Gerais AD                                      │   │
+│ │   - IEC na Importação                                          │   │
+│ │   - IVA na Importação                                          │   │
+│ │   - Multas                                                     │   │
+│ │   - Emissão DAR                                                │   │
+│ │   - Validação Carta porte                                      │   │
+│ │   - Validação B/L                                              │   │
+│ │   - Emissão/Correção – AWB                                     │   │
+│ │   - Emissão Pertence                                           │   │
+│ │   - ENANA                                                      │   │
+│ │   - EP 13, EP 14, EP 15                                        │   │
+│ │   - Adicional EP 17                                            │   │
+│ │   - Emissão de Certificados                                    │   │
+│ │   - Transport                                                  │   │
+│ │   - Transporte Inter-provincial                                │   │
+│ │   - Caução do Contentor                                        │   │
+│ │   - Sobrestadia de Serviço                                     │   │
+│ │   - Pagamento do PIP                                           │   │
+│ │   - EP 17 – FAYOL                                              │   │
+│ │   - Validação do Delivery                                      │   │
+│ │   - Taxa Administrativa                                        │   │
+│ │   - Inspeção Sanitária                                         │   │
+│ │   - JUP                                                        │   │
+│ │   - Factura de Exportação                                      │   │
+│ │   - Multas e Desdobramento                                     │   │
+│ │   - Outras despesas                                            │   │
+│ └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│ VALOR (AOA) *                                                           │
+│ ┌─────────────────────────────────────────────────────────────────┐   │
+│ │ [250000                                    ]                   │   │
+│ └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│ DOCUMENTO JUSTIFICATIVO                                                 │
+│ ┌─────────────────────────────────────────────────────────────────┐   │
+│ │ [Escolher arquivo...] (Opcional - PDF, imagem, etc.)          │   │
+│ └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│ ⚠️  INFORMAÇÕES IMPORTANTES:                                           │
+│   • Honorários mínimos: 45,000 KZ                                      │
+│   • IVA de 14% apenas sobre Honorários                                 │
+│   • Retenção de 6.5% sobre Honorários                                  │
+│   • Despesas documentadas devem ter comprovação                         │
+│                                                                         │
+│  ┌──────────────────────┐          ┌──────────────────────┐            │
+│  │ ADICIONAR LINHA      │          │ CANCELAR             │            │
+│  └──────────────────────┘          └──────────────────────┘            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+📝 Campos neste passo: 6 campos
+   - Tipo de Custo
+   - Descrição
+   - Checkbox "Documentada"
+   - Tipo de Despesa (29 ou 18 opções)
+   - Valor
+   - Documento Justificativo
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+EXEMPLO DE USO COMPLETO:
+
+1️⃣  ABRA: http://seu-servidor/financeiro/requisicoes/criar/
+
+2️⃣  PREENCHA:
+    • Banca: Banca01
+    • Cliente: Nunes Memba
+    • B/L: BL123456
+    • Transporte: Navio MSC
+    • Origem: Lisboa
+    • Destino: Luanda
+    • Mercadoria: Equipamentos
+    • Banco: BDA
+    • Etc...
+
+3️⃣  CLIQUE "CRIAR REQUISIÇÃO"
+
+4️⃣  VAI PARA /financeiro/requisicoes/123/
+
+5️⃣  CLIQUE "➕ ADICIONAR CUSTO"
+
+6️⃣  PREENCHA:
+    • Tipo de Custo: "Honorários do Despachante"
+    • Descrição: "Honorários profissionais"
+    • ✓ Marque "DOCUMENTADA"
+    • Tipo de Despesa: "Honorários"
+    • Valor: 100000
+    • Upload: (opcional)
+
+7️⃣  CLIQUE "ADICIONAR LINHA"
+
+8️⃣  ADICIONE MAIS CUSTOS (repita passo 5-7)
+    • Transportes
+    • Taxas
+    • Etc...
+
+9️⃣  VÊ OS TOTAIS CALCULADOS AUTOMATICAMENTE
+
+🔟  CLIQUE "📄 PDF" PARA GERAR DOCUMENTO
+
+═══════════════════════════════════════════════════════════════════════════
+
+RESPOSTA À SUA PERGUNTA:
+
+Q: "Onde estão os campos? Despesas documentadas, não-documentadas?"
+
+A: ✅ ESTÃO AQUI!
+   1º Formulário: 23 campos básicos (Seções 1-3, 5-7)
+   2º Formulário: 6 campos para custos com:
+      • 29 tipos de despesas DOCUMENTADAS
+      • 18 tipos de despesas NÃO-DOCUMENTADAS
+
+═══════════════════════════════════════════════════════════════════════════
+
+STATUS: ✅ 100% IMPLEMENTADO E FUNCIONAL
+
+═══════════════════════════════════════════════════════════════════════════

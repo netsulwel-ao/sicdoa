@@ -154,11 +154,13 @@ def _movimentacoes_cliente(cliente, data_inicio=None, data_fim=None):
     return movimentos
 
 
-def _movimentacoes_para_clientes(cliente_ids, data_inicio=None, data_fim=None):
+def _movimentacoes_para_clientes(cliente_ids, data_inicio=None, data_fim=None, excluir_ncnd=False):
     """Retorna {cliente_id: [movimentos]} para todos os clientes em 5 queries (uma por modelo).
 
     Elimina o N+1 ao processar N clientes — faz 5 queries no total em vez de 5N.
     O filtro de data é aplicado via Python (cada modelo tem campo de data diferente).
+    Se excluir_ncnd=True, NC/ND não são incluídos (evita dupla contagem quando
+    são exibidos em colunas separadas).
     """
     filtro_base = {'cliente_id__in': cliente_ids}
     movimentos_por_cliente = {cid: [] for cid in cliente_ids}
@@ -200,39 +202,41 @@ def _movimentacoes_para_clientes(cliente_ids, data_inicio=None, data_fim=None):
             'tipo_url': 'recibo_detalhe',
         })
 
-    notas_credito = NotaCredito.objects.filter(**filtro_base).only(
-        'id', 'cliente_id', 'data', 'numero_nota', 'motivo', 'valor_creditado', 'estado'
-    )
-    for nc in notas_credito:
-        d = nc.data
-        if data_inicio and d < data_inicio:
-            continue
-        if data_fim and d > data_fim:
-            continue
-        valor = float(nc.valor_creditado) if nc.estado == 'Aprovada' else 0
-        movimentos_por_cliente[nc.cliente_id].append({
-            'data': d, 'tipo': 'Nota de Crédito', 'documento': nc.numero_nota,
-            'descricao': nc.motivo, 'debito': 0, 'credito': valor,
-            'estado': nc.estado, 'pk': nc.pk,
-            'tipo_url': 'nota_credito_detalhe',
-        })
+    if not excluir_ncnd:
+        notas_credito = NotaCredito.objects.filter(**filtro_base).only(
+            'id', 'cliente_id', 'data', 'numero_nota', 'motivo', 'valor_creditado', 'estado'
+        )
+        for nc in notas_credito:
+            d = nc.data
+            if data_inicio and d < data_inicio:
+                continue
+            if data_fim and d > data_fim:
+                continue
+            valor = float(nc.valor_creditado) if nc.estado == 'Aprovada' else 0
+            movimentos_por_cliente[nc.cliente_id].append({
+                'data': d, 'tipo': 'Nota de Crédito', 'documento': nc.numero_nota,
+                'descricao': nc.motivo, 'debito': 0, 'credito': valor,
+                'estado': nc.estado, 'pk': nc.pk,
+                'tipo_url': 'nota_credito_detalhe',
+            })
 
-    notas_debito = NotaDebito.objects.filter(**filtro_base).only(
-        'id', 'cliente_id', 'data', 'numero_nota', 'motivo', 'valor', 'estado'
-    )
-    for nd in notas_debito:
-        d = nd.data
-        if data_inicio and d < data_inicio:
-            continue
-        if data_fim and d > data_fim:
-            continue
-        valor = float(nd.valor) if nd.estado == 'Aprovada' else 0
-        movimentos_por_cliente[nd.cliente_id].append({
-            'data': d, 'tipo': 'Nota de Débito', 'documento': nd.numero_nota,
-            'descricao': nd.motivo, 'debito': valor, 'credito': 0,
-            'estado': nd.estado, 'pk': nd.pk,
-            'tipo_url': 'nota_debito_detalhe',
-        })
+    if not excluir_ncnd:
+        notas_debito = NotaDebito.objects.filter(**filtro_base).only(
+            'id', 'cliente_id', 'data', 'numero_nota', 'motivo', 'valor', 'estado'
+        )
+        for nd in notas_debito:
+            d = nd.data
+            if data_inicio and d < data_inicio:
+                continue
+            if data_fim and d > data_fim:
+                continue
+            valor = float(nd.valor) if nd.estado == 'Aprovada' else 0
+            movimentos_por_cliente[nd.cliente_id].append({
+                'data': d, 'tipo': 'Nota de Débito', 'documento': nd.numero_nota,
+                'descricao': nd.motivo, 'debito': valor, 'credito': 0,
+                'estado': nd.estado, 'pk': nd.pk,
+                'tipo_url': 'nota_debito_detalhe',
+            })
 
     facturas_recibo = FacturaRecibo.objects.filter(**filtro_base).only(
         'id', 'cliente_id', 'data', 'numero_factura_recibo',
@@ -479,7 +483,7 @@ class ContaCorrenteMensalView(BaseContextMixin, TemplateView):
         data_fim_ano = date(ano + 1, 1, 1)
 
         # 5 queries para o ano todo em vez de 12×5=60
-        mov_por_cliente = _movimentacoes_para_clientes(cliente_ids, data_inicio_ano, data_fim_ano - timedelta(days=1))
+        mov_por_cliente = _movimentacoes_para_clientes(cliente_ids, data_inicio_ano, data_fim_ano - timedelta(days=1), excluir_ncnd=True)
 
         # NC e ND agregadas por mês — 2 queries em vez de 12×2=24
         nc_por_mes = NotaCredito.objects.filter(

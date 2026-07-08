@@ -1,6 +1,7 @@
 from django import forms
 from decimal import Decimal, InvalidOperation
 from clientes.models import Cliente
+from rh.models import Banca
 from aduaneiro.models import DeclaracaoUnica
 from utils.format_kz import fmt_kz, parse_kz
 from .models import (
@@ -10,7 +11,38 @@ from .models import (
 )
 
 
+class FlexibleModelChoiceField(forms.ModelChoiceField):
+    """
+    Custom ModelChoiceField that allows any valid model instance ID on POST,
+    even if not in the current queryset. This fixes the issue where the field
+    renders with limited choices but user can select from ANY valid option.
+    """
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        try:
+            key = self.to_field_name or 'pk'
+            obj = self.queryset.model.objects.get(**{key: value})
+        except (ValueError, TypeError, self.queryset.model.DoesNotExist):
+            raise forms.ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
+        return obj
+
+    def validate(self, value):
+        if value and value != '':
+            try:
+                self.queryset.model.objects.get(pk=value.pk if hasattr(value, 'pk') else value)
+            except self.queryset.model.DoesNotExist:
+                raise forms.ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
+
+
 class RequisicaoFundoForm(forms.ModelForm):
+    processo_aduaneiro = FlexibleModelChoiceField(
+        queryset=DeclaracaoUnica.objects.filter(status='Submetida'),
+        widget=forms.Select(attrs={
+            'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
+        })
+    )
+
     class Meta:
         model = RequisicaoFundo
         fields = ['banca', 'filial', 'cliente', 'pessoa_contacto', 'processo_aduaneiro', 
@@ -31,9 +63,6 @@ class RequisicaoFundoForm(forms.ModelForm):
             'pessoa_contacto': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
                 'placeholder': 'Nome da pessoa de contacto'
-            }),
-            'processo_aduaneiro': forms.Select(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
             }),
             'numero_bl_awb': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
@@ -118,17 +147,61 @@ class RequisicaoFundoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
+        
+        # Always populate processo_aduaneiro with submitted DUs
+        self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
+            status='Submetida'
+        ).order_by('-created_at')
+        
+        # On POST, refine processo_aduaneiro by client if provided
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
                 nif = Cliente.objects.filter(id=cliente_id).values_list('nif', flat=True).first()
                 if nif:
                     self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
-                        nif_declarante=nif, status='Aprovada'
-                    )
+                        nif_declarante=nif, status='Submetida'
+                    ).order_by('-created_at')
             except (ValueError, TypeError):
                 pass
+        
+        # Populate banca field
+        if request:
+            banca_id = request.session.get('banca_id')
+            if banca_id:
+                self.fields['banca'].queryset = Banca.objects.filter(id=banca_id)
+            else:
+                self.fields['banca'].queryset = Banca.objects.all()
+        else:
+            # Fallback: provide all bancas when request not available
+            self.fields['banca'].queryset = Banca.objects.all()
+        
+        # On POST, ensure processo_aduaneiro queryset includes the submitted value
+        if self.is_bound:
+            self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
+                status='Submetida'
+            ).order_by('-created_at')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        # Validate processo_aduaneiro: ensure it's a submitted DU that exists
+        processo_id = cleaned_data.get('processo_aduaneiro')
+        if processo_id:
+            try:
+                du = DeclaracaoUnica.objects.get(pk=processo_id.pk if hasattr(processo_id, 'pk') else processo_id)
+                if du.status not in ('Submetida', 'Aprovada'):
+                    raise forms.ValidationError(
+                        'O processo aduaneiro selecionado deve ter status "Submetida" ou "Aprovada".'
+                    )
+            except DeclaracaoUnica.DoesNotExist:
+                raise forms.ValidationError(
+                    'O processo aduaneiro selecionado não existe.'
+                )
+        
+        return cleaned_data
 
 
 class RequisicaoFundoLinhaForm(forms.ModelForm):
@@ -136,25 +209,20 @@ class RequisicaoFundoLinhaForm(forms.ModelForm):
         model = RequisicaoFundoLinha
         fields = ['tipo_custo', 'descricao', 'documentada', 'despesa_tipo', 'valor', 'documento_justificativo']
         widgets = {
-            'tipo_custo': forms.RadioSelect(attrs={
-                'class': 'hidden'
-            }),
             'descricao': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
                 'placeholder': 'Descrição do custo'
             }),
-            'documentada': forms.RadioSelect(attrs={
-                'class': 'hidden'
+            'documentada': forms.Select(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
             }),
             'despesa_tipo': forms.Select(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'id': 'id_despesa_tipo'
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
             }),
             'valor': forms.TextInput(attrs={
                 'class': 'moeda w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
                 'placeholder': '0,00',
-                'inputmode': 'decimal',
-                'id': 'id_valor'
+                'inputmode': 'decimal'
             }),
             'documento_justificativo': forms.FileInput(attrs={
                 'class': 'w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer'
@@ -164,14 +232,9 @@ class RequisicaoFundoLinhaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Definir valores padrão se for criação nova
-        if not self.instance.pk:
-            # Padrão: Impostos e Documentada=Sim
-            if not self.data:
-                self.initial['tipo_custo'] = 'Impostos e Taxas Aduaneiras (AGT)'
-                self.initial['documentada'] = True
+        if not self.instance.pk and not self.data:
+            self.initial['documentada'] = True
         
-        # Carregar opções de despesa_tipo baseado em documentada
         documentada = self.instance.documentada if self.instance.pk else self.initial.get('documentada', True)
         
         if documentada:
@@ -184,31 +247,31 @@ class RequisicaoFundoLinhaForm(forms.ModelForm):
         documentada = cleaned_data.get('documentada')
         documento_justificativo = cleaned_data.get('documento_justificativo')
         despesa_tipo = cleaned_data.get('despesa_tipo')
-        tipo_custo = cleaned_data.get('tipo_custo')
         valor = cleaned_data.get('valor')
         
-        # Validar valor numérico se for string
         if valor and isinstance(valor, str):
-            # Remover espaços e substituir vírgula por ponto
             valor_clean = valor.replace(' ', '').replace(',', '.')
             try:
                 cleaned_data['valor'] = Decimal(valor_clean)
             except (ValueError, InvalidOperation):
                 raise forms.ValidationError('Valor inválido. Use formato: 1000.00 ou 1.000,00')
         
-        # Se documentada=True, o documento é obrigatório (mas só em criação ou se não tinha documento antes)
         if documentada and not documento_justificativo:
-            # Verificar se já existe um documento na instância (edição)
             if not self.instance.pk or not self.instance.documento_justificativo:
                 raise forms.ValidationError(
                     'Comprovativo da despesa é obrigatório quando a despesa é documentada.'
                 )
         
-        # despesa_tipo sempre obrigatório
         if not despesa_tipo:
             raise forms.ValidationError(
                 'Tipo de despesa é obrigatório.'
             )
+        
+        # Honorários do Despachante: mínimo 45.000 KZ
+        valor = cleaned_data.get('valor', Decimal('0'))
+        if cleaned_data.get('tipo_custo') == 'Honorários do Despachante' and valor < Decimal('45000'):
+            cleaned_data['valor'] = Decimal('45000')
+            self._valor_auto_corrigido = True
         
         return cleaned_data
 
@@ -236,16 +299,34 @@ class FacturaClienteForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.is_bound and self.data.get('cliente'):
-            try:
-                cliente_id = int(self.data.get('cliente'))
-                nif = Cliente.objects.filter(id=cliente_id).values_list('nif', flat=True).first()
+        # Desabilitar cliente e processo em edição (não devem ser alterados)
+        if self.instance and self.instance.pk:
+            for campo in ('cliente', 'processo_aduaneiro', 'descricao'):
+                self.fields[campo].disabled = True
+                attrs = self.fields[campo].widget.attrs
+                classes = attrs.get('class', '')
+                if 'bg-gray-100' not in classes:
+                    attrs['class'] = classes + ' bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
+        else:
+            # Filtrar processos por cliente tanto em GET como POST
+            cliente = None
+            if self.is_bound and self.data.get('cliente'):
+                try:
+                    cliente = Cliente.objects.get(pk=int(self.data.get('cliente')))
+                except (Cliente.DoesNotExist, ValueError, TypeError):
+                    pass
+            if cliente:
+                nif = (cliente.nif or '').strip()
                 if nif:
                     self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
-                        nif_declarante=nif, status='Aprovada'
-                    )
-            except (ValueError, TypeError):
-                pass
+                        nif_declarante=nif
+                    ).order_by('-data_submissao')
+
+    def clean_data_vencimento(self):
+        data = self.cleaned_data.get('data_vencimento')
+        if data and not self.instance.pk and data < timezone.now().date():
+            raise forms.ValidationError('A data de vencimento não pode estar no passado.')
+        return data
 
     def clean(self):
         cleaned_data = super().clean()

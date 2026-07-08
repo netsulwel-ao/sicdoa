@@ -1,232 +1,154 @@
 {% extends 'base.html' %}
-{% load static %}
-
-{% block title %}{{ object.numero_nota }}{% endblock %}
-
 {% block content %}
-<div class="max-w-6xl mx-auto w-full">
+    <div class="max-w-2xl mx-auto w-full">
 
-  <!-- Breadcrumb + Cabeçalho -->
-  <div class="mb-8">
-    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
-      <a href="{% url 'financeiro:nota_debito_lista' %}" class="hover:text-primary transition-colors">Notas de Débito</a>
-      <i class="fas fa-chevron-right text-xs"></i>
-      <span class="text-gray-900 dark:text-white font-medium">{{ object.numero_nota }}</span>
-    </div>
-
-    <div class="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <div class="flex items-center gap-3 mb-2">
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ object.numero_nota }}</h1>
-          <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold
-            {% if object.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
-            {% elif object.estado == 'Aprovada' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
-            {% elif object.estado == 'Rejeitada' %}bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400
-            {% elif object.estado == 'Cancelada' %}bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400{% endif %}">
-            {{ object.get_estado_display }}
-          </span>
+      <!-- ── Cabeçalho ── -->
+        <div class="mb-5">
+        <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2 flex-wrap">
+          <a href="{% url 'financeiro:nota_debito_lista' %}" class="hover:text-primary transition-colors">Notas de Débito</a>
+          <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+          <span class="text-primary font-semibold">Detalhes</span>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400">Emitida em {{ object.data|date:"d/m/Y" }} • {{ object.cliente.nome }}</p>
-      </div>
-
-      <!-- Ações -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <a href="{% url 'financeiro:nota_debito_pdf' object.id %}" 
-          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-          <i class="fas fa-download"></i>PDF
-        </a>
-        <a href="{% url 'financeiro:nota_debito_enviar_email' object.id %}" 
-          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-          <i class="fas fa-envelope"></i>Email
-        </a>
-        <a href="{% url 'financeiro:nota_debito_editar' object.id %}" 
-          class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">
-          <i class="fas fa-edit"></i>Editar
-        </a>
-        <button onclick="window.print()" 
-          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-          <i class="fas fa-print"></i>Imprimir
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Documento Profissional -->
-  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-    
-    <!-- Cabeçalho Empresa -->
-    <div class="p-8 border-b-4 border-red-600 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-gray-800">
-      <div class="grid grid-cols-3 gap-8 items-start mb-6">
-        <!-- Logo/Empresa -->
-        <div>
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">{{ object.banca.nome }}</h2>
-          <p class="text-sm text-gray-600 dark:text-gray-400">{{ object.banca.nif }}</p>
-          {% if object.filial %}
-          <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">Filial: {{ object.filial.nome }}</p>
-          {% endif %}
-        </div>
-        
-        <!-- Tipo de Documento -->
-        <div class="text-center">
-          <div class="inline-block px-4 py-2 bg-red-100 dark:bg-red-900/30 rounded-lg border-2 border-red-600">
-            <p class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wider">Nota de Débito</p>
-            <p class="text-2xl font-bold text-red-700 dark:text-red-400 mt-1">{{ object.numero_nota }}</p>
-          </div>
-        </div>
-        
-        <!-- Data -->
-        <div class="text-right">
-          <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Data da Emissão</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ object.data|date:"d/m/Y" }}</p>
-          {% if object.data_aprovacao %}
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 uppercase">Data de Aprovação</p>
-          <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ object.data_aprovacao|date:"d/m/Y H:i" }}</p>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Linha divisória -->
-      <div class="border-t-2 border-gray-300 dark:border-gray-600 pt-6">
-        <div class="grid grid-cols-2 gap-8">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Telefone</p>
-            <p class="text-sm text-gray-900 dark:text-white">{{ object.banca.telefone|default:"—" }}</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Nota de Débito {{ object.numero_nota }}</h1>
           </div>
-          <div>
-            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Email</p>
-            <p class="text-sm text-gray-900 dark:text-white">{{ object.banca.email|default:"—" }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Conteúdo Principal -->
-    <div class="p-8 space-y-8">
-
-      <!-- Cliente / Devedor -->
-      <div>
-        <div class="flex items-center gap-2 mb-4">
-          <i class="fas fa-user-circle text-red-600 text-xl"></i>
-          <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cliente / Devedor</h3>
-        </div>
-        <div class="grid grid-cols-3 gap-6 bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
-          <div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase">Nome</p>
-            <p class="font-semibold text-gray-900 dark:text-white">{{ object.cliente.nome }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase">NIF</p>
-            <p class="font-mono text-gray-900 dark:text-white">{{ object.cliente.nif }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase">Localização</p>
-            <p class="text-gray-900 dark:text-white">{{ object.cliente.localizacao|default:"—" }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Detalhes da Nota -->
-      <div class="border-t-2 border-gray-300 dark:border-gray-600 pt-6">
-        <div class="grid grid-cols-2 gap-8">
-          <!-- Factura Relacionada -->
-          <div>
-            <div class="flex items-center gap-2 mb-4">
-              <i class="fas fa-receipt text-red-600 text-lg"></i>
-              <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">Factura Relacionada</h4>
-            </div>
-            <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-700">
-              <p class="text-xs text-red-600 dark:text-red-400 mb-1 uppercase font-semibold">Número</p>
-              <p class="text-lg font-bold text-red-700 dark:text-red-300">{{ object.factura_relacionada.numero_factura }}</p>
-              <p class="text-xs text-red-600 dark:text-red-400 mt-2">{{ object.factura_relacionada.data_emissao|date:"d/m/Y" }}</p>
-            </div>
-          </div>
-
-          <!-- Motivo -->
-          <div>
-            <div class="flex items-center gap-2 mb-4">
-              <i class="fas fa-comment-dots text-red-600 text-lg"></i>
-              <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">Motivo</h4>
-            </div>
-            <div class="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-700">
-              <p class="text-gray-900 dark:text-white">{{ object.motivo }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Valor -->
-      <div class="border-t-2 border-gray-300 dark:border-gray-600 pt-6">
-        <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
-            <i class="fas fa-coins text-red-600 text-xl"></i>
-            <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase">Valor Debitado</h4>
+            <a href="{% url 'financeiro:nota_debito_lista' %}"
+              class="flex items-center gap-1.5 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
+              <i class="fas fa-arrow-left"></i>
+              <span>Voltar</span>
+            </a>
+            {% if object.estado == 'Pendente' %}
+            <a href="{% url 'financeiro:nota_debito_editar' object.pk %}"
+              class="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
+              <i class="fas fa-edit"></i>
+              <span>Editar</span>
+            </a>
+            {% endif %}
+            <a href="{% url 'financeiro:nota_debito_enviar_email' object.pk %}"
+              class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
+              <i class="fas fa-envelope"></i>
+              <span>Enviar Email</span>
+            </a>
+            <a href="{% url 'financeiro:nota_debito_pdf' object.pk %}" target="_blank"
+              class="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
+              <i class="fas fa-file-pdf"></i>
+              <span>Imprimir PDF</span>
+            </a>
           </div>
         </div>
-        <div class="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 p-6 rounded-xl border-2 border-red-300 dark:border-red-700">
-          <p class="text-xs text-red-600 dark:text-red-400 mb-2 uppercase font-semibold">Valor</p>
-          <p class="text-4xl font-bold text-red-700 dark:text-red-300">{{ object.valor|floatformat:2 }} <span class="text-lg">KZ</span></p>
+      </div>
+
+      <!-- ── Mensagens ── -->
+      {% if messages %}
+        {% for message in messages %}
+          <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+            {% if message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800
+            {% elif message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800
+            {% else %}bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <!-- ── Detalhes ── -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
+        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-4">
+          <div>
+            <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">Estado de Aprovação</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold mt-1.5
+              {% if object.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
+              {% elif object.estado == 'Aprovada' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+              {% elif object.estado == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+              {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+              {{ object.estado }}
+            </span>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">Valor do Débito</span>
+            <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ object.valor|fmtkz }} Kz</span>
+          </div>
         </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Cliente</h3>
+            <div class="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              <p><strong>Nome:</strong> {{ object.cliente.nome }}</p>
+              <p><strong>NIF:</strong> {{ object.cliente.nif }}</p>
+              <p><strong>Saldo Global da Conta Corrente:</strong> <span class="font-bold {% if object.cliente.saldo_conta_corrente >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-500{% endif %}">{% if object.cliente.saldo_conta_corrente < 0 %}{{ object.cliente.saldo_conta_corrente|fmtkz|slice:"1:" }}{% else %}{{ object.cliente.saldo_conta_corrente|fmtkz }}{% endif %} Kz <span class="text-xs">{% if object.cliente.saldo_conta_corrente < 0 %}(em dívida){% else %}(a favor){% endif %}</span></span></p>
+            </div>
+          </div>
+          <div>
+            <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Dados de Emissão</h3>
+            <div class="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              <p><strong>Factura Relacionada:</strong> <a href="{% url 'financeiro:factura_detalhe' object.factura_relacionada.pk %}" class="text-primary hover:underline font-semibold">{{ object.factura_relacionada.numero_factura }}</a></p>
+              <p><strong>Data de Emissão:</strong> {{ object.data|date:"d/m/Y" }}</p>
+              <p><strong>Motivo:</strong> {{ object.motivo }}</p>
+              <p><strong>Criado Por:</strong> {{ object.utilizador_criador_nome }}</p>
+              {% if object.utilizador_aprovador_nome %}
+              <p><strong>Aprovado Por:</strong> {{ object.utilizador_aprovador_nome }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        {% if object.estado == 'Pendente' %}
+          <div class="pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-end gap-3 flex-wrap">
+            {% if papel == 'Administrador' or object.utilizador_criador_id == request.session.usuario_id %}
+            <form method="post" action="{% url 'financeiro:nota_debito_cancelar' object.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-semibold transition-colors active:scale-95">Cancelar</button>
+            </form>
+            {% endif %}
+            {% if papel == 'Administrador' or object.utilizador_criador_id == request.session.usuario_id %}
+            <form method="post" action="{% url 'financeiro:nota_debito_rejeitar' object.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="px-5 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-semibold transition-colors active:scale-95">Rejeitar Nota</button>
+            </form>
+            <form method="post" action="{% url 'financeiro:nota_debito_aprovar' object.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm active:scale-95">Aprovar & Debitar</button>
+            </form>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if historico %}
+        <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
+          <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Histórico de Alterações</h3>
+          <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for h in historico %}
+            <div class="py-2.5 flex items-start gap-3 text-sm">
+              <div class="flex-shrink-0 mt-0.5">
+                {% if h.accao == 'Criada' %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"><i class="fas fa-plus text-xs"></i></span>
+                {% elif h.accao == 'Aprovada' %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400"><i class="fas fa-check text-xs"></i></span>
+                {% elif h.accao == 'Rejeitada' %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"><i class="fas fa-times text-xs"></i></span>
+                {% elif h.accao == 'Cancelada' %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"><i class="fas fa-ban text-xs"></i></span>
+                {% else %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"><i class="fas fa-circle text-xs"></i></span>
+                {% endif %}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-gray-900 dark:text-white font-medium">
+                  {{ h.accao }}
+                  {% if h.estado_anterior and h.estado_novo and h.estado_anterior != h.estado_novo %}
+                    <span class="text-gray-400 font-normal"> — de <span class="font-semibold">{{ h.estado_anterior }}</span> para <span class="font-semibold">{{ h.estado_novo }}</span></span>
+                  {% endif %}
+                </p>
+                <p class="text-xs text-gray-400 mt-0.5">Por {{ h.utilizador_nome|default:"Sistema" }} — {{ h.data|date:"d/m/Y H:i" }}</p>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
 
     </div>
-
-    <!-- Rodapé -->
-    <div class="bg-gray-50 dark:bg-gray-900/50 p-8 border-t border-gray-200 dark:border-gray-700">
-      <div class="grid grid-cols-3 gap-6 mb-8">
-        <!-- Criador -->
-        <div>
-          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Criado por</p>
-          <p class="text-sm text-gray-900 dark:text-white">{{ object.utilizador_criador_nome|default:"—" }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ object.data_criacao|date:"d/m/Y H:i" }}</p>
-        </div>
-
-        <!-- Aprovador -->
-        <div>
-          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Aprovado por</p>
-          <p class="text-sm text-gray-900 dark:text-white">{{ object.utilizador_aprovador_nome|default:"Pendente" }}</p>
-          {% if object.data_aprovacao %}
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ object.data_aprovacao|date:"d/m/Y H:i" }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Estado -->
-        <div>
-          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Estado</p>
-          <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold
-            {% if object.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
-            {% elif object.estado == 'Aprovada' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
-            {% elif object.estado == 'Rejeitada' %}bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400
-            {% elif object.estado == 'Cancelada' %}bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400{% endif %}">
-            {{ object.get_estado_display }}
-          </span>
-        </div>
-      </div>
-
-      <div class="border-t border-gray-300 dark:border-gray-600 pt-4 text-center">
-        <p class="text-xs text-gray-500 dark:text-gray-400">
-          <i class="fas fa-lock text-xs mr-1"></i>
-          Documento gerado automaticamente pelo sistema SICDOA
-        </p>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Botões de Ação Adicionais -->
-  <div class="mt-6 flex gap-3 justify-center">
-    <a href="{% url 'financeiro:nota_debito_lista' %}" 
-      class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-      <i class="fas fa-arrow-left mr-2"></i>Voltar
-    </a>
-  </div>
-
-</div>
-
-<style media="print">
-  body { background: white; }
-  .no-print { display: none; }
-  .dark { background: white; color: black; }
-  .dark * { background: white; color: black; border-color: #e5e7eb; }
-</style>
-
 {% endblock %}

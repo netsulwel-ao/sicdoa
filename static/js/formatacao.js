@@ -18,15 +18,30 @@ function formatNumber(value) {
 
 /**
  * Converte string em formato angolano (1 234,56 ou 1.234,56) para número JS.
+ * Suporta: 20000, 20 000, 20.000, 20.000,00, 20,000.00
  */
 function parseNumber(str) {
     if (!str) return 0;
     var s = String(str).trim().replace(/ /g, '');
+    
+    // Se tem vírgula, é formato europeu (1.234.567,89)
     if (s.indexOf(',') !== -1) {
         s = s.replace(/\./g, '').replace(',', '.');
-    } else if (s.indexOf('.') !== -1 && s.split('.').length > 2) {
-        s = s.replace(/\./g, '');
+    } 
+    // Se tem ponto, precisa validar se é separador de milhar ou decimal
+    else if (s.indexOf('.') !== -1) {
+        var parts = s.split('.');
+        // Se tem múltiplos pontos OU último grupo tem 3 dígitos (milhar), remove todos
+        if (parts.length > 2) {
+            // Múltiplos pontos = todos são separadores de milhar
+            s = s.replace(/\./g, '');
+        } else if (parts.length === 2 && parts[1].length === 3) {
+            // Último grupo tem 3 dígitos = é separador de milhar
+            s = s.replace(/\./g, '');
+        }
+        // Senão, deixa como está (é decimal tipo 20.00)
     }
+    
     return parseFloat(s) || 0;
 }
 
@@ -38,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof IMask === 'undefined') return;
 
     document.querySelectorAll('.moeda').forEach(function(input) {
+        if (input.disabled || input.readOnly) return;
         try {
             IMask(input, {
                 mask: Number,
@@ -59,7 +75,13 @@ document.addEventListener('DOMContentLoaded', function() {
         var form = e.target;
         form.querySelectorAll('.moeda').forEach(function(input) {
             if (input.value) {
-                input.value = parseNumber(input.value);
+                var value;
+                if (input.imask && input.imask.unmaskedValue !== undefined) {
+                    value = parseNumber(input.imask.unmaskedValue).toFixed(2);
+                } else {
+                    value = parseNumber(input.value).toFixed(2);
+                }
+                input.value = value;
             }
         });
     });

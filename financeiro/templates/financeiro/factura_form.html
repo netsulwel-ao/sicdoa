@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="max-w-4xl mx-auto w-full">
+
+      <!-- ── Cabeçalho ── -->
+      <div class="mb-6">
+        <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2 flex-wrap">
+          <a href="{% url 'financeiro:factura_lista' %}" class="hover:text-primary transition-colors">Facturas Finais</a>
+          <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+          {% if form.instance.pk %}
+          <a href="{% url 'financeiro:factura_detalhe' form.instance.pk %}" class="hover:text-primary transition-colors">{{ form.instance.numero_factura }}</a>
+          <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+          {% endif %}
+          <span class="text-primary font-semibold">{{ titulo }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{{ titulo }}</h1>
+            {% if form.instance.pk %}
+            <div class="flex items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <span><strong>Nº:</strong> {{ form.instance.numero_factura }}</span>
+              <span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+              <span><strong>Emissão:</strong> {{ form.instance.data_emissao|date:"d/m/Y H:i" }}</span>
+              {% if form.instance.requisicao_fundo %}
+              <span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+              <a href="{% url 'financeiro:requisicao_detalhe' form.instance.requisicao_fundo.pk %}" class="text-primary hover:underline">
+                <i class="fas fa-link text-xs"></i> {{ form.instance.requisicao_fundo.numero_requisicao }}
+              </a>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+          <a href="{% if form.instance.pk %}{% url 'financeiro:factura_detalhe' form.instance.pk %}{% else %}{% url 'financeiro:factura_lista' %}{% endif %}"
+             class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm flex-shrink-0">
+            <i class="fas fa-arrow-left text-base"></i>Voltar
+          </a>
+        </div>
+      </div>
+
+      {% if form.instance.pk %}
+      <!-- ── Banner de Estado e Valores ── -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-6">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <div class="flex items-center gap-4">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+              {% if form.instance.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
+              {% elif form.instance.estado == 'Parcialmente Paga' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400
+              {% elif form.instance.estado == 'Paga' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
+              {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+              <i class="fas fa-circle text-[6px]"></i> {{ form.instance.estado }}
+            </span>
+          </div>
+          <div class="flex items-center gap-6 text-sm">
+            <div class="text-right">
+              <p class="text-xs text-gray-400 dark:text-gray-500">Valor Total</p>
+              <p class="text-lg font-bold text-gray-900 dark:text-white">{{ form.instance.valor_total|fmtkz }} Kz</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-gray-400 dark:text-gray-500">Valor Pago</p>
+              <p class="text-lg font-bold text-green-600 dark:text-green-400">{{ form.instance.valor_pago|fmtkz }} Kz</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-gray-400 dark:text-gray-500">Em Dívida</p>
+              <p class="text-lg font-bold {% if form.instance.valor_total|add:'-'|add:form.instance.valor_pago > 0 %}text-red-500{% else %}text-green-600 dark:text-green-400{% endif %}">
+                {{ form.instance.valor_total|add:'-'|add:form.instance.valor_pago|fmtkz }} Kz
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ── Formulário ── -->
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 p-4 rounded-xl text-sm font-medium">
+            {% for error in form.non_field_errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- ── Informações Gerais ── -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div class="px-6 py-4 bg-gradient-to-r from-primary/5 to-transparent border-b border-gray-100 dark:border-gray-700">
+            <h2 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <i class="fas fa-info-circle text-primary text-sm"></i> Informações Gerais
+            </h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Cliente</label>
+                {{ form.cliente }}
+                {% if form.cliente.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.cliente.errors.as_text }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Processo Aduaneiro</label>
+                {{ form.processo_aduaneiro }}
+                {% if form.processo_aduaneiro.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.processo_aduaneiro.errors.as_text }}</p>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Data de Vencimento</label>
+                {{ form.data_vencimento }}
+                {% if form.data_vencimento.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.data_vencimento.errors.as_text }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Descrição / Detalhes</label>
+                {{ form.descricao }}
+                {% if form.descricao.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.descricao.errors.as_text }}</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Valores e Custos ── -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div class="px-6 py-4 bg-gradient-to-r from-primary/5 to-transparent border-b border-gray-100 dark:border-gray-700">
+            <h2 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <i class="fas fa-calculator text-primary text-sm"></i> Valores e Custos
+            </h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Honorários do Despachante <span class="text-gray-400 font-normal normal-case">(KZ)</span></label>
+                {{ form.honorarios_despachante }}
+                {% if form.honorarios_despachante.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.honorarios_despachante.errors.as_text }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Taxas Aduaneiras <span class="text-gray-400 font-normal normal-case">(KZ)</span></label>
+                {{ form.taxas_aduaneiras }}
+                {% if form.taxas_aduaneiras.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.taxas_aduaneiras.errors.as_text }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Emolumentos <span class="text-gray-400 font-normal normal-case">(KZ)</span></label>
+                {{ form.emolumentos }}
+                {% if form.emolumentos.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.emolumentos.errors.as_text }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Despesas Operacionais <span class="text-gray-400 font-normal normal-case">(KZ)</span></label>
+                {{ form.despesas_operacionais }}
+                {% if form.despesas_operacionais.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.despesas_operacionais.errors.as_text }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">IVA <span class="text-gray-400 font-normal normal-case">(KZ)</span></label>
+                {{ form.iva }}
+                {% if form.iva.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.iva.errors.as_text }}</p>
+                {% endif %}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Outros Encargos <span class="text-gray-400 font-normal normal-case">(KZ)</span></label>
+                {{ form.outros_encargos }}
+                {% if form.outros_encargos.errors %}
+                  <p class="text-red-500 text-xs mt-1">{{ form.outros_encargos.errors.as_text }}</p>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Subtotal -->
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+              <div class="bg-gray-50 dark:bg-gray-700/40 rounded-xl p-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Subtotal (sem IVA)</p>
+                    <p id="subtotal-sem-iva" class="text-lg font-bold text-gray-700 dark:text-gray-300 mt-0.5">0,00 Kz</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">IVA</p>
+                    <p id="subtotal-iva" class="text-lg font-bold text-primary mt-0.5">0,00 Kz</p>
+                  </div>
+                  <div class="text-right border-l border-gray-200 dark:border-gray-600 pl-4">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Geral</p>
+                    <p id="calculo-total" class="text-xl font-bold text-gray-900 dark:text-white mt-0.5">0,00 Kz</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Acções ── -->
+        <div class="flex items-center justify-end gap-3">
+          <a href="{% if form.instance.pk %}{% url 'financeiro:factura_detalhe' form.instance.pk %}{% else %}{% url 'financeiro:factura_lista' %}{% endif %}"
+             class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors">Cancelar</a>
+          <button type="submit"
+             class="px-6 py-2.5 bg-primary hover:bg-primary/90 rounded-xl text-sm font-semibold text-white transition-all shadow-sm active:scale-95 flex items-center gap-2">
+            <i class="fas fa-save"></i>
+            {% if form.instance.pk %}Guardar Alterações{% else %}Emitir Factura{% endif %}
+          </button>
+        </div>
+      </form>
+
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var inputs = document.querySelectorAll('.moeda');
+  var totalSpan = document.getElementById('calculo-total');
+  var subtotalSemIvaSpan = document.getElementById('subtotal-sem-iva');
+  var subtotalIvaSpan = document.getElementById('subtotal-iva');
+
+  function obterValor(inp) {
+    try {
+      if (inp.imask && inp.imask.unmaskedValue !== undefined) {
+        return (typeof parseNumber === 'function' ? parseNumber(inp.imask.unmaskedValue) : parseFloat(inp.imask.unmaskedValue)) || 0;
+      }
+    } catch(e) {}
+    var v = inp.value.trim();
+    if (!v) return 0;
+    if (typeof parseNumber === 'function') return parseNumber(v);
+    return parseFloat(v.replace(/\s/g, '').replace(',', '.')) || 0;
+  }
+
+  function fmtKz(val) {
+    return val.toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' Kz';
+  }
+
+  function recalcular() {
+    var hon = 0, tax = 0, emo = 0, desp = 0, iva = 0, out = 0;
+    inputs.forEach(function(inp) {
+      var val = obterValor(inp);
+      if (inp.id && inp.id.indexOf('iva') !== -1 || inp.name && inp.name.indexOf('iva') !== -1) {
+        iva += val;
+      } else if (inp.id && inp.id.indexOf('outros') !== -1 || inp.name && inp.name.indexOf('outros') !== -1) {
+        out += val;
+      } else if (inp.id && inp.id.indexOf('honorarios') !== -1 || inp.name && inp.name.indexOf('honorarios') !== -1) {
+        hon += val;
+      } else if (inp.id && (inp.id.indexOf('taxas') !== -1) || inp.name && (inp.name.indexOf('taxas') !== -1)) {
+        tax += val;
+      } else if (inp.id && (inp.id.indexOf('emolumentos') !== -1) || inp.name && (inp.name.indexOf('emolumentos') !== -1)) {
+        emo += val;
+      } else if (inp.id && (inp.id.indexOf('despesas') !== -1) || inp.name && (inp.name.indexOf('despesas') !== -1)) {
+        desp += val;
+      }
+    });
+    var semIva = hon + tax + emo + desp + out;
+    var total = semIva + iva;
+    subtotalSemIvaSpan.textContent = fmtKz(semIva);
+    subtotalIvaSpan.textContent = fmtKz(iva);
+    totalSpan.textContent = fmtKz(total);
+  }
+
+  inputs.forEach(function(inp) {
+    inp.addEventListener('input', recalcular);
+    inp.addEventListener('change', recalcular);
+  });
+  recalcular();
+});
+</script>
+{% endblock %}

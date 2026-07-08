@@ -3,7 +3,7 @@ from decimal import Decimal
 import json
 
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Sum
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
@@ -98,6 +98,7 @@ class RequisicaoFundo(models.Model):
         indexes = [
             models.Index(fields=['estado', '-data_emissao'], name='ix_rf_estado_data'),
             models.Index(fields=['cliente', 'estado'], name='ix_rf_cliente_estado'),
+            models.Index(fields=['banca', 'filial'], name='ix_rf_banca_filial'),
         ]
 
     def _gerar_numero_requisicao(self):
@@ -128,8 +129,13 @@ class RequisicaoFundo(models.Model):
         # Recalcular totais APÓS salvar (agora tem ID)
         self._recalcular_totais()
         
+        # Gerar assinatura digital e QR code
+        self._gerar_assinatura_digital()
+        self._gerar_codigo_qr()
+        
         # Salvar novamente com totais recalculados
-        super().save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
+        super().save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral', 
+                                    'assinatura_digital'])
 
     def _recalcular_totais(self):
         """Recalcula todos os totais baseado nos items"""
@@ -140,29 +146,73 @@ class RequisicaoFundo(models.Model):
             (linha.valor or 0) for linha in linhas
         )
         
-        # IVA e Retenção apenas sobre Honorários do Despachante
-        honorarios_linha = linhas.filter(tipo_custo='Honorários do Despachante').first()
+        # IVA = 14% APENAS sobre Honorários do Despachante (SOMA DE TODAS as linhas)
+        valor_honorarios = linhas.filter(
+            tipo_custo='Honorários do Despachante'
+        ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
         
-        if honorarios_linha:
-            honorarios_valor = honorarios_linha.valor or Decimal('0')
-            
-            # Aplicar mínimo de 45.000kz para honorários conforme CDOA
-            if honorarios_valor > Decimal('0') and honorarios_valor < Decimal('45000'):
-                honorarios_valor = Decimal('45000')
-            
-            # IVA 14% sobre honorários
-            self.iva_honorarios = (honorarios_valor * Decimal('0.14')).quantize(Decimal('0.01'))
-            # Retenção 6.5% sobre honorários
-            self.retencao = (honorarios_valor * Decimal('0.065')).quantize(Decimal('0.01'))
-        else:
-            self.iva_honorarios = Decimal('0')
-            self.retencao = Decimal('0')
+        self.iva_honorarios = (valor_honorarios * Decimal('0.14')).quantize(Decimal('0.01'))
+        
+        # Retenção = 6.5% sobre Honorários do Despachante (SOMA DE TODAS as linhas)
+        self.retencao = (valor_honorarios * Decimal('0.065')).quantize(Decimal('0.01'))
         
         # Total = Subtotal + IVA - Retenção
         self.total_geral = (self.subtotal_geral + self.iva_honorarios - self.retencao).quantize(Decimal('0.01'))
 
+    def _gerar_assinatura_digital(self):
+        """Gera assinatura digital SHA-256 Base64 da requisição"""
+        import hashlib
+        import json
+        import base64
+        
+        dados_assinatura = {
+            'numero_requisicao': self.numero_requisicao,
+            'cliente_nif': self.cliente.nif,
+            'total_geral': str(self.total_geral),
+            'data_emissao': str(self.data_emissao),
+            'banca_nif': self.banca.nif if self.banca else '',
+        }
+        
+        dados_json = json.dumps(dados_assinatura, sort_keys=True, ensure_ascii=False)
+        hash_bytes = hashlib.sha256(dados_json.encode('utf-8')).digest()
+        self.assinatura_digital = base64.b64encode(hash_bytes).decode('utf-8')
+
+    def _gerar_codigo_qr(self):
+        """Gera código QR com informações da requisição"""
+        try:
+            import qrcode
+            from django.core.files.base import ContentFile
+            from io import BytesIO
+            
+            # Dados do QR code
+            dados_qr = f"RF:{self.numero_requisicao}|NIF:{self.cliente.nif}|TOTAL:{self.total_geral}|DATA:{self.data_emissao.strftime('%Y-%m-%d')}"
+            
+            # Gerar QR code
+            qr = qrcode.QRCode(version=1, box_size=10, border=4)
+            qr.add_data(dados_qr)
+            qr.make(fit=True)
+            
+            img = qr.make_image(fill_color="black", back_color="white")
+            
+            # Salvar em buffer
+            buffer = BytesIO()
+            img.save(buffer, format='PNG')
+            buffer.seek(0)
+            
+            # Salvar no modelo
+            filename = f'requisicoes_fundos/qr/{self.numero_requisicao}.png'
+            self.codigo_qr.save(filename, ContentFile(buffer.getvalue()), save=False)
+        except ImportError:
+            # Se qrcode não está instalado, continua sem QR
+            pass
+
     def __str__(self):
         return f"RF {self.numero_requisicao} - {self.cliente.nome}"
+    
+    @property
+    def saldo_pendente(self):
+        """Calcula o saldo pendente (Total - Valor Pago)"""
+        return (self.total_geral - self.valor_pago).quantize(Decimal('0.01'))
     
     @property
     def valor_total_extenso(self):
@@ -251,6 +301,7 @@ class RequisicaoFundoLinha(models.Model):
         ('Despesas Portuárias e Terminais', 'Despesas Portuárias e Terminais'),
         ('Logística e Transporte', 'Logística e Transporte'),
         ('Honorários do Despachante', 'Honorários do Despachante'),
+        ('Outras Despesas', 'Outras Despesas'),
     ]
     
     DESPESAS_DOCUMENTADAS = [
@@ -321,10 +372,13 @@ class RequisicaoFundoLinha(models.Model):
     ordem = models.PositiveSmallIntegerField(default=0, verbose_name='Ordem')
     
     class Meta:
-        db_table = 'financeiro_requisicao_fundo_linha'
+        db_table = 'financeiro_requisicao_linha'
         verbose_name = 'Linha de Requisição'
         verbose_name_plural = 'Linhas de Requisição'
         ordering = ['ordem']
+        indexes = [
+            models.Index(fields=['requisicao', 'tipo_custo'], name='ix_rfl_requisicao_tipo'),
+        ]
 
     def save(self, *args, **kwargs):
         # Validar honorário mínimo
@@ -388,10 +442,12 @@ class FacturaCliente(models.Model):
         ordering = ['-data_emissao']
         indexes = [
             models.Index(fields=['estado', '-data_emissao'], name='ix_factura_estado_data'),
+            models.Index(fields=['cliente', 'estado'], name='ix_factura_cliente_estado'),
+            models.Index(fields=['banca', 'filial'], name='ix_factura_banca_filial'),
         ]
 
     def clean(self):
-        if self.data_vencimento and self.data_vencimento < timezone.now().date():
+        if not self.pk and self.data_vencimento and self.data_vencimento < timezone.now().date():
             raise ValidationError({'data_vencimento': 'A data de vencimento não pode estar no passado.'})
 
     def _gerar_numero_factura(self):
@@ -496,6 +552,11 @@ class ReciboCliente(models.Model):
         verbose_name = 'Recibo de Cliente'
         verbose_name_plural = 'Recibos de Clientes'
         ordering = ['-data_criacao']
+        indexes = [
+            models.Index(fields=['cliente', 'estado'], name='ix_recibo_cliente_estado'),
+            models.Index(fields=['factura', 'estado'], name='ix_recibo_factura_estado'),
+            models.Index(fields=['banca', 'filial'], name='ix_recibo_banca_filial'),
+        ]
 
     def clean(self):
         if self.data_pagamento and self.data_pagamento > timezone.now().date():
@@ -621,6 +682,10 @@ class NotaCredito(models.Model):
         verbose_name = 'Nota de Crédito'
         verbose_name_plural = 'Notas de Crédito'
         ordering = ['-data_criacao']
+        indexes = [
+            models.Index(fields=['cliente', 'data', 'estado'], name='ix_nc_cliente_data_estado'),
+            models.Index(fields=['banca', 'filial'], name='ix_nc_banca_filial'),
+        ]
 
     def clean(self):
         if self.data and self.data > timezone.now().date():
@@ -717,6 +782,10 @@ class NotaDebito(models.Model):
         verbose_name = 'Nota de Débito'
         verbose_name_plural = 'Notas de Débito'
         ordering = ['-data_criacao']
+        indexes = [
+            models.Index(fields=['cliente', 'data', 'estado'], name='ix_nd_cliente_data_estado'),
+            models.Index(fields=['banca', 'filial'], name='ix_nd_banca_filial'),
+        ]
 
     def clean(self):
         if self.data and self.data > timezone.now().date():
@@ -801,6 +870,7 @@ class FacturaRecibo(models.Model):
     numero_factura_recibo = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Factura-Recibo')
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='facturas_recibo', verbose_name='Cliente')
     factura = models.ForeignKey(FacturaCliente, null=True, blank=True, on_delete=models.SET_NULL, related_name='facturas_recibo', verbose_name='Factura Associada')
+    requisicao_fundo = models.ForeignKey('RequisicaoFundo', null=True, blank=True, on_delete=models.SET_NULL, related_name='facturas_recibo', verbose_name='Requisição de Fundos')
     valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor')
     forma_pagamento = models.CharField(max_length=50, choices=FORMAS_PAGAMENTO, verbose_name='Forma de Pagamento', db_index=True)
     data = models.DateField(verbose_name='Data', db_index=True)
@@ -815,6 +885,11 @@ class FacturaRecibo(models.Model):
         verbose_name = 'Factura-Recibo'
         verbose_name_plural = 'Facturas-Recibo'
         ordering = ['-data_criacao']
+        indexes = [
+            models.Index(fields=['cliente', 'estado'], name='ix_fr_cliente_estado'),
+            models.Index(fields=['factura', 'estado'], name='ix_fr_factura_estado'),
+            models.Index(fields=['banca', 'filial'], name='ix_fr_banca_filial'),
+        ]
 
     def clean(self):
         if self.data and self.data > timezone.now().date():
@@ -931,6 +1006,20 @@ class FacturaRecibo(models.Model):
                     cliente_nome=factura.cliente.nome,
                     banca_id=factura.banca_id, filial_id=factura.filial_id,
                 )
+
+    @property
+    def valor_iva(self):
+        """Calcula IVA de 14% sobre o valor (se aplicável).
+        ATENÇÃO: O campo `valor` já inclui IVA menos Retenção.
+        Esta propriedade NÃO é usada nas views — existe apenas para referência."""
+        return self.valor * Decimal('0.14')
+    
+    @property
+    def valor_total(self):
+        """Retorna valor total da factura-recibo (valor + IVA).
+        ATENÇÃO: O campo `valor` já inclui IVA menos Retenção.
+        Para o valor real use `self.valor`."""
+        return self.valor + self.valor_iva
 
     def __str__(self):
         return f"Factura-Recibo {self.numero_factura_recibo} - {self.cliente.nome} - {self.valor}"

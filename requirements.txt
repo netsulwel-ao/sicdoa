@@ -245,3 +245,5 @@ yt-dlp==2025.3.31
 zope.interface==8.5
 zopfli==0.4.1
 sqlalchemy
+qrcode==8.0
+pillow==11.1.0
