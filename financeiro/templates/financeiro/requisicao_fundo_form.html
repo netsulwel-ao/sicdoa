@@ -1317,11 +1317,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   $('btn-adicionar-custo').addEventListener('click', function() {
     const descricao = custoDescricao.value.trim();
-    if (!descricao) {
-      showToast('⚠️ Informe a descrição do custo', 'error');
-      custoDescricao.focus();
-      return;
-    }
     const docVal = custoDocumentada.value;
     const despesaTipo = custoDespesaTipo.value;
     if (!despesaTipo) {
