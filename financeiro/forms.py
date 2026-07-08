@@ -408,10 +408,15 @@ class NotaCreditoForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        qs = FacturaCliente.objects.select_related('cliente').all()
+        self.fields['factura_relacionada'].queryset = qs
+        self.fields['factura_relacionada'].label_from_instance = lambda obj: (
+            f"Factura {obj.numero_factura} - {obj.cliente.nome} - {fmt_kz(obj.valor_total)} KZ"
+        )
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
-                self.fields['factura_relacionada'].queryset = FacturaCliente.objects.filter(cliente_id=cliente_id)
+                self.fields['factura_relacionada'].queryset = qs.filter(cliente_id=cliente_id)
             except (ValueError, TypeError):
                 pass
 
@@ -451,10 +456,15 @@ class NotaDebitoForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        qs = FacturaCliente.objects.select_related('cliente').all()
+        self.fields['factura_relacionada'].queryset = qs
+        self.fields['factura_relacionada'].label_from_instance = lambda obj: (
+            f"Factura {obj.numero_factura} - {obj.cliente.nome} - {fmt_kz(obj.valor_total)} KZ"
+        )
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
-                self.fields['factura_relacionada'].queryset = FacturaCliente.objects.filter(cliente_id=cliente_id)
+                self.fields['factura_relacionada'].queryset = qs.filter(cliente_id=cliente_id)
             except (ValueError, TypeError):
                 pass
 
