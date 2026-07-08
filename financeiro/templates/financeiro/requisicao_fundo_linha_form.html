@@ -723,16 +723,15 @@ function calcularImpacto() {
   if (!valor || valor <= 0) return;
 
   let subtotal = parseFloat('{{ requisicao.subtotal_geral|default:0|stringformat:"%.2f" }}') + valor;
-  let iva = 0;
+  let iva = subtotal * 0.14;
   let retencao = 0;
 
   const tipoCustoSelecionado = tipoCustoRadios.length > 0 ? tipoCustoRadios[0].value : '';
   if (tipoCustoSelecionado === 'Honorários do Despachante') {
-    iva = valor * 0.14;
     retencao = valor * 0.065;
   }
 
-  const total = subtotal + iva - retencao;
+  const total = subtotal + iva + retencao;
 
   document.getElementById('subtotal-preview').textContent = subtotal.toFixed(2) + ' KZ';
   document.getElementById('total-preview').textContent = total.toFixed(2) + ' KZ';

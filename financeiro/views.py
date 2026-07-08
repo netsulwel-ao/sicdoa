@@ -858,7 +858,7 @@ Valor aduaneiro: {fmt_kz(valor_aduaneiro)}"""
          Paragraph('<font size="7"><b>Serviços</b></font>', st('tot')), Paragraph(f'<font size="7" color="{COR_VERMELHO}"><b>{fmt_kz(total_despesas)}</b></font>', st('tot'))],
         [Paragraph('<font size="7">Outros</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot')), 
          Paragraph('<font size="7">IEC</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot'))],
-        [Paragraph('<font size="7">Retenção</font>', st('tot')), Paragraph(f'<font size="7">{fmt_kz(requisicao.retencao) if requisicao.retencao else "0,00"}</font>', st('tot')), 
+        [Paragraph('<font size="7">Retenção</font>', st('tot')), Paragraph(f'<font size="7">-{fmt_kz(requisicao.retencao) if requisicao.retencao else "0,00"}</font>', st('tot')), 
          Paragraph('<font size="7">Descontos</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot'))],
         [Paragraph('<font size="7"><b>TOTAL Kz:</b></font>', st('tot', fontName='Helvetica-Bold')), 
          Paragraph(f'<font size="8" color="{COR_VERMELHO}"><b>{fmt_kz(requisicao.total_geral or 0)}</b></font>', st('tot', fontName='Helvetica-Bold')), 

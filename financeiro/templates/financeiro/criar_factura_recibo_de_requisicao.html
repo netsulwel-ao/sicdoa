@@ -112,12 +112,12 @@
               <span class="text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ requisicao.subtotal_geral|floatformat:2 }}</span>
             </div>
             <div class="grid grid-cols-[1fr_100px_80px] gap-2 text-sm mt-1">
-              <span class="text-gray-500 dark:text-gray-400">IVA 14% <span class="text-xs text-gray-400">(s/ honorários)</span></span>
+              <span class="text-gray-500 dark:text-gray-400">IVA 14%</span>
               <span></span>
               <span class="text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ requisicao.iva_honorarios|floatformat:2 }}</span>
             </div>
             <div class="grid grid-cols-[1fr_100px_80px] gap-2 text-sm mt-1">
-              <span class="text-gray-500 dark:text-gray-400">Retenção 6.5% <span class="text-xs text-gray-400">(s/ honorários)</span></span>
+              <span class="text-gray-500 dark:text-gray-400">Retenção 6.5%</span>
               <span></span>
               <span class="text-right font-semibold text-red-500 tabular-nums">-{{ requisicao.retencao|floatformat:2 }}</span>
             </div>

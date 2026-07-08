@@ -142,18 +142,18 @@ class RequisicaoFundo(models.Model):
             (linha.valor or 0) for linha in linhas
         )
         
-        # IVA = 14% APENAS sobre Honorários do Despachante (SOMA DE TODAS as linhas)
+        # IVA = 14% sobre o Subtotal (todas as linhas)
+        self.iva_honorarios = (self.subtotal_geral * Decimal('0.14')).quantize(Decimal('0.01'))
+        
+        # Retenção = 6.5% sobre Honorários do Despachante
         valor_honorarios = linhas.filter(
             tipo_custo='Honorários do Despachante'
         ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
         
-        self.iva_honorarios = (valor_honorarios * Decimal('0.14')).quantize(Decimal('0.01'))
-        
-        # Retenção = 6.5% sobre Honorários do Despachante (SOMA DE TODAS as linhas)
         self.retencao = (valor_honorarios * Decimal('0.065')).quantize(Decimal('0.01'))
         
-        # Total = Subtotal + IVA - Retenção
-        self.total_geral = (self.subtotal_geral + self.iva_honorarios - self.retencao).quantize(Decimal('0.01'))
+        # Total = Subtotal + IVA + Retenção
+        self.total_geral = (self.subtotal_geral + self.iva_honorarios + self.retencao).quantize(Decimal('0.01'))
 
     def _gerar_assinatura_digital(self):
         """Gera assinatura digital SHA-256 Base64 da requisição"""
