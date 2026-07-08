@@ -66,7 +66,7 @@
         </div>
         <div>
           <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Atual</p>
-          <p class="font-bold text-gray-900 dark:text-white text-sm">{{ requisicao.subtotal_geral|floatformat:2 }} KZ</p>
+          <p class="font-bold text-gray-900 dark:text-white text-sm">{{ requisicao.subtotal_geral|fmtkz }} KZ</p>
         </div>
       </div>
     </div>
@@ -290,11 +290,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div class="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 rounded-xl p-4">
             <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Subtotal com este item</p>
-            <p class="text-xl font-bold text-blue-900 dark:text-blue-100" id="subtotal-preview">{{ requisicao.subtotal_geral|floatformat:2 }} KZ</p>
+            <p class="text-xl font-bold text-blue-900 dark:text-blue-100" id="subtotal-preview">{{ requisicao.subtotal_geral|fmtkz }} KZ</p>
           </div>
           <div class="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-800/10 rounded-xl p-4">
             <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1">Total com IVA + Retenção</p>
-            <p class="text-xl font-bold text-green-900 dark:text-green-100" id="total-preview">{{ requisicao.total_geral|floatformat:2 }} KZ</p>
+            <p class="text-xl font-bold text-green-900 dark:text-green-100" id="total-preview">{{ requisicao.total_geral|fmtkz }} KZ</p>
           </div>
         </div>
 
@@ -733,8 +733,8 @@ function calcularImpacto() {
 
   const total = subtotal + iva + retencao;
 
-  document.getElementById('subtotal-preview').textContent = subtotal.toFixed(2) + ' KZ';
-  document.getElementById('total-preview').textContent = total.toFixed(2) + ' KZ';
+  document.getElementById('subtotal-preview').textContent = formatNumber(subtotal) + ' KZ';
+  document.getElementById('total-preview').textContent = formatNumber(total) + ' KZ';
   document.getElementById('extenso-preview').textContent = numeroParaExtenso(Math.round(total)) + ' kwanzas';
 }
 

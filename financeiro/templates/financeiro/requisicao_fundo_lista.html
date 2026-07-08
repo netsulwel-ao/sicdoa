@@ -58,7 +58,7 @@
             <td class="px-6 py-4 font-mono font-bold text-primary">{{ requisicao.numero_requisicao }}</td>
             <td class="px-6 py-4 text-gray-900 dark:text-white font-medium">{{ requisicao.cliente.nome }}</td>
             <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ requisicao.data_emissao|date:"d/m/Y" }}</td>
-            <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ requisicao.total_geral|floatformat:2 }} KZ</td>
+            <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ requisicao.total_geral|fmtkz }} KZ</td>
             <td class="px-6 py-4 text-center">
               {% if requisicao.estado == 'Pendente' %}
                 <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Pendente</span>

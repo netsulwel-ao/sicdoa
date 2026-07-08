@@ -196,7 +196,7 @@
                     <span class="text-gray-400 text-xs">—</span>
                   {% endif %}
                 </td>
-                <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ custo.valor|floatformat:2 }} KZ</td>
+                <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ custo.valor|fmtkz }} KZ</td>
                 <td class="px-6 py-4 text-center space-x-2">
                   {% if requisicao.estado == 'Pendente' %}
                   <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="text-primary hover:text-primary/80 text-xs" title="Editar"><i class="fas fa-edit"></i></a>
@@ -243,7 +243,7 @@
               <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <td class="px-6 py-4 text-gray-900 dark:text-white font-semibold text-xs">{{ custo.despesa_tipo }}</td>
                 <td class="px-6 py-4 text-gray-600 dark:text-gray-400 text-xs">{{ custo.descricao }}</td>
-                <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ custo.valor|floatformat:2 }} KZ</td>
+                <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ custo.valor|fmtkz }} KZ</td>
                 <td class="px-6 py-4 text-center space-x-2">
                   {% if requisicao.estado == 'Pendente' %}
                   <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="text-primary hover:text-primary/80 text-xs" title="Editar"><i class="fas fa-edit"></i></a>
@@ -286,22 +286,22 @@
         <div class="space-y-3">
           <div class="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-700">
             <span class="text-sm text-gray-600 dark:text-gray-400">Subtotal</span>
-            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.subtotal_geral|floatformat:2 }} KZ</span>
+            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.subtotal_geral|fmtkz }} KZ</span>
           </div>
 
           <div class="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-700">
             <span class="text-sm text-gray-600 dark:text-gray-400">IVA 14%</span>
-            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.iva_honorarios|floatformat:2 }} KZ</span>
+            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.iva_honorarios|fmtkz }} KZ</span>
           </div>
 
           <div class="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-700">
             <span class="text-sm text-gray-600 dark:text-gray-400">Retencao 6.5%</span>
-            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.retencao|floatformat:2 }} KZ</span>
+            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.retencao|fmtkz }} KZ</span>
           </div>
 
           <div class="flex justify-between items-center pt-2 bg-primary/10 dark:bg-primary/5 rounded-lg p-3">
             <span class="font-semibold text-gray-900 dark:text-white">Total</span>
-            <span class="font-bold text-lg text-primary">{{ requisicao.total_geral|floatformat:2 }} KZ</span>
+            <span class="font-bold text-lg text-primary">{{ requisicao.total_geral|fmtkz }} KZ</span>
           </div>
         </div>
 

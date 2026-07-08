@@ -335,7 +335,7 @@
                       <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">Não</span>
                     {% endif %}
                   </td>
-                  <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums custo-valor-display">{{ custo.valor|floatformat:2 }}</td>
+                  <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums custo-valor-display">{{ custo.valor|fmtkz }}</td>
                   <td class="px-6 py-4 text-center space-x-2 flex justify-center">
                     <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="text-primary hover:text-primary/80 text-sm p-1 hover:bg-primary/10 rounded transition-all" title="Editar"><i class="fas fa-edit"></i></a>
                     <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="text-red-600 hover:text-red-700 text-sm p-1 hover:bg-red-50 rounded transition-all" title="Eliminar"><i class="fas fa-trash"></i></a>
@@ -963,13 +963,13 @@ document.addEventListener('DOMContentLoaded', function() {
             setStatusBadge('display_du_status', p.status);
             
             // Valores
-            setDisplayText('display_valor_fob', p.valor_fob ? Number(p.valor_fob).toLocaleString() + ' KZ' : '');
-            setDisplayText('display_valor_frete', p.valor_frete ? Number(p.valor_frete).toLocaleString() + ' KZ' : '');
-            setDisplayText('display_valor_seguro', p.valor_seguro ? Number(p.valor_seguro).toLocaleString() + ' KZ' : '');
+            setDisplayText('display_valor_fob', p.valor_fob ? formatNumber(p.valor_fob) + ' KZ' : '');
+            setDisplayText('display_valor_frete', p.valor_frete ? formatNumber(p.valor_frete) + ' KZ' : '');
+            setDisplayText('display_valor_seguro', p.valor_seguro ? formatNumber(p.valor_seguro) + ' KZ' : '');
             
             // Total Geral (from DU model total_geral, or fallback to valor_cif)
             const totalGeral = p.total_geral || p.valor_cif;
-            setDisplayText('display_total_geral', totalGeral ? Number(totalGeral).toLocaleString() + ' KZ' : '');
+            setDisplayText('display_total_geral', totalGeral ? formatNumber(totalGeral) + ' KZ' : '');
             
             // Sync cargo display from hidden inputs
             updateCargoDisplay();
@@ -1399,7 +1399,7 @@ document.addEventListener('DOMContentLoaded', function() {
       '<td class="px-6 py-4 text-gray-900 dark:text-white font-medium">' + descricao + '</td>' +
       '<td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">' + despesaTipo + '</span></td>' +
       '<td class="px-6 py-4 text-center"><span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ' + (docVal === 'true' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Sim' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">Não') + '</span></td>' +
-      '<td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums custo-valor-display">' + valorNum.toFixed(2) + '</td>' +
+      '<td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums custo-valor-display">' + formatNumber(valorNum) + '</td>' +
       '<td class="px-6 py-4 text-center"><button type="button" class="text-red-600 hover:text-red-700 text-sm p-1 hover:bg-red-50 rounded transition-all btn-remover-custo" data-idx="' + idx + '" title="Remover"><i class="fas fa-trash"></i></button></td>';
     custosTbody.appendChild(tr);
 

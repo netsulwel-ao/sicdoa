@@ -176,7 +176,7 @@
               <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
                 <td class="px-6 py-2.5 text-xs text-gray-600 dark:text-gray-400">{{ linha.get_tipo_custo_display }}</td>
                 <td class="px-6 py-2.5 text-sm text-gray-900 dark:text-white">{{ linha.descricao }}</td>
-                <td class="px-6 py-2.5 text-right text-sm font-semibold text-gray-900 dark:text-white tabular-nums">{{ linha.valor|floatformat:2 }}</td>
+                <td class="px-6 py-2.5 text-right text-sm font-semibold text-gray-900 dark:text-white tabular-nums">{{ linha.valor|fmtkz }}</td>
               </tr>
               {% endfor %}
             </tbody>
