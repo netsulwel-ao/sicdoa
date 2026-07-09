@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
-from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField, DecimalField, F
+from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField, DecimalField, F, OuterRef, Subquery
 from django.db.models.functions import TruncMonth, ExtractYear, ExtractMonth
 from django.utils import timezone
 from django.views.generic import TemplateView
@@ -414,15 +414,19 @@ class RelatorioClientesDevedoresView(ReportMixin, TemplateView):
 
         total_divida = clientes.aggregate(t=Sum('saldo_conta_corrente'))['t'] or 0
 
+        # Subquery para total de facturas pendentes (1 query em vez de 1N)
+        subq = FacturaCliente.objects.filter(
+            cliente=OuterRef('pk'), estado__in=['Pendente', 'Parcialmente Paga']
+        ).values('cliente').annotate(t=Sum('valor_total')).values('t')[:1]
+        clientes = clientes.annotate(total_facturas=Subquery(subq))
+
         rows = []
         for c in clientes:
-            facturas = FacturaCliente.objects.filter(cliente=c, estado__in=['Pendente', 'Parcialmente Paga'])
-            total_facturas = facturas.aggregate(t=Sum('valor_total'))['t'] or 0
             rows.append({
                 'cells': [
                     c.nome, c.nif, c.telefone or 'N/D',
                     f'{fmt_kz(abs(c.saldo_conta_corrente))}',
-                    f'{fmt_kz(total_facturas)}',
+                    f'{fmt_kz(c.total_facturas or 0)}',
                 ],
                 'url': 'financeiro:conta_corrente_cliente',
                 'pk': c.pk,
@@ -456,32 +460,52 @@ class RelatorioFluxoCaixaView(ReportMixin, TemplateView):
             ano = timezone.now().year
 
         clientes = self.clientes_scope()
+
+        # 4 queries agregadas por mês em vez de 12×N×4 = 48N queries
+        facturas = FacturaCliente.objects.filter(
+            cliente__in=clientes, data_emissao__year=ano
+        ).exclude(estado='Cancelada') \
+        .annotate(mes=ExtractMonth('data_emissao')) \
+        .values('mes') \
+        .annotate(total=Sum('valor_total'))
+
+        notas_debito = NotaDebito.objects.filter(
+            cliente__in=clientes, data__year=ano, estado='Aprovada'
+        ).annotate(mes=ExtractMonth('data')) \
+        .values('mes') \
+        .annotate(total=Sum('valor'))
+
+        recibos = ReciboCliente.objects.filter(
+            cliente__in=clientes, data_pagamento__year=ano
+        ).exclude(estado='Cancelado') \
+        .annotate(mes=ExtractMonth('data_pagamento')) \
+        .values('mes') \
+        .annotate(total=Sum('valor_recebido'))
+
+        facturas_recibo = FacturaRecibo.objects.filter(
+            cliente__in=clientes, data__year=ano
+        ).exclude(estado='Cancelada') \
+        .annotate(mes=ExtractMonth('data')) \
+        .values('mes') \
+        .annotate(total=Sum('valor'))
+
+        # Montar dicts de lookup
+        saidas_map = {}
+        for r in facturas:
+            saidas_map[r['mes']] = saidas_map.get(r['mes'], 0) + float(r['total'])
+        for r in notas_debito:
+            saidas_map[r['mes']] = saidas_map.get(r['mes'], 0) + float(r['total'])
+
+        entradas_map = {}
+        for r in recibos:
+            entradas_map[r['mes']] = entradas_map.get(r['mes'], 0) + float(r['total'])
+        for r in facturas_recibo:
+            entradas_map[r['mes']] = entradas_map.get(r['mes'], 0) + float(r['total'])
+
         meses = OrderedDict()
         for m in range(1, 13):
-            di = date(ano, m, 1)
-            df = date(ano + 1, 1, 1) if m == 12 else date(ano, m + 1, 1)
-            entradas = 0
-            saidas = 0
-            for c in clientes:
-                saidas += float(
-                    FacturaCliente.objects.filter(cliente=c, data_emissao__date__gte=di, data_emissao__date__lt=df)
-                    .exclude(estado='Cancelada')
-                    .aggregate(t=Sum('valor_total'))['t'] or 0
-                )
-                saidas += float(
-                    NotaDebito.objects.filter(cliente=c, data__gte=di, data__lt=df, estado='Aprovada')
-                    .aggregate(t=Sum('valor'))['t'] or 0
-                )
-                entradas += float(
-                    ReciboCliente.objects.filter(cliente=c, data_pagamento__gte=di, data_pagamento__lt=df)
-                    .exclude(estado='Cancelado')
-                    .aggregate(t=Sum('valor_recebido'))['t'] or 0
-                )
-                entradas += float(
-                    FacturaRecibo.objects.filter(cliente=c, data__gte=di, data__lt=df)
-                    .exclude(estado='Cancelada')
-                    .aggregate(t=Sum('valor'))['t'] or 0
-                )
+            entradas = entradas_map.get(m, 0)
+            saidas = saidas_map.get(m, 0)
             meses[m] = {'entradas': entradas, 'saidas': saidas, 'saldo': entradas - saidas}
 
         total_entradas = sum(m['entradas'] for m in meses.values())
@@ -545,38 +569,49 @@ def fluxo_caixa_json(request):
     clientes = Cliente.objects.filter(**filtro) if filtro else Cliente.objects.all()
 
     meses_labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-    entradas = []
-    saidas = []
 
-    for m in range(1, 13):
-        di = date(ano, m, 1)
-        df = date(ano + 1, 1, 1) if m == 12 else date(ano, m + 1, 1)
+    # 4 queries agregadas por mês em vez de 12×4 = 48 queries
+    facturas = FacturaCliente.objects.filter(
+        cliente__in=clientes, data_emissao__year=ano
+    ).exclude(estado='Cancelada') \
+    .annotate(mes=ExtractMonth('data_emissao')) \
+    .values('mes') \
+    .annotate(total=Sum('valor_total'))
 
-        # Saídas: facturas (excluindo canceladas) + notas de débito aprovadas
-        s = float(
-            FacturaCliente.objects.filter(cliente__in=clientes, data_emissao__date__gte=di, data_emissao__date__lt=df)
-            .exclude(estado='Cancelada')
-            .aggregate(t=Sum('valor_total'))['t'] or 0
-        )
-        s += float(
-            NotaDebito.objects.filter(cliente__in=clientes, data__gte=di, data__lt=df, estado='Aprovada')
-            .aggregate(t=Sum('valor'))['t'] or 0
-        )
-        saidas.append(round(s, 2))
+    notas_debito = NotaDebito.objects.filter(
+        cliente__in=clientes, data__year=ano, estado='Aprovada'
+    ).annotate(mes=ExtractMonth('data')) \
+    .values('mes') \
+    .annotate(total=Sum('valor'))
 
-        # Entradas: recibos + facturas-recibo
-        e = float(
-            ReciboCliente.objects.filter(cliente__in=clientes, data_pagamento__gte=di, data_pagamento__lt=df)
-            .exclude(estado='Cancelado')
-            .aggregate(t=Sum('valor_recebido'))['t'] or 0
-        )
-        e += float(
-            FacturaRecibo.objects.filter(cliente__in=clientes, data__gte=di, data__lt=df)
-            .exclude(estado='Cancelada')
-            .aggregate(t=Sum('valor'))['t'] or 0
-        )
-        entradas.append(round(e, 2))
+    recibos = ReciboCliente.objects.filter(
+        cliente__in=clientes, data_pagamento__year=ano
+    ).exclude(estado='Cancelado') \
+    .annotate(mes=ExtractMonth('data_pagamento')) \
+    .values('mes') \
+    .annotate(total=Sum('valor_recebido'))
 
+    facturas_recibo = FacturaRecibo.objects.filter(
+        cliente__in=clientes, data__year=ano
+    ).exclude(estado='Cancelada') \
+    .annotate(mes=ExtractMonth('data')) \
+    .values('mes') \
+    .annotate(total=Sum('valor'))
+
+    saidas = [0.0] * 12
+    for r in facturas:
+        saidas[r['mes'] - 1] += float(r['total'])
+    for r in notas_debito:
+        saidas[r['mes'] - 1] += float(r['total'])
+
+    entradas = [0.0] * 12
+    for r in recibos:
+        entradas[r['mes'] - 1] += float(r['total'])
+    for r in facturas_recibo:
+        entradas[r['mes'] - 1] += float(r['total'])
+
+    saidas = [round(s, 2) for s in saidas]
+    entradas = [round(e, 2) for e in entradas]
     saldos = [round(entradas[i] - saidas[i], 2) for i in range(12)]
 
     return JsonResponse({
@@ -922,24 +957,38 @@ class RelatorioReceitaPorClienteView(ReportMixin, TemplateView):
         di, df, data_ini, data_fim = self.parse_dates()
         clientes = self.clientes_scope().filter(ativo=True)
 
+        # 3 queries agregadas por cliente_id em vez de 3N
+        qs_f_agg = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
+        qs_r_agg = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
+        qs_fr_agg = FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
+        if di:
+            qs_f_agg = qs_f_agg.filter(data_emissao__date__gte=di)
+            qs_r_agg = qs_r_agg.filter(data_pagamento__gte=di)
+            qs_fr_agg = qs_fr_agg.filter(data__gte=di)
+        if df:
+            qs_f_agg = qs_f_agg.filter(data_emissao__date__lte=df)
+            qs_r_agg = qs_r_agg.filter(data_pagamento__lte=df)
+            qs_fr_agg = qs_fr_agg.filter(data__lte=df)
+
+        facturas_by_cliente = {
+            r['cliente_id']: float(r['total'])
+            for r in qs_f_agg.values('cliente_id').annotate(total=Sum('valor_total'))
+        }
+        recibos_by_cliente = {
+            r['cliente_id']: float(r['total'])
+            for r in qs_r_agg.values('cliente_id').annotate(total=Sum('valor_recebido'))
+        }
+        fr_by_cliente = {
+            r['cliente_id']: float(r['total'])
+            for r in qs_fr_agg.values('cliente_id').annotate(total=Sum('valor'))
+        }
+
         rows = []
         total_geral_receita = 0
         for c in clientes:
-            qs_f = FacturaCliente.objects.filter(cliente=c).exclude(estado='Cancelada')
-            qs_r = ReciboCliente.objects.filter(cliente=c).exclude(estado='Cancelado')
-            qs_fr = FacturaRecibo.objects.filter(cliente=c).exclude(estado='Cancelada')
-            if di:
-                qs_f = qs_f.filter(data_emissao__date__gte=di)
-                qs_r = qs_r.filter(data_pagamento__gte=di)
-                qs_fr = qs_fr.filter(data__gte=di)
-            if df:
-                qs_f = qs_f.filter(data_emissao__date__lte=df)
-                qs_r = qs_r.filter(data_pagamento__lte=df)
-                qs_fr = qs_fr.filter(data__lte=df)
-
-            total_f = float(qs_f.aggregate(t=Sum('valor_total'))['t'] or 0)
-            total_r = float(qs_r.aggregate(t=Sum('valor_recebido'))['t'] or 0)
-            total_fr = float(qs_fr.aggregate(t=Sum('valor'))['t'] or 0)
+            total_f = facturas_by_cliente.get(c.pk, 0)
+            total_r = recibos_by_cliente.get(c.pk, 0)
+            total_fr = fr_by_cliente.get(c.pk, 0)
             receita_total = total_f + total_fr
             total_geral_receita += receita_total
             rows.append({
@@ -978,21 +1027,27 @@ class RelatorioReceitaPorLocalizacaoView(ReportMixin, TemplateView):
 
         from collections import defaultdict
         dados = defaultdict(lambda: {'clientes': 0, 'facturado': 0, 'recebido': 0, 'fr': 0})
+
+        # Contagem de clientes por localização (em memória, sem queries)
         for c in clientes:
-            loc = c.localizacao.strip()[:30] if c.localizacao else 'Não definida'
+            loc = (c.localizacao or 'Não definida').strip()[:30]
             dados[loc]['clientes'] += 1
-            dados[loc]['facturado'] += float(
-                FacturaCliente.objects.filter(cliente=c).exclude(estado='Cancelada')
-                .aggregate(t=Sum('valor_total'))['t'] or 0
-            )
-            dados[loc]['recebido'] += float(
-                ReciboCliente.objects.filter(cliente=c).exclude(estado='Cancelado')
-                .aggregate(t=Sum('valor_recebido'))['t'] or 0
-            )
-            dados[loc]['fr'] += float(
-                FacturaRecibo.objects.filter(cliente=c).exclude(estado='Cancelada')
-                .aggregate(t=Sum('valor'))['t'] or 0
-            )
+
+        # 3 queries agregadas por localização em vez de 3N
+        for r in FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada') \
+                .values('cliente__localizacao').annotate(total=Sum('valor_total')):
+            loc = (r['cliente__localizacao'] or 'Não definida').strip()[:30]
+            dados[loc]['facturado'] += float(r['total'])
+
+        for r in ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado') \
+                .values('cliente__localizacao').annotate(total=Sum('valor_recebido')):
+            loc = (r['cliente__localizacao'] or 'Não definida').strip()[:30]
+            dados[loc]['recebido'] += float(r['total'])
+
+        for r in FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada') \
+                .values('cliente__localizacao').annotate(total=Sum('valor')):
+            loc = (r['cliente__localizacao'] or 'Não definida').strip()[:30]
+            dados[loc]['fr'] += float(r['total'])
 
         total_geral = sum(d['facturado'] + d['fr'] for d in dados.values())
         rows = [
@@ -1034,29 +1089,48 @@ class RelatorioReceitaPorDespachanteView(ReportMixin, TemplateView):
         despachantes = Usuario.objects.filter(status='Ativo', papel__in=['Despachante Oficial', 'Administrador'])
         clientes = self.clientes_scope()
 
+        # 3 queries agregadas por usuario_id em vez de 3N
+        qs_f_agg = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
+        qs_r_agg = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
+        qs_fr_agg = FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
+
+        facturas_by_usu = {
+            r['cliente__usuario_id']: float(r['total'])
+            for r in qs_f_agg.values('cliente__usuario_id').annotate(total=Sum('valor_total'))
+            if r['cliente__usuario_id'] is not None
+        }
+        recibos_by_usu = {
+            r['cliente__usuario_id']: float(r['total'])
+            for r in qs_r_agg.values('cliente__usuario_id').annotate(total=Sum('valor_recebido'))
+            if r['cliente__usuario_id'] is not None
+        }
+        fr_by_usu = {
+            r['cliente__usuario_id']: float(r['total'])
+            for r in qs_fr_agg.values('cliente__usuario_id').annotate(total=Sum('valor'))
+            if r['cliente__usuario_id'] is not None
+        }
+
+        # Contagem de clientes por usuário
+        clientes_by_usu = {}
+        for c in clientes.filter(usuario_id__isnull=False):
+            clientes_by_usu[c.usuario_id] = clientes_by_usu.get(c.usuario_id, 0) + 1
+
         rows = []
         total_geral = 0
         for d in despachantes:
-            cls = clientes.filter(usuario_id=d.pk)
-            if not cls.exists():
-                continue
-            total_f = float(
-                FacturaCliente.objects.filter(cliente__in=cls).exclude(estado='Cancelada')
-                .aggregate(t=Sum('valor_total'))['t'] or 0
-            )
-            total_r = float(
-                ReciboCliente.objects.filter(cliente__in=cls).exclude(estado='Cancelado')
-                .aggregate(t=Sum('valor_recebido'))['t'] or 0
-            )
-            total_fr = float(
-                FacturaRecibo.objects.filter(cliente__in=cls).exclude(estado='Cancelada')
-                .aggregate(t=Sum('valor'))['t'] or 0
-            )
+            uid = d.pk
+            if uid not in facturas_by_usu and uid not in fr_by_usu and uid not in recibos_by_usu:
+                if uid not in clientes_by_usu:
+                    continue
+            total_f = facturas_by_usu.get(uid, 0)
+            total_r = recibos_by_usu.get(uid, 0)
+            total_fr = fr_by_usu.get(uid, 0)
             receita = total_f + total_fr
             total_geral += receita
             rows.append({
-                'cells': [d.nome, d.papel, str(cls.count()), f'{fmt_kz(total_f)}',
-                          f'{fmt_kz(total_fr)}', f'{fmt_kz(total_r)}', f'{fmt_kz(receita)}'],
+                'cells': [d.nome, d.papel, str(clientes_by_usu.get(uid, 0)),
+                          f'{fmt_kz(total_f)}', f'{fmt_kz(total_fr)}',
+                          f'{fmt_kz(total_r)}', f'{fmt_kz(receita)}'],
                 'url': None, 'pk': None,
             })
 

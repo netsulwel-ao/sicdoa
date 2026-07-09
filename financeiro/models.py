@@ -145,10 +145,11 @@ class RequisicaoFundo(models.Model):
         # IVA = 14% sobre o Subtotal (todas as linhas)
         self.iva_honorarios = (self.subtotal_geral * Decimal('0.14')).quantize(Decimal('0.01'))
         
-        # Retenção = 6.5% sobre Honorários do Despachante
-        valor_honorarios = linhas.filter(
-            tipo_custo='Honorários do Despachante'
-        ).aggregate(total=Sum('valor'))['total'] or Decimal('0')
+        # Retenção = 6.5% sobre Honorários do Despachante (iteração em memória)
+        valor_honorarios = sum(
+            (linha.valor or 0) for linha in linhas
+            if linha.tipo_custo == 'Honorários do Despachante'
+        )
         
         self.retencao = (valor_honorarios * Decimal('0.065')).quantize(Decimal('0.01'))
         
@@ -358,14 +359,14 @@ class RequisicaoFundoLinha(models.Model):
     tipo_custo = models.CharField(max_length=50, choices=TIPOS_CUSTO,
                                  verbose_name='Tipo de Custo', db_index=True)
     descricao = models.CharField(max_length=255, verbose_name='Descrição')
-    documentada = models.BooleanField(default=False, verbose_name='Documentada')
+    documentada = models.BooleanField(default=False, verbose_name='Documentada', db_index=True)
     despesa_tipo = models.CharField(max_length=50, blank=True, null=True,
                                    verbose_name='Tipo de Despesa')
     valor = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor')
     documento_justificativo = models.FileField(upload_to='requisicoes_fundos/%Y/%m/%d/',
                                                null=True, blank=True,
                                                verbose_name='Documento Justificativo')
-    ordem = models.PositiveSmallIntegerField(default=0, verbose_name='Ordem')
+    ordem = models.PositiveSmallIntegerField(default=0, verbose_name='Ordem', db_index=True)
     
     class Meta:
         db_table = 'financeiro_requisicao_linha'

@@ -282,6 +282,11 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
 
     def get_queryset(self):
         qs = super().get_queryset().select_related('cliente', 'processo_aduaneiro', 'banca')
+        qs = qs.prefetch_related(
+            Prefetch('linhas', queryset=RequisicaoFundoLinha.objects.order_by('ordem'),
+                     to_attr='linhas_ordenadas'),
+            'facturas',
+        )
         filtro = self._get_user_cliente_filter()
         if filtro:
             qs = qs.filter(**filtro)
@@ -296,9 +301,10 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
         
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'requisicoes'
-        context['linhas'] = self.object.linhas.all().order_by('ordem')
-        context['linhas_documentadas'] = self.object.linhas.filter(documentada=True).order_by('ordem')
-        context['linhas_nao_documentadas'] = self.object.linhas.filter(documentada=False).order_by('ordem')
+        all_linhas = self.object.linhas_ordenadas
+        context['linhas'] = all_linhas
+        context['linhas_documentadas'] = [l for l in all_linhas if l.documentada]
+        context['linhas_nao_documentadas'] = [l for l in all_linhas if not l.documentada]
         context['historico'] = HistoricoFinanceiro.objects.filter(
             tipo_documento='Requisicao', documento_id=self.object.pk
         )[:20]
