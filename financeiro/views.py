@@ -651,7 +651,7 @@ def requisicao_pdf(request, pk):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
     from reportlab.platypus.flowables import HRFlowable
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
     from users.models import Usuario
@@ -671,25 +671,30 @@ def requisicao_pdf(request, pk):
     )
     
     # Cores
-    COR_PRETO = colors.HexColor('#0f172a')
+    COR_PRIMARIO = colors.HexColor('#0f172a')
+    COR_SECUNDARIO = colors.HexColor('#334155')
     COR_CINZA = colors.HexColor('#64748b')
-    COR_VERDE = colors.HexColor('#059669')
+    COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
     COR_BORDA = colors.HexColor('#cbd5e1')
+    COR_VERDE = colors.HexColor('#059669')
     COR_VERMELHO = colors.HexColor('#dc2626')
-    
+    COR_BRANCO = colors.white
+    COR_HEADER = colors.HexColor('#1e293b')
+
     # Estilos
     def st(name, **kw):
-        defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRETO, leading=11)
+        defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRIMARIO, leading=11)
         defaults.update(kw)
         return ParagraphStyle(name, **defaults)
-    
+
     s_small = st('small', fontSize=6.5, textColor=COR_CINZA, leading=8)
     s_normal = st('normal', fontSize=8, leading=9)
-    
+    s_bold = st('bold', fontName='Helvetica-Bold')
+
     banca = requisicao.banca
     cliente = requisicao.cliente
     processo = requisicao.processo_aduaneiro
-    
+
     # Buscar nome do despachante responsável (dono da banca)
     responsavel_nome = 'DESPACHANTE OFICIAL'
     if banca:
@@ -698,14 +703,14 @@ def requisicao_pdf(request, pk):
             responsavel_nome = (usuario_banca.nome or 'DESPACHANTE OFICIAL').upper()
         except:
             responsavel_nome = 'DESPACHANTE OFICIAL'
-    
+
     story = []
-    
+
     # CABEÇALHO: Data, hora na parte superior direita
     agora = datetime.now()
     top_line = Table([[
         Paragraph(f'', st('empty')),
-        Paragraph(f'<font size="6.5" color="#999">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>', st('top', alignment=TA_RIGHT, fontSize=6.5))
+        Paragraph(f'<font size="6.5" color="#94a3b8">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>', st('top', alignment=TA_RIGHT, fontSize=6.5))
     ]], colWidths=[W * 0.6, W * 0.4])
     top_line.setStyle(TableStyle([
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
@@ -716,211 +721,296 @@ def requisicao_pdf(request, pk):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
     story.append(top_line)
-    story.append(Spacer(1, 0.1 * cm))
-    
-    story.append(Spacer(1, 0.1 * cm))
-    
-    # LOGO E NIF
+    story.append(Spacer(1, 0.15 * cm))
+
+    # HEADER: Logo + Nome da Banca + NIF
     nif_txt = f"NIF: {banca.nif}" if banca else 'N/D'
     nome_txt = banca.nome if banca else 'Despachante Oficial'
-    
-    header_table = Table([[
-        Paragraph(f'<font size="10"><b>{nome_txt}</b></font>', st('nome', fontName='Helvetica-Bold', fontSize=10.5)),
-        Paragraph(f'<font size="8" color="#666"><b>{nif_txt}</b></font>', st('nif', fontSize=8, alignment=TA_RIGHT))
-    ]], colWidths=[W * 0.7, W * 0.3])
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-    ]))
-    story.append(header_table)
-    
-    # DESPACHANTE RESPONSÁVEL EM VERDE E BOLD
-    story.append(Paragraph(
-        f'<font size="9" color="#059669"><b>{responsavel_nome}</b></font>',
-        st('resp', fontName='Helvetica-Bold', fontSize=9)
-    ))
-    story.append(Spacer(1, 0.05 * cm))
-    
-    # Info: Banca - HASH e outros dados
-    story.append(Paragraph(
-        f'<font size="7"><b>{nome_txt} - HASH</b></font>',
-        st('hash', fontName='Helvetica-Bold', fontSize=7)
-    ))
-    story.append(Paragraph(
-        '<font size="6.5">Processado por programa válido nº35/AGT/2019</font>',
-        s_small
-    ))
-    
-    # Endereço e contatos
+    cdoa = banca.licenca_cdoa if banca else ''
     endereco = banca.endereco if banca else ''
     telefone = banca.telefone if banca else ''
     email_b = banca.email if banca else ''
-    cdoa = banca.licenca_cdoa if banca else ''
-    
-    for info in filter(None, [endereco, 'ANGOLA', f'Tel: {telefone}' if telefone else '', f'Email: {email_b}' if email_b else '', f'Cédula CDOA: {cdoa}' if cdoa else '']):
-        story.append(Paragraph(f'<font size="6.5" color="#666">{info}</font>', s_small))
-    
+
+    logo_path = None
+    if banca and hasattr(banca, 'logo') and banca.logo:
+        try:
+            logo_path = banca.logo.path
+        except Exception:
+            logo_path = None
+
+    col_logo = []
+    if logo_path:
+        try:
+            col_logo.append(RLImage(logo_path, width=3.0 * cm, height=2.0 * cm))
+        except Exception:
+            col_logo.append(Paragraph('', s_small))
+    else:
+        col_logo.append(Paragraph('', s_small))
+
+    col_info = [
+        Paragraph(f'<font size="11" color="{COR_HEADER.hexval()}"><b>{nome_txt}</b></font>', st('nome_emp', fontName='Helvetica-Bold', fontSize=11)),
+        Paragraph(f'<font size="7" color="#475569">{nif_txt} &nbsp;|&nbsp; {endereco}</font>', s_small),
+        Paragraph(f'<font size="7" color="#475569">Tel: {telefone} &nbsp;|&nbsp; Email: {email_b}</font>', s_small),
+    ]
+    if cdoa:
+        col_info.append(Paragraph(f'<font size="7" color="#475569">Cédula CDOA: {cdoa}</font>', s_small))
+
+    header_table = Table([[col_logo, col_info]], colWidths=[3.5 * cm, W - 3.5 * cm])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 0.15 * cm))
+
+    # DESPACHANTE RESPONSÁVEL
+    story.append(Table([[Paragraph(
+        f'<font size="8" color="{COR_VERDE.hexval()}"><b>DESPACHANTE: {responsavel_nome}</b></font>',
+        st('resp_bar', fontSize=8, fontName='Helvetica-Bold')
+    )]], colWidths=[W]))
+    story.append(Spacer(1, 0.05 * cm))
+
+    # HASH e versão do sistema
+    story.append(Paragraph(
+        f'<font size="6.5" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; Processado por programa válido nº35/AGT/2019</font>',
+        st('hash_line', fontSize=6.5)
+    ))
     story.append(Spacer(1, 0.15 * cm))
     story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
-    story.append(Spacer(1, 0.15 * cm))
-    
-    story.append(Spacer(1, 0.15 * cm))
-    
+    story.append(Spacer(1, 0.2 * cm))
+
+    # TÍTULO: REQUISIÇÃO DE FUNDOS
+    titulo = Table([[
+        Paragraph(f'<font size="10" color="white"><b>REQUISIÇÃO DE FUNDOS</b></font>',
+                  st('titulo', fontName='Helvetica-Bold', fontSize=10, textColor=COR_BRANCO)),
+    ]], colWidths=[W])
+    titulo.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), COR_HEADER),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * cm))
+
     # REQUISIÇÃO Nº E DATA
     data_emissao = requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else 'N/D'
-    
+
     req_table = Table([[
-        Paragraph(f'<font size="9.5"><b>Requisição Nº: {requisicao.numero_requisicao}</b></font>', st('req', fontName='Helvetica-Bold', fontSize=9.5)),
-        Paragraph(f'<font size="9.5"><b>Data: {data_emissao}</b></font>', st('data', fontName='Helvetica-Bold', fontSize=9.5, alignment=TA_RIGHT))
+        Paragraph(f'<font size="9"><b>Nº Requisição:</b> {requisicao.numero_requisicao}</font>', st('req', fontSize=9)),
+        Paragraph(f'<font size="9"><b>Data:</b> {data_emissao}</font>', st('data', fontSize=9, alignment=TA_RIGHT))
     ]], colWidths=[W * 0.55, W * 0.45])
     req_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('BACKGROUND', (0, 0), (-1, -1), COR_CINZA_CLARO),
     ]))
     story.append(req_table)
-    story.append(Spacer(1, 0.15 * cm))
-    
-    story.append(Spacer(1, 0.15 * cm))
-    
+    story.append(Spacer(1, 0.2 * cm))
+
     # TABELA DE 3 COLUNAS: Designação | Direitos | Despesas Inerentes
     valor_aduaneiro = processo.valor_total if processo and hasattr(processo, 'valor_total') else requisicao.valor_cif or Decimal('0')
-    
+
     # Coluna 1: Designação
-    designacao_text = f"""<b>Designação da mercadoria</b>
+    merc = requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else 'N/D')
+    bl = requisicao.numero_bl_awb or '—'
+    origem = requisicao.origem or '—'
+    transporte = requisicao.meio_transporte or '—'
+    nr_du = processo.numero_du if processo else '—'
+    v_cif = fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else '—'
+    cambio = requisicao.cambio_referencia or '—'
+    v_aduaneiro = fmt_kz(valor_aduaneiro)
 
-Pelo desembarque de:
-<b>{requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else 'N/D')}</b>
+    designacao_text = (
+        f'<font size="7"><b>Mercadoria:</b></font><br/>'
+        f'<font size="7">{merc}</font><br/><br/>'
+        f'<font size="7"><b>Documentos</b></font><br/>'
+        f'<font size="6.5">BL: {bl}</font><br/>'
+        f'<font size="6.5">Procedência: {origem}</font><br/>'
+        f'<font size="6.5">Navio/Avião: {transporte}</font><br/>'
+        f'<font size="6.5">Nr DU: {nr_du}</font><br/>'
+        f'<font size="6.5">Valor CIF: {v_cif}</font><br/>'
+        f'<font size="6.5">Câmbio: {cambio}</font><br/>'
+        f'<font size="6.5">Valor aduaneiro: {v_aduaneiro}</font>'
+    )
 
-<b>Documentos</b>
-BL ou Carta: {requisicao.numero_bl_awb or '—'}
-Procedência: {requisicao.origem or '—'}
-Navio/Avião: {requisicao.meio_transporte or '—'}
-Nr DU: {processo.numero_du if processo else '—'}
-Valor CIF: {fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else '—'}
-Câmbio: {requisicao.cambio_referencia or '—'}
-Valor aduaneiro: {fmt_kz(valor_aduaneiro)}"""
-    
     # Coluna 2: Direitos e mais imposições (DOCUMENTADAS)
     despesas_doc = requisicao.linhas.filter(documentada=True)
     total_direitos = Decimal('0')
-    direitos_text = '<b>Direitos e mais imposições</b>\n\n'
-    
+    direitos_text = ''
     for linha in despesas_doc:
         if linha.valor and linha.valor > 0:
-            direitos_text += f"{linha.despesa_tipo or 'Despesa'} ..... {fmt_kz(linha.valor)}\n"
+            direitos_text += (
+                f'<font size="6.5">{linha.despesa_tipo or "Despesa"}</font><br/>'
+                f'<font size="7" color="{COR_VERMELHO.hexval()}"><b>{fmt_kz(linha.valor)}</b></font><br/>'
+            )
             total_direitos += linha.valor
-    
     if total_direitos == 0:
-        direitos_text += "EP 14 .................\nEP 15 .................\nEP 17 ..................."
-    
+        direitos_text = (
+            '<font size="6.5">EP 14</font><br/>'
+            '<font size="6.5">EP 15</font><br/>'
+            '<font size="6.5">EP 17</font>'
+        )
+
     # Coluna 3: Despesas inerentes (NÃO DOCUMENTADAS)
     despesas_nao_doc = requisicao.linhas.filter(documentada=False)
     total_despesas = Decimal('0')
-    despesas_text = '<b>Despesas inerentes</b>\n\n'
-    
+    despesas_text = ''
     for linha in despesas_nao_doc:
         if linha.valor and linha.valor > 0:
-            despesas_text += f"{linha.despesa_tipo or 'Despesa'} ..... {fmt_kz(linha.valor)}\n"
+            despesas_text += (
+                f'<font size="6.5">{linha.despesa_tipo or "Despesa"}</font><br/>'
+                f'<font size="7" color="{COR_VERMELHO.hexval()}"><b>{fmt_kz(linha.valor)}</b></font><br/>'
+            )
             total_despesas += linha.valor
-    
     if total_despesas == 0:
-        despesas_text += "Honorários: —"
-    
-    # Criar tabela 3 colunas
-    tres_colunas = Table([[
-        Paragraph(designacao_text, st('designacao', fontSize=6.5, leading=8)),
-        Paragraph(direitos_text, st('direitos', fontSize=6.5, leading=8)),
-        Paragraph(despesas_text, st('despesas', fontSize=6.5, leading=8))
-    ]], colWidths=[W/3 - 0.15*cm, W/3 - 0.15*cm, W/3 - 0.15*cm])
-    
+        despesas_text = '<font size="6.5">Honorários: —</font>'
+
+    tres_colunas = Table([
+        [Paragraph('<b>Designação da mercadoria</b>', st('col_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)),
+         Paragraph('<b>Direitos e mais imposições</b>', st('col_h2', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)),
+         Paragraph('<b>Despesas inerentes</b>', st('col_h3', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO))],
+        [Paragraph(designacao_text, st('designacao', fontSize=6.5, leading=9)),
+         Paragraph(direitos_text, st('direitos', fontSize=6.5, leading=9)),
+         Paragraph(despesas_text, st('despesas', fontSize=6.5, leading=9))]
+    ], colWidths=[W/3 - 0.15*cm, W/3 - 0.15*cm, W/3 - 0.15*cm])
+
     tres_colunas.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.75, COR_BORDA),
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('TEXTCOLOR', (0, 0), (-1, 0), COR_BRANCO),
+        ('GRID', (0, 0), (-1, -1), 0.5, COR_BORDA),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 7),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 7),
+        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
+        ('FONTNAME', (1, 1), (2, -1), 'Helvetica'),
     ]))
     story.append(tres_colunas)
-    story.append(Spacer(1, 0.15 * cm))
-    story.append(Spacer(1, 0.15 * cm))
-    
-    # TOTALIZAÇÕES EM VERMELHO
+    story.append(Spacer(1, 0.2 * cm))
+
+    # TOTALIZAÇÕES
     cambio = Decimal(requisicao.cambio_referencia or 1)
     if cambio == 0:
         cambio = Decimal(1)
     valor_usd = requisicao.total_geral / cambio if requisicao.total_geral else Decimal('0')
-    
+
+    totais_header = [
+        Paragraph('<b>Descrição</b>', st('tot_h', fontName='Helvetica-Bold', fontSize=7, textColor=COR_BRANCO)),
+        Paragraph('<b>Valor (KZ)</b>', st('tot_h2', fontName='Helvetica-Bold', fontSize=7, textColor=COR_BRANCO, alignment=TA_RIGHT)),
+        Paragraph('<b>Descrição</b>', st('tot_h3', fontName='Helvetica-Bold', fontSize=7, textColor=COR_BRANCO)),
+        Paragraph('<b>Valor (KZ)</b>', st('tot_h4', fontName='Helvetica-Bold', fontSize=7, textColor=COR_BRANCO, alignment=TA_RIGHT)),
+    ]
+
     totais = Table([
-        [Paragraph('<font size="7"><b>Mercadorias</b></font>', st('tot')), Paragraph(f'<font size="7" color="{COR_VERMELHO}"><b>{fmt_kz(total_direitos)}</b></font>', st('tot')), 
-         Paragraph('<font size="7"><b>Serviços</b></font>', st('tot')), Paragraph(f'<font size="7" color="{COR_VERMELHO}"><b>{fmt_kz(total_despesas)}</b></font>', st('tot'))],
-        [Paragraph('<font size="7">Outros</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot')), 
-         Paragraph('<font size="7">IEC</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot'))],
-        [Paragraph('<font size="7">Retenção</font>', st('tot')), Paragraph(f'<font size="7">{fmt_kz(requisicao.retencao) if requisicao.retencao else "0,00"}</font>', st('tot')), 
-         Paragraph('<font size="7">Descontos</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot'))],
-        [Paragraph('<font size="7"><b>TOTAL Kz:</b></font>', st('tot', fontName='Helvetica-Bold')), 
-         Paragraph(f'<font size="8" color="{COR_VERMELHO}"><b>{fmt_kz(requisicao.total_geral or 0)}</b></font>', st('tot', fontName='Helvetica-Bold')), 
-         Paragraph('<font size="7"><b>TOTAL USD:</b></font>', st('tot', fontName='Helvetica-Bold')), 
-         Paragraph(f'<font size="8" color="{COR_VERMELHO}"><b>{fmt_kz(valor_usd)}</b></font>', st('tot', fontName='Helvetica-Bold'))],
-    ], colWidths=[2.2*cm, 2.5*cm, 2.2*cm, 2.5*cm])
-    
+        totais_header,
+        [Paragraph('<font size="7">Mercadorias</font>', st('tot')), Paragraph(f'<font size="7">{fmt_kz(total_direitos)}</font>', st('tot', alignment=TA_RIGHT)),
+         Paragraph('<font size="7">Serviços</font>', st('tot')), Paragraph(f'<font size="7">{fmt_kz(total_despesas)}</font>', st('tot', alignment=TA_RIGHT))],
+        [Paragraph('<font size="7">Outros</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot', alignment=TA_RIGHT)),
+         Paragraph('<font size="7">IEC</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot', alignment=TA_RIGHT))],
+        [Paragraph('<font size="7">Retenção</font>', st('tot')), Paragraph(f'<font size="7">{fmt_kz(requisicao.retencao) if requisicao.retencao else "0,00"}</font>', st('tot', alignment=TA_RIGHT)),
+         Paragraph('<font size="7">Descontos</font>', st('tot')), Paragraph(f'<font size="7">0,00</font>', st('tot', alignment=TA_RIGHT))],
+        [Paragraph('<font size="8"><b>TOTAL KZ</b></font>', st('tot', fontName='Helvetica-Bold', fontSize=8)),
+         Paragraph(f'<font size="8" color="{COR_VERMELHO.hexval()}"><b>{fmt_kz(requisicao.total_geral or 0)}</b></font>', st('tot', fontName='Helvetica-Bold', fontSize=8, alignment=TA_RIGHT, textColor=COR_VERMELHO)),
+         Paragraph('<font size="8"><b>TOTAL USD</b></font>', st('tot', fontName='Helvetica-Bold', fontSize=8)),
+         Paragraph(f'<font size="8" color="{COR_VERMELHO.hexval()}"><b>{fmt_kz(valor_usd)}</b></font>', st('tot', fontName='Helvetica-Bold', fontSize=8, alignment=TA_RIGHT, textColor=COR_VERMELHO))],
+    ], colWidths=[W * 0.22, W * 0.28, W * 0.22, W * 0.28])
+
     totais.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.5, COR_BORDA),
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
         ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 3),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
+        ('LINEABOVE', (0, 4), (-1, 4), 1.2, COR_VERMELHO),
     ]))
     story.append(totais)
     story.append(Spacer(1, 0.2 * cm))
-    
+
     # NOTA
-    story.append(Paragraph(
-        '<font size="6.5"><i>NOTA: Os originais das contas referidas vão devediamente selecionadas pelo valor dos honorários</i></font>',
-        st('nota', fontSize=6.5, alignment=TA_CENTER)
-    ))
-    story.append(Spacer(1, 0.2 * cm))
-    
-    # ASSINATURA
-    assinatura = Table([
-        [Paragraph('Recebeu em: _____/_____/______', st('ass', fontSize=7)), 
-         Paragraph('O Cliente', st('ass', fontSize=7, alignment=TA_CENTER))],
-        [Paragraph('', st('ass', fontSize=1)), 
-         Paragraph(f'<b>{responsavel_nome}</b>', st('ass', fontSize=7.5, fontName='Helvetica-Bold', alignment=TA_CENTER))],
-    ], colWidths=[W/2, W/2])
-    
-    assinatura.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+    nota_box = Table([[
+        Paragraph('<font size="6.5"><i>NOTA: Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários</i></font>',
+                  st('nota', fontSize=6.5, alignment=TA_CENTER, textColor=COR_SECUNDARIO))
+    ]], colWidths=[W])
+    nota_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), COR_CINZA_CLARO),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('BOX', (0, 0), (-1, -1), 0.3, COR_BORDA),
+    ]))
+    story.append(nota_box)
+    story.append(Spacer(1, 0.3 * cm))
+
+    # ASSINATURA
+    ass_data = [
+        [Paragraph('<b>Recebido por:</b>', st('ass_lab', fontSize=7.5)),
+         Paragraph('', st('ass_spc', fontSize=7.5))],
+        [Paragraph('', st('ass_spc', fontSize=1)),
+         Paragraph('', st('ass_spc', fontSize=1))],
+        [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA),
+         HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
+        [Paragraph('<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
+         Paragraph(f'<font size="7.5"><b>O Cliente</b></font>', st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
+        [Paragraph('', st('ass_spc', fontSize=3)),
+         Paragraph(f'<font size="7"><b>{responsavel_nome}</b></font>', st('ass_nome', fontSize=7, fontName='Helvetica-Bold', alignment=TA_CENTER))],
+    ]
+    assinatura = Table(ass_data, colWidths=[W/2, W/2])
+    assinatura.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(assinatura)
-    story.append(Spacer(1, 0.15 * cm))
-    
+    story.append(Spacer(1, 0.3 * cm))
+
     # DADOS DO CLIENTE (FINAL)
     cliente_nome = cliente.nome if cliente else 'Nome do Cliente'
     cliente_loc = cliente.localizacao if cliente else 'Endereço'
     cliente_tel = cliente.telefone if cliente else 'Telefone'
-    
-    story.append(Paragraph(f'<font size="8"><b>{cliente_nome}</b></font>', st('cli', fontName='Helvetica-Bold', fontSize=8)))
-    story.append(Paragraph(f'<font size="6.5">{cliente_loc} - Tel {cliente_tel}</font>', s_small))
-    
+
+    cliente_box = Table([[
+        Paragraph(f'<font size="7.5" color="#475569"><b>Cliente:</b> {cliente_nome}</font>', st('cli_nome', fontSize=7.5, fontName='Helvetica-Bold')),
+        Paragraph(f'<font size="7" color="#475569">{cliente_loc}</font>', st('cli_loc', fontSize=7, textColor=COR_CINZA)),
+        Paragraph(f'<font size="7" color="#475569">Tel: {cliente_tel}</font>', st('cli_tel', fontSize=7, textColor=COR_CINZA)),
+    ]], colWidths=[W * 0.4, W * 0.35, W * 0.25])
+    cliente_box.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('BACKGROUND', (0, 0), (-1, -1), COR_CINZA_CLARO),
+        ('BOX', (0, 0), (-1, -1), 0.3, COR_BORDA),
+    ]))
+    story.append(cliente_box)
+
     # BUILD DO PDF
     doc.build(story)
-    
+
     buffer.seek(0)
     response = HttpResponse(buffer.read(), content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="Requisicao_{requisicao.numero_requisicao}.pdf"'
@@ -2847,7 +2937,10 @@ def factura_pdf(request, pk):
     COR_CINZA    = colors.HexColor('#64748b')
     COR_CLARO    = colors.HexColor('#f1f5f9')
     COR_BORDA    = colors.HexColor('#cbd5e1')
-    COR_HEADER   = colors.HexColor('#1e293b')   # cabeçalho da tabela de itens
+    COR_HEADER   = colors.HexColor('#1e293b')
+    COR_PRIMARIO = colors.HexColor('#0f172a')
+    COR_VERMELHO = colors.HexColor('#dc2626')
+    COR_BRANCO   = colors.white
 
     # ── Estilos ────────────────────────────────────────────────────────────────
     def st(name, **kw):
@@ -2860,7 +2953,7 @@ def factura_pdf(request, pk):
     s_bold     = st('bold', fontName='Helvetica-Bold')
     s_right    = st('right', alignment=TA_RIGHT)
     s_center   = st('center', alignment=TA_CENTER)
-    s_th       = st('th', fontName='Helvetica-Bold', fontSize=7, textColor=colors.white, alignment=TA_CENTER, leading=9)
+    s_th       = st('th', fontName='Helvetica-Bold', fontSize=7, textColor=COR_BRANCO, alignment=TA_CENTER, leading=9)
     s_td       = st('td', fontSize=8, leading=10)
     s_td_right = st('td_r', fontSize=8, leading=10, alignment=TA_RIGHT)
     s_td_cent  = st('td_c', fontSize=8, leading=10, alignment=TA_CENTER)
@@ -2872,7 +2965,7 @@ def factura_pdf(request, pk):
     story = []
 
     # ══════════════════════════════════════════════════════════════════════════
-    # BLOCO 1+2 — Cabeçalho: Logo (esquerda) + Paginação/NIF (direita)
+    # BLOCO 1+2 — Cabeçalho: Logo (esquerda) + Nome/NIF/Contactos (direita)
     # ══════════════════════════════════════════════════════════════════════════
     logo_path = None
     if banca and hasattr(banca, 'logo') and banca.logo:
@@ -2881,27 +2974,44 @@ def factura_pdf(request, pk):
         except Exception:
             logo_path = None
 
+    nif_txt  = banca.nif if banca else 'N/D'
+    nome_txt = banca.nome if banca else 'Despachante Oficial'
+    endereco  = banca.endereco  if banca else ''
+    telefone  = banca.telefone  if banca else ''
+    email_b   = banca.email     if banca else ''
+    cdoa      = banca.licenca_cdoa if banca else ''
+
+    agora = datetime.now()
+
     col_logo = []
     if logo_path:
         try:
-            col_logo.append(RLImage(logo_path, width=4.0 * cm, height=3.0 * cm))
+            col_logo.append(RLImage(logo_path, width=3.5 * cm, height=2.5 * cm))
         except Exception:
             col_logo.append(Paragraph('', s_small))
     else:
         col_logo.append(Paragraph('', s_small))
 
-    agora = datetime.now()
-    nif_txt  = banca.nif if banca else 'N/D'
-    nome_txt = banca.nome if banca else 'Despachante Oficial'
+    contatos = ' | '.join(filter(None, [
+        f'Tel: {telefone}' if telefone else '',
+        f'Email: {email_b}' if email_b else '',
+        f'CDOA: {cdoa}' if cdoa else '',
+    ]))
 
     col_info = [
-        Paragraph(f'<font size="7" color="#64748b">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
-                  st('top_right', alignment=TA_RIGHT, fontSize=7, textColor=COR_CINZA)),
-        Spacer(1, 0.2 * cm),
-        Paragraph(f'<b>NIF: {nif_txt}</b>', st('nif', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+        Paragraph(f'<font size="12" color="{COR_PRIMARIO.hexval()}"><b>{nome_txt}</b></font>',
+                  st('nome_emp', fontName='Helvetica-Bold', fontSize=12)),
+        Paragraph(f'<font size="8" color="#475569">{nif_txt}</font>',
+                  st('nif_info', fontSize=8)),
+        Paragraph(f'<font size="7" color="#64748b">{endereco}</font>',
+                  st('end_info', fontSize=7, textColor=COR_CINZA)),
+        Paragraph(f'<font size="7" color="#64748b">{contatos}</font>',
+                  st('cont_info', fontSize=7, textColor=COR_CINZA)),
+        Paragraph(f'<font size="6.5" color="#94a3b8">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
+                  st('top_right', alignment=TA_RIGHT, fontSize=6.5, textColor=colors.HexColor('#94a3b8'))),
     ]
 
-    t_logo = Table([[col_logo, col_info]], colWidths=[W * 0.5, W * 0.5])
+    t_logo = Table([[col_logo, col_info]], colWidths=[4.0 * cm, W - 4.0 * cm])
     t_logo.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN',  (1, 0), (1, 0),  'RIGHT'),
@@ -2911,24 +3021,6 @@ def factura_pdf(request, pk):
     ]))
     story.append(t_logo)
     story.append(Spacer(1, 0.15 * cm))
-
-    # Nome da empresa em bold grande
-    story.append(Paragraph(f'<b>{nome_txt}</b>', st('nome_empresa', fontSize=13, fontName='Helvetica-Bold')))
-    story.append(Spacer(1, 0.1 * cm))
-
-    # Endereço + contactos centrados
-    endereco  = banca.endereco  if banca else ''
-    telefone  = banca.telefone  if banca else ''
-    email_b   = banca.email     if banca else ''
-    cdoa      = banca.licenca_cdoa if banca else ''
-    linha_end = ' | '.join(filter(None, [endereco]))
-    linha_tel = ' / '.join(filter(None, [telefone]))
-    linha_cdoa = f'Cédula CDOA: {cdoa}' if cdoa else ''
-
-    for linha in filter(None, [linha_end, f'Tel: {linha_tel}' if linha_tel else '', f'E-mail: {email_b}' if email_b else '', linha_cdoa]):
-        story.append(Paragraph(f'<font size="8" color="#64748b">{linha}</font>',
-                                st('end', fontSize=8, textColor=COR_CINZA, alignment=TA_CENTER)))
-    story.append(Spacer(1, 0.25 * cm))
     story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
     story.append(Spacer(1, 0.2 * cm))
 
@@ -2937,16 +3029,16 @@ def factura_pdf(request, pk):
     # ══════════════════════════════════════════════════════════════════════════
     t_num = Table([[
         Paragraph(f'<b>FACTURA FT {factura.numero_factura}</b>',
-                  st('num_ft', fontSize=10, fontName='Helvetica-Bold', textColor=colors.white)),
+                  st('num_ft', fontSize=10, fontName='Helvetica-Bold', textColor=COR_BRANCO)),
         Paragraph(f'<font size="9" color="white">Fatura Nº: {factura.numero_factura}</font>',
-                  st('num_ft2', fontSize=9, textColor=colors.white, alignment=TA_RIGHT)),
+                  st('num_ft2', fontSize=9, textColor=COR_BRANCO, alignment=TA_RIGHT)),
     ]], colWidths=[W * 0.6, W * 0.4])
     t_num.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), COR_HEADER),
-        ('TOPPADDING',    (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
+        ('TOPPADDING',    (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 10),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(t_num)
@@ -3023,23 +3115,25 @@ def factura_pdf(request, pk):
         s_small,
     )
 
-    col_meta  = [Table(meta_rows, colWidths=[3.2 * cm, W * 0.35 - 3.2 * cm])]
+    col_meta  = [Table(meta_rows, colWidths=[3.2 * cm, W * 0.40 - 3.2 * cm])]
     col_cli   = [cliente_block, Spacer(1, 0.3 * cm), vref_block]
 
     t_meta = Table([[col_meta, col_cli]], colWidths=[W * 0.45, W * 0.55])
     t_meta.setStyle(TableStyle([
         ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
-        ('GRID',          (0, 0), (-1, -1), 0.3, COR_BORDA),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
-        ('TOPPADDING',    (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('BOX',           (0, 0), (-1, -1), 0.4, COR_BORDA),
+        ('INNERGRID',     (0, 0), (-1, -1), 0.2, COR_BORDA),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
     story.append(t_meta)
     story.append(Spacer(1, 0.15 * cm))
 
     # ── Subtítulo "Original"
-    story.append(Paragraph('<b>Original</b>', st('orig', fontSize=10, fontName='Helvetica-Bold', alignment=TA_CENTER)))
+    story.append(Paragraph('<b>Original</b>', st('orig', fontSize=10, fontName='Helvetica-Bold', alignment=TA_CENTER,
+                                                  textColor=COR_PRIMARIO)))
     story.append(Spacer(1, 0.15 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -3131,44 +3225,59 @@ def factura_pdf(request, pk):
 
     t_itens = Table(ITENS, colWidths=cw, repeatRows=1)
     t_itens.setStyle(TableStyle([
-        # Cabeçalho
         ('BACKGROUND',    (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR',     (0, 0), (-1, 0), colors.white),
+        ('TEXTCOLOR',     (0, 0), (-1, 0), COR_BRANCO),
         ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE',      (0, 0), (-1, 0), 7),
         ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
         ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
-        ('TOPPADDING',    (0, 0), (-1, 0), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
-        # Corpo
+        ('TOPPADDING',    (0, 0), (-1, 0), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
         ('FONTNAME',      (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE',      (0, 1), (-1, -1), 8),
         ('GRID',          (0, 0), (-1, -1), 0.3, COR_BORDA),
         ('ROWBACKGROUNDS',(0, 1), (-1, -1), [colors.white, COR_CLARO]),
         ('VALIGN',        (0, 1), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING',    (0, 1), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
+        ('TOPPADDING',    (0, 1), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
     ]))
     story.append(t_itens)
     story.append(Spacer(1, 0.15 * cm))
 
     # ── Nota de bens
-    story.append(Paragraph(
-        '<font size="7" color="#475569"><i>Bens foram colocados à disposição do adquirente a data do documento</i></font>',
-        s_small,
-    ))
+    nota_box = Table([[
+        Paragraph('<font size="7" color="#475569"><i>Bens foram colocados à disposição do adquirente a data do documento</i></font>',
+                  s_small)
+    ]], colWidths=[W])
+    nota_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), COR_CLARO),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('BOX', (0, 0), (-1, -1), 0.3, COR_BORDA),
+    ]))
+    story.append(nota_box)
     story.append(Spacer(1, 0.2 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 6 — Resumo IVA (esquerda) + Totalizadores (direita)
     # ══════════════════════════════════════════════════════════════════════════
-    # Resumo IVA
+    iva_header = [
+        Paragraph('<b>Resumo IVA</b>', st('iva_t', fontSize=8, fontName='Helvetica-Bold', textColor=COR_BRANCO)),
+        '', '', ''
+    ]
+    iva_sub = [
+        Paragraph('<b>Cód. IVA</b>', s_th),
+        Paragraph('<b>Incidência</b>', s_th),
+        Paragraph('<b>%IVA</b>', s_th),
+        Paragraph('<b>Valor Motivo</b>', s_th),
+    ]
     iva_rows = [
-        [Paragraph('<b>Resumo IVA</b>', st('iva_t', fontSize=8, fontName='Helvetica-Bold')),'','',''],
-        [Paragraph('<b>Cód. IVA</b>', s_th), Paragraph('<b>Incidência</b>', s_th),
-         Paragraph('<b>%IVA</b>', s_th), Paragraph('<b>Valor Motivo</b>', s_th)],
+        iva_header,
+        iva_sub,
         ['14%',
          Paragraph(fmt_kz(factura.honorarios_despachante), s_td_right),
          Paragraph('14,00', s_td_right),
@@ -3178,16 +3287,16 @@ def factura_pdf(request, pk):
     t_iva = Table(iva_rows, colWidths=[1.4*cm, 2.0*cm, 1.2*cm, W*0.35 - 4.6*cm])
     t_iva.setStyle(TableStyle([
         ('SPAN',          (0, 0), (-1, 0)),
-        ('BACKGROUND',    (0, 1), (-1, 1), COR_HEADER),
-        ('TEXTCOLOR',     (0, 1), (-1, 1), colors.white),
+        ('BACKGROUND',    (0, 0), (-1, 0), COR_HEADER),
+        ('BACKGROUND',    (0, 1), (-1, 1), colors.HexColor('#334155')),
+        ('TEXTCOLOR',     (0, 0), (-1, 1), COR_BRANCO),
         ('GRID',          (0, 1), (-1, -1), 0.3, COR_BORDA),
-        ('BOX',           (0, 0), (-1, -1), 0.5, COR_BORDA),
+        ('BOX',           (0, 0), (-1, -1), 0.5, COR_HEADER),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
-        ('FONTNAME',      (0, 0), (-1, -1), 'Helvetica'),
-        ('TOPPADDING',    (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
+        ('TOPPADDING',    (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
         ('ALIGN',         (0, 2), (2, -1), 'CENTER'),
         ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
     ]))
@@ -3196,11 +3305,12 @@ def factura_pdf(request, pk):
     def _tot_row(label, valor, bold=False, big=False):
         fn = 'Helvetica-Bold' if bold else 'Helvetica'
         fs = 10 if big else 8
+        tc = COR_PRIMARIO if bold else COR_PRIMARIO
         return [
             Paragraph(f'<font size="{fs}" name="{fn}">{label}</font>',
-                       st(f'tot_{label}', fontSize=fs, fontName=fn, alignment=TA_LEFT)),
+                       st(f'tot_{label}', fontSize=fs, fontName=fn, alignment=TA_LEFT, textColor=tc)),
             Paragraph(f'<font size="{fs}" name="{fn}">{valor}</font>',
-                       st(f'totv_{label}', fontSize=fs, fontName=fn, alignment=TA_RIGHT)),
+                       st(f'totv_{label}', fontSize=fs, fontName=fn, alignment=TA_RIGHT, textColor=tc)),
         ]
 
     retencao_valor = Decimal('0')
@@ -3215,7 +3325,10 @@ def factura_pdf(request, pk):
         _tot_row('Retenção',     fmt_kz(retencao_valor) if retencao_valor > 0 else '0,00'),
         _tot_row('Descontos',    '0,00'),
         _tot_row('Total IVA',    fmt_kz(factura.iva)),
-        _tot_row(f'Total (AKZ):', fmt_kz(factura.valor_total), bold=True, big=True),
+        [Paragraph(f'<font size="10" name="Helvetica-Bold"><b>Total (AKZ):</b></font>',
+                    st('tot_final', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
+         Paragraph(f'<font size="10" name="Helvetica-Bold" color="#dc2626"><b>{fmt_kz(factura.valor_total)}</b></font>',
+                    st('totv_final', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=COR_VERMELHO))],
         [Paragraph(''), Paragraph('')],
         _tot_row('Total Alternativo:', fmt_kz(factura.valor_total)),
     ]
@@ -3223,17 +3336,16 @@ def factura_pdf(request, pk):
     t_tot = Table(tot_rows, colWidths=[W * 0.35, W * 0.2])
     t_tot.setStyle(TableStyle([
         ('GRID',          (0, 0), (-1, -2), 0.3, COR_BORDA),
-        ('LINEABOVE',     (0, 7), (-1, 7), 1.0, COR_PRETO),
+        ('LINEABOVE',     (0, 7), (-1, 7), 1.5, COR_VERMELHO),
+        ('BACKGROUND',    (0, 7), (-1, 7), COR_CLARO),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
-        ('TOPPADDING',    (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
+        ('TOPPADDING',    (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
         ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
     ]))
 
-    # Montar os dois em paralelo
-    spacer_col = [[Spacer(1, 0.1*cm)]]
     t_bottom = Table(
         [[t_iva, '', t_tot]],
         colWidths=[W * 0.42, W * 0.03, W * 0.55],
@@ -3244,22 +3356,23 @@ def factura_pdf(request, pk):
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(t_bottom)
-    story.append(Spacer(1, 0.5 * cm))
+    story.append(Spacer(1, 0.4 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 7 — Assinatura + Operador
     # ══════════════════════════════════════════════════════════════════════════
     t_ass = Table([[
         '',
-        Table([[HRFlowable(width=4*cm, thickness=0.5, color=COR_BORDA)],
-               [Paragraph('<font size="8">Assinatura</font>',
-                           st('ass', fontSize=8, alignment=TA_CENTER))],
-               [Spacer(1, 0.3*cm)],
-               [HRFlowable(width=4*cm, thickness=0.5, color=COR_BORDA)],
-               [Paragraph(f'<font size="8">Operador: {factura.criado_por_nome or "—"}</font>',
-                           st('op', fontSize=8, alignment=TA_CENTER))],
-               ], colWidths=[4*cm]),
-    ]], colWidths=[W - 4*cm, 4*cm])
+        Table([
+            [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
+            [Paragraph('<font size="8"><b>Assinatura</b></font>',
+                        st('ass', fontSize=8, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+            [Spacer(1, 0.3*cm)],
+            [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
+            [Paragraph(f'<font size="8"><b>Operador:</b> {factura.criado_por_nome or "—"}</font>',
+                        st('op', fontSize=8, alignment=TA_CENTER))],
+        ], colWidths=[5*cm]),
+    ]], colWidths=[W - 5*cm, 5*cm])
     t_ass.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
         ('ALIGN',  (1, 0), (1, 0),  'CENTER'),
@@ -3285,10 +3398,22 @@ def factura_pdf(request, pk):
             texto_pagamento = banca.instrucoes_pagamento.replace('\n', '<br/>').replace('\r', '')
             bancos_data.append(f'<br/><b>Instruções de Pagamento:</b><br/>{texto_pagamento}')
 
-        story.append(Paragraph('<b>Dados Bancários</b>', st('bank_title', fontSize=9, fontName='Helvetica-Bold')))
-        story.append(Spacer(1, 0.1 * cm))
-        for linha in bancos_data:
-            story.append(Paragraph(f'<font size="8">{linha}</font>', st('bank_row', fontSize=8, leading=11)))
+        bank_box = []
+        bank_box.append(Paragraph('<b>Dados Bancários</b>', st('bank_title', fontSize=9, fontName='Helvetica-Bold',
+                                                                textColor=COR_PRIMARIO)))
+        bank_box.append(Spacer(1, 0.1 * cm))
+        for idx, linha in enumerate(bancos_data):
+            bank_box.append(Paragraph(f'<font size="8">{linha}</font>', st('bank_row', fontSize=8, leading=11)))
+        bank_table = Table([[bank_box]], colWidths=[W])
+        bank_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), COR_CLARO),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('BOX', (0, 0), (-1, -1), 0.3, COR_BORDA),
+        ]))
+        story.append(bank_table)
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONSTRUIR E RETORNAR
