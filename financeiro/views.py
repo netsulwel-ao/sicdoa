@@ -695,41 +695,35 @@ def requisicao_pdf(request, pk):
     cliente = requisicao.cliente
     processo = requisicao.processo_aduaneiro
 
-    # Buscar nome do despachante responsável (dono da banca)
+    # Buscar dados do despachante responsável (dono da banca)
     responsavel_nome = 'DESPACHANTE OFICIAL'
+    responsavel_nif = '—'
+    responsavel_cedula = '—'
+    responsavel_telefone = '—'
+    responsavel_email = '—'
     if banca:
         try:
             usuario_banca = Usuario.objects.get(id=banca.usuario_id)
             responsavel_nome = (usuario_banca.nome or 'DESPACHANTE OFICIAL').upper()
+            responsavel_nif = usuario_banca.nif or '—'
+            responsavel_cedula = usuario_banca.cedula or '—'
+            responsavel_telefone = usuario_banca.telefone or '—'
+            responsavel_email = usuario_banca.email or '—'
         except:
             responsavel_nome = 'DESPACHANTE OFICIAL'
 
     story = []
 
-    # CABEÇALHO: Data, hora na parte superior direita
+    # ──────────────────────────────────────────────────────────────────────────
+    # HEADER: Logo + Pág (linha 1) | Despachante + Dados Documento (linha 2)
+    # ──────────────────────────────────────────────────────────────────────────
     agora = datetime.now()
-    top_line = Table([[
-        Paragraph(f'', st('empty')),
-        Paragraph(f'<font size="6.5" color="#94a3b8">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>', st('top', alignment=TA_RIGHT, fontSize=6.5))
-    ]], colWidths=[W * 0.6, W * 0.4])
-    top_line.setStyle(TableStyle([
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-    ]))
-    story.append(top_line)
-    story.append(Spacer(1, 0.15 * cm))
-
-    # HEADER: Logo + Nome da Banca + NIF
-    nif_txt = f"NIF: {banca.nif}" if banca else 'N/D'
+    nif_txt = banca.nif if banca else 'N/D'
     nome_txt = banca.nome if banca else 'Despachante Oficial'
-    cdoa = banca.licenca_cdoa if banca else ''
-    endereco = banca.endereco if banca else ''
-    telefone = banca.telefone if banca else ''
-    email_b = banca.email if banca else ''
+    cdoa = banca.licenca_cdoa if banca else '—'
+    endereco = banca.endereco if banca else '—'
+    telefone = banca.telefone if banca else '—'
+    email_b = banca.email if banca else '—'
 
     logo_path = None
     if banca and hasattr(banca, 'logo') and banca.logo:
@@ -741,82 +735,74 @@ def requisicao_pdf(request, pk):
     col_logo = []
     if logo_path:
         try:
-            col_logo.append(RLImage(logo_path, width=3.0 * cm, height=2.0 * cm))
+            col_logo.append(RLImage(logo_path, width=2.2 * cm, height=1.6 * cm))
         except Exception:
             col_logo.append(Paragraph('', s_small))
     else:
         col_logo.append(Paragraph('', s_small))
 
-    col_info = [
-        Paragraph(f'<font size="11" color="{COR_HEADER.hexval()}"><b>{nome_txt}</b></font>', st('nome_emp', fontName='Helvetica-Bold', fontSize=11)),
-        Paragraph(f'<font size="7" color="#475569">{nif_txt} &nbsp;|&nbsp; {endereco}</font>', s_small),
-        Paragraph(f'<font size="7" color="#475569">Tel: {telefone} &nbsp;|&nbsp; Email: {email_b}</font>', s_small),
-    ]
-    if cdoa:
-        col_info.append(Paragraph(f'<font size="7" color="#475569">Cédula CDOA: {cdoa}</font>', s_small))
-
-    header_table = Table([[col_logo, col_info]], colWidths=[3.5 * cm, W - 3.5 * cm])
-    header_table.setStyle(TableStyle([
+    # Linha 1: Logo (esquerda) + Página/Data/Hora (direita)
+    top_line = Table([[
+        col_logo,
+        Paragraph(f'<font size="6.5" color="#94a3b8">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
+                  st('top', alignment=TA_RIGHT, fontSize=6.5))
+    ]], colWidths=[2.5 * cm, W - 2.5 * cm])
+    top_line.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    story.append(top_line)
+    story.append(Spacer(1, 0.15 * cm))
+
+    # Linha 2: Identificação do Despachante (esquerda) + Dados do Documento (direita)
+    despachante_info = (
+        f'<font size="7" color="{COR_VERDE.hexval()}"><b>DESPACHANTE RESPONSÁVEL: {responsavel_nome}</b></font><br/>'
+        f'<font size="6.5" color="#64748b">NIF: {responsavel_nif}</font><br/>'
+        f'<font size="6.5" color="#64748b">Cédula CDOA: {responsavel_cedula}</font><br/>'
+        f'<font size="6.5" color="#64748b">Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}</font>'
+    )
+
+    data_emissao = requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else '—'
+    data_validade = requisicao.data_validade.strftime('%d/%m/%Y') if requisicao.data_validade else '—'
+    moeda = requisicao.moeda_referencia or 'AOA'
+    cambio = requisicao.cambio_referencia or '—'
+
+    doc_info = (
+        f'<font size="7" color="#475569"><b>Dados do Documento</b></font><br/><br/>'
+        f'<font size="6.5" color="#64748b"><b>Tipo:</b> Requisição de Fundos</font><br/>'
+        f'<font size="6.5" color="#64748b"><b>Nº:</b> {requisicao.numero_requisicao}</font><br/>'
+        f'<font size="6.5" color="#64748b"><b>Emissão:</b> {data_emissao}</font><br/>'
+        f'<font size="6.5" color="#64748b"><b>Validade:</b> {data_validade}</font><br/>'
+        f'<font size="6.5" color="#64748b"><b>Moeda:</b> {moeda} &nbsp;|&nbsp; <b>Câmbio:</b> {cambio}</font>'
+    )
+
+    header_body = Table([[
+        Paragraph(despachante_info, st('desp_info', fontSize=6.5, leading=9)),
+        Paragraph(doc_info, st('doc_info', fontSize=6.5, leading=9, alignment=TA_RIGHT)),
+    ]], colWidths=[W * 0.55, W * 0.45])
+    header_body.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
-    story.append(header_table)
-    story.append(Spacer(1, 0.15 * cm))
-
-    # DESPACHANTE RESPONSÁVEL
-    story.append(Table([[Paragraph(
-        f'<font size="8" color="{COR_VERDE.hexval()}"><b>DESPACHANTE: {responsavel_nome}</b></font>',
-        st('resp_bar', fontSize=8, fontName='Helvetica-Bold')
-    )]], colWidths=[W]))
-    story.append(Spacer(1, 0.05 * cm))
+    story.append(header_body)
+    story.append(Spacer(1, 0.2 * cm))
 
     # HASH e versão do sistema
     story.append(Paragraph(
-        f'<font size="6.5" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; Processado por programa válido nº35/AGT/2019</font>',
-        st('hash_line', fontSize=6.5)
+        f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; Processado por programa válido nº35/AGT/2019</font>',
+        st('hash_line', fontSize=6)
     ))
     story.append(Spacer(1, 0.15 * cm))
     story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
-    story.append(Spacer(1, 0.2 * cm))
-
-    # TÍTULO: REQUISIÇÃO DE FUNDOS
-    titulo = Table([[
-        Paragraph(f'<font size="10" color="white"><b>REQUISIÇÃO DE FUNDOS</b></font>',
-                  st('titulo', fontName='Helvetica-Bold', fontSize=10, textColor=COR_BRANCO)),
-    ]], colWidths=[W])
-    titulo.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), COR_HEADER),
-        ('TOPPADDING', (0, 0), (-1, -1), 7),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
-    story.append(titulo)
-    story.append(Spacer(1, 0.2 * cm))
-
-    # REQUISIÇÃO Nº E DATA
-    data_emissao = requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else 'N/D'
-
-    req_table = Table([[
-        Paragraph(f'<font size="9"><b>Nº Requisição:</b> {requisicao.numero_requisicao}</font>', st('req', fontSize=9)),
-        Paragraph(f'<font size="9"><b>Data:</b> {data_emissao}</font>', st('data', fontSize=9, alignment=TA_RIGHT))
-    ]], colWidths=[W * 0.55, W * 0.45])
-    req_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('BACKGROUND', (0, 0), (-1, -1), COR_CINZA_CLARO),
-    ]))
-    story.append(req_table)
-    story.append(Spacer(1, 0.2 * cm))
+    story.append(Spacer(1, 0.25 * cm))
 
     # TABELA DE 3 COLUNAS: Designação | Direitos | Despesas Inerentes
     valor_aduaneiro = processo.valor_total if processo and hasattr(processo, 'valor_total') else requisicao.valor_cif or Decimal('0')
