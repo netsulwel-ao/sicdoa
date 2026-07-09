@@ -246,6 +246,7 @@ function atualizarCamposDestinatario() {
   // Esta função é chamada quando o regime aduaneiro muda
   // Redireciona para a função principal
   atualizarCamposRegime();
+  atualizarDestinoRegime();
 }
 
 // Função para consultar NIF do exportador
@@ -727,39 +728,45 @@ function consultarCodigoPautal() {
   }
 }
 
-// Função para atualizar campos baseados no regime aduaneiro
-function atualizarCamposRegime() {
+// Função para preencher campos automáticos da secção Estância de Destino e Local
+function atualizarDestinoRegime() {
   const regimeSelect = document.getElementById('regime_aduaneiro');
-  const nifExportador = document.getElementById('exportador_codigo');
-  const nomeExportador = document.getElementById('exportador_nome');
-  const enderecoExportador = document.getElementById('exportador_endereco');
   const paisDestinoAuto = document.getElementById('pais_destino_auto');
-  
+  const estanciaDestino = document.getElementById('estancia_destino');
+  const dataCampo54 = document.getElementById('data_campo54');
+  const estanciaSelect = document.getElementById('estancia');
+
   if (!regimeSelect) return;
-  
   const regime = regimeSelect.value;
-  
-  // Regras para campos do exportador
+
+  // Data atual
+  if (dataCampo54 && !dataCampo54.value) {
+    dataCampo54.value = new Date().toISOString().split('T')[0];
+  }
+
   if (regime.startsWith('IM')) {
-    // Importação: Nome e endereço obrigatórios, NIF opcional
-    if (nifExportador) nifExportador.removeAttribute('required');
-    if (nomeExportador) nomeExportador.setAttribute('required', 'true');
-    if (enderecoExportador) enderecoExportador.setAttribute('required', 'true');
-    
-    // País de destino automático para Angola
+    // Importação → país de destino é sempre Angola (readonly)
     if (paisDestinoAuto) {
-      paisDestinoAuto.value = 'AOA - Angola';
+      paisDestinoAuto.value = 'AO - Angola';
+      paisDestinoAuto.readOnly = true;
+      paisDestinoAuto.classList.add('calc-field');
+      paisDestinoAuto.placeholder = 'Automático — Angola';
     }
   } else if (regime.startsWith('EX')) {
-    // Exportação: NIF obrigatório
-    if (nifExportador) nifExportador.setAttribute('required', 'true');
-    if (nomeExportador) nomeExportador.removeAttribute('required');
-    if (enderecoExportador) enderecoExportador.removeAttribute('required');
-    
-    // País de destino deve ser preenchido manualmente
+    // Exportação → país de destino é editável (utilizador informa)
     if (paisDestinoAuto) {
       paisDestinoAuto.value = '';
-      paisDestinoAuto.placeholder = 'Será preenchido baseado no destinatário';
+      paisDestinoAuto.readOnly = false;
+      paisDestinoAuto.classList.remove('calc-field');
+      paisDestinoAuto.placeholder = 'Informe o país de destino';
+    }
+  }
+
+  // Estância de destino = mesma estância selecionada (sempre editável)
+  if (estanciaDestino) {
+    if (estanciaSelect && estanciaSelect.value) {
+      const label = estanciaSelect.options[estanciaSelect.selectedIndex];
+      estanciaDestino.value = label ? label.text : estanciaSelect.value;
     }
   }
 }
@@ -1240,47 +1247,53 @@ function atualizarContadorContainers() {
   }
 }
 
-// Função para atualizar campos baseados no regime aduaneiro
+// Função para atualizar campos baseados no regime aduaneiro (inclui destino)
 function atualizarCamposRegime() {
   const regimeSelect = document.getElementById('regime_aduaneiro');
   const nifExportador = document.getElementById('exportador_codigo');
   const nomeExportador = document.getElementById('exportador_nome');
   const enderecoExportador = document.getElementById('exportador_endereco');
-  const paisDestino = document.getElementById('pais_destino');
-  const paisExportacao = document.getElementById('pais_exportacao');
-  
+  const paisDestinoAuto = document.getElementById('pais_destino_auto');
+  const estanciaDestino = document.getElementById('estancia_destino');
+  const estanciaSelect = document.getElementById('estancia');
+  const dataCampo54 = document.getElementById('data_campo54');
+
   if (!regimeSelect) return;
-  
   const regime = regimeSelect.value;
-  
+
+  // Data atual
+  if (dataCampo54 && !dataCampo54.value) {
+    dataCampo54.value = new Date().toISOString().split('T')[0];
+  }
+
   // Regras para campos do exportador
   if (regime.startsWith('IM')) {
-    // Importação: Nome e endereço obrigatórios, NIF opcional
     if (nifExportador) nifExportador.removeAttribute('required');
     if (nomeExportador) nomeExportador.setAttribute('required', 'true');
     if (enderecoExportador) enderecoExportador.setAttribute('required', 'true');
-    
-    // País de destino automático para Angola
-    if (paisDestino) {
-      paisDestino.value = 'AGO';
-      paisDestino.setAttribute('readonly', 'true');
-    }
-    if (paisExportacao) {
-      paisExportacao.removeAttribute('readonly');
+    if (paisDestinoAuto) {
+      paisDestinoAuto.value = 'AO - Angola';
+      paisDestinoAuto.readOnly = true;
+      paisDestinoAuto.classList.add('calc-field');
+      paisDestinoAuto.placeholder = 'Automático — Angola';
     }
   } else if (regime.startsWith('EX')) {
-    // Exportação: NIF obrigatório
     if (nifExportador) nifExportador.setAttribute('required', 'true');
     if (nomeExportador) nomeExportador.removeAttribute('required');
     if (enderecoExportador) enderecoExportador.removeAttribute('required');
-    
-    // País de exportação automático para Angola
-    if (paisExportacao) {
-      paisExportacao.value = 'AGO';
-      paisExportacao.setAttribute('readonly', 'true');
+    if (paisDestinoAuto) {
+      paisDestinoAuto.value = '';
+      paisDestinoAuto.readOnly = false;
+      paisDestinoAuto.classList.remove('calc-field');
+      paisDestinoAuto.placeholder = 'Informe o país de destino';
     }
-    if (paisDestino) {
-      paisDestino.removeAttribute('readonly');
+  }
+
+  // Estância de destino = mesma estância selecionada (sempre editável)
+  if (estanciaDestino) {
+    if (estanciaSelect && estanciaSelect.value) {
+      const label = estanciaSelect.options[estanciaSelect.selectedIndex];
+      estanciaDestino.value = label ? label.text : estanciaSelect.value;
     }
   }
 }
@@ -2222,8 +2235,40 @@ function iniciarAutoSave() {
   }, 2 * 60 * 1000); // 2 minutos
 }
 
-// Iniciar auto-save quando a página carregar
+// Iniciar auto-save e inicializar campos automáticos quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
+  // Inicializar data atual no campo data_campo54
+  var dataField = document.getElementById('data_campo54');
+  if (dataField && !dataField.value) {
+    dataField.value = new Date().toISOString().split('T')[0];
+  }
+
+  // Inicializar estância de destino com o valor atual da estância (se já preenchido)
+  var estanciaSelect = document.getElementById('estancia');
+  var estanciaDestino = document.getElementById('estancia_destino');
+  if (estanciaDestino && estanciaSelect && estanciaSelect.value) {
+    var label = estanciaSelect.options[estanciaSelect.selectedIndex];
+    estanciaDestino.value = label ? label.text : estanciaSelect.value;
+  }
+
+  // Quando a estância principal mudar, atualizar estância de destino
+  if (estanciaSelect) {
+    estanciaSelect.addEventListener('change', function() {
+      if (estanciaDestino && this.value) {
+        var label = this.options[this.selectedIndex];
+        estanciaDestino.value = label ? label.text : this.value;
+      }
+    });
+  }
+
+  // Quando o regime mudar, atualizar destino
+  var regimeSelect = document.getElementById('regime_aduaneiro');
+  if (regimeSelect) {
+    regimeSelect.addEventListener('change', function() {
+      atualizarDestinoRegime();
+    });
+  }
+
   setTimeout(iniciarAutoSave, 1000);
 });
 
@@ -2676,15 +2721,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // ── Pré-carregar pauta aduaneira imediatamente ──────────────────────────
   preCarregarPauta();
-
-  // Atualizar campos quando regime mudar
-  const regimeSelect = document.getElementById('regime_aduaneiro');
-  if (regimeSelect) {
-    regimeSelect.addEventListener('change', function() {
-      atualizarCamposRegime();
-      atualizarCamposDestinatario();
-    });
-  }
 
   // Event listener para cálculo automático quando peso_liquido for alterado no Step 2
   function setupPesoLiquidoListeners() {

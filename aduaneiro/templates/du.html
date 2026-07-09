@@ -377,7 +377,7 @@
                       Regime Aduaneiro
                       <span class="field-code">Campo 1</span>
                     </label>
-                    <select name="regime_aduaneiro" id="regime_aduaneiro" class="form-input" required onchange="atualizarCamposDestinatario()">
+                    <select name="regime_aduaneiro" id="regime_aduaneiro" class="form-input" required onchange="atualizarCamposDestinatario(); atualizarDestinoRegime()">
                       <option value="">Carregando regimes...</option>
                     </select>
                     <p class="field-hint">Digite para pesquisar o regime</p>
@@ -1113,7 +1113,7 @@
                       Estância de Destino
                       <span class="field-code">Campo 53</span>
                     </label>
-                    <input type="text" name="estancia_destino" class="form-input" placeholder="Ex: Luanda" />
+                    <input type="text" name="estancia_destino" id="estancia_destino" class="form-input" placeholder="Ex: Luanda" />
                   </div>
                   
                   <div class="form-field">
