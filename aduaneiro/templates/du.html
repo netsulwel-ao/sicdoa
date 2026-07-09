@@ -1979,7 +1979,22 @@ document.addEventListener('DOMContentLoaded', function() {
       geradas dinamicamente com a mesma estrutura.
 ============================================================ */
 
-let adicaoCounter = 0; // começa em 1 porque o HTML já tem a adição nº1
+/* ----------------------------------------------------------
+   proximoNumeroAdicao — encontra o menor número disponível
+   para evitar saltos ao adicionar/remover adições
+---------------------------------------------------------- */
+function proximoNumeroAdicao() {
+  const wrapper = document.getElementById('adicoes_wrapper');
+  if (!wrapper) return 1;
+  const usados = new Set();
+  wrapper.querySelectorAll('.adicao-card-wrapper').forEach(function(card) {
+    var n = parseInt(card.dataset.adicao, 10);
+    if (n) usados.add(n);
+  });
+  var candidato = 1;
+  while (usados.has(candidato)) { candidato++; }
+  return candidato;
+}
 
 /* ----------------------------------------------------------
    Lista completa de países (igual ao HTML original)
@@ -2470,8 +2485,7 @@ function adicionarNovaAdicao(dadosExistentes) {
     return;
   }
 
-  adicaoCounter++;
-  const n = adicaoCounter;
+  const n = proximoNumeroAdicao();
 
   // Colapsar todas as adições anteriores
   wrapper.querySelectorAll('.adicao-card-body').forEach(c => c.classList.remove('expanded'));

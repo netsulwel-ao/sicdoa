@@ -749,26 +749,26 @@ function atualizarDestinoRegime() {
     // Importação → Angola, tudo readonly
     if (paisDestinoAuto) {
       paisDestinoAuto.value = 'AO - Angola';
-      paisDestinoAuto.readOnly = true;
+      paisDestinoAuto.setAttribute('readonly', 'readonly');
       paisDestinoAuto.classList.add('calc-field');
       paisDestinoAuto.placeholder = 'Automático — Angola';
     }
     if (localCampo54) {
       localCampo54.value = 'Luanda, Angola';
-      localCampo54.readOnly = true;
+      localCampo54.setAttribute('readonly', 'readonly');
       localCampo54.classList.add('calc-field');
     }
   } else if (regime.startsWith('EX')) {
     // Exportação → país e local editáveis (utilizador informa)
     if (paisDestinoAuto) {
       paisDestinoAuto.value = '';
-      paisDestinoAuto.readOnly = false;
+      paisDestinoAuto.removeAttribute('readonly');
       paisDestinoAuto.classList.remove('calc-field');
       paisDestinoAuto.placeholder = 'Informe o país de destino';
     }
     if (localCampo54) {
       localCampo54.value = '';
-      localCampo54.readOnly = false;
+      localCampo54.removeAttribute('readonly');
       localCampo54.classList.remove('calc-field');
       localCampo54.placeholder = 'Informe o local de destino';
     }
