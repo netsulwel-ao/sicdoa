@@ -416,6 +416,7 @@ class FacturaCliente(models.Model):
     despesas_operacionais = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Despesas Operacionais')
     iva = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='IVA')
     outros_encargos = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Outros Encargos')
+    retencao = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Retenção')
     
     valor_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Total')
     valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor Pago')
@@ -482,7 +483,8 @@ class FacturaCliente(models.Model):
                 self.emolumentos + 
                 self.despesas_operacionais + 
                 self.iva + 
-                self.outros_encargos
+                self.outros_encargos +
+                self.retencao
             )
 
         if not self.numero_factura:
