@@ -2090,7 +2090,7 @@ class NotaCreditoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['titulo'] = "Nova Nota de CrÃ©dito"
+        context['titulo'] = "Nova Nota de Crédito"
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'notas_credito'
         clientes_qs = Cliente.objects.filter(ativo=True)
@@ -2336,7 +2336,7 @@ class NotaDebitoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['titulo'] = "Nova Nota de DÃ©bito"
+        context['titulo'] = "Nova Nota de Débito"
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'notas_debito'
         clientes_qs = Cliente.objects.filter(ativo=True)
@@ -4813,3 +4813,4 @@ def api_dados_processo(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': f'Erro ao carregar dados: {str(e)}'})
+
