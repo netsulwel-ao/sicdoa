@@ -40,6 +40,8 @@ class Usuario(models.Model):
     funcao = models.ForeignKey('Funcao', null=True, blank=True, on_delete=models.SET_NULL, related_name='usuarios')
     area_actuacao = models.CharField(max_length=100, blank=True, default='')
     cargo_personalizado = models.CharField(max_length=100, blank=True, default='')
+    assinatura = models.TextField(blank=True, default='', verbose_name='Assinatura Digital (Base64 PNG)')
+    assinatura_data = models.DateTimeField(null=True, blank=True, verbose_name='Data da Assinatura')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

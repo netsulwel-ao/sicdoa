@@ -32,6 +32,7 @@ urlpatterns = [
     path('perfil/', user_views.meu_perfil_view, name='meu_perfil'),
     path('perfil/guardar/', user_views.meu_perfil_guardar, name='meu_perfil_guardar'),
     path('perfil/senha/', user_views.meu_perfil_senha, name='meu_perfil_senha'),
+    path('perfil/assinatura/', user_views.meu_perfil_assinatura, name='meu_perfil_assinatura'),
 
     # Dashboard
     path('dashboard/', user_views.dashboard_view, name='dashboard'),

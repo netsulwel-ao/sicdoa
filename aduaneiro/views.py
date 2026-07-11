@@ -1202,29 +1202,69 @@ def du_download_pdf(request, du_uuid):
         # ════════════════════════════════════════════════════════════════
         story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
         story.append(Spacer(1, 0.1*cm))
-        ass_data = [
-            [Paragraph('<b>Assinatura do Despachante:</b>', st('ass_lab', fontSize=8)),
-             Paragraph('', st('ass_spc', fontSize=8))],
-            [Spacer(1, 0.2*cm), Spacer(1, 0.2*cm)],
-            [HRFlowable(width=5.5*cm, thickness=0.8, color=COR_CINZA),
-             HRFlowable(width=5.5*cm, thickness=0.8, color=COR_CINZA)],
-            [Paragraph(f'<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
-             Paragraph(f'<font size="7.5"><b>{desp_nome}</b></font>',
-                       st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
-            [Paragraph('', st('ass_spc', fontSize=3)),
-             Paragraph(f'<font size="7">{desp_papel}</font>',
-                       st('ass_papel', fontSize=7, alignment=TA_CENTER))],
-        ]
-        assinatura = Table(ass_data, colWidths=[W/2, W/2])
-        assinatura.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-            ('TOPPADDING', (0, 0), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ]))
+
+        # Assinatura digital do despachante (se existir)
+        _assinatura_img = None
+        try:
+            _assinatura_raw = getattr(dono, 'assinatura', '') or ''
+            if _assinatura_raw.startswith('data:image/png;base64,'):
+                import base64 as _b64
+                from reportlab.lib.utils import ImageReader
+                from io import BytesIO
+                _img_data = _b64.b64decode(_assinatura_raw.split(',', 1)[1])
+                _assinatura_img = ImageReader(BytesIO(_img_data))
+        except Exception:
+            _assinatura_img = None
+
+        if _assinatura_img:
+            from reportlab.platypus import Image as RLImage
+            _assinatura_rl = RLImage(_assinatura_img, width=5*cm, height=2*cm)
+            ass_data = [
+                [Paragraph('<b>Assinatura do Despachante:</b>', st('ass_lab', fontSize=8)),
+                 Paragraph('', st('ass_spc', fontSize=8))],
+                [Spacer(1, 0.15*cm), Spacer(1, 0.15*cm)],
+                [_assinatura_rl, HRFlowable(width=5.5*cm, thickness=0.8, color=COR_CINZA)],
+                [Paragraph(f'<font size="7.5"><b>Data:</b> {timezone.now().strftime("%d/%m/%Y")}</font>', st('ass_data', fontSize=7.5)),
+                 Paragraph(f'<font size="7.5"><b>{desp_nome}</b></font>',
+                           st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
+                [Paragraph('', st('ass_spc', fontSize=3)),
+                 Paragraph(f'<font size="7">{desp_papel}</font>',
+                           st('ass_papel', fontSize=7, alignment=TA_CENTER))],
+            ]
+            assinatura = Table(ass_data, colWidths=[W/2, W/2])
+            assinatura.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+                ('TOPPADDING', (0, 0), (-1, -1), 1),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ]))
+        else:
+            ass_data = [
+                [Paragraph('<b>Assinatura do Despachante:</b>', st('ass_lab', fontSize=8)),
+                 Paragraph('', st('ass_spc', fontSize=8))],
+                [Spacer(1, 0.2*cm), Spacer(1, 0.2*cm)],
+                [HRFlowable(width=5.5*cm, thickness=0.8, color=COR_CINZA),
+                 HRFlowable(width=5.5*cm, thickness=0.8, color=COR_CINZA)],
+                [Paragraph(f'<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
+                 Paragraph(f'<font size="7.5"><b>{desp_nome}</b></font>',
+                           st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
+                [Paragraph('', st('ass_spc', fontSize=3)),
+                 Paragraph(f'<font size="7">{desp_papel}</font>',
+                           st('ass_papel', fontSize=7, alignment=TA_CENTER))],
+            ]
+            assinatura = Table(ass_data, colWidths=[W/2, W/2])
+            assinatura.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+                ('TOPPADDING', (0, 0), (-1, -1), 1),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ]))
         story.append(assinatura)
         story.append(Spacer(1, 0.15*cm))
 

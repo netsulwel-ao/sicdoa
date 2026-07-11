@@ -1275,6 +1275,8 @@ def meu_perfil_view(request):
             "foto": usuario.foto or "",
             "status": usuario.status,
             "ultimo_acesso": usuario.ultimo_acesso,
+            "assinatura": usuario.assinatura or "",
+            "assinatura_data": usuario.assinatura_data,
         },
         "cargo_info": cargo_info,
         "tem_senha": bool(usuario.password),
@@ -1284,6 +1286,7 @@ def meu_perfil_view(request):
         "total_dus": total_dus,
         "dus_mes": dus_mes,
         "pode_editar_perfil": pode_editar_perfil,
+        "tem_assinatura": bool(usuario.assinatura),
         "messages": messages.get_messages(request),
     })
 
@@ -1435,6 +1438,36 @@ def meu_perfil_senha(request):
     else:
         messages.success(request, "Senha definida com sucesso! Agora pode usar o login tradicional.")
 
+    return redirect("meu_perfil")
+
+
+def meu_perfil_assinatura(request):
+    """Guarda a assinatura digital do utilizador (canvas Base64)."""
+    usuario, erro = _verificar_sessao_usuario(request)
+    if erro:
+        return erro
+    if request.method != "POST":
+        return redirect("meu_perfil")
+
+    from .permissoes import usuario_tem_permissao
+    if not usuario_tem_permissao(request, 'alterar_perfil'):
+        messages.error(request, 'Não tem permissão para alterar a assinatura.')
+        return redirect("meu_perfil")
+
+    assinatura = request.POST.get("assinatura", "").strip()
+
+    if not assinatura or not assinatura.startswith("data:image/png;base64,"):
+        messages.error(request, "Assinatura inválida. Desenhe a sua assinatura no quadro.")
+        return redirect("meu_perfil")
+
+    from django.db import connection as _conn
+    with _conn.cursor() as cur:
+        cur.execute(
+            "UPDATE usuarios SET assinatura=%s, assinatura_data=%s, updated_at=%s WHERE id=%s",
+            [assinatura, timezone.now(), timezone.now(), usuario.id],
+        )
+
+    messages.success(request, "Assinatura digital guardada com sucesso.")
     return redirect("meu_perfil")
 
 

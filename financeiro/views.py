@@ -73,6 +73,25 @@ def _safe(text):
     return _html_mod.escape(str(text))
 
 
+def _carregar_assinatura(usuario_id):
+    """Carrega a assinatura digital de um utilizador e retorna um ReportLab Image ou None."""
+    try:
+        from users.models import Usuario
+        usuario = Usuario.objects.get(id=usuario_id)
+        raw = getattr(usuario, 'assinatura', '') or ''
+        if raw.startswith('data:image/png;base64,'):
+            import base64 as _b64
+            from reportlab.lib.utils import ImageReader
+            from reportlab.platypus import Image as RLImage
+            from io import BytesIO
+            img_data = _b64.b64decode(raw.split(',', 1)[1])
+            img = ImageReader(BytesIO(img_data))
+            return RLImage(img, width=5*cm, height=2*cm)
+    except Exception:
+        pass
+    return None
+
+
 def _user_tem_acesso_total(request):
     """True se user tem bypass de scoping (Admin ou permissão admin)."""
     from users.permissoes import _is_admin_ou_acesso_total
@@ -3249,8 +3268,14 @@ def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_
 
     # Assinatura
     story.append(Spacer(1, 0.8*cm))
-    story.append(HRFlowable(width=6*cm, thickness=0.5, color=colors.HexColor('#94a3b8'), hAlign='CENTER'))
-    story.append(Paragraph('Assinatura do Responsável', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
+    _ass_img = _carregar_assinatura(banca.usuario_id if banca else None)
+    if _ass_img:
+        story.append(_ass_img)
+        story.append(Spacer(1, 0.1*cm))
+        story.append(Paragraph('Assinatura do Responsável', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
+    else:
+        story.append(HRFlowable(width=6*cm, thickness=0.5, color=colors.HexColor('#94a3b8'), hAlign='CENTER'))
+        story.append(Paragraph('Assinatura do Responsável', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
 
     doc.build(story)
 
@@ -3513,7 +3538,29 @@ def _construir_pdf_documento(
     ))
     story.append(Spacer(1, 0.15 * cm))
 
-    # ASSINATURA
+    # ASSINATURA DO DESPACHANTE
+    _ass_img_construir = _carregar_assinatura(banca.usuario_id if banca else None)
+    if _ass_img_construir:
+        story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+        story.append(Spacer(1, 0.1 * cm))
+        _ass_tbl = Table([[_ass_img_construir, ''],
+                          [Paragraph('<font size="7"><b>Assinatura do Despachante</b></font>',
+                                     st('ass_desp_label', fontSize=7, alignment=TA_CENTER)),
+                           Paragraph(f'<font size="7"><b>{responsavel_nome}</b></font>',
+                                     st('ass_desp_nome', fontSize=7, alignment=TA_CENTER))]],
+                         colWidths=[W/2, W/2])
+        _ass_tbl.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        story.append(_ass_tbl)
+        story.append(Spacer(1, 0.15 * cm))
+
+    # ASSINATURA DO CLIENTE
     story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
     story.append(Spacer(1, 0.1 * cm))
     ass_data = [
@@ -4189,18 +4236,32 @@ def factura_pdf(request, pk):
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 7 — Assinatura + Operador
     # ══════════════════════════════════════════════════════════════════════════
-    t_ass = Table([[
-        '',
-        Table([
-            [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
-            [Paragraph('<font size="8"><b>Assinatura</b></font>',
-                        st('ass', fontSize=8, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
-            [Spacer(1, 0.3*cm)],
-            [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
-            [Paragraph(f'<font size="8"><b>Operador:</b> {factura.criado_por_nome or "—"}</font>',
-                        st('op', fontSize=8, alignment=TA_CENTER))],
-        ], colWidths=[5*cm]),
-    ]], colWidths=[W - 5*cm, 5*cm])
+    _ass_img_fact = _carregar_assinatura(banca.usuario_id if banca else None)
+    if _ass_img_fact:
+        t_ass = Table([[
+            '',
+            Table([
+                [_ass_img_fact],
+                [Paragraph('<font size="8"><b>Assinatura</b></font>',
+                            st('ass', fontSize=8, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+                [Spacer(1, 0.15*cm)],
+                [Paragraph(f'<font size="8"><b>Operador:</b> {factura.criado_por_nome or "—"}</font>',
+                            st('op', fontSize=8, alignment=TA_CENTER))],
+            ], colWidths=[5*cm]),
+        ]], colWidths=[W - 5*cm, 5*cm])
+    else:
+        t_ass = Table([[
+            '',
+            Table([
+                [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
+                [Paragraph('<font size="8"><b>Assinatura</b></font>',
+                            st('ass', fontSize=8, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+                [Spacer(1, 0.3*cm)],
+                [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
+                [Paragraph(f'<font size="8"><b>Operador:</b> {factura.criado_por_nome or "—"}</font>',
+                            st('op', fontSize=8, alignment=TA_CENTER))],
+            ], colWidths=[5*cm]),
+        ]], colWidths=[W - 5*cm, 5*cm])
     t_ass.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
         ('ALIGN',  (1, 0), (1, 0),  'CENTER'),
