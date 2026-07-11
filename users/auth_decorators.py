@@ -19,12 +19,17 @@ def sessao_expirada(request):
     if not login_time:
         return True
     
-    # Converter string para datetime se necessário
-    if isinstance(login_time, str):
+    # Converter para datetime se necessário
+    from datetime import datetime
+    if isinstance(login_time, (int, float)):
+        # time.time() float timestamp
         try:
-            from datetime import datetime
+            login_time = datetime.fromtimestamp(login_time, tz=timezone.utc)
+        except (ValueError, OSError):
+            return True
+    elif isinstance(login_time, str):
+        try:
             login_time = datetime.fromisoformat(login_time)
-            # Se for naive, fazer aware com UTC
             if login_time.tzinfo is None:
                 login_time = timezone.make_aware(login_time, timezone.utc)
         except (ValueError, TypeError):
@@ -71,14 +76,15 @@ def tempo_restante_sessao(request):
     
     try:
         from datetime import datetime
-        login_time_str = request.session['login_time']
-        if isinstance(login_time_str, str):
-            login_time = datetime.fromisoformat(login_time_str)
-            # Se for naive, fazer aware com UTC
+        lt = request.session['login_time']
+        if isinstance(lt, (int, float)):
+            login_time = datetime.fromtimestamp(lt, tz=timezone.utc)
+        elif isinstance(lt, str):
+            login_time = datetime.fromisoformat(lt)
             if login_time.tzinfo is None:
                 login_time = timezone.make_aware(login_time, timezone.utc)
         else:
-            login_time = login_time_str
+            return 0
         
         agora = timezone.now()
         tempo_decorrido = agora - login_time
@@ -86,7 +92,7 @@ def tempo_restante_sessao(request):
         tempo_restante = tempo_total - tempo_decorrido
         
         return max(0, int(tempo_restante.total_seconds() / 60))
-    except (ValueError, TypeError, KeyError):
+    except (ValueError, TypeError, KeyError, OSError):
         return 0
 
 
@@ -100,13 +106,15 @@ def tempo_restante_segundos(request):
     
     try:
         from datetime import datetime
-        login_time_str = request.session['login_time']
-        if isinstance(login_time_str, str):
-            login_time = datetime.fromisoformat(login_time_str)
+        lt = request.session['login_time']
+        if isinstance(lt, (int, float)):
+            login_time = datetime.fromtimestamp(lt, tz=timezone.utc)
+        elif isinstance(lt, str):
+            login_time = datetime.fromisoformat(lt)
             if login_time.tzinfo is None:
                 login_time = timezone.make_aware(login_time, timezone.utc)
         else:
-            login_time = login_time_str
+            return 0
         
         agora = timezone.now()
         tempo_decorrido = agora - login_time
@@ -114,7 +122,7 @@ def tempo_restante_segundos(request):
         tempo_restante = tempo_total - tempo_decorrido
         
         return max(0, int(tempo_restante.total_seconds()))
-    except (ValueError, TypeError, KeyError):
+    except (ValueError, TypeError, KeyError, OSError):
         return 0
 
 

@@ -98,131 +98,136 @@ def marcar_ferias_no_registo_inst(pedido):
 
 
 def _gerar_pdf_processamento_inst(processamento, request):
-    from django.conf import settings
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import cm
-    from reportlab.lib.colors import HexColor, white, black
-    import os
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+    try:
+        from django.conf import settings
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import cm
+        from reportlab.lib.colors import HexColor, white, black
+        import os
 
-    recibos = processamento.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
-    pdf_dir = os.path.join(settings.MEDIA_ROOT, 'processamentos_salariais_institucionais')
-    os.makedirs(pdf_dir, exist_ok=True)
-    filename = f"processamento_inst_{processamento.mes:02d}_{processamento.ano}_{processamento.pk}.pdf"
-    filepath = os.path.join(pdf_dir, filename)
+        recibos = processamento.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
+        pdf_dir = os.path.join(settings.MEDIA_ROOT, 'processamentos_salariais_institucionais')
+        os.makedirs(pdf_dir, exist_ok=True)
+        filename = f"processamento_inst_{processamento.mes:02d}_{processamento.ano}_{processamento.pk}.pdf"
+        filepath = os.path.join(pdf_dir, filename)
 
-    c = canvas.Canvas(filepath, pagesize=A4)
-    width, height = A4
-    margin_left, margin_right = 2 * cm, 2 * cm
-    margin_top, margin_bottom = 2 * cm, 2 * cm
+        c = canvas.Canvas(filepath, pagesize=A4)
+        width, height = A4
+        margin_left, margin_right = 2 * cm, 2 * cm
+        margin_top, margin_bottom = 2 * cm, 2 * cm
 
-    # Cabeçalho CDOA
-    cor_cdoa = HexColor('#1a3a5c')
-    cor_cdoa_gold = HexColor('#c9a84c')
-    estado_display = processamento.get_estado_display()
-    c.setFillColor(cor_cdoa)
-    c.rect(0, height - 50, width, 50, fill=1, stroke=0)
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 12)
-    c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
-    c.setFont('Helvetica', 9)
-    c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-    c.setFillColor(cor_cdoa_gold)
-    c.setFont('Helvetica-Bold', 11)
-    c.drawRightString(width - 30, height - 30, estado_display)
+        # Cabeçalho CDOA
+        cor_cdoa = HexColor('#1a3a5c')
+        cor_cdoa_gold = HexColor('#c9a84c')
+        estado_display = processamento.get_estado_display()
+        c.setFillColor(cor_cdoa)
+        c.rect(0, height - 50, width, 50, fill=1, stroke=0)
+        c.setFillColor(white)
+        c.setFont('Helvetica-Bold', 12)
+        c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
+        c.setFont('Helvetica', 9)
+        c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+        c.setFillColor(cor_cdoa_gold)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawRightString(width - 30, height - 30, estado_display)
 
-    y_position = height - 70
+        y_position = height - 70
 
-    c.setFont("Helvetica-Bold", 18)
-    c.setFillColor(cor_cdoa)
-    title = "PROCESSAMENTO SALARIAL INSTITUCIONAL"
-    tw = c.stringWidth(title, "Helvetica-Bold", 18)
-    c.drawCentredString(width / 2, y_position, title)
-    y_position -= 25
-    c.setFont("Helvetica", 10)
-    c.setFillColor(black)
-    periodo = f"Período: {processamento.mes:02d}/{processamento.ano} | Estado: {estado_display}"
-    tw = c.stringWidth(periodo, "Helvetica", 10)
-    c.drawCentredString(width / 2, y_position, periodo)
-    y_position -= 25
+        c.setFont("Helvetica-Bold", 18)
+        c.setFillColor(cor_cdoa)
+        title = "PROCESSAMENTO SALARIAL INSTITUCIONAL"
+        tw = c.stringWidth(title, "Helvetica-Bold", 18)
+        c.drawCentredString(width / 2, y_position, title)
+        y_position -= 25
+        c.setFont("Helvetica", 10)
+        c.setFillColor(black)
+        periodo = f"Período: {processamento.mes:02d}/{processamento.ano} | Estado: {estado_display}"
+        tw = c.stringWidth(periodo, "Helvetica", 10)
+        c.drawCentredString(width / 2, y_position, periodo)
+        y_position -= 25
 
-    c.line(margin_left, y_position, width - margin_right, y_position)
-    y_position -= 25
+        c.line(margin_left, y_position, width - margin_right, y_position)
+        y_position -= 25
 
-    headers = ["Colaborador", "Salário Base", "Subsídios", "Bruto", "Faltas", "IRT", "INSS 3%", "Líquido"]
-    col_widths = [6, 2, 2, 2, 1.5, 1.5, 1.5, 2]
-    total_width = width - margin_left - margin_right
+        headers = ["Colaborador", "Salário Base", "Subsídios", "Bruto", "Faltas", "IRT", "INSS 3%", "Líquido"]
+        col_widths = [6, 2, 2, 2, 1.5, 1.5, 1.5, 2]
+        total_width = width - margin_left - margin_right
 
-    c.setFont("Helvetica-Bold", 8)
-    x = margin_left
-    for i, h in enumerate(headers):
-        cw = total_width * col_widths[i] / sum(col_widths)
-        c.drawString(x, y_position, h)
-        x += cw
-    y_position -= 18
-    c.setFont("Helvetica", 8)
-
-    for recibo in recibos:
-        if y_position < margin_bottom + 80:
-            c.showPage()
-            # Cabeçalho CDOA na nova página
-            c.setFillColor(cor_cdoa)
-            c.rect(0, height - 50, width, 50, fill=1, stroke=0)
-            c.setFillColor(white)
-            c.setFont('Helvetica-Bold', 12)
-            c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
-            c.setFont('Helvetica', 9)
-            c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-            c.setFillColor(cor_cdoa_gold)
-            c.setFont('Helvetica-Bold', 11)
-            c.drawRightString(width - 30, height - 30, estado_display)
-
-            y_position = height - 70
-            # Repetir cabeçalho da tabela
-            c.setFont("Helvetica-Bold", 8)
-            x = margin_left
-            for i, h in enumerate(headers):
-                cw = total_width * col_widths[i] / sum(col_widths)
-                c.drawString(x, y_position, h)
-                x += cw
-            y_position -= 18
-            c.setFont("Helvetica", 8)
-        total_subs = sum(v.valor for v in recibo.subsidios_vinculados.all())
-        dados = [
-            recibo.colaborador.nome[:30],
-            fmt_kz(recibo.salario_base),
-            fmt_kz(total_subs),
-            fmt_kz(recibo.bruto),
-            fmt_kz(recibo.outros_descontos),
-            fmt_kz(recibo.irt),
-            fmt_kz(recibo.inss_trabalhador),
-            fmt_kz(recibo.liquido),
-        ]
+        c.setFont("Helvetica-Bold", 8)
         x = margin_left
-        for i, d in enumerate(dados):
+        for i, h in enumerate(headers):
             cw = total_width * col_widths[i] / sum(col_widths)
-            if i == 0:
-                c.drawString(x, y_position, d)
-            else:
-                c.drawRightString(x + cw, y_position, d)
+            c.drawString(x, y_position, h)
             x += cw
-        y_position -= 15
+        y_position -= 18
+        c.setFont("Helvetica", 8)
 
-    y_position -= 10
-    c.line(margin_left, y_position, width - margin_right, y_position)
-    y_position -= 15
-    total_liquido = sum(r.liquido for r in recibos)
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(margin_left, y_position, "Total Líquido Pago:")
-    c.drawRightString(width - margin_right, y_position, f"{fmt_kz(total_liquido)} KZ")
-    y_position -= 60
-    c.setFont("Helvetica", 8)
-    footer = "Documento gerado automaticamente pelo Sistema de Gestão de Recursos Humanos"
-    tw = c.stringWidth(footer, "Helvetica", 8)
-    c.drawString((width - tw) / 2, y_position, footer)
-    c.save()
-    processamento.pdf_gerado = True
-    processamento.save()
+        for recibo in recibos:
+            if y_position < margin_bottom + 80:
+                c.showPage()
+                # Cabeçalho CDOA na nova página
+                c.setFillColor(cor_cdoa)
+                c.rect(0, height - 50, width, 50, fill=1, stroke=0)
+                c.setFillColor(white)
+                c.setFont('Helvetica-Bold', 12)
+                c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
+                c.setFont('Helvetica', 9)
+                c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+                c.setFillColor(cor_cdoa_gold)
+                c.setFont('Helvetica-Bold', 11)
+                c.drawRightString(width - 30, height - 30, estado_display)
+
+                y_position = height - 70
+                # Repetir cabeçalho da tabela
+                c.setFont("Helvetica-Bold", 8)
+                x = margin_left
+                for i, h in enumerate(headers):
+                    cw = total_width * col_widths[i] / sum(col_widths)
+                    c.drawString(x, y_position, h)
+                    x += cw
+                y_position -= 18
+                c.setFont("Helvetica", 8)
+            total_subs = sum(v.valor for v in recibo.subsidios_vinculados.all())
+            dados = [
+                recibo.colaborador.nome[:30],
+                fmt_kz(recibo.salario_base),
+                fmt_kz(total_subs),
+                fmt_kz(recibo.bruto),
+                fmt_kz(recibo.outros_descontos),
+                fmt_kz(recibo.irt),
+                fmt_kz(recibo.inss_trabalhador),
+                fmt_kz(recibo.liquido),
+            ]
+            x = margin_left
+            for i, d in enumerate(dados):
+                cw = total_width * col_widths[i] / sum(col_widths)
+                if i == 0:
+                    c.drawString(x, y_position, d)
+                else:
+                    c.drawRightString(x + cw, y_position, d)
+                x += cw
+            y_position -= 15
+
+        y_position -= 10
+        c.line(margin_left, y_position, width - margin_right, y_position)
+        y_position -= 15
+        total_liquido = sum(r.liquido for r in recibos)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(margin_left, y_position, "Total Líquido Pago:")
+        c.drawRightString(width - margin_right, y_position, f"{fmt_kz(total_liquido)} KZ")
+        y_position -= 60
+        c.setFont("Helvetica", 8)
+        footer = "Documento gerado automaticamente pelo Sistema de Gestão de Recursos Humanos"
+        tw = c.stringWidth(footer, "Helvetica", 8)
+        c.drawString((width - tw) / 2, y_position, footer)
+        c.save()
+        processamento.pdf_gerado = True
+        processamento.save()
+    except Exception:
+        _logger.exception("Erro ao gerar PDF institucional do processamento %s", processamento.pk)
 
 
 # ══════════════════════════════════════════════════════════════════════════

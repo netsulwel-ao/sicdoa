@@ -1,6 +1,7 @@
 """Views do módulo users — autenticação, dashboards e portal do colaborador."""
 # pylint: disable=no-member
 import json
+import re
 import smtplib
 import ssl as ssl_lib
 from datetime import date
@@ -10,6 +11,7 @@ import requests
 from utils.ssl_utils import requests_kwargs_ssl
 from django.conf import settings
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.mail import EmailMultiAlternatives
 from django.core.paginator import Paginator
 from django.db import connection
@@ -115,6 +117,16 @@ def login_view(request):
         messages.error(request, "Preencha todos os campos.")
         return render(request, "login.html")
 
+    # ── Brute-force protection ──────────────────────────────────────────
+    lockout_key = f"login_lockout:{email}"
+    if cache.get(lockout_key):
+        messages.error(request, "Conta bloqueada temporariamente. Tente novamente em 15 minutos.")
+        return render(request, "login.html")
+
+    attempts_key = f"login_attempts:{email}"
+    max_attempts = 5
+    lockout_timeout = 15 * 60  # 15 minutes in seconds
+
     usuario = None
     tipo_usuario = None
     usuario_bloqueado = False
@@ -203,7 +215,16 @@ def login_view(request):
         registrar_log(request, 'LOGIN_FALHA', 'users',
                       f"Tentativa de login falhada: {email}",
                       email_forcado=email)
-        messages.error(request, "❌ Credenciais inválidas. Verifique o seu email e senha.")
+
+        attempts = cache.get(attempts_key, 0) + 1
+        if attempts >= max_attempts:
+            cache.set(lockout_key, True, lockout_timeout)
+            cache.delete(attempts_key)
+            messages.error(request, "Conta bloqueada temporariamente. Tente novamente em 15 minutos.")
+        else:
+            cache.set(attempts_key, attempts, lockout_timeout)
+            remaining = max_attempts - attempts
+            messages.error(request, f"❌ Credenciais inválidas. Verifique o seu email e senha. ({remaining} tentativa(s) restante(s))")
         return render(request, "login.html")
 
     # ── Colaborador Institucional sem função → modo limitado (como colaborador banca) ──
@@ -220,6 +241,7 @@ def login_view(request):
     if institucional_sem_funcao:
         from .models import registrar_log as _rl
         criar_sessao_usuario(request, usuario)
+        cache.delete(attempts_key)
         # Forçar sessão de colaborador limitado
         request.session['tipo_usuario'] = 'colaborador'
         request.session['usuario'] = {
@@ -238,6 +260,7 @@ def login_view(request):
         return redirect("dashboard_colaborador")
 
     criar_sessao_usuario(request, usuario)
+    cache.delete(attempts_key)
 
     if tipo_usuario == "usuario":
         with connection.cursor() as cursor:
@@ -819,8 +842,12 @@ def perfil_view(request):
 
             if not _verificar_password(senha_actual, user_obj.password):
                 messages.error(request, "A palavra-passe actual está incorrecta.")
-            elif len(nova_senha) < 4:
-                messages.error(request, "A nova palavra-passe deve ter pelo menos 4 caracteres.")
+            elif len(nova_senha) < 8:
+                messages.error(request, "A nova palavra-passe deve ter pelo menos 8 caracteres.")
+            elif not any(c.isupper() for c in nova_senha):
+                messages.error(request, "A nova palavra-passe deve conter pelo menos uma letra maiúscula.")
+            elif not any(c.isdigit() for c in nova_senha):
+                messages.error(request, "A nova palavra-passe deve conter pelo menos um dígito.")
             elif nova_senha != confirmar:
                 messages.error(request, "As palavras-passe não coincidem.")
             else:
@@ -1370,10 +1397,18 @@ def meu_perfil_senha(request):
         messages.error(request, "Preencha todos os campos de senha.")
         return redirect("meu_perfil")
     
-    if len(nova_senha) < 4:
-        messages.error(request, "A nova senha deve ter pelo menos 4 caracteres.")
+    if len(nova_senha) < 8:
+        messages.error(request, "A nova senha deve ter pelo menos 8 caracteres.")
         return redirect("meu_perfil")
-    
+
+    if not any(c.isupper() for c in nova_senha):
+        messages.error(request, "A nova senha deve conter pelo menos uma letra maiúscula.")
+        return redirect("meu_perfil")
+
+    if not any(c.isdigit() for c in nova_senha):
+        messages.error(request, "A nova senha deve conter pelo menos um dígito.")
+        return redirect("meu_perfil")
+
     if len(nova_senha) > 128:
         messages.error(request, "A senha é demasiado longa.")
         return redirect("meu_perfil")

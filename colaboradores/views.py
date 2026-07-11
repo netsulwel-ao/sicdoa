@@ -1,12 +1,12 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+
 from django.utils import timezone
 from django.http import HttpResponse
 from users.auth_decorators import requer_sessao_ativa, tempo_restante_sessao
 from rh.models import Colaborador
 
 
-@login_required
+@requer_sessao_ativa
 def dashboard_colaborador_view(request):
     """Dashboard principal para colaboradores."""
     # Verificar se a sessão está ativa
@@ -54,7 +54,7 @@ def dashboard_colaborador_view(request):
         return render(request, 'colaboradores/dashboard.html', contexto)
 
 
-@login_required
+@requer_sessao_ativa
 def perfil_view(request):
     """Página de perfil do colaborador."""
     if not request.session.get('usuario_id'):
@@ -81,7 +81,7 @@ def perfil_view(request):
     return render(request, 'colaboradores/perfil.html', contexto)
 
 
-@login_required
+@requer_sessao_ativa
 def documentos_view(request):
     """Página de documentos do colaborador."""
     if not request.session.get('usuario_id'):
@@ -108,7 +108,7 @@ def documentos_view(request):
     return render(request, 'colaboradores/documentos.html', contexto)
 
 
-@login_required
+@requer_sessao_ativa
 def presenca_view(request):
     """Página de controlo de presença do colaborador."""
     if not request.session.get('usuario_id'):
@@ -134,7 +134,7 @@ def presenca_view(request):
     return render(request, 'colaboradores/presenca.html', contexto)
 
 
-@login_required
+@requer_sessao_ativa
 def salario_view(request):
     """Página de informações salariais do colaborador."""
     if not request.session.get('usuario_id'):
@@ -161,7 +161,7 @@ def salario_view(request):
     return render(request, 'colaboradores/salario.html', contexto)
 
 
-@login_required
+@requer_sessao_ativa
 def historico_salarial_view(request):
     """Página de histórico salarial do colaborador."""
     if not request.session.get('usuario_id'):
@@ -188,7 +188,7 @@ def historico_salarial_view(request):
     return render(request, 'colaboradores/historico_salarial.html', contexto)
 
 
-@login_required
+@requer_sessao_ativa
 def ferias_view(request):
     """Página de solicitação de férias do colaborador."""
     if not request.session.get('usuario_id'):
@@ -214,7 +214,7 @@ def ferias_view(request):
     return render(request, 'colaboradores/ferias.html', contexto)
 
 
-@login_required
+@requer_sessao_ativa
 def buscar_view(request):
     """Página de resultados de busca para colaboradores."""
     if not request.session.get('usuario_id'):

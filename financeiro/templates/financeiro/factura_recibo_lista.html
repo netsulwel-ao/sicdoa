@@ -96,9 +96,12 @@
                 </div>
               </div>
               <div class="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                <a href="{% url 'financeiro:factura_recibo_enviar_email' fr.pk %}" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Enviar Email">
-                  <i class="fas fa-envelope"></i>
-                </a>
+                <form method="post" action="{% url 'financeiro:factura_recibo_enviar_email' fr.pk %}" class="inline">
+                  {% csrf_token %}
+                  <button type="button" onclick="confirmarFormPost(this.form, {tipo:'info', titulo:'Enviar Email', mensagem:'Enviar factura-recibo por email?', textoBotao:'Sim, Enviar'})" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Enviar Email">
+                    <i class="fas fa-envelope"></i>
+                  </button>
+                </form>
                 <a href="{% url 'financeiro:factura_recibo_pdf' fr.pk %}" target="_blank" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="PDF">
                   <i class="fas fa-file-pdf"></i>
                 </a>
@@ -164,9 +167,12 @@
                 <a href="{% url 'financeiro:factura_recibo_detalhe' fr.pk %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Visualizar">
                   <i class="fas fa-eye"></i>
                 </a>
-                <a href="{% url 'financeiro:factura_recibo_enviar_email' fr.pk %}" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Enviar Email">
-                  <i class="fas fa-envelope"></i>
-                </a>
+                <form method="post" action="{% url 'financeiro:factura_recibo_enviar_email' fr.pk %}" class="inline">
+                  {% csrf_token %}
+                  <button type="button" onclick="confirmarFormPost(this.form, {tipo:'info', titulo:'Enviar Email', mensagem:'Enviar factura-recibo por email?', textoBotao:'Sim, Enviar'})" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Enviar Email">
+                    <i class="fas fa-envelope"></i>
+                  </button>
+                </form>
                 <a href="{% url 'financeiro:factura_recibo_pdf' fr.pk %}" target="_blank" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="PDF">
                   <i class="fas fa-file-pdf"></i>
                 </a>

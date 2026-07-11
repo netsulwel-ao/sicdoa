@@ -1,4 +1,5 @@
 import json
+import html as _html_mod
 import io
 from collections import OrderedDict
 from datetime import datetime, timedelta, date
@@ -621,6 +622,204 @@ def conta_corrente_mensal_excel(request):
     return response
 
 
+def _safe_cc(text):
+    """Escapa caracteres HTML/XML especiais para prevenir XSS em PDFs."""
+    if not text:
+        return ''
+    return _html_mod.escape(str(text))
+
+
+def _build_cc_header(banca, titulo, W):
+    """Cabeçalho padrão: logo, despachante, banca, HASH, título + HR azul."""
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_RIGHT
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle, Image as RLImage
+    from reportlab.platypus.flowables import HRFlowable
+    from users.models import Usuario
+
+    COR_PRETO    = colors.HexColor('#0f172a')
+    COR_CINZA    = colors.HexColor('#64748b')
+    COR_VERDE    = colors.HexColor('#059669')
+    COR_PRIMARIO = colors.HexColor('#137fec')
+    COR_BORDA    = colors.HexColor('#cbd5e1')
+
+    def st(name, **kw):
+        d = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRETO, leading=11)
+        d.update(kw)
+        return ParagraphStyle(name, **d)
+
+    s_small = st('small', fontSize=7, textColor=COR_CINZA, leading=9)
+    s_titulo = st('tit_cc', fontSize=14, fontName='Helvetica-Bold', textColor=COR_PRETO)
+
+    flowables = []
+
+    logo_path = None
+    if banca and hasattr(banca, 'logo') and banca.logo:
+        try:
+            logo_path = banca.logo.path
+        except Exception:
+            logo_path = None
+    col_logo = Paragraph('', s_small)
+    if logo_path:
+        try:
+            col_logo = RLImage(logo_path, width=2.2 * cm, height=1.6 * cm)
+        except Exception:
+            col_logo = Paragraph('', s_small)
+
+    top_line = Table([[col_logo, '']], colWidths=[W - 1.9 * cm, 1.9 * cm])
+    top_line.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    flowables.append(top_line)
+
+    nome_txt   = _safe_cc(banca.nome) if banca else 'Despachante Oficial'
+    nif_txt    = _safe_cc(banca.nif) if banca else 'N/D'
+    cdoa       = _safe_cc(banca.licenca_cdoa) if banca else '—'
+    endereco   = _safe_cc(banca.endereco) if banca else '—'
+    telefone   = _safe_cc(banca.telefone) if banca else '—'
+    email_b    = _safe_cc(banca.email) if banca else '—'
+
+    resp_nome = 'DESPACHANTE OFICIAL'
+    resp_nif = resp_ced = resp_tel = resp_email = '—'
+    if banca:
+        try:
+            ub = Usuario.objects.get(id=banca.usuario_id)
+            resp_nome   = _safe_cc(ub.nome or 'DESPACHANTE OFICIAL').upper()
+            resp_nif    = _safe_cc(ub.nif) or '—'
+            resp_ced    = _safe_cc(ub.cedula) or '—'
+            resp_tel    = _safe_cc(ub.telefone) or '—'
+            resp_email  = _safe_cc(ub.email) or '—'
+        except Exception:
+            pass
+
+    desp_info = (
+        f'<font size="7" color="{COR_VERDE.hexval()}"><b>DESPACHANTE: {resp_nome}</b></font><br/>'
+        f'<font size="6.5" color="#64748b">NIF: {resp_nif}</font><br/>'
+        f'<font size="6.5" color="#64748b">Cédula CDOA: {resp_ced}</font><br/>'
+        f'<font size="6.5" color="#64748b">Tel: {resp_tel} &nbsp;|&nbsp; Email: {resp_email}</font>'
+    )
+    banca_info = (
+        f'<font size="7" color="#475569"><b>{nome_txt}</b></font><br/>'
+        f'<font size="6.5" color="#64748b">NIF: {nif_txt} &nbsp;|&nbsp; Licença CDOA: {cdoa}</font><br/>'
+        f'<font size="6.5" color="#64748b">{endereco}</font><br/>'
+        f'<font size="6.5" color="#64748b">Tel: {telefone} &nbsp;|&nbsp; Email: {email_b}</font>'
+    )
+    header_body = Table([[
+        Paragraph(desp_info, st('desp_cc', fontSize=6.5, leading=9)),
+        Paragraph(banca_info, st('banca_cc', fontSize=6.5, leading=9, alignment=TA_RIGHT)),
+    ]], colWidths=[W * 0.55, W * 0.45])
+    header_body.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    flowables.append(header_body)
+    flowables.append(Spacer(1, 0.1 * cm))
+
+    flowables.append(Paragraph(
+        f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; '
+        f'Processado por programa válido nº35/AGT/2019</font>',
+        st('hash_cc', fontSize=6)
+    ))
+    flowables.append(Spacer(1, 0.1 * cm))
+    flowables.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    flowables.append(Spacer(1, 0.1 * cm))
+
+    flowables.append(Paragraph(titulo, s_titulo))
+    flowables.append(HRFlowable(width=W, thickness=2, color=COR_PRIMARIO, spaceAfter=12))
+
+    return flowables
+
+
+def _build_cc_footer(banca, W):
+    """Rodapé: dados bancários compactos (espelho do factura_pdf)."""
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, Spacer
+    from reportlab.platypus.flowables import HRFlowable
+
+    COR_PRETO = colors.HexColor('#0f172a')
+    COR_BORDA = colors.HexColor('#cbd5e1')
+
+    def st(name, **kw):
+        d = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRETO, leading=11)
+        d.update(kw)
+        return ParagraphStyle(name, **d)
+
+    flowables = []
+
+    bancos_pdf = []
+    if banca:
+        try:
+            bancos_pdf = json.loads(banca.dados_bancarios_json or '[]')
+        except (json.JSONDecodeError, ValueError):
+            bancos_pdf = []
+        if not isinstance(bancos_pdf, list):
+            bancos_pdf = []
+
+    has_bank = False
+    if bancos_pdf:
+        has_bank = any(b.get('banco') for b in bancos_pdf if isinstance(b, dict))
+    elif banca:
+        has_bank = bool(banca.banco or banca.numero_conta or banca.iban)
+
+    if has_bank or (banca and banca.instrucoes_pagamento):
+        flowables.append(Spacer(1, 0.1 * cm))
+        flowables.append(HRFlowable(width=W, thickness=0.3, color=COR_BORDA))
+        flowables.append(Spacer(1, 0.08 * cm))
+        flowables.append(Paragraph(
+            '<font size="5.5" color="#1e293b"><b>Dados Bancários</b></font>',
+            st('bank_title_cc', fontSize=5.5)
+        ))
+        flowables.append(Spacer(1, 0.03 * cm))
+
+        if bancos_pdf:
+            for i, b in enumerate(bancos_pdf):
+                if not isinstance(b, dict) or not b.get('banco'):
+                    continue
+                flowables.append(Paragraph(
+                    f'<font size="5" color="#475569">'
+                    f'<b>{i + 1}.</b> &nbsp;'
+                    f'<b>Banco:</b> {b["banco"]} &nbsp;|&nbsp;'
+                    f'<b>IBAN:</b> <font name="Courier">{b.get("iban", "—")}</font>'
+                    f'</font>',
+                    st(f'bank_line_cc_{i}', fontSize=5, leading=6.5, leftIndent=8)
+                ))
+        elif banca:
+            parts = []
+            if banca.banco:
+                parts.append(f'<b>Banco:</b> {banca.banco}')
+            if banca.iban:
+                parts.append(f'<b>IBAN:</b> <font name="Courier">{banca.iban}</font>')
+            if banca.numero_conta:
+                parts.append(f'<b>Conta:</b> {banca.numero_conta}')
+            if parts:
+                flowables.append(Paragraph(
+                    f'<font size="5" color="#475569">{" &nbsp;|&nbsp; ".join(parts)}</font>',
+                    st('bank_foot_cc', fontSize=5, leading=6.5, leftIndent=8)
+                ))
+
+        if banca and banca.instrucoes_pagamento:
+            txt = banca.instrucoes_pagamento.replace('\n', ' ').replace('\r', '')
+            flowables.append(Spacer(1, 0.02 * cm))
+            flowables.append(Paragraph(
+                f'<font size="4.5" color="#64748b"><i>{txt}</i></font>',
+                st('bank_inst_cc', fontSize=4.5, leading=6, leftIndent=8)
+            ))
+
+    return flowables
+
+
 @requer_sessao_ativa
 def conta_corrente_mensal_pdf(request):
     ano = request.GET.get('ano', str(timezone.now().year))
@@ -656,8 +855,16 @@ def conta_corrente_mensal_pdf(request):
     s_header = ParagraphStyle('h', fontSize=8, fontName='Helvetica-Bold', textColor=colors.white, leading=10)
 
     story = []
-    story.append(Paragraph(f'Conta Corrente Mensal - {ano}', s_titulo))
-    story.append(HRFlowable(width=W, thickness=2, color=cor_primaria, spaceAfter=12))
+    banca = None
+    banca_id = request.session.get('banca_id')
+    if banca_id:
+        try:
+            from rh.models import Banca
+            banca = Banca.objects.get(id=banca_id)
+        except Exception:
+            banca = None
+    titulo = f'Conta Corrente Mensal - {ano}'
+    story.extend(_build_cc_header(banca, titulo, W))
 
     meses_pt = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -705,6 +912,7 @@ def conta_corrente_mensal_pdf(request):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(t)
+    story.extend(_build_cc_footer(banca, W))
     doc.build(story)
 
     buffer.seek(0)
@@ -1044,8 +1252,16 @@ def conta_corrente_periodica_pdf(request):
     s_header = ParagraphStyle('h', fontSize=8, fontName='Helvetica-Bold', textColor=colors.white, leading=10)
 
     story = []
-    story.append(Paragraph(f'Conta Corrente {PERIODOS.get(tipo_periodo, tipo_periodo)} - {ano}', s_titulo))
-    story.append(HRFlowable(width=W, thickness=2, color=cor_primaria, spaceAfter=12))
+    banca = None
+    banca_id = request.session.get('banca_id')
+    if banca_id:
+        try:
+            from rh.models import Banca
+            banca = Banca.objects.get(id=banca_id)
+        except Exception:
+            banca = None
+    titulo = f'Conta Corrente {PERIODOS.get(tipo_periodo, tipo_periodo)} - {ano}'
+    story.extend(_build_cc_header(banca, titulo, W))
 
     clientes_base = Cliente.objects.all()
     filtro = _user_filter_direct_from_request(request)
@@ -1085,6 +1301,7 @@ def conta_corrente_periodica_pdf(request):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(t)
+    story.extend(_build_cc_footer(banca, W))
     doc.build(story)
 
     buffer.seek(0)

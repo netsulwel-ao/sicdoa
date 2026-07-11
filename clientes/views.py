@@ -8,6 +8,8 @@ from utils.format_kz import parse_kz
 from .acesso import escopo_cliente
 from utils.validators import email_ja_existe
 from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
+from users.auth_decorators import sessao_expirada, limpar_sessao
+import time
 
 
 def _usuario_dono(request):
@@ -26,10 +28,15 @@ def _usuario_dono(request):
 
 
 def _requer_sessao(fn):
-    """Decorator para verificar se o usuário está autenticado"""
+    """Decorator para verificar se o usuário está autenticado e sessão ativa"""
     def wrapper(request, *args, **kwargs):
         if not request.session.get('usuario_id'):
             return redirect('login')
+        if sessao_expirada(request):
+            limpar_sessao(request)
+            return redirect('login')
+        request.session['login_time'] = time.time()
+        request.session.modified = True
         return fn(request, *args, **kwargs)
     wrapper.__name__ = fn.__name__
     return wrapper
@@ -102,7 +109,6 @@ def criar_cliente(request):
             telefone = request.POST.get('telefone', '').strip()
             email = request.POST.get('email', '').strip()
             observacoes = request.POST.get('observacoes', '').strip()
-            limite_financeiro = request.POST.get('limite_financeiro', '0').strip()
             
             if not nome or not nif or not localizacao:
                 messages.error(request, 'Os campos Nome, NIF e Localização são obrigatórios.')
@@ -110,11 +116,6 @@ def criar_cliente(request):
                     'form_data': request.POST
                 })
                 return render(request, 'clientes/form.html', context)
-            
-            try:
-                limite_financeiro = Decimal(parse_kz(limite_financeiro) or '0')
-            except Exception:
-                limite_financeiro = Decimal('0')
 
             # Verificar se NIF já existe
             if Cliente.objects.filter(nif=nif).exists():
@@ -145,7 +146,6 @@ def criar_cliente(request):
                 telefone=telefone,
                 email=email,
                 observacoes=observacoes,
-                limite_financeiro=limite_financeiro,
                 usuario_id=_usuario_dono(request),
                 banca_id=banca_id,
                 filial_id=filial_id,
@@ -181,7 +181,6 @@ def editar_cliente(request, pk):
             telefone = request.POST.get('telefone', '').strip()
             email = request.POST.get('email', '').strip()
             observacoes = request.POST.get('observacoes', '').strip()
-            limite_financeiro = request.POST.get('limite_financeiro', '0').strip()
             
             if not nome or not nif or not localizacao:
                 messages.error(request, 'Os campos Nome, NIF e Localização são obrigatórios.')
@@ -190,11 +189,6 @@ def editar_cliente(request, pk):
                     'form_data': request.POST
                 })
                 return render(request, 'clientes/form.html', context)
-            
-            try:
-                limite_financeiro = Decimal(parse_kz(limite_financeiro) or '0')
-            except Exception:
-                limite_financeiro = Decimal('0')
 
             # Verificar se NIF já existe (exceto para este cliente)
             if Cliente.objects.filter(nif=nif).exclude(pk=pk).exists():
@@ -220,7 +214,6 @@ def editar_cliente(request, pk):
             cliente.telefone = telefone
             cliente.email = email
             cliente.observacoes = observacoes
-            cliente.limite_financeiro = limite_financeiro
             cliente.usuario_id = _usuario_dono(request)
             cliente.save()
             

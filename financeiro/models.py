@@ -34,7 +34,7 @@ class RequisicaoFundo(models.Model):
                                             verbose_name='Câmbio de Referência')
     
     # Dados do Cliente
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='requisicoes_fundos',
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='requisicoes_fundos',
                                 verbose_name='Cliente')
     pessoa_contacto = models.CharField(max_length=200, blank=True, verbose_name='Pessoa de Contacto')
     
@@ -99,7 +99,7 @@ class RequisicaoFundo(models.Model):
         ano = timezone.now().year
         ultimo = (
             RequisicaoFundo.objects
-            .filter(numero_requisicao__startswith=f'RF-{ano}/')
+            .filter(banca=self.banca, numero_requisicao__startswith=f'RF-{ano}/')
             .order_by('-numero_requisicao')
             .first()
         )
@@ -406,7 +406,7 @@ class FacturaCliente(models.Model):
     filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
                                 null=True, blank=True, related_name='facturas_cliente')
     numero_factura = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Factura')
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='facturas_cliente', verbose_name='Cliente')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='facturas_cliente', verbose_name='Cliente')
     processo_aduaneiro = models.ForeignKey(DeclaracaoUnica, on_delete=models.SET_NULL, null=True, blank=True, related_name='facturas_cliente', verbose_name='Processo Aduaneiro')
     
     # Detalhes dos custos
@@ -453,7 +453,7 @@ class FacturaCliente(models.Model):
         ano = timezone.now().year
         ultimo = (
             FacturaCliente.objects
-            .filter(numero_factura__startswith=f'FT-{ano}-')
+            .filter(banca=self.banca, numero_factura__startswith=f'FT-{ano}-')
             .order_by('-numero_factura')
             .first()
         )
@@ -532,8 +532,8 @@ class ReciboCliente(models.Model):
     filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
                                 null=True, blank=True, related_name='recibos_cliente')
     numero_recibo = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número do Recibo')
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='recibos_cliente', verbose_name='Cliente')
-    factura = models.ForeignKey(FacturaCliente, on_delete=models.PROTECT, related_name='recibos', verbose_name='Factura')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='recibos_cliente', verbose_name='Cliente')
+    factura = models.ForeignKey(FacturaCliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='recibos', verbose_name='Factura')
     requisicao_fundo = models.ForeignKey(RequisicaoFundo, on_delete=models.SET_NULL, null=True, blank=True,
                                          related_name='recibos_pagamento', verbose_name='Requisição de Fundo')
     valor_recebido = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Recebido')
@@ -566,7 +566,7 @@ class ReciboCliente(models.Model):
         ano = timezone.now().year
         ultimo = (
             ReciboCliente.objects
-            .filter(numero_recibo__startswith=f'REC-{ano}-')
+            .filter(banca=self.banca, numero_recibo__startswith=f'REC-{ano}-')
             .order_by('-numero_recibo')
             .first()
         )
@@ -661,8 +661,8 @@ class NotaCredito(models.Model):
     filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
                                 null=True, blank=True, related_name='notas_credito')
     numero_nota = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Nota')
-    factura_relacionada = models.ForeignKey(FacturaCliente, on_delete=models.PROTECT, related_name='notas_credito', verbose_name='Factura Relacionada')
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='notas_credito', verbose_name='Cliente')
+    factura_relacionada = models.ForeignKey(FacturaCliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas_credito', verbose_name='Factura Relacionada')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='notas_credito', verbose_name='Cliente')
     valor_creditado = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Creditado')
     motivo = models.CharField(max_length=255, verbose_name='Motivo')
     data = models.DateField(verbose_name='Data', db_index=True)
@@ -695,7 +695,7 @@ class NotaCredito(models.Model):
         ano = timezone.now().year
         ultimo = (
             NotaCredito.objects
-            .filter(numero_nota__startswith=f'NC-{ano}-')
+            .filter(banca=self.banca, numero_nota__startswith=f'NC-{ano}-')
             .order_by('-numero_nota')
             .first()
         )
@@ -761,8 +761,8 @@ class NotaDebito(models.Model):
     filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
                                 null=True, blank=True, related_name='notas_debito')
     numero_nota = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Nota')
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='notas_debito', verbose_name='Cliente')
-    factura_relacionada = models.ForeignKey(FacturaCliente, on_delete=models.PROTECT, related_name='notas_debito', verbose_name='Factura Relacionada')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='notas_debito', verbose_name='Cliente')
+    factura_relacionada = models.ForeignKey(FacturaCliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='notas_debito', verbose_name='Factura Relacionada')
     valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor')
     motivo = models.CharField(max_length=255, verbose_name='Motivo')
     data = models.DateField(verbose_name='Data', db_index=True)
@@ -795,7 +795,7 @@ class NotaDebito(models.Model):
         ano = timezone.now().year
         ultimo = (
             NotaDebito.objects
-            .filter(numero_nota__startswith=f'ND-{ano}-')
+            .filter(banca=self.banca, numero_nota__startswith=f'ND-{ano}-')
             .order_by('-numero_nota')
             .first()
         )
@@ -867,7 +867,7 @@ class FacturaRecibo(models.Model):
     filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
                                 null=True, blank=True, related_name='facturas_recibo')
     numero_factura_recibo = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Factura-Recibo')
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='facturas_recibo', verbose_name='Cliente')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='facturas_recibo', verbose_name='Cliente')
     factura = models.ForeignKey(FacturaCliente, null=True, blank=True, on_delete=models.SET_NULL, related_name='facturas_recibo', verbose_name='Factura Associada')
     requisicao_fundo = models.ForeignKey('RequisicaoFundo', null=True, blank=True, on_delete=models.SET_NULL, related_name='facturas_recibo', verbose_name='Requisição de Fundos')
     valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor')
@@ -899,7 +899,7 @@ class FacturaRecibo(models.Model):
         ano = timezone.now().year
         ultimo = (
             FacturaRecibo.objects
-            .filter(numero_factura_recibo__startswith=f'FR-{ano}-')
+            .filter(banca=self.banca, numero_factura_recibo__startswith=f'FR-{ano}-')
             .order_by('-numero_factura_recibo')
             .first()
         )

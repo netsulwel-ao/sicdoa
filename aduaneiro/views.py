@@ -1229,18 +1229,48 @@ def du_download_pdf(request, du_uuid):
         story.append(Spacer(1, 0.15*cm))
 
         # ════════════════════════════════════════════════════════════════
-        # RODAPÉ: HASH + PÁGINA/DATA
+        # RODAPÉ: HASH + PÁGINA/DATA (via NumberedCanvas)
         # ════════════════════════════════════════════════════════════════
-        story.append(HRFlowable(width=W, thickness=0.5, color=colors.HexColor('#e2e2e2')))
-        story.append(Spacer(1, 0.1*cm))
-        story.append(Paragraph(
-            f'<font size="6" color="#94a3b8"><b>{nome_banco_txt} - HASH</b> &nbsp;|&nbsp; '
-            f'Processado por programa válido nº35/AGT/2019<br/>'
-            f'Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
-            st('footer', fontSize=6)
-        ))
+        from reportlab.pdfgen import canvas as _pdf_canvas
 
-        doc.build(story)
+        class _NumberedCanvas(_pdf_canvas.Canvas):
+            def __init__(self, *args, **kwargs):
+                _pdf_canvas.Canvas.__init__(self, *args, **kwargs)
+                self._saved_page_states = []
+
+            def showPage(self):
+                self._saved_page_states.append(dict(self.__dict__))
+                _pdf_canvas.Canvas.showPage(self)
+
+            def save(self):
+                num_pages = len(self._saved_page_states)
+                for i, state in enumerate(self._saved_page_states):
+                    self.__dict__.update(state)
+                    self._draw_footer(i + 1, num_pages)
+                    _pdf_canvas.Canvas.showPage(self)
+                _pdf_canvas.Canvas.save(self)
+
+            def _draw_footer(self, page_num, total_pages):
+                self.saveState()
+                self.setStrokeColor(colors.HexColor('#e2e2e2'))
+                self.setLineWidth(0.5)
+                self.line(0.7 * cm, 50, PAGE_W - 0.7 * cm, 50)
+                self.setFont('Helvetica', 6)
+                self.setFillColor(colors.HexColor('#94a3b8'))
+                self.drawString(
+                    0.7 * cm, 38,
+                    f'{nome_banco_txt} - HASH  |  '
+                    f'Processado por programa válido nº35/AGT/2019',
+                )
+                self.drawCentredString(
+                    PAGE_W / 2, 25,
+                    f'Pág. {page_num} / {total_pages}     '
+                    f'{agora.strftime("%H:%M:%S")}     '
+                    f'{agora.strftime("%d/%m/%Y")}',
+                )
+                self.restoreState()
+
+        doc.build(story, canvasmaker=_NumberedCanvas)
         buffer.seek(0)
 
         nome_ficheiro = f'DU_{du.numero_du or du.du_uuid}.pdf'

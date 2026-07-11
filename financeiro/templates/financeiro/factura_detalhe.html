@@ -1,70 +1,250 @@
 {% extends 'base.html' %}
 {% load static %}
+
+{% block title %}{{ factura.numero_factura }}{% endblock %}
+
 {% block content %}
-    <div class="max-w-3xl mx-auto w-full">
+<div class="max-w-7xl mx-auto w-full">
 
-      <!-- ── Mensagens ── -->
-      {% if messages %}
-        {% for message in messages %}
-          <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
-            {% if message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800
-            {% elif message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800
-            {% else %}bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800{% endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endif %}
+  <!-- Mensagens -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+        {% if message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800
+        {% elif message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800
+        {% else %}bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800{% endif %}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
 
-      <!-- ── Cabeçalho ── -->
-      <div class="mb-5 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2">
-            <a href="{% url 'financeiro:factura_lista' %}" class="hover:text-primary transition-colors">Facturas Finais</a>
-            <i class="fas fa-chevron-right" style="font-size:10px;"></i>
-            <span class="text-primary font-semibold">Detalhes</span>
-          </div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Factura {{ factura.numero_factura }}</h1>
-          {% if factura.requisicao_fundo %}
-          <a href="{% url 'financeiro:requisicao_detalhe' factura.requisicao_fundo.pk %}"
-             class="inline-flex items-center gap-1.5 mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
-            <i class="fas fa-link"></i> Gerada de {{ factura.requisicao_fundo.numero_requisicao }}
-          </a>
-          {% endif %}
+  <!-- Breadcrumb + Cabecalho -->
+  <div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+      <a href="{% url 'financeiro:factura_lista' %}" class="hover:text-primary transition-colors">Facturas Finais</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-900 dark:text-white font-medium">{{ factura.numero_factura }}</span>
+    </div>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 mb-1">
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ factura.numero_factura }}</h1>
+          <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold
+            {% if factura.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
+            {% elif factura.estado == 'Parcialmente Paga' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+            {% elif factura.estado == 'Paga' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+            {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+            {{ factura.estado }}
+          </span>
         </div>
-        <div class="flex items-center gap-2">
-          <a href="{% url 'financeiro:factura_lista' %}"
-            class="flex items-center gap-1.5 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
-            <i class="fas fa-arrow-left"></i>
-            <span>Voltar</span>
-          </a>
-          <a href="{% url 'financeiro:factura_pdf' factura.pk %}" target="_blank"
-            class="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
-            <i class="fas fa-file-pdf"></i>
-            <span>Imprimir PDF</span>
-          </a>
-          {% if factura.estado == 'Pendente' %}
-          <a href="{% url 'financeiro:factura_editar' factura.pk %}"
-            class="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
-            <i class="fas fa-edit"></i>
-            <span>Editar</span>
-          </a>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          Emitida em {{ factura.data_emissao|date:"d/m/Y H:i" }} &bull; {{ factura.cliente.nome }}
+          {% if factura.requisicao_fundo %}
+            &bull; <a href="{% url 'financeiro:requisicao_detalhe' factura.requisicao_fundo.pk %}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ factura.requisicao_fundo.numero_requisicao }}</a>
           {% endif %}
-          {% if factura.estado != 'Cancelada' %}
-          <a href="{% url 'financeiro:factura_enviar_email' factura.pk %}"
-            class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
-            <i class="fas fa-envelope"></i>
-            <span>Enviar Email</span>
-          </a>
-          {% endif %}
+        </p>
+      </div>
+
+      <!-- Acoes -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <a href="{% url 'financeiro:factura_lista' %}"
+          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+          <i class="fas fa-arrow-left"></i>Voltar
+        </a>
+        <a href="{% url 'financeiro:factura_pdf' factura.pk %}" target="_blank"
+          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+          <i class="fas fa-file-pdf"></i>PDF
+        </a>
+        {% if factura.estado == 'Pendente' %}
+        <a href="{% url 'financeiro:factura_editar' factura.pk %}"
+          class="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors shadow-sm">
+          <i class="fas fa-edit"></i>Editar
+        </a>
+        {% endif %}
+        {% if factura.estado != 'Cancelada' %}
+        <form method="post" action="{% url 'financeiro:factura_enviar_email' factura.pk %}" class="inline">
+          {% csrf_token %}
+          <button type="button"
+            onclick="confirmarFormPost(this.form, {tipo:'info', titulo:'Enviar Factura', mensagem:'Enviar factura por email para {{ factura.cliente.email }}?', textoBotao:'Sim, Enviar'})"
+            class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
+            <i class="fas fa-envelope"></i>Email
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Layout em Grid: 2/3 Conteudo + 1/3 Sidebar -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Coluna Principal (2/3) -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- 1. Discriminacao de Custos -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-green-50 to-green-50/50 dark:from-green-900/20 dark:to-green-900/10">
+          <h2 class="text-sm font-bold text-green-700 dark:text-green-400 uppercase tracking-wider flex items-center gap-2">
+            <i class="fas fa-receipt"></i>Discriminacao dos Custos
+          </h2>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+              <tr>
+                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Item / Encargo</th>
+                <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Valor</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700/60">
+              {% if factura.honorarios_despachante %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Honorarios do Despachante</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.honorarios_despachante|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+              {% if factura.taxas_aduaneiras %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Taxas Aduaneiras</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.taxas_aduaneiras|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+              {% if factura.emolumentos %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Emolumentos</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.emolumentos|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+              {% if factura.despesas_operacionais %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Despesas Operacionais</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.despesas_operacionais|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+              {% if factura.iva %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">IVA 14%</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.iva|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+              {% if factura.retencao %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Retencao 6.5%</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.retencao|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+              {% if factura.outros_encargos %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Outros Encargos</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.outros_encargos|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+
+          <!-- Total -->
+          <div class="bg-primary/5 dark:bg-primary/10 border-t-2 border-primary/20 px-6 py-4">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-gray-900 dark:text-white">Total da Factura</span>
+              <span class="text-xl font-bold text-primary">{{ factura.valor_total|fmtkz }} Kz</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- ── Detalhes da Factura ── -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
-        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-4">
-          <div>
-            <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">Estado de Pagamento</span>
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold mt-1.5
+      <!-- 2. Descricao / Notas -->
+      {% if factura.descricao %}
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fas fa-sticky-note text-primary"></i>Descricao
+        </h2>
+        <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{{ factura.descricao }}</p>
+      </div>
+      {% endif %}
+
+      <!-- 3. Historico -->
+      {% if historico %}
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-clock text-primary"></i>Historico
+        </h2>
+        <div class="space-y-0">
+          {% for h in historico %}
+          <div class="flex items-start gap-3 {% if not forloop.last %}pb-4{% endif %}">
+            <div class="flex-shrink-0 mt-0.5">
+              {% if h.accao == 'Criada' %}
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"><i class="fas fa-plus text-xs"></i></span>
+              {% elif h.accao == 'Paga' or h.accao == 'Pago' %}
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400"><i class="fas fa-check text-xs"></i></span>
+              {% elif h.accao == 'Cancelada' %}
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"><i class="fas fa-ban text-xs"></i></span>
+              {% else %}
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"><i class="fas fa-circle text-xs"></i></span>
+              {% endif %}
+            </div>
+            <div class="flex-1 min-w-0 pt-1">
+              <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ h.accao }}
+                {% if h.estado_anterior and h.estado_novo and h.estado_anterior != h.estado_novo %}
+                  <span class="text-gray-400 font-normal"> &mdash; de <span class="font-semibold">{{ h.estado_anterior }}</span> para <span class="font-semibold">{{ h.estado_novo }}</span></span>
+                {% endif %}
+              </p>
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {{ h.utilizador_nome|default:"Sistema" }} &bull; {{ h.data|date:"d/m/Y H:i" }}
+              </p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Sidebar (1/3) -->
+    <div class="space-y-5">
+
+      <!-- Resumo Financeiro -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Resumo Financeiro</h2>
+
+        <!-- Total -->
+        <div class="text-center mb-5">
+          <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">Total</p>
+          <p class="text-3xl font-bold text-primary">{{ factura.valor_total|fmtkz }} <span class="text-base font-medium text-gray-500">Kz</span></p>
+        </div>
+
+        <!-- Progress bar de pagamento -->
+        {% with percent=pago_percent %}
+        <div class="mb-5">
+          <div class="flex justify-between text-xs mb-1.5">
+            <span class="text-gray-500 dark:text-gray-400">Pago</span>
+            <span class="font-semibold text-gray-700 dark:text-gray-300">{{ percent }}%</span>
+          </div>
+          <div class="w-full h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500
+              {% if percent == 100 %}bg-green-500
+              {% elif percent > 0 %}bg-blue-500
+              {% else %}bg-yellow-400{% endif %}"
+              style="width: {{ percent }}%"></div>
+          </div>
+        </div>
+        {% endwith %}
+
+        <div class="space-y-3">
+          <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Valor Pago</span>
+            <span class="font-semibold text-green-600 dark:text-green-400">{{ factura.valor_pago|fmtkz }} Kz</span>
+          </div>
+          <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Saldo</span>
+            <span class="font-semibold {% if saldo_restante > 0 %}text-red-500 dark:text-red-400{% else %}text-green-600 dark:text-green-400{% endif %}">{{ saldo_restante|fmtkz }} Kz</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Estado</span>
+            <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold
               {% if factura.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400
               {% elif factura.estado == 'Parcialmente Paga' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400
               {% elif factura.estado == 'Paga' %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400
@@ -72,129 +252,133 @@
               {{ factura.estado }}
             </span>
           </div>
-          <div class="text-right">
-            <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">Total Geral</span>
-            <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ factura.valor_total|fmtkz }} Kz</span>
-          </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <!-- Vencimento com alerta -->
+        <div class="mt-4 p-3 rounded-xl {% if factura.estado == 'Paga' %}bg-green-50 dark:bg-green-900/20{% elif dias_restantes < 0 %}bg-red-50 dark:bg-red-900/20{% elif dias_restantes <= 7 %}bg-amber-50 dark:bg-amber-900/20{% else %}bg-gray-50 dark:bg-gray-700/30{% endif %}">
+          <div class="flex items-center gap-2">
+            {% if factura.estado == 'Paga' %}
+              <i class="fas fa-check-circle text-green-500"></i>
+              <span class="text-xs font-medium text-green-700 dark:text-green-400">Factura Liquidada</span>
+            {% elif dias_restantes < 0 %}
+              <i class="fas fa-exclamation-circle text-red-500"></i>
+              <span class="text-xs font-medium text-red-700 dark:text-red-400">Vencida ha {{ dias_restantes|cut:"-" }} dia{{ dias_restantes|cut:"-"|pluralize }}</span>
+            {% elif dias_restantes == 0 %}
+              <i class="fas fa-exclamation-triangle text-amber-500"></i>
+              <span class="text-xs font-medium text-amber-700 dark:text-amber-400">Vence hoje</span>
+            {% elif dias_restantes <= 7 %}
+              <i class="fas fa-clock text-amber-500"></i>
+              <span class="text-xs font-medium text-amber-700 dark:text-amber-400">Vence em {{ dias_restantes }} dia{{ dias_restantes|pluralize }}</span>
+            {% else %}
+              <i class="fas fa-calendar text-gray-400"></i>
+              <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Vence em {{ dias_restantes }} dia{{ dias_restantes|pluralize }}</span>
+            {% endif %}
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ factura.data_vencimento|date:"d/m/Y" }}</p>
+        </div>
+      </div>
+
+      <!-- Cliente -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-user-circle text-primary"></i>Cliente
+        </h2>
+        <div class="space-y-3">
           <div>
-            <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Dados do Cliente</h3>
-            <div class="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-2 text-sm text-gray-700 dark:text-gray-300">
-              <p><strong>Nome:</strong> {{ factura.cliente.nome }}</p>
-              <p><strong>NIF:</strong> {{ factura.cliente.nif }}</p>
-              <p><strong>Contacto:</strong> {{ factura.cliente.telefone|default:"N/D" }}</p>
-              <p><strong>Saldo Global da Conta Corrente:</strong> <span class="font-bold {% if factura.cliente.saldo_conta_corrente >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-500{% endif %}">{% if factura.cliente.saldo_conta_corrente < 0 %}{{ factura.cliente.saldo_conta_corrente|fmtkz|slice:"1:" }}{% else %}{{ factura.cliente.saldo_conta_corrente|fmtkz }}{% endif %} Kz <span class="text-xs">{% if factura.cliente.saldo_conta_corrente < 0 %}(em dívida){% else %}(a favor){% endif %}</span></span></p>
-            </div>
+            <p class="text-xs text-gray-400 mb-0.5">Nome</p>
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ factura.cliente.nome }}</p>
           </div>
           <div>
-            <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Informação de Cobrança</h3>
-            <div class="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-2 text-sm text-gray-700 dark:text-gray-300">
-              <p><strong>Processo Aduaneiro:</strong> {{ factura.processo_aduaneiro.numero_du|default:"N/D" }}</p>
-              <p><strong>Data de Emissão:</strong> {{ factura.data_emissao|date:"d/m/Y H:i" }}</p>
-              <p><strong>Data de Vencimento:</strong> {{ factura.data_vencimento|date:"d/m/Y" }}</p>
-              <p><strong>Emitido Por:</strong> {{ factura.criado_por_nome }}</p>
-            </div>
+            <p class="text-xs text-gray-400 mb-0.5">NIF</p>
+            <p class="text-sm font-mono font-semibold text-gray-900 dark:text-white">{{ factura.cliente.nif }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">Contacto</p>
+            <p class="text-sm text-gray-900 dark:text-white">{{ factura.cliente.telefone|default:"N/D" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">Email</p>
+            <p class="text-sm text-gray-900 dark:text-white">{{ factura.cliente.email|default:"N/D" }}</p>
+          </div>
+          <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+            <p class="text-xs text-gray-400 mb-0.5">Saldo Conta Corrente</p>
+            <p class="text-sm font-bold {% if factura.cliente.saldo_conta_corrente >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-500 dark:text-red-400{% endif %}">
+              {% if factura.cliente.saldo_conta_corrente < 0 %}-{% endif %}{{ factura.cliente.saldo_conta_corrente|fmtkz|cut:"-" }} Kz
+            </p>
           </div>
         </div>
+      </div>
 
-        <div>
-          <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Discriminação dos Custos</h3>
-          <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-            <div class="grid grid-cols-[1fr_180px] gap-4 bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              <span>Item / Encargo</span>
-              <span class="text-right">Valor</span>
-            </div>
-            <div class="divide-y divide-gray-100 dark:divide-gray-700/60 text-sm text-gray-700 dark:text-gray-300">
-              <div class="grid grid-cols-[1fr_180px] gap-4 px-4 py-2.5">
-                <span>Honorários do Despachante</span>
-                <span class="text-right font-medium">{{ factura.honorarios_despachante|fmtkz }} Kz</span>
-              </div>
-              <div class="grid grid-cols-[1fr_180px] gap-4 px-4 py-2.5">
-                <span>Taxas Aduaneiras</span>
-                <span class="text-right font-medium">{{ factura.taxas_aduaneiras|fmtkz }} Kz</span>
-              </div>
-              <div class="grid grid-cols-[1fr_180px] gap-4 px-4 py-2.5">
-                <span>Emolumentos</span>
-                <span class="text-right font-medium">{{ factura.emolumentos|fmtkz }} Kz</span>
-              </div>
-              <div class="grid grid-cols-[1fr_180px] gap-4 px-4 py-2.5">
-                <span>Despesas Operacionais</span>
-                <span class="text-right font-medium">{{ factura.despesas_operacionais|fmtkz }} Kz</span>
-              </div>
-              <div class="grid grid-cols-[1fr_180px] gap-4 px-4 py-2.5">
-                <span>IVA</span>
-                <span class="text-right font-medium">{{ factura.iva|fmtkz }} Kz</span>
-              </div>
-              <div class="grid grid-cols-[1fr_180px] gap-4 px-4 py-2.5">
-                <span>Outros Encargos</span>
-                <span class="text-right font-medium">{{ factura.outros_encargos|fmtkz }} Kz</span>
-              </div>
-            </div>
-            <div class="grid grid-cols-[1fr_180px] gap-4 bg-gray-50 dark:bg-gray-700/40 px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm font-bold text-gray-900 dark:text-white">
-              <span>Valor Total da Factura</span>
-              <span class="text-right text-primary">{{ factura.valor_total|fmtkz }} Kz</span>
-            </div>
+      <!-- Processo Aduaneiro -->
+      {% if factura.processo_aduaneiro %}
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-ship text-primary"></i>Processo
+        </h2>
+        <div class="space-y-3">
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">DU</p>
+            <p class="text-sm font-mono font-semibold text-gray-900 dark:text-white">{{ factura.processo_aduaneiro.numero_du|default:"Rascunho" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">Estado</p>
+            <p class="text-sm text-gray-900 dark:text-white">{{ factura.processo_aduaneiro.get_estado_display }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">Regime</p>
+            <p class="text-sm text-gray-900 dark:text-white">{{ factura.processo_aduaneiro.regime_aduaneiro|default:"N/D" }}</p>
           </div>
         </div>
+      </div>
+      {% endif %}
 
-        {% if factura.descricao %}
-        <div>
-          <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Descrição / Notas</h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/20 p-3 rounded-xl border border-gray-100 dark:border-gray-800">{{ factura.descricao }}</p>
+      <!-- Emitido Por -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-user-tie text-primary"></i>Emissao
+        </h2>
+        <div class="space-y-3">
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">Emitido Por</p>
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ factura.criado_por_nome|default:"Sistema" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">Data de Emissao</p>
+            <p class="text-sm text-gray-900 dark:text-white">{{ factura.data_emissao|date:"d/m/Y H:i" }}</p>
+          </div>
         </div>
-        {% endif %}
+      </div>
 
-        {% if factura.estado == 'Pendente' or factura.estado == 'Parcialmente Paga' %}
-        <div class="pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-end gap-3">
+      <!-- Acoes de Gestao -->
+      {% if factura.estado == 'Pendente' or factura.estado == 'Parcialmente Paga' %}
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fas fa-cog text-primary"></i>Gestao
+        </h2>
+        <div class="space-y-2">
           {% if factura.estado == 'Pendente' %}
           <form method="post" action="{% url 'financeiro:factura_eliminar' factura.pk %}">
             {% csrf_token %}
-            <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Eliminar Factura', mensagem:'Tem a certeza que pretende ELIMINAR permanentemente esta Factura? Esta acção não pode ser desfeita.', textoBotao:'Sim, Eliminar', textoCancelar:'Voltar' })"
-              class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors active:scale-95 shadow-sm">
-              <i class="fas fa-trash"></i> Eliminar Factura
+            <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Eliminar Factura', mensagem:'Tem a certeza que pretende ELIMINAR permanentemente esta Factura? Esta accao nao pode ser desfeita.', textoBotao:'Sim, Eliminar', textoCancelar:'Voltar' })"
+              class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-xl transition-colors">
+              <i class="fas fa-trash"></i>Eliminar Factura
             </button>
           </form>
           {% endif %}
           <form method="post" action="{% url 'financeiro:factura_cancelar' factura.pk %}">
             {% csrf_token %}
-            <button type="button" onclick="confirmarFormPost(this.form, { tipo:'warning', titulo:'Cancelar Factura', mensagem:'Tem a certeza que pretende CANCELAR esta Factura?', textoBotao:'Cancelar', textoCancelar:'Voltar' })"
-              class="px-5 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm font-semibold transition-colors active:scale-95">
-              <i class="fas fa-ban"></i> Cancelar Factura
+            <button type="button" onclick="confirmarFormPost(this.form, { tipo:'warning', titulo:'Cancelar Factura', mensagem:'Tem a certeza que pretende CANCELAR esta Factura?', textoBotao:'Sim, Cancelar', textoCancelar:'Voltar' })"
+              class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-xl transition-colors">
+              <i class="fas fa-ban"></i>Cancelar Factura
             </button>
           </form>
         </div>
-        {% endif %}
-
-        {% if historico %}
-        <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
-          <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Histórico de Alterações</h3>
-          <div class="divide-y divide-gray-100 dark:divide-gray-700">
-            {% for h in historico %}
-            <div class="py-2.5 flex items-start gap-3 text-sm">
-              <div class="flex-shrink-0 mt-0.5">
-                {% if h.accao == 'Criada' %}
-                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"><i class="fas fa-plus text-xs"></i></span>
-                {% else %}
-                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"><i class="fas fa-circle text-xs"></i></span>
-                {% endif %}
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-gray-900 dark:text-white font-medium">
-                  {{ h.accao }}
-                  {% if h.estado_anterior and h.estado_novo and h.estado_anterior != h.estado_novo %}
-                    <span class="text-gray-400 font-normal"> — de <span class="font-semibold">{{ h.estado_anterior }}</span> para <span class="font-semibold">{{ h.estado_novo }}</span></span>
-                  {% endif %}
-                </p>
-                <p class="text-xs text-gray-400 mt-0.5">Por {{ h.utilizador_nome|default:"Sistema" }} — {{ h.data|date:"d/m/Y H:i" }}</p>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
       </div>
+      {% endif %}
 
     </div>
+
+  </div>
+
+</div>
 {% endblock %}

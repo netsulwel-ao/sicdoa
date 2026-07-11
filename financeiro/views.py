@@ -1,4 +1,4 @@
-import json
+﻿import json
 import io
 import logging
 import html as _html_mod
@@ -809,6 +809,7 @@ def valor_por_extenso(valor):
 # ──────────────────────────────────────────────────────────────────────────
 # VIEW
 # ──────────────────────────────────────────────────────────────────────────
+@safe_pdf
 @requer_sessao_ativa
 def requisicao_pdf(request, pk):
     """Gera PDF da Requisição de Fundos com layout estilo FactPlus/NETSULWEL,
@@ -1804,7 +1805,7 @@ def requisicao_criar_factura_recibo(request, pk):
     return render(request, 'financeiro/criar_factura_recibo_de_requisicao.html', context)
 
 
-# —€—€—€ Notas Home —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Notas Home ═════════════════════════════════════════════════════════════
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class NotasHomeView(BaseContextMixin, TemplateView):
@@ -1817,7 +1818,7 @@ class NotasHomeView(BaseContextMixin, TemplateView):
         return context
 
 
-# —€—€—€ Facturas Home —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Facturas Home ══════════════════════════════════════════════════════════
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class FacturasHomeView(BaseContextMixin, TemplateView):
@@ -1830,7 +1831,7 @@ class FacturasHomeView(BaseContextMixin, TemplateView):
         return context
 
 
-# —€—€—€ DU â†’ Factura Consolidation —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ DU â†’ Factura Consolidation ════════════════════════════════════════════
 
 @requer_sessao_ativa
 def du_custos_json(request, pk):
@@ -1875,7 +1876,7 @@ def _get_object_or_404_com_scope(request, model, pk, scope_field='cliente__usuar
 
 
 
-# —€—€—€ Facturas Finais —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Facturas Finais ═════════════════════════════════════════════════════════
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class FacturaClienteListView(BaseContextMixin, ListView):
@@ -1961,6 +1962,21 @@ class FacturaClienteDetailView(BaseContextMixin, DetailView):
         context['historico'] = HistoricoFinanceiro.objects.filter(
             tipo_documento='Factura', documento_id=self.object.pk
         )[:20]
+
+        f = self.object
+        context['saldo_restante'] = f.valor_total - f.valor_pago
+        if f.valor_total and f.valor_total > 0:
+            context['pago_percent'] = min(100, int((f.valor_pago or 0) / f.valor_total * 100))
+        else:
+            context['pago_percent'] = 0
+
+        from datetime import date as _date
+        hoje = _date.today()
+        if f.data_vencimento:
+            context['dias_restantes'] = (f.data_vencimento - hoje).days
+        else:
+            context['dias_restantes'] = 0
+
         return context
 
 
@@ -2064,60 +2080,29 @@ def factura_enviar_email(request, pk):
 
     try:
         from utils.email_utils import _enviar
+        from django.test import RequestFactory
 
-        buffer = io.BytesIO()
-        dados_kv_pdf = [
-            ('NIF do Cliente', factura.cliente.nif),
-            ('Nome do Cliente', factura.cliente.nome),
-            ('Processo Aduaneiro', factura.processo_aduaneiro.numero_du if factura.processo_aduaneiro else 'N/D'),
-            ('Data de Emissão', factura.data_emissao.strftime('%d/%m/%Y %H:%M')),
-            ('Data de Vencimento', factura.data_vencimento.strftime('%d/%m/%Y')),
-            ('Estado', factura.estado),
-            ('Emitido Por', factura.criado_por_nome),
-            ('Descrição', factura.descricao),
-        ]
-        colunas_pdf = ['Descrição do Item / Encargo', 'Valor (KZ)']
-        linhas_pdf = [
-            ['Honorários do Despachante', fmt_kz(factura.honorarios_despachante)],
-            ['Taxas Aduaneiras', fmt_kz(factura.taxas_aduaneiras)],
-            ['Emolumentos', fmt_kz(factura.emolumentos)],
-            ['Despesas Operacionais', fmt_kz(factura.despesas_operacionais)],
-            ['IVA', fmt_kz(factura.iva)],
-            ['Outros Encargos', fmt_kz(factura.outros_encargos)],
-        ]
-        qr_texto = (
-            "=== FACTURA FINAL ===\n"
-            f"Numero: {factura.numero_factura}\n"
-            f"Cliente: {factura.cliente.nome}\n"
-            f"NIF: {factura.cliente.nif}\n"
-            f"Valor Total: {fmt_kz(factura.valor_total)} KZ\n"
-            f"Estado: {factura.estado}\n"
-            f"Emissao: {factura.data_emissao.strftime('%d/%m/%Y')}\n"
-            f"Vencimento: {factura.data_vencimento.strftime('%d/%m/%Y')}"
-        )
-        _construir_pdf_base(
-            buffer, f"Factura Final {factura.numero_factura}",
-            "Documento de Cobrança de Despacho Aduaneiro", factura.estado,
-            dados_kv_pdf, colunas_pdf, linhas_pdf, factura.valor_total,
-            qr_flowable=_gerar_qr_code_flowable(qr_texto)
-        )
-        buffer.seek(0)
-        anexos = [(f'Factura_{factura.numero_factura}.pdf', buffer.read(), 'application/pdf')]
+        _rf = RequestFactory()
+        _internal_req = _rf.get(f'/financeiro/facturas/{pk}/pdf/')
+        _internal_req.session = request.session
+        _internal_req.user = request.user
+        _pdf_response = factura_pdf(_internal_req, pk)
+        anexos = [(f'Factura_{factura.numero_factura}.pdf', _pdf_response.content, 'application/pdf')]
 
-        assunto = f"Factura Final {factura.numero_factura} â€” SICDOA"
+        assunto = f"Factura Final {factura.numero_factura} – SICDOA"
 
         texto = f"""Prezado(a) {cliente.nome},
 
 Segue em anexo a Factura Final referente à prestação de serviços de despacho.
 
 Detalhes:
-  NÃºmero: {factura.numero_factura}
+  Número: {factura.numero_factura}
   Valor Total: {fmt_kz(factura.valor_total)} KZ
   Valor Pago: {fmt_kz(factura.valor_pago)} KZ
   Estado: {factura.estado}
   Data de Vencimento: {factura.data_vencimento.strftime('%d/%m/%Y')}
 
-Agradecemos a sua preferÃªncia.
+Agradecemos a sua preferência.
 
 Atenciosamente,
 Equipa SICDOA
@@ -2131,7 +2116,7 @@ Equipa SICDOA
             <p>Segue em anexo a Factura Final com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; font-weight: bold; color: #475569;">NÃºmero:</td>
+                    <td style="padding: 10px; font-weight: bold; color: #475569;">Número:</td>
                     <td style="padding: 10px;">{factura.numero_factura}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -2155,7 +2140,7 @@ Equipa SICDOA
                     <td style="padding: 10px;">{factura.processo_aduaneiro.numero_du if factura.processo_aduaneiro else 'N/D'}</td>
                 </tr>
             </table>
-            <p style="margin-top: 25px;">Agradecemos a sua preferÃªncia.</p>
+            <p style="margin-top: 25px;">Agradecemos a sua preferência.</p>
             <p>Atenciosamente,<br><strong>Equipa SICDOA</strong></p>
         </body>
         </html>
@@ -2169,7 +2154,7 @@ Equipa SICDOA
     return redirect('financeiro:factura_detalhe', pk=pk)
 
 
-# —€—€—€ Gestão de Recibos —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Gestão de Recibos ═══════════════════════════════════════════════════════
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class ReciboClienteListView(BaseContextMixin, ListView):
@@ -2330,7 +2315,7 @@ def editar_recibo(request, pk):
     return render(request, 'financeiro/recibo_form.html', context)
 
 
-# —€—€—€ Notas de Crédito —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Notas de Crédito ════════════════════════════════════════════════════════
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class NotaCreditoListView(BaseContextMixin, ListView):
@@ -2504,7 +2489,7 @@ def aprovar_nota_credito(request, pk):
         if nota.cliente.email:
             try:
                 from utils.email_utils import _enviar
-                assunto = f"Nota de Crédito {nota.numero_nota} aprovada â€” SICDOA"
+                assunto = f"Nota de Crédito {nota.numero_nota} aprovada – SICDOA"
                 texto = (
                     f"Prezado(a) {nota.cliente.nome},\n\n"
                     f"A Nota de Crédito {nota.numero_nota} foi aprovada no valor de {fmt_kz(nota.valor_creditado)} Kz.\n"
@@ -2581,7 +2566,7 @@ def cancelar_nota_credito(request, pk):
     return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
 
-# —€—€—€ Notas de Débito —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Notas de Débito ═════════════════════════════════════════════════════════
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class NotaDebitoListView(BaseContextMixin, ListView):
@@ -2756,7 +2741,7 @@ def aprovar_nota_debito(request, pk):
         if nota.cliente.email:
             try:
                 from utils.email_utils import _enviar
-                assunto = f"Nota de Débito {nota.numero_nota} aprovada â€” SICDOA"
+                assunto = f"Nota de Débito {nota.numero_nota} aprovada – SICDOA"
                 texto = (
                     f"Prezado(a) {nota.cliente.nome},\n\n"
                     f"A Nota de Débito {nota.numero_nota} foi aprovada no valor de {fmt_kz(nota.valor)} Kz.\n"
@@ -2864,7 +2849,7 @@ def eliminar_nota_credito(request, pk):
     return redirect('financeiro:nota_credito_lista')
 
 
-# —€—€—€ Facturas-Recibo —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Facturas-Recibo ═════════════════════════════════════════════════════════
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class FacturaReciboListView(BaseContextMixin, ListView):
@@ -3030,7 +3015,7 @@ def cancelar_factura_recibo(request, pk):
     return redirect('financeiro:factura_recibo_detalhe', pk=pk)
 
 
-# —€—€—€ Geração de PDFs —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Geração de PDFs ═════════════════════════════════════════════════════════
 
 def _gerar_qr_code_flowable(dados_texto, size=1.8*cm):
     import qrcode as _qr
@@ -4452,7 +4437,7 @@ def nota_debito_pdf(request, pk):
     return response
 
 
-# —€—€—€ Envio por Email —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Envio por Email ═════════════════════════════════════════════════════════
 
 @require_POST
 @requer_sessao_ativa
@@ -4510,20 +4495,20 @@ def recibo_enviar_email(request, pk):
         buffer.seek(0)
         anexos = [(f'Recibo_{recibo.numero_recibo}.pdf', buffer.read(), 'application/pdf')]
         
-        assunto = f"Recibo de Pagamento {recibo.numero_recibo} â€” SICDOA"
+        assunto = f"Recibo de Pagamento {recibo.numero_recibo} – SICDOA"
         
         texto = f"""Prezado(a) {cliente.nome},
         
 Confirmamos a recepção do seu pagamento no valor de {fmt_kz(recibo.valor_recebido)} KZ.
 
 Detalhes do Recibo:
-  NÃºmero: {recibo.numero_recibo}
+  Número: {recibo.numero_recibo}
   Factura: {recibo.factura.numero_factura}
   Forma de Pagamento: {recibo.forma_pagamento}
   Data do Pagamento: {recibo.data_pagamento.strftime('%d/%m/%Y')}
-  ReferÃªncia: {recibo.referencia_bancaria or 'N/D'}
+  Referência: {recibo.referencia_bancaria or 'N/D'}
 
-Agradecemos a sua preferÃªncia.
+Agradecemos a sua preferência.
 
 Atenciosamente,
 Equipa SICDOA
@@ -4537,7 +4522,7 @@ Equipa SICDOA
             <p>Confirmamos a recepção do seu pagamento com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; font-weight: bold; color: #475569;">NÃºmero do Recibo:</td>
+                    <td style="padding: 10px; font-weight: bold; color: #475569;">Número do Recibo:</td>
                     <td style="padding: 10px;">{recibo.numero_recibo}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -4557,11 +4542,11 @@ Equipa SICDOA
                     <td style="padding: 10px;">{recibo.data_pagamento.strftime('%d/%m/%Y')}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; font-weight: bold; color: #475569;">ReferÃªncia Bancária:</td>
+                    <td style="padding: 10px; font-weight: bold; color: #475569;">Referência Bancária:</td>
                     <td style="padding: 10px;">{recibo.referencia_bancaria or 'N/D'}</td>
                 </tr>
             </table>
-            <p style="margin-top: 25px;">Agradecemos a sua preferÃªncia.</p>
+            <p style="margin-top: 25px;">Agradecemos a sua preferência.</p>
             <p>Atenciosamente,<br><strong>Equipa SICDOA</strong></p>
         </body>
         </html>
@@ -4642,19 +4627,19 @@ def factura_recibo_enviar_email(request, pk):
         buffer.seek(0)
         anexos = [(f'FacturaRecibo_{fr.numero_factura_recibo}.pdf', buffer.read(), 'application/pdf')]
 
-        assunto = f"Factura-Recibo {fr.numero_factura_recibo} â€” SICDOA"
+        assunto = f"Factura-Recibo {fr.numero_factura_recibo} – SICDOA"
 
         texto = f"""Prezado(a) {cliente.nome},
 
 Segue em anexo a Factura-Recibo referente à prestação de serviços de despacho.
 
 Detalhes:
-  NÃºmero: {fr.numero_factura_recibo}
+  Número: {fr.numero_factura_recibo}
   Valor: {fmt_kz(fr.valor)} KZ
   Forma de Pagamento: {fr.forma_pagamento}
   Data: {fr.data.strftime('%d/%m/%Y')}
 
-Agradecemos a sua preferÃªncia.
+Agradecemos a sua preferência.
 
 Atenciosamente,
 Equipa SICDOA
@@ -4663,12 +4648,12 @@ Equipa SICDOA
         html = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <h2 style="color: #137fec;">Factura-Recibo â€” Confirmação de Pagamento</h2>
+            <h2 style="color: #137fec;">Factura-Recibo – Confirmação de Pagamento</h2>
             <p>Prezado(a) <strong>{_safe(cliente.nome)}</strong>,</p>
             <p>Segue em anexo a Factura-Recibo com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; font-weight: bold; color: #475569;">NÃºmero:</td>
+                    <td style="padding: 10px; font-weight: bold; color: #475569;">Número:</td>
                     <td style="padding: 10px;">{fr.numero_factura_recibo}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -4684,7 +4669,7 @@ Equipa SICDOA
                     <td style="padding: 10px;">{fr.data.strftime('%d/%m/%Y')}</td>
                 </tr>
             </table>
-            <p style="margin-top: 25px;">Agradecemos a sua preferÃªncia.</p>
+            <p style="margin-top: 25px;">Agradecemos a sua preferência.</p>
             <p>Atenciosamente,<br><strong>Equipa SICDOA</strong></p>
         </body>
         </html>
@@ -4698,7 +4683,7 @@ Equipa SICDOA
     return redirect('financeiro:factura_recibo_detalhe', pk=pk)
 
 
-# —€—€—€ Envio por Email â€” Notas de Crédito e Débito —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
+# ═══ Envio por Email – Notas de Crédito e Débito ════════════════════════════
 
 @require_POST
 @requer_sessao_ativa
@@ -4756,14 +4741,14 @@ def nota_credito_enviar_email(request, pk):
         buffer.seek(0)
         anexos = [(f'NotaCredito_{nota.numero_nota}.pdf', buffer.read(), 'application/pdf')]
 
-        assunto = f"Nota de Crédito {nota.numero_nota} â€” SICDOA"
+        assunto = f"Nota de Crédito {nota.numero_nota} – SICDOA"
 
         texto = f"""Prezado(a) {cliente.nome},
 
 Segue em anexo a Nota de Crédito referente à factura {nota.factura_relacionada.numero_factura}.
 
 Detalhes:
-  NÃºmero: {nota.numero_nota}
+  Número: {nota.numero_nota}
   Factura Relacionada: {nota.factura_relacionada.numero_factura}
   Valor Creditado: {fmt_kz(nota.valor_creditado)} KZ
   Motivo: {nota.motivo}
@@ -4782,7 +4767,7 @@ Equipa SICDOA
             <p>Segue em anexo a Nota de Crédito com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; font-weight: bold; color: #475569;">NÃºmero:</td>
+                    <td style="padding: 10px; font-weight: bold; color: #475569;">Número:</td>
                     <td style="padding: 10px;">{nota.numero_nota}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -4871,14 +4856,14 @@ def nota_debito_enviar_email(request, pk):
         buffer.seek(0)
         anexos = [(f'NotaDebito_{nota.numero_nota}.pdf', buffer.read(), 'application/pdf')]
 
-        assunto = f"Nota de Débito {nota.numero_nota} â€” SICDOA"
+        assunto = f"Nota de Débito {nota.numero_nota} – SICDOA"
 
         texto = f"""Prezado(a) {cliente.nome},
 
 Segue em anexo a Nota de Débito referente à factura {nota.factura_relacionada.numero_factura}.
 
 Detalhes:
-  NÃºmero: {nota.numero_nota}
+  Número: {nota.numero_nota}
   Factura Relacionada: {nota.factura_relacionada.numero_factura}
   Valor Debitado: {fmt_kz(nota.valor)} KZ
   Motivo: {nota.motivo}
@@ -4897,7 +4882,7 @@ Equipa SICDOA
             <p>Segue em anexo a Nota de Débito com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; font-weight: bold; color: #475569;">NÃºmero:</td>
+                    <td style="padding: 10px; font-weight: bold; color: #475569;">Número:</td>
                     <td style="padding: 10px;">{nota.numero_nota}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -4906,7 +4891,7 @@ Equipa SICDOA
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Valor Debitado:</td>
-                    <td style="padding: 10px; font-weight: bold; color: #dc2626;">{fmt_kz(nota.valor)} KZ</td>
+                    <td style="padding: 10px; font-weight: bold; color: #1a1a1a;">{fmt_kz(nota.valor)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Motivo:</td>

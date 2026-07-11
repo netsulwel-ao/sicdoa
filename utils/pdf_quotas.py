@@ -8,8 +8,15 @@ from reportlab.lib.units import mm, cm
 from reportlab.lib.colors import HexColor, black, white, navy
 from reportlab.pdfgen import canvas
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import Table, TableStyle, Paragraph
 from django.conf import settings
+
+try:
+    import qrcode as _qrcode
+    _QRCODE_OK = True
+except ImportError:
+    _QRCODE_OK = False
 
 CDOA_BLUE = HexColor('#1a3a5c')
 CDOA_GOLD = HexColor('#c9a84c')
@@ -294,25 +301,38 @@ def gerar_carteira_pdf(despachante, carteira, admin_nome='Administração CDOA')
     c.drawCentredString(w / 2, bc_y - 15, num_visivel)
     c.restoreState()
 
-    # QR Code simulado
-    c.saveState()
+    # QR Code real
+    qr_data = f"CDOA:{carteira.numero_carteira}|{despachante.nome}|{despachante.cedula or ''}"
     qr_x, qr_y = w - 90, h - 470
-    c.setStrokeColor(HexColor('#333333'))
-    c.setLineWidth(0.5)
-    c.rect(qr_x, qr_y, 30, 30)
-    c.setFillColor(HexColor('#333333'))
-    size = 30
-    cells = 8
-    for row in range(cells):
-        for col in range(cells):
-            if (row + col) % 3 != 0 and (row * col) % 5 != 0:
-                cx = qr_x + (col / cells) * size
-                cy = qr_y + ((cells - 1 - row) / cells) * size
-                c.rect(cx, cy, size / cells, size / cells, fill=1, stroke=0)
-    c.setFont('Helvetica', 5)
-    c.setFillColor(HexColor('#999999'))
-    c.drawCentredString(w - 75, qr_y - 10, 'QR Code')
-    c.restoreState()
+    qr_size = 30
+    if _QRCODE_OK:
+        try:
+            qr = _qrcode.QRCode(version=1, error_correction=_qrcode.constants.ERROR_CORRECT_L, box_size=10, border=2)
+            qr.add_data(qr_data)
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            buf_qr = BytesIO()
+            qr_img.save(buf_qr, format='PNG')
+            buf_qr.seek(0)
+            c.drawImage(ImageReader(buf_qr), qr_x, qr_y, qr_size, qr_size)
+        except Exception:
+            c.saveState()
+            c.setStrokeColor(HexColor('#333333'))
+            c.setLineWidth(0.5)
+            c.rect(qr_x, qr_y, qr_size, qr_size)
+            c.setFont('Helvetica', 5)
+            c.setFillColor(HexColor('#999999'))
+            c.drawCentredString(w - 75, qr_y - 10, 'QR Code')
+            c.restoreState()
+    else:
+        c.saveState()
+        c.setStrokeColor(HexColor('#333333'))
+        c.setLineWidth(0.5)
+        c.rect(qr_x, qr_y, qr_size, qr_size)
+        c.setFont('Helvetica', 5)
+        c.setFillColor(HexColor('#999999'))
+        c.drawCentredString(w - 75, qr_y - 10, 'QR Code')
+        c.restoreState()
 
     # Texto legal
     c.saveState()

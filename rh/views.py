@@ -28,6 +28,8 @@ from .acesso import (
     redirect_sem_acesso_rh,
 )
 from users.permissoes import get_usuario_permissoes
+from users.auth_decorators import sessao_expirada, limpar_sessao
+import time
 from .models import (
     Banca, FilialBanca, Colaborador, GestorFilial, CargoBanca, DocumentoColaborador,
     ProcessamentoSalarial, ReciboSalarial, Subsidio, SubsidioRecibo, Fatura,
@@ -60,9 +62,15 @@ MESES = MESES  # imported from tax_utils
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 def _requer_sessao(fn):
+    """Decorator para verificar se o usuário está autenticado e sessão ativa"""
     def wrapper(request, *args, **kwargs):
         if not request.session.get('usuario_id'):
             return redirect('login')
+        if sessao_expirada(request):
+            limpar_sessao(request)
+            return redirect('login')
+        request.session['login_time'] = time.time()
+        request.session.modified = True
         return fn(request, *args, **kwargs)
     wrapper.__name__ = fn.__name__
     return wrapper
@@ -491,217 +499,222 @@ def _processar_responsavel_filial_post(request, banca, filial):
 
 def _gerar_pdf_processamento(processamento, request):
     """Gera um PDF do processamento salarial usando ReportLab e salva no sistema de arquivos"""
-    from django.conf import settings
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import cm
-    from reportlab.lib.colors import black, gray, green, HexColor, white
-    from decimal import Decimal
-    import os
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+    try:
+        from django.conf import settings
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import cm
+        from reportlab.lib.colors import black, gray, green, HexColor, white
+        from decimal import Decimal
+        import os
 
-    recibos = processamento.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
-    banca = processamento.banca
-    estado_display = processamento.get_estado_display()
+        recibos = processamento.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
+        banca = processamento.banca
+        estado_display = processamento.get_estado_display()
 
-    # Criar diretório se não existir
-    pdf_dir = os.path.join(settings.MEDIA_ROOT, 'processamentos_salariais')
-    os.makedirs(pdf_dir, exist_ok=True)
+        # Criar diretório se não existir
+        pdf_dir = os.path.join(settings.MEDIA_ROOT, 'processamentos_salariais')
+        os.makedirs(pdf_dir, exist_ok=True)
 
-    # Gerar PDF usando ReportLab
-    filename = f"processamento_{processamento.mes:02d}_{processamento.ano}_{processamento.pk}.pdf"
-    filepath = os.path.join(pdf_dir, filename)
+        # Gerar PDF usando ReportLab
+        filename = f"processamento_{processamento.mes:02d}_{processamento.ano}_{processamento.pk}.pdf"
+        filepath = os.path.join(pdf_dir, filename)
 
-    # Criar o canvas do PDF
-    c = canvas.Canvas(filepath, pagesize=A4)
-    width, height = A4
+        # Criar o canvas do PDF
+        c = canvas.Canvas(filepath, pagesize=A4)
+        width, height = A4
 
-    # Configurar margens
-    margin_left = 2 * cm
-    margin_right = 2 * cm
-    margin_top = 2 * cm
-    margin_bottom = 2 * cm
+        # Configurar margens
+        margin_left = 2 * cm
+        margin_right = 2 * cm
+        margin_top = 2 * cm
+        margin_bottom = 2 * cm
 
-    # Cabeçalho CDOA
-    cor_cdoa = HexColor('#1a3a5c')
-    cor_cdoa_gold = HexColor('#c9a84c')
-    c.setFillColor(cor_cdoa)
-    c.rect(0, height - 50, width, 50, fill=1, stroke=0)
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 12)
-    c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
-    c.setFont('Helvetica', 9)
-    c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-    c.setFillColor(cor_cdoa_gold)
-    c.setFont('Helvetica-Bold', 11)
-    c.drawRightString(width - 30, height - 30, estado_display)
+        # Cabeçalho CDOA
+        cor_cdoa = HexColor('#1a3a5c')
+        cor_cdoa_gold = HexColor('#c9a84c')
+        c.setFillColor(cor_cdoa)
+        c.rect(0, height - 50, width, 50, fill=1, stroke=0)
+        c.setFillColor(white)
+        c.setFont('Helvetica-Bold', 12)
+        c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
+        c.setFont('Helvetica', 9)
+        c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+        c.setFillColor(cor_cdoa_gold)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawRightString(width - 30, height - 30, estado_display)
 
-    y_position = height - 70
+        y_position = height - 70
 
-    # Título
-    c.setFont("Helvetica-Bold", 18)
-    c.setFillColor(cor_cdoa)
-    title_text = "PROCESSAMENTO SALARIAL - COMPROVANTE DE PAGAMENTO"
-    text_width = c.stringWidth(title_text, "Helvetica-Bold", 18)
-    c.drawCentredString(width / 2, y_position, title_text)
-    y_position -= 25
+        # Título
+        c.setFont("Helvetica-Bold", 18)
+        c.setFillColor(cor_cdoa)
+        title_text = "PROCESSAMENTO SALARIAL - COMPROVANTE DE PAGAMENTO"
+        text_width = c.stringWidth(title_text, "Helvetica-Bold", 18)
+        c.drawCentredString(width / 2, y_position, title_text)
+        y_position -= 25
 
-    c.setFont("Helvetica-Bold", 12)
-    c.setFillColor(black)
-    banca_text = banca.nome
-    text_width = c.stringWidth(banca_text, "Helvetica-Bold", 12)
-    c.drawCentredString(width / 2, y_position, banca_text)
-    y_position -= 20
+        c.setFont("Helvetica-Bold", 12)
+        c.setFillColor(black)
+        banca_text = banca.nome
+        text_width = c.stringWidth(banca_text, "Helvetica-Bold", 12)
+        c.drawCentredString(width / 2, y_position, banca_text)
+        y_position -= 20
 
-    c.setFont("Helvetica", 10)
-    periodo_text = f"Período: {processamento.mes:02d}/{processamento.ano} | Status: {estado_display}"
-    text_width = c.stringWidth(periodo_text, "Helvetica", 10)
-    c.drawCentredString(width / 2, y_position, periodo_text)
-    y_position -= 15
-
-    from django.utils import timezone
-    data_text = f"Data de pagamento: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
-    text_width = c.stringWidth(data_text, "Helvetica", 10)
-    c.drawCentredString(width / 2, y_position, data_text)
-    y_position -= 30
-
-    # Linha separadora
-    c.line(margin_left, y_position, width - margin_right, y_position)
-    y_position -= 30
-
-    # Cabeçalho da tabela
-    c.setFont("Helvetica-Bold", 8)
-    headers = [
-        "Colaborador", "Salário Base", "Subsídios",
-        "Bruto", "Faltas", "IRT", "INSS 3%", "Líquido",
-    ]
-    col_widths = [6, 2, 2, 2, 1.5, 1.5, 1.5, 2]  # proporções
-    total_width = width - margin_left - margin_right
-
-    x_position = margin_left
-    for i, header in enumerate(headers):
-        col_width = total_width * col_widths[i] / sum(col_widths)
-        c.drawString(x_position, y_position, header)
-        x_position += col_width
-
-    y_position -= 20
-
-    # Dados dos recibos
-    c.setFont("Helvetica", 8)
-    total_liquido = Decimal('0')
-
-    for recibo in recibos:
-        # Verificar se há espaço suficiente
-        if y_position < margin_bottom + 100:
-            c.showPage()
-            # Cabeçalho CDOA na nova página
-            c.setFillColor(cor_cdoa)
-            c.rect(0, height - 50, width, 50, fill=1, stroke=0)
-            c.setFillColor(white)
-            c.setFont('Helvetica-Bold', 12)
-            c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
-            c.setFont('Helvetica', 9)
-            c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-            c.setFillColor(cor_cdoa_gold)
-            c.setFont('Helvetica-Bold', 11)
-            c.drawRightString(width - 30, height - 30, estado_display)
-
-            y_position = height - 70
-
-            # Repetir cabeçalho da tabela
-            c.setFont("Helvetica-Bold", 8)
-            x_position = margin_left
-            for i, header in enumerate(headers):
-                col_width = total_width * col_widths[i] / sum(col_widths)
-                c.drawString(x_position, y_position, header)
-                x_position += col_width
-            y_position -= 20
-            c.setFont("Helvetica", 8)
-
-        # Calcular total de subsídios
-        total_subsidios = Decimal('0')
-        for vinculo in recibo.subsidios_vinculados.all():
-            total_subsidios += vinculo.valor
-
-        # Dados do recibo
-        dados = [
-            recibo.colaborador.nome[:30],  # Limitar nome
-            fmt_kz(recibo.salario_base),
-            fmt_kz(total_subsidios),
-            fmt_kz(recibo.bruto),
-            fmt_kz(recibo.outros_descontos),
-            fmt_kz(recibo.irt),
-            fmt_kz(recibo.inss_trabalhador),
-            fmt_kz(recibo.liquido)
-        ]
-
-        x_position = margin_left
-        for i, dado in enumerate(dados):
-            col_width = total_width * col_widths[i] / sum(col_widths)
-            if i == 0:  # Nome do colaborador - alinhado à esquerda
-                c.drawString(x_position, y_position, dado)
-            else:  # Valores - alinhados à direita
-                c.drawRightString(x_position + col_width, y_position, dado)
-            x_position += col_width
-
-        total_liquido += recibo.liquido
+        c.setFont("Helvetica", 10)
+        periodo_text = f"Período: {processamento.mes:02d}/{processamento.ano} | Status: {estado_display}"
+        text_width = c.stringWidth(periodo_text, "Helvetica", 10)
+        c.drawCentredString(width / 2, y_position, periodo_text)
         y_position -= 15
 
-    # Linha separadora antes do total
-    y_position -= 10
-    c.line(margin_left, y_position, width - margin_right, y_position)
-    y_position -= 15
+        from django.utils import timezone
+        data_text = f"Data de pagamento: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
+        text_width = c.stringWidth(data_text, "Helvetica", 10)
+        c.drawCentredString(width / 2, y_position, data_text)
+        y_position -= 30
 
-    # Total
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(margin_left, y_position, "Total Líquido Pago:")
-    c.drawRightString(width - margin_right, y_position, f"{fmt_kz(total_liquido)} KZ")
-    y_position -= 40
+        # Linha separadora
+        c.line(margin_left, y_position, width - margin_right, y_position)
+        y_position -= 30
 
-    # Assinatura do Despachante (centrada)
-    y_position -= 30
-    c.setFont("Helvetica", 9)
-    sig_line_width = 200
-    sig_x = (width - sig_line_width) / 2
-    c.line(sig_x, y_position, sig_x + sig_line_width, y_position)
-    y_position -= 14
-    label = f"Despachante — {banca.nome}"
-    label_width = c.stringWidth(label, "Helvetica", 9)
-    c.drawString((width - label_width) / 2, y_position, label)
-    y_position -= 11
-    sub_label = "Assinatura e Carimbo"
-    sub_width = c.stringWidth(sub_label, "Helvetica", 9)
-    c.drawString((width - sub_width) / 2, y_position, sub_label)
+        # Cabeçalho da tabela
+        c.setFont("Helvetica-Bold", 8)
+        headers = [
+            "Colaborador", "Salário Base", "Subsídios",
+            "Bruto", "Faltas", "IRT", "INSS 3%", "Líquido",
+        ]
+        col_widths = [6, 2, 2, 2, 1.5, 1.5, 1.5, 2]  # proporções
+        total_width = width - margin_left - margin_right
 
-    y_position -= 40
+        x_position = margin_left
+        for i, header in enumerate(headers):
+            col_width = total_width * col_widths[i] / sum(col_widths)
+            c.drawString(x_position, y_position, header)
+            x_position += col_width
 
-    # Rodapé
-    c.setFont("Helvetica-Bold", 8)
-    footer_text = "DOCUMENTO FISCAL - COMPROVANTE DE PAGAMENTO"
-    text_width = c.stringWidth(footer_text, "Helvetica-Bold", 8)
-    c.drawString((width - text_width) / 2, y_position, footer_text)
-    y_position -= 12
+        y_position -= 20
 
-    c.setFont("Helvetica", 7)
-    footer_text2 = "Este documento foi gerado automaticamente pelo Sistema de Gestão de Recursos Humanos"
-    text_width = c.stringWidth(footer_text2, "Helvetica", 7)
-    c.drawString((width - text_width) / 2, y_position, footer_text2)
-    y_position -= 10
+        # Dados dos recibos
+        c.setFont("Helvetica", 8)
+        total_liquido = Decimal('0')
 
-    footer_text3 = f"Válido para fins fiscais e de auditoria - Código: PROC-{processamento.pk:04d}"
-    text_width = c.stringWidth(footer_text3, "Helvetica", 7)
-    c.drawString((width - text_width) / 2, y_position, footer_text3)
-    y_position -= 10
+        for recibo in recibos:
+            # Verificar se há espaço suficiente
+            if y_position < margin_bottom + 100:
+                c.showPage()
+                # Cabeçalho CDOA na nova página
+                c.setFillColor(cor_cdoa)
+                c.rect(0, height - 50, width, 50, fill=1, stroke=0)
+                c.setFillColor(white)
+                c.setFont('Helvetica-Bold', 12)
+                c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
+                c.setFont('Helvetica', 9)
+                c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+                c.setFillColor(cor_cdoa_gold)
+                c.setFont('Helvetica-Bold', 11)
+                c.drawRightString(width - 30, height - 30, estado_display)
 
-    footer_text4 = f"Data de geração: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}"
-    text_width = c.stringWidth(footer_text4, "Helvetica", 7)
-    c.drawString((width - text_width) / 2, y_position, footer_text4)
+                y_position = height - 70
 
-    # Salvar o PDF
-    c.save()
+                # Repetir cabeçalho da tabela
+                c.setFont("Helvetica-Bold", 8)
+                x_position = margin_left
+                for i, header in enumerate(headers):
+                    col_width = total_width * col_widths[i] / sum(col_widths)
+                    c.drawString(x_position, y_position, header)
+                    x_position += col_width
+                y_position -= 20
+                c.setFont("Helvetica", 8)
 
-    # Salvar referência no processamento
-    processamento.pdf_gerado = True
-    processamento.save()
+            # Calcular total de subsídios
+            total_subsidios = Decimal('0')
+            for vinculo in recibo.subsidios_vinculados.all():
+                total_subsidios += vinculo.valor
+
+            # Dados do recibo
+            dados = [
+                recibo.colaborador.nome[:30],  # Limitar nome
+                fmt_kz(recibo.salario_base),
+                fmt_kz(total_subsidios),
+                fmt_kz(recibo.bruto),
+                fmt_kz(recibo.outros_descontos),
+                fmt_kz(recibo.irt),
+                fmt_kz(recibo.inss_trabalhador),
+                fmt_kz(recibo.liquido)
+            ]
+
+            x_position = margin_left
+            for i, dado in enumerate(dados):
+                col_width = total_width * col_widths[i] / sum(col_widths)
+                if i == 0:  # Nome do colaborador - alinhado à esquerda
+                    c.drawString(x_position, y_position, dado)
+                else:  # Valores - alinhados à direita
+                    c.drawRightString(x_position + col_width, y_position, dado)
+                x_position += col_width
+
+            total_liquido += recibo.liquido
+            y_position -= 15
+
+        # Linha separadora antes do total
+        y_position -= 10
+        c.line(margin_left, y_position, width - margin_right, y_position)
+        y_position -= 15
+
+        # Total
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(margin_left, y_position, "Total Líquido Pago:")
+        c.drawRightString(width - margin_right, y_position, f"{fmt_kz(total_liquido)} KZ")
+        y_position -= 40
+
+        # Assinatura do Despachante (centrada)
+        y_position -= 30
+        c.setFont("Helvetica", 9)
+        sig_line_width = 200
+        sig_x = (width - sig_line_width) / 2
+        c.line(sig_x, y_position, sig_x + sig_line_width, y_position)
+        y_position -= 14
+        label = f"Despachante — {banca.nome}"
+        label_width = c.stringWidth(label, "Helvetica", 9)
+        c.drawString((width - label_width) / 2, y_position, label)
+        y_position -= 11
+        sub_label = "Assinatura e Carimbo"
+        sub_width = c.stringWidth(sub_label, "Helvetica", 9)
+        c.drawString((width - sub_width) / 2, y_position, sub_label)
+
+        y_position -= 40
+
+        # Rodapé
+        c.setFont("Helvetica-Bold", 8)
+        footer_text = "DOCUMENTO FISCAL - COMPROVANTE DE PAGAMENTO"
+        text_width = c.stringWidth(footer_text, "Helvetica-Bold", 8)
+        c.drawString((width - text_width) / 2, y_position, footer_text)
+        y_position -= 12
+
+        c.setFont("Helvetica", 7)
+        footer_text2 = "Este documento foi gerado automaticamente pelo Sistema de Gestão de Recursos Humanos"
+        text_width = c.stringWidth(footer_text2, "Helvetica", 7)
+        c.drawString((width - text_width) / 2, y_position, footer_text2)
+        y_position -= 10
+
+        footer_text3 = f"Válido para fins fiscais e de auditoria - Código: PROC-{processamento.pk:04d}"
+        text_width = c.stringWidth(footer_text3, "Helvetica", 7)
+        c.drawString((width - text_width) / 2, y_position, footer_text3)
+        y_position -= 10
+
+        footer_text4 = f"Data de geração: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        text_width = c.stringWidth(footer_text4, "Helvetica", 7)
+        c.drawString((width - text_width) / 2, y_position, footer_text4)
+
+        # Salvar o PDF
+        c.save()
+
+        # Salvar referência no processamento
+        processamento.pdf_gerado = True
+        processamento.save()
+    except Exception:
+        _logger.exception("Erro ao gerar PDF do processamento %s", processamento.pk)
 
 
 def _gerar_faturas_processamento(processamento, request):

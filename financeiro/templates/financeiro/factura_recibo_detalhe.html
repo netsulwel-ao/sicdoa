@@ -38,11 +38,15 @@
             <span>Editar</span>
           </a>
           {% endif %}
-          <a href="{% url 'financeiro:factura_recibo_enviar_email' object.pk %}"
-            class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
-            <i class="fas fa-envelope"></i>
-            <span>Reenviar Email</span>
-          </a>
+          <form method="post" action="{% url 'financeiro:factura_recibo_enviar_email' object.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="button"
+              onclick="confirmarFormPost(this.form, {tipo:'info', titulo:'Reenviar Email', mensagem:'Reenviar factura-recibo por email?', textoBotao:'Sim, Enviar'})"
+              class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
+              <i class="fas fa-envelope"></i>
+              <span>Reenviar Email</span>
+            </button>
+          </form>
           <a href="{% url 'financeiro:factura_recibo_pdf' object.pk %}" target="_blank"
             class="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
             <i class="fas fa-file-pdf"></i>

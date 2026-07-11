@@ -451,7 +451,7 @@ class SubsidioRecibo(models.Model):
     
 class ReciboSalarial(models.Model):
     processamento = models.ForeignKey(ProcessamentoSalarial, on_delete=models.CASCADE, related_name='recibos')
-    colaborador   = models.ForeignKey(Colaborador, on_delete=models.CASCADE, related_name='recibos')
+    colaborador   = models.ForeignKey(Colaborador, on_delete=models.PROTECT, related_name='recibos')
     salario_base  = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     subsidio_alimentacao = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     subsidio_transporte  = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -1027,7 +1027,7 @@ class NotaMetrica(models.Model):
 
 class Avaliacao(models.Model):
     ciclo       = models.ForeignKey(CicloAvaliacao, on_delete=models.CASCADE, related_name='avaliacoes')
-    colaborador = models.ForeignKey(Colaborador, on_delete=models.CASCADE, related_name='avaliacoes')
+    colaborador = models.ForeignKey(Colaborador, on_delete=models.PROTECT, related_name='avaliacoes')
     pontualidade     = models.PositiveSmallIntegerField(default=3)
     produtividade    = models.PositiveSmallIntegerField(default=3)
     qualidade_trabalho = models.PositiveSmallIntegerField(default=3)

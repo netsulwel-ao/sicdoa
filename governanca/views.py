@@ -61,6 +61,8 @@ def _requer_login(view_func):
                or request.session.get('usuario_id'))
         if not uid:
             return redirect('login')
+        request.session['login_time'] = time.time()
+        request.session.modified = True
         request.usuario_obj = Usuario.objects.get(id=uid)
         return view_func(request, *args, **kwargs)
     return wrapper
@@ -3829,98 +3831,104 @@ from io import BytesIO
 
 @_requer_login
 def exportar_resultados_pdf(request, pk):
-    assembleia = get_object_or_404(Assembleia, pk=pk)
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.lib.colors import HexColor
-    from reportlab.pdfgen import canvas
-    from reportlab.platypus import Table, TableStyle
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+    try:
+        assembleia = get_object_or_404(Assembleia, pk=pk)
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.lib.colors import HexColor
+        from reportlab.pdfgen import canvas
+        from reportlab.platypus import Table, TableStyle
 
-    buf = BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    w, h = A4
-    c.setTitle(f'Resultados - {assembleia.titulo}')
+        buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=A4)
+        w, h = A4
+        c.setTitle(f'Resultados - {assembleia.titulo}')
 
-    # Header CDOA
-    cor_cdoa = HexColor('#1a3a5c')
-    cor_cdoa_gold = HexColor('#c9a84c')
-    estado_display = assembleia.get_status_display()
-    c.saveState()
-    c.setFillColor(cor_cdoa)
-    c.rect(0, h - 50, w, 50, fill=1, stroke=0)
-    c.setFillColor(HexColor('#ffffff'))
-    c.setFont('Helvetica-Bold', 12)
-    c.drawString(30, h - 35, 'REPÚBLICA DE ANGOLA')
-    c.setFont('Helvetica', 9)
-    c.drawString(30, h - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-    c.setFillColor(cor_cdoa_gold)
-    c.setFont('Helvetica-Bold', 11)
-    c.drawRightString(w - 30, h - 30, estado_display)
-    c.restoreState()
-
-    y = h - 80
-    # Título do documento
-    c.saveState()
-    c.setFont('Helvetica-Bold', 18)
-    c.setFillColor(cor_cdoa)
-    c.drawCentredString(w / 2, y, 'Resultados da Assembleia')
-    y -= 25
-    c.setFont('Helvetica', 10)
-    c.setFillColor(HexColor('#333333'))
-    c.drawCentredString(w / 2, y, assembleia.titulo)
-    y -= 25
-    c.restoreState()
-
-    c.saveState()
-    c.setFont('Helvetica-Bold', 11)
-    c.drawString(40, y, f'Data: {assembleia.data_hora:%d/%m/%Y %H:%M}')
-    y -= 16
-    c.drawString(40, y, f'Status: {estado_display}')
-    y -= 16
-    c.drawString(40, y, f'Presentes: {assembleia.presentes_count} / Quórum: {assembleia.quorum_minimo}')
-    y -= 25
-
-    pautas_com_votos = assembleia.pautas.with_vote_counts()
-    for pauta in pautas_com_votos:
+        # Header CDOA
+        cor_cdoa = HexColor('#1a3a5c')
+        cor_cdoa_gold = HexColor('#c9a84c')
+        estado_display = assembleia.get_status_display()
+        c.saveState()
+        c.setFillColor(cor_cdoa)
+        c.rect(0, h - 50, w, 50, fill=1, stroke=0)
+        c.setFillColor(HexColor('#ffffff'))
         c.setFont('Helvetica-Bold', 12)
-        c.setFillColor(HexColor('#1a3a5c'))
-        c.drawString(40, y, f'{pauta.ordem}. {pauta.titulo}')
-        y -= 18
+        c.drawString(30, h - 35, 'REPÚBLICA DE ANGOLA')
+        c.setFont('Helvetica', 9)
+        c.drawString(30, h - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+        c.setFillColor(cor_cdoa_gold)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawRightString(w - 30, h - 30, estado_display)
+        c.restoreState()
+
+        y = h - 80
+        # Título do documento
+        c.saveState()
+        c.setFont('Helvetica-Bold', 18)
+        c.setFillColor(cor_cdoa)
+        c.drawCentredString(w / 2, y, 'Resultados da Assembleia')
+        y -= 25
         c.setFont('Helvetica', 10)
         c.setFillColor(HexColor('#333333'))
-        c.drawString(60, y, f'Favor: {pauta.votos_favor}  |  Contra: {pauta.votos_contra}  |  Abstenção: {pauta.votos_abstencao}')
-        y -= 14
-        c.drawString(60, y, f'Total: {pauta.total_votos} votos  |  Resultado: {pauta.resultado_final or "---"}')
-        y -= 22
-        if y < 80:
-            c.showPage()
-            # Header CDOA na nova página
-            c.saveState()
-            c.setFillColor(cor_cdoa)
-            c.rect(0, h - 50, w, 50, fill=1, stroke=0)
-            c.setFillColor(HexColor('#ffffff'))
+        c.drawCentredString(w / 2, y, assembleia.titulo)
+        y -= 25
+        c.restoreState()
+
+        c.saveState()
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(40, y, f'Data: {assembleia.data_hora:%d/%m/%Y %H:%M}')
+        y -= 16
+        c.drawString(40, y, f'Status: {estado_display}')
+        y -= 16
+        c.drawString(40, y, f'Presentes: {assembleia.presentes_count} / Quórum: {assembleia.quorum_minimo}')
+        y -= 25
+
+        pautas_com_votos = assembleia.pautas.with_vote_counts()
+        for pauta in pautas_com_votos:
             c.setFont('Helvetica-Bold', 12)
-            c.drawString(30, h - 35, 'REPÚBLICA DE ANGOLA')
-            c.setFont('Helvetica', 9)
-            c.drawString(30, h - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-            c.setFillColor(cor_cdoa_gold)
-            c.setFont('Helvetica-Bold', 11)
-            c.drawRightString(w - 30, h - 30, estado_display)
-            c.restoreState()
-            y = h - 80
+            c.setFillColor(HexColor('#1a3a5c'))
+            c.drawString(40, y, f'{pauta.ordem}. {pauta.titulo}')
+            y -= 18
+            c.setFont('Helvetica', 10)
+            c.setFillColor(HexColor('#333333'))
+            c.drawString(60, y, f'Favor: {pauta.votos_favor}  |  Contra: {pauta.votos_contra}  |  Abstenção: {pauta.votos_abstencao}')
+            y -= 14
+            c.drawString(60, y, f'Total: {pauta.total_votos} votos  |  Resultado: {pauta.resultado_final or "---"}')
+            y -= 22
+            if y < 80:
+                c.showPage()
+                # Header CDOA na nova página
+                c.saveState()
+                c.setFillColor(cor_cdoa)
+                c.rect(0, h - 50, w, 50, fill=1, stroke=0)
+                c.setFillColor(HexColor('#ffffff'))
+                c.setFont('Helvetica-Bold', 12)
+                c.drawString(30, h - 35, 'REPÚBLICA DE ANGOLA')
+                c.setFont('Helvetica', 9)
+                c.drawString(30, h - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
+                c.setFillColor(cor_cdoa_gold)
+                c.setFont('Helvetica-Bold', 11)
+                c.drawRightString(w - 30, h - 30, estado_display)
+                c.restoreState()
+                y = h - 80
 
-    c.saveState()
-    c.setFont('Helvetica', 8)
-    c.setFillColor(HexColor('#888888'))
-    c.drawCentredString(w / 2, 30, f'Documento gerado em {timezone.now():%d/%m/%Y %H:%M}  |  Hash: {assembleia.hash_integridade[:20]}...')
-    c.restoreState()
+        c.saveState()
+        c.setFont('Helvetica', 8)
+        c.setFillColor(HexColor('#888888'))
+        c.drawCentredString(w / 2, 30, f'Documento gerado em {timezone.now():%d/%m/%Y %H:%M}  |  Hash: {assembleia.hash_integridade[:20]}...')
+        c.restoreState()
 
-    c.showPage()
-    c.save()
-    buf.seek(0)
-    response = HttpResponse(buf, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="resultados_{assembleia.pk}_{assembleia.titulo[:30]}.pdf"'
-    return response
+        c.showPage()
+        c.save()
+        buf.seek(0)
+        response = HttpResponse(buf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="resultados_{assembleia.pk}_{assembleia.titulo[:30]}.pdf"'
+        return response
+    except Exception:
+        _logger.exception("Erro ao gerar PDF de resultados da assembleia %s", pk)
+        return HttpResponse('Erro ao gerar PDF.', status=500)
 
 
 @_requer_login
