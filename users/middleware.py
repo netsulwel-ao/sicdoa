@@ -18,8 +18,16 @@ class SessionExpirationMiddleware:
         # Não verificar sessão para páginas públicas
         public_paths = ['/login/', '/logout/', '/static/', '/media/', '/admin/']
         
+        # Endpoints de sessão (status/renovar) — não bloquear
+        session_api_paths = ['/users/api/sessao-status/', '/users/api/renovar-sessao/',
+                             '/session-status/', '/extend-session/']
+        
         # Verificar se o path é público
         if any(request.path.startswith(path) for path in public_paths):
+            return self.get_response(request)
+        
+        # Para endpoints de sessão, apenas verificar se existe sessão (não expirar)
+        if any(request.path.startswith(path) for path in session_api_paths):
             return self.get_response(request)
         
         # Verificar se há sessão ativa

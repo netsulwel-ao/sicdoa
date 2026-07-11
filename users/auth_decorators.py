@@ -85,8 +85,35 @@ def tempo_restante_sessao(request):
         tempo_total = timedelta(hours=1)
         tempo_restante = tempo_total - tempo_decorrido
         
-        # Retornar minutos restantes (mínimo 0)
         return max(0, int(tempo_restante.total_seconds() / 60))
+    except (ValueError, TypeError, KeyError):
+        return 0
+
+
+def tempo_restante_segundos(request):
+    """
+    Retorna o tempo restante da sessão em segundos.
+    Usado pelas APIs de status para contagem regressiva precisa.
+    """
+    if not request.session.get('login_time'):
+        return 0
+    
+    try:
+        from datetime import datetime
+        login_time_str = request.session['login_time']
+        if isinstance(login_time_str, str):
+            login_time = datetime.fromisoformat(login_time_str)
+            if login_time.tzinfo is None:
+                login_time = timezone.make_aware(login_time, timezone.utc)
+        else:
+            login_time = login_time_str
+        
+        agora = timezone.now()
+        tempo_decorrido = agora - login_time
+        tempo_total = timedelta(hours=1)
+        tempo_restante = tempo_total - tempo_decorrido
+        
+        return max(0, int(tempo_restante.total_seconds()))
     except (ValueError, TypeError, KeyError):
         return 0
 

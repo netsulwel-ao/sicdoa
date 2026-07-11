@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .auth_decorators import criar_sessao_usuario, tempo_restante_sessao
+from .auth_decorators import criar_sessao_usuario, tempo_restante_sessao, tempo_restante_segundos
 
 
 @require_http_methods(['POST'])
@@ -25,7 +25,7 @@ def extend_session_view(request):
         request.session.set_expiry(3600)
         
         # Retornar novo tempo restante
-        tempo_restante = tempo_restante_sessao(request)
+        tempo_restante = tempo_restante_segundos(request)
         
         return JsonResponse({
             'success': True,
@@ -52,7 +52,7 @@ def session_status_view(request):
             'tempo_restante': 0
         })
     
-    tempo_restante = tempo_restante_sessao(request)
+    tempo_restante = tempo_restante_segundos(request)
     
     return JsonResponse({
         'active': True,

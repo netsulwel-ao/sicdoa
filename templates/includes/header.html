@@ -315,9 +315,15 @@
 /* ── Monitoramento e Renovação Automática de Sessão ────────────────── */
 (function() {
   const INTERVALO_VERIFICACAO = 60 * 1000;
-  const TEMPO_AVISO = 1;
+  const TEMPO_AVISO = 300;
   
   let avisoMostrado = false;
+  let _intervalModal = null;
+  
+  function getCsrfToken() {
+    var v = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
+  }
   
   async function verificarSessao() {
     try {
@@ -354,57 +360,51 @@
   
   var sessaoExpirada = false;
   
-  function mostrarModalExpiracao(minutos) {
+  function mostrarModalExpiracao(segundos) {
     sessaoExpirada = false;
+    if (_intervalModal) { clearInterval(_intervalModal); _intervalModal = null; }
+    
+    var minutos = Math.ceil(segundos / 60);
+    
     const overlay = document.createElement('div');
     overlay.id = 'modal-sessao-overlay';
-    overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 99999;
-      background: rgba(0,0,0,0.5);
-      display: flex; align-items: center; justify-content: center;
-      backdrop-filter: blur(2px);
-    `;
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);';
     
     const modal = document.createElement('div');
     modal.id = 'aviso-sessao-expirando';
-    modal.style.cssText = `
-      background: #fff; border-radius: 16px; padding: 32px 36px;
-      max-width: 400px; width: 90%; box-shadow: 0 24px 64px rgba(0,0,0,0.25);
-      text-align: center; animation: fadeInUp 0.3s ease;
-    `;
+    modal.style.cssText = 'background:#fff;border-radius:16px;padding:32px 36px;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.25);text-align:center;animation:fadeInUp 0.3s ease;';
     
-    modal.innerHTML = `
-      <div style="margin-bottom: 16px;">
-        <div style="width:64px;height:64px;margin:0 auto;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;">
-          <i class="fas fa-hourglass-half" style="font-size:28px;color:#d97706;"></i>
-        </div>
-      </div>
-      <h3 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1f2937;">Sessão a expirar</h3>
-      <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.5;">
-        A sua sessão expira em <strong id="sessao-tempo-modal">${minutos}</strong> minuto${minutos !== 1 ? 's' : ''}.
-        <br><span id="sessao-mensagem-modal">Clique em "Renovar" para continuar.</span>
-      </p>
-      <div style="display:flex;gap:12px;justify-content:center;">
-        <button id="btn-renovar-sessao" onclick="renovarSessaoManual()"
-          style="padding:10px 28px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
-          <i class="fas fa-sync-alt" style="margin-right:6px;"></i>Renovar Sessão
-        </button>
-      </div>
-    `;
+    modal.innerHTML =
+      '<div style="margin-bottom:16px;">' +
+        '<div style="width:64px;height:64px;margin:0 auto;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;">' +
+          '<i class="fas fa-hourglass-half" style="font-size:28px;color:#d97706;"></i>' +
+        '</div>' +
+      '</div>' +
+      '<h3 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#1f2937;">Sessão a expirar</h3>' +
+      '<p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.5;">' +
+        'A sua sessão expira em <strong id="sessao-tempo-modal">' + minutos + '</strong> minuto(s).' +
+        '<br><span id="sessao-mensagem-modal">Clique em "Renovar" para continuar.</span>' +
+      '</p>' +
+      '<div style="display:flex;gap:12px;justify-content:center;">' +
+        '<button id="btn-renovar-sessao" onclick="renovarSessaoManual()"' +
+          ' style="padding:10px 28px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">' +
+          '<i class="fas fa-sync-alt" style="margin-right:6px;"></i>Renovar Sessão' +
+        '</button>' +
+      '</div>';
     
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     
-    // Actualizar contagem a cada 10s
-    const intervalId = setInterval(async () => {
+    _intervalModal = setInterval(async function() {
       try {
-        const r = await fetch('/users/api/sessao-status/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        var r = await fetch('/users/api/sessao-status/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         if (!r.ok) { window.location.href = '/login/'; return; }
-        const d = await r.json();
-        const el = document.getElementById('sessao-tempo-modal');
-        if (el) el.textContent = d.tempo_restante || 0;
+        var d = await r.json();
+        var restante = d.tempo_restante || 0;
+        var el = document.getElementById('sessao-tempo-modal');
+        if (el) el.textContent = Math.ceil(restante / 60);
         
-        if (d.tempo_restante <= 0 && !sessaoExpirada) {
+        if (restante <= 0 && !sessaoExpirada) {
           sessaoExpirada = true;
           var btn = document.getElementById('btn-renovar-sessao');
           if (btn) {
@@ -423,50 +423,60 @@
         window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
       }
     });
-    
-    modal.dataset.intervalId = intervalId;
   }
   
-  // Função global para renovar sessão manualmente
   window.renovarSessaoManual = async function() {
+    var btn = document.getElementById('btn-renovar-sessao');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>A renovar...'; }
+    
     try {
-      const res = await fetch('/users/api/renovar-sessao/', {
+      var res = await fetch('/users/api/renovar-sessao/', {
         method: 'POST',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+          'X-CSRFToken': getCsrfToken()
         }
       });
       
-      const overlay = document.getElementById('modal-sessao-overlay');
-      const modal = document.getElementById('aviso-sessao-expirando');
+      var overlay = document.getElementById('modal-sessao-overlay');
       
       if (res.ok) {
-        if (modal && modal.dataset.intervalId) {
-          clearInterval(Number(modal.dataset.intervalId));
-        }
+        if (_intervalModal) { clearInterval(_intervalModal); _intervalModal = null; }
         if (overlay) overlay.remove();
         avisoMostrado = false;
         sessaoExpirada = false;
       } else {
-        const data = await res.json().catch(() => ({}));
-        if (modal && data.error) {
-          modal.innerHTML = modal.innerHTML + '<div style="margin-top:12px;padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;">' + data.error + '</div>';
+        var data = await res.json().catch(function() { return {}; });
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt" style="margin-right:6px;"></i>Renovar Sessão'; }
+        var modal = document.getElementById('aviso-sessao-expirando');
+        var errMsg = (data && data.error) ? data.error : 'Erro ao renovar sessão.';
+        if (modal) {
+          var existing = modal.querySelector('.session-error-msg');
+          if (existing) existing.remove();
+          var div = document.createElement('div');
+          div.className = 'session-error-msg';
+          div.style.cssText = 'margin-top:12px;padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;';
+          div.textContent = errMsg;
+          modal.appendChild(div);
         }
       }
     } catch (err) {
       console.error('Erro ao renovar sessão:', err);
-      const modal = document.getElementById('aviso-sessao-expirando');
-      if (modal) {
-        modal.innerHTML = modal.innerHTML + '<div style="margin-top:12px;padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;">Erro de rede ao renovar sessão</div>';
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt" style="margin-right:6px;"></i>Renovar Sessão'; }
+      var modal2 = document.getElementById('aviso-sessao-expirando');
+      if (modal2) {
+        var existing2 = modal2.querySelector('.session-error-msg');
+        if (existing2) existing2.remove();
+        var div2 = document.createElement('div');
+        div2.className = 'session-error-msg';
+        div2.style.cssText = 'margin-top:12px;padding:8px 12px;background:#fef2f2;border-radius:8px;font-size:13px;color:#991b1b;';
+        div2.textContent = 'Erro de rede ao renovar sessão.';
+        modal2.appendChild(div2);
       }
     }
   };
   
-  // Iniciar verificação periódica
   setInterval(verificarSessao, INTERVALO_VERIFICACAO);
-  
-  // Verificar imediatamente ao carregar
   setTimeout(verificarSessao, 2000);
   
 })();
