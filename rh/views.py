@@ -872,6 +872,23 @@ def banca_view(request):
 
 
 @_requer_sessao
+def banca_detalhe_view(request):
+    """Exibe as informações detalhadas da banca do utilizador logado."""
+    acc = obter_acesso_rh(request)
+    if acc:
+        banca = acc[0]
+    else:
+        uid = request.session['usuario_id']
+        banca = Banca.objects.filter(usuario_id=uid).first()
+
+    if not banca:
+        return redirect('rh_banca_criar')
+
+    ctx = _ctx(request, 'banca', extra={'banca': banca})
+    return render(request, 'rh/banca/info.html', ctx)
+
+
+@_requer_sessao
 def banca_criar_view(request):
     """Criação da banca (apenas se não existir)."""
     uid = request.session['usuario_id']
@@ -889,9 +906,21 @@ def banca_criar_view(request):
     if request.method == 'POST':
         dados = {k: request.POST.get(k, '').strip() for k in
                  ['nome', 'nif', 'tipo', 'email', 'telefone',
-                  'endereco', 'provincia', 'municipio', 'licenca_cdoa',
-                  'banco', 'numero_conta', 'iban']}
+                  'endereco', 'provincia', 'municipio', 'licenca_cdoa']}
         dados['instrucoes_pagamento'] = request.POST.get('instrucoes_pagamento', '').strip()
+
+        # Parse dados bancários JSON
+        bancos_json_raw = request.POST.get('dados_bancarios_json', '[]').strip()
+        try:
+            bancos_lista = json.loads(bancos_json_raw) if bancos_json_raw else []
+        except (json.JSONDecodeError, ValueError):
+            bancos_lista = []
+        if not isinstance(bancos_lista, list):
+            bancos_lista = []
+        bancos_lista = [b for b in bancos_lista if isinstance(b, dict) and b.get('banco')]
+        if len(bancos_lista) > 4:
+            bancos_lista = bancos_lista[:4]
+
         if not dados['nome'] or not dados['nif']:
             return _render({'erro': 'Nome e NIF são obrigatórios.'})
 
@@ -904,6 +933,10 @@ def banca_criar_view(request):
             return _render({'erro': 'Este email já está registado no sistema.'})
 
         banca = Banca(usuario_id=uid, **dados)
+        banca.dados_bancarios_json = json.dumps(bancos_lista, ensure_ascii=False)
+        if bancos_lista:
+            banca.banco = bancos_lista[0].get('banco', '')
+            banca.iban = bancos_lista[0].get('iban', '')
         if 'logo' in request.FILES:
             banca.logo = request.FILES['logo']
         banca.save()
@@ -928,9 +961,8 @@ def banca_editar_view(request):
             'email': banca.email, 'telefone': banca.telefone,
             'endereco': banca.endereco, 'provincia': banca.provincia,
             'municipio': banca.municipio, 'licenca_cdoa': banca.licenca_cdoa,
-            'banco': banca.banco,
-            'numero_conta': banca.numero_conta, 'iban': banca.iban,
             'instrucoes_pagamento': banca.instrucoes_pagamento,
+            'dados_bancarios_json': banca.dados_bancarios_json or '[]',
         }
         return render(request, 'rh/banca/editar.html', _ctx(request, 'banca', {
             'banca': banca, 'banca_tipos': BANCA_TIPOS,
@@ -940,9 +972,21 @@ def banca_editar_view(request):
     if request.method == 'POST':
         dados = {k: request.POST.get(k, '').strip() for k in
                  ['nome', 'nif', 'tipo', 'email', 'telefone',
-                  'endereco', 'provincia', 'municipio', 'licenca_cdoa',
-                  'banco', 'numero_conta', 'iban']}
+                  'endereco', 'provincia', 'municipio', 'licenca_cdoa']}
         dados['instrucoes_pagamento'] = request.POST.get('instrucoes_pagamento', '').strip()
+
+        # Parse dados bancários JSON (máx 4 bancos)
+        bancos_json_raw = request.POST.get('dados_bancarios_json', '[]').strip()
+        try:
+            bancos_lista = json.loads(bancos_json_raw) if bancos_json_raw else []
+        except (json.JSONDecodeError, ValueError):
+            bancos_lista = []
+        if not isinstance(bancos_lista, list):
+            bancos_lista = []
+        bancos_lista = [b for b in bancos_lista if isinstance(b, dict) and b.get('banco')]
+        if len(bancos_lista) > 4:
+            bancos_lista = bancos_lista[:4]
+
         if not dados['nome'] or not dados['nif']:
             return _render({'erro': 'Nome e NIF são obrigatórios.'})
 
@@ -956,6 +1000,15 @@ def banca_editar_view(request):
 
         for k, v in dados.items():
             setattr(banca, k, v)
+
+        banca.dados_bancarios_json = json.dumps(bancos_lista, ensure_ascii=False)
+        if bancos_lista:
+            banca.banco = bancos_lista[0].get('banco', '')
+            banca.iban = bancos_lista[0].get('iban', '')
+        else:
+            banca.banco = ''
+            banca.iban = ''
+
         if 'logo' in request.FILES:
             banca.logo = request.FILES['logo']
         banca.save()

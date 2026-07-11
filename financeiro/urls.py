@@ -26,6 +26,7 @@ urlpatterns = [
     
     # APIs para Auto-preenchimento
     path('api/usuario-banca/', views.api_dados_usuario_banca, name='api_dados_usuario_banca'),
+    path('api/buscar-cliente/', views.api_buscar_cliente, name='api_buscar_cliente'),
     path('api/dados-cliente/', views.api_dados_cliente, name='api_dados_cliente'),
     path('api/processos-cliente/', views.api_processos_cliente, name='api_processos_cliente'),
     path('api/dados-processo/', views.api_dados_processo, name='api_dados_processo'),
@@ -64,6 +65,7 @@ urlpatterns = [
     path('notas-credito/<int:pk>/cancelar/', views.cancelar_nota_credito, name='nota_credito_cancelar'),
     path('notas-credito/<int:pk>/pdf/', views.nota_credito_pdf, name='nota_credito_pdf'),
     path('notas-credito/<int:pk>/enviar-email/', views.nota_credito_enviar_email, name='nota_credito_enviar_email'),
+    path('notas-credito/<int:pk>/eliminar/', views.eliminar_nota_credito, name='nota_credito_eliminar'),
 
     # Notas de Débito
     path('notas-debito/', views.NotaDebitoListView.as_view(), name='nota_debito_lista'),
@@ -73,6 +75,7 @@ urlpatterns = [
     path('notas-debito/<int:pk>/aprovar/', views.aprovar_nota_debito, name='nota_debito_aprovar'),
     path('notas-debito/<int:pk>/rejeitar/', views.rejeitar_nota_debito, name='nota_debito_rejeitar'),
     path('notas-debito/<int:pk>/cancelar/', views.cancelar_nota_debito, name='nota_debito_cancelar'),
+    path('notas-debito/<int:pk>/eliminar/', views.eliminar_nota_debito, name='nota_debito_eliminar'),
     path('notas-debito/<int:pk>/pdf/', views.nota_debito_pdf, name='nota_debito_pdf'),
     path('notas-debito/<int:pk>/enviar-email/', views.nota_debito_enviar_email, name='nota_debito_enviar_email'),
 

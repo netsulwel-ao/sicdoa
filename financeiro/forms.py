@@ -1,4 +1,5 @@
 from django import forms
+from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 from clientes.models import Cliente
 from rh.models import Banca
@@ -35,6 +36,12 @@ class FlexibleModelChoiceField(forms.ModelChoiceField):
                 raise forms.ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
 
 
+class ClienteNIFChoiceField(forms.ModelChoiceField):
+    """Campo que mostra apenas o NIF do cliente no select."""
+    def label_from_instance(self, obj):
+        return obj.nif or str(obj.pk)
+
+
 class RequisicaoFundoForm(forms.ModelForm):
     processo_aduaneiro = FlexibleModelChoiceField(
         queryset=DeclaracaoUnica.objects.filter(status='Submetida'),
@@ -48,8 +55,10 @@ class RequisicaoFundoForm(forms.ModelForm):
         fields = ['banca', 'filial', 'cliente', 'pessoa_contacto', 'processo_aduaneiro', 
                  'numero_bl_awb', 'meio_transporte', 'origem', 'destino', 'mercadoria_descricao',
                  'peso_bruto_kg', 'peso_liquido_kg', 'cbm_metros_cubicos', 'quantidade_volumes', 'valor_cif',
-                 'data_validade', 'moeda_referencia', 'cambio_referencia', 'observacoes',
-                  'instrucoes_envio']
+                 'data_validade', 'moeda_referencia', 'cambio_referencia', 'observacoes']
+        field_classes = {
+            'cliente': ClienteNIFChoiceField,
+        }
         widgets = {
             'banca': forms.Select(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
@@ -125,12 +134,7 @@ class RequisicaoFundoForm(forms.ModelForm):
             'observacoes': forms.Textarea(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
                 'rows': '3',
-                'placeholder': 'Observações adicionais...'
-            }),
-            'instrucoes_envio': forms.Textarea(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
-                'rows': '2',
-                'placeholder': 'Ex: Por favor, enviar o comprovativo de transferência com a referência do número da Requisição'
+                 'placeholder': 'Observações adicionais...'
             }),
         }
 
@@ -316,6 +320,37 @@ class FacturaClienteForm(forms.ModelForm):
             raise forms.ValidationError('A data de vencimento não pode estar no passado.')
         return data
 
+    def _clean_monetario(self, field_name):
+        raw = self.cleaned_data.get(field_name)
+        if raw is None:
+            return raw
+        if isinstance(raw, str):
+            raw = raw.strip()
+            if raw:
+                raw = parse_kz(raw)
+        try:
+            return Decimal(str(raw)).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError):
+            raise forms.ValidationError('Introduza um valor numérico válido (ex: 10000 ou 10.000,00).')
+
+    def clean_honorarios_despachante(self):
+        return self._clean_monetario('honorarios_despachante')
+
+    def clean_taxas_aduaneiras(self):
+        return self._clean_monetario('taxas_aduaneiras')
+
+    def clean_emolumentos(self):
+        return self._clean_monetario('emolumentos')
+
+    def clean_despesas_operacionais(self):
+        return self._clean_monetario('despesas_operacionais')
+
+    def clean_iva(self):
+        return self._clean_monetario('iva')
+
+    def clean_outros_encargos(self):
+        return self._clean_monetario('outros_encargos')
+
     def clean(self):
         cleaned_data = super().clean()
         cliente = cleaned_data.get('cliente')
@@ -354,6 +389,21 @@ class ReciboClienteForm(forms.ModelForm):
                 self.fields['factura'].queryset = FacturaCliente.objects.filter(cliente_id=cliente_id)
             except (ValueError, TypeError):
                 pass
+        if self.instance and self.instance.pk and self.instance.valor_recebido:
+            self.initial['valor_recebido'] = fmt_kz(self.instance.valor_recebido)
+
+    def clean_valor_recebido(self):
+        raw = self.cleaned_data.get('valor_recebido')
+        if raw is None:
+            return raw
+        if isinstance(raw, str):
+            raw = raw.strip()
+            if raw:
+                raw = parse_kz(raw)
+        try:
+            return Decimal(str(raw)).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError):
+            raise forms.ValidationError('Introduza um valor numérico válido (ex: 10000 ou 10.000,00).')
 
     def clean(self):
         cleaned_data = super().clean()
@@ -388,6 +438,24 @@ class ReciboClienteUpdateForm(forms.ModelForm):
             'referencia_bancaria': forms.TextInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.valor_recebido:
+            self.initial['valor_recebido'] = fmt_kz(self.instance.valor_recebido)
+
+    def clean_valor_recebido(self):
+        raw = self.cleaned_data.get('valor_recebido')
+        if raw is None:
+            return raw
+        if isinstance(raw, str):
+            raw = raw.strip()
+            if raw:
+                raw = parse_kz(raw)
+        try:
+            return Decimal(str(raw)).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError):
+            raise forms.ValidationError('Introduza um valor numérico válido (ex: 10000 ou 10.000,00).')
+
 
 class NotaCreditoForm(forms.ModelForm):
     class Meta:
@@ -419,6 +487,21 @@ class NotaCreditoForm(forms.ModelForm):
                 self.fields['factura_relacionada'].queryset = qs.filter(cliente_id=cliente_id)
             except (ValueError, TypeError):
                 pass
+        if self.instance and self.instance.pk and self.instance.valor_creditado:
+            self.initial['valor_creditado'] = fmt_kz(self.instance.valor_creditado)
+
+    def clean_valor_creditado(self):
+        raw = self.cleaned_data.get('valor_creditado')
+        if raw is None:
+            return raw
+        if isinstance(raw, str):
+            raw = raw.strip()
+            if raw:
+                raw = parse_kz(raw)
+        try:
+            return Decimal(str(raw)).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError):
+            raise forms.ValidationError('Introduza um valor numérico válido (ex: 10000 ou 10.000,00).')
 
     def clean(self):
         cleaned_data = super().clean()
@@ -467,6 +550,21 @@ class NotaDebitoForm(forms.ModelForm):
                 self.fields['factura_relacionada'].queryset = qs.filter(cliente_id=cliente_id)
             except (ValueError, TypeError):
                 pass
+        if self.instance and self.instance.pk and self.instance.valor:
+            self.initial['valor'] = fmt_kz(self.instance.valor)
+
+    def clean_valor(self):
+        raw = self.cleaned_data.get('valor')
+        if raw is None:
+            return raw
+        if isinstance(raw, str):
+            raw = raw.strip()
+            if raw:
+                raw = parse_kz(raw)
+        try:
+            return Decimal(str(raw)).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError):
+            raise forms.ValidationError('Introduza um valor numérico válido (ex: 10000 ou 10.000,00).')
 
     def clean(self):
         cleaned_data = super().clean()
@@ -500,13 +598,27 @@ class FacturaReciboForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from .models import FacturaCliente
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
                 self.fields['factura'].queryset = FacturaCliente.objects.filter(cliente_id=cliente_id, estado__in=['Pendente', 'Parcialmente Paga'])
             except (ValueError, TypeError):
                 pass
+        if self.instance and self.instance.pk and self.instance.valor:
+            self.initial['valor'] = fmt_kz(self.instance.valor)
+
+    def clean_valor(self):
+        raw = self.cleaned_data.get('valor')
+        if raw is None:
+            return raw
+        if isinstance(raw, str):
+            raw = raw.strip()
+            if raw:
+                raw = parse_kz(raw)
+        try:
+            return Decimal(str(raw)).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError):
+            raise forms.ValidationError('Introduza um valor numérico válido (ex: 10000 ou 10.000,00).')
 
     def clean(self):
         cleaned_data = super().clean()

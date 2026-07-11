@@ -1,0 +1,178 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Minha Banca</span>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Informações</span>
+{% endblock %}
+
+{% block conteudo %}
+
+<!-- Header -->
+<div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-6">
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+        {% if banca.logo %}
+        <img src="{{ banca.logo.url }}" alt="{{ banca.nome }}" class="w-16 h-16 rounded-xl object-cover">
+        {% else %}
+        <i class="fas fa-store text-primary text-2xl"></i>
+        {% endif %}
+      </div>
+      <div>
+        <h1 class="text-2xl font-black text-gray-900 dark:text-white">{{ banca.nome }}</h1>
+        <div class="flex items-center gap-3 mt-1">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold
+            {% if banca.ativa %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+            <i class="fas {% if banca.ativa %}fa-check-circle{% else %}fa-times-circle{% endif %} text-[10px]"></i>
+            {% if banca.ativa %}Ativa{% else %}Inativa{% endif %}
+          </span>
+          <span class="text-sm text-gray-500">Criada em {{ banca.criado_em|date:"d/m/Y" }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <a href="{% url 'rh_banca' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
+      <a href="{% url 'rh_banca_editar' %}"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm">
+        <i class="fas fa-edit text-base"></i>Editar
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Dados Gerais -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-building text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Dados Gerais</h2>
+    </div>
+    <div class="p-6 grid grid-cols-2 gap-4">
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</p>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">{{ banca.nome }}</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">NIF</p>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">{{ banca.nif|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo</p>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">{{ banca.get_tipo_display|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Licença CDOA</p>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">{{ banca.licenca_cdoa|default:"—" }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contacto e Localização -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-map-marker-alt text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Contacto e Localização</h2>
+    </div>
+    <div class="p-6 grid grid-cols-2 gap-4">
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Telefone</p>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">{{ banca.telefone|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</p>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">{{ banca.email|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Província</p>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">{{ banca.provincia|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Município</p>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">{{ banca.municipio|default:"—" }}</p>
+      </div>
+      {% if banca.endereco %}
+      <div class="col-span-2">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Endereço</p>
+        <p class="text-sm text-gray-900 dark:text-white mt-1 whitespace-pre-line">{{ banca.endereco }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Dados Bancários -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-university text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Dados Bancários</h2>
+    </div>
+    <div class="p-6">
+      {% if banca.bancos_lista %}
+      <div class="space-y-3">
+        {% for b in banca.bancos_lista %}
+        <div class="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+          <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-university text-primary text-sm"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ b.banco }}</p>
+            {% if b.iban %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{{ b.iban }}</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% elif banca.banco %}
+      <div class="space-y-3">
+        <div class="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+          <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-university text-primary text-sm"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ banca.banco }}</p>
+            {% if banca.iban %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{{ banca.iban }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-500 dark:text-gray-400 italic">Nenhum dado bancário registado.</p>
+      {% endif %}
+
+      {% if banca.instrucoes_pagamento %}
+      <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Instruções de Pagamento</p>
+        <p class="text-sm text-gray-900 dark:text-white mt-1 whitespace-pre-line">{{ banca.instrucoes_pagamento }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-chart-bar text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Resumo</h2>
+    </div>
+    <div class="p-6 grid grid-cols-2 gap-4">
+      <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-center">
+        <p class="text-2xl font-bold text-primary">{{ banca.total_colaboradores }}</p>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase">Colaboradores</p>
+      </div>
+      <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-center">
+        <p class="text-2xl font-bold text-primary">{{ banca.total_filiais }}</p>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase">Filiais</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

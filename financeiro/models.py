@@ -1,13 +1,10 @@
-from datetime import date as date_type
 from decimal import Decimal
 import json
 
 from django.db import models, transaction
-from django.db.models import F, Sum
+from django.db.models import Sum
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
 
@@ -131,7 +128,7 @@ class RequisicaoFundo(models.Model):
         
         # Salvar novamente com totais recalculados
         super().save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral', 
-                                    'assinatura_digital'])
+                                    'assinatura_digital', 'codigo_qr'])
 
     def _recalcular_totais(self):
         """Recalcula todos os totais baseado nos items"""
@@ -153,14 +150,16 @@ class RequisicaoFundo(models.Model):
         
         self.retencao = (valor_honorarios * Decimal('0.065')).quantize(Decimal('0.01'))
         
-        # Total = Subtotal + IVA + Retenção
-        self.total_geral = (self.subtotal_geral + self.iva_honorarios + self.retencao).quantize(Decimal('0.01'))
+        # Total = Subtotal + IVA - Retenção (retenção é desconto, não acréscimo)
+        self.total_geral = (self.subtotal_geral + self.iva_honorarios - self.retencao).quantize(Decimal('0.01'))
 
     def _gerar_assinatura_digital(self):
-        """Gera assinatura digital SHA-256 Base64 da requisição"""
+        """Gera assinatura digital HMAC-SHA256 Base64 da requisição"""
+        import hmac
         import hashlib
         import json
         import base64
+        from django.conf import settings
         
         dados_assinatura = {
             'numero_requisicao': self.numero_requisicao,
@@ -171,8 +170,9 @@ class RequisicaoFundo(models.Model):
         }
         
         dados_json = json.dumps(dados_assinatura, sort_keys=True, ensure_ascii=False)
-        hash_bytes = hashlib.sha256(dados_json.encode('utf-8')).digest()
-        self.assinatura_digital = base64.b64encode(hash_bytes).decode('utf-8')
+        chave = settings.SECRET_KEY.encode('utf-8')
+        assinatura = hmac.new(chave, dados_json.encode('utf-8'), hashlib.sha256).digest()
+        self.assinatura_digital = base64.b64encode(assinatura).decode('utf-8')
 
     def _gerar_codigo_qr(self):
         """Gera código QR com informações da requisição"""
@@ -270,7 +270,7 @@ class RequisicaoFundo(models.Model):
                 if resto == 0:
                     return m_txt
                 # Usar "e" quando o resto é < 100 ou é múltiplo de 100, senão vírgula
-                conector = ' e ' if resto < 100 or resto % 100 == 0 else ' e '
+                conector = ' e ' if resto < 100 or resto % 100 == 0 else ', '
                 return f"{m_txt}{conector}{ate_999(resto)}"
 
             return ate_999(num)
@@ -358,7 +358,7 @@ class RequisicaoFundoLinha(models.Model):
                                    related_name='linhas', verbose_name='Requisição')
     tipo_custo = models.CharField(max_length=50, choices=TIPOS_CUSTO,
                                  verbose_name='Tipo de Custo', db_index=True)
-    descricao = models.CharField(max_length=255, verbose_name='Descrição')
+    descricao = models.CharField(max_length=255, blank=True, default='', verbose_name='Descrição')
     documentada = models.BooleanField(default=False, verbose_name='Documentada', db_index=True)
     despesa_tipo = models.CharField(max_length=50, blank=True, null=True,
                                    verbose_name='Tipo de Despesa')
@@ -483,7 +483,7 @@ class FacturaCliente(models.Model):
                 self.emolumentos + 
                 self.despesas_operacionais + 
                 self.iva + 
-                self.outros_encargos +
+                self.outros_encargos -
                 self.retencao
             )
 
@@ -533,7 +533,7 @@ class ReciboCliente(models.Model):
                                 null=True, blank=True, related_name='recibos_cliente')
     numero_recibo = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número do Recibo')
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='recibos_cliente', verbose_name='Cliente')
-    factura = models.ForeignKey(FacturaCliente, on_delete=models.CASCADE, related_name='recibos', verbose_name='Factura')
+    factura = models.ForeignKey(FacturaCliente, on_delete=models.PROTECT, related_name='recibos', verbose_name='Factura')
     requisicao_fundo = models.ForeignKey(RequisicaoFundo, on_delete=models.SET_NULL, null=True, blank=True,
                                          related_name='recibos_pagamento', verbose_name='Requisição de Fundo')
     valor_recebido = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Recebido')
@@ -661,7 +661,7 @@ class NotaCredito(models.Model):
     filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
                                 null=True, blank=True, related_name='notas_credito')
     numero_nota = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Nota')
-    factura_relacionada = models.ForeignKey(FacturaCliente, on_delete=models.CASCADE, related_name='notas_credito', verbose_name='Factura Relacionada')
+    factura_relacionada = models.ForeignKey(FacturaCliente, on_delete=models.PROTECT, related_name='notas_credito', verbose_name='Factura Relacionada')
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='notas_credito', verbose_name='Cliente')
     valor_creditado = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Creditado')
     motivo = models.CharField(max_length=255, verbose_name='Motivo')
@@ -762,7 +762,7 @@ class NotaDebito(models.Model):
                                 null=True, blank=True, related_name='notas_debito')
     numero_nota = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Nota')
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='notas_debito', verbose_name='Cliente')
-    factura_relacionada = models.ForeignKey(FacturaCliente, on_delete=models.CASCADE, related_name='notas_debito', verbose_name='Factura Relacionada')
+    factura_relacionada = models.ForeignKey(FacturaCliente, on_delete=models.PROTECT, related_name='notas_debito', verbose_name='Factura Relacionada')
     valor = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor')
     motivo = models.CharField(max_length=255, verbose_name='Motivo')
     data = models.DateField(verbose_name='Data', db_index=True)
@@ -1008,17 +1008,15 @@ class FacturaRecibo(models.Model):
 
     @property
     def valor_iva(self):
-        """Calcula IVA de 14% sobre o valor (se aplicável).
-        ATENÇÃO: O campo `valor` já inclui IVA menos Retenção.
-        Esta propriedade NÃO é usada nas views — existe apenas para referência."""
-        return self.valor * Decimal('0.14')
+        """O campo `valor` já inclui IVA.
+        Esta propriedade retorna 0 pois o IVA já está embutido no valor."""
+        return Decimal('0')
     
     @property
     def valor_total(self):
-        """Retorna valor total da factura-recibo (valor + IVA).
-        ATENÇÃO: O campo `valor` já inclui IVA menos Retenção.
-        Para o valor real use `self.valor`."""
-        return self.valor + self.valor_iva
+        """Retorna valor total da factura-recibo.
+        O campo `valor` já inclui IVA menos Retenção."""
+        return self.valor
 
     def __str__(self):
         return f"Factura-Recibo {self.numero_factura_recibo} - {self.cliente.nome} - {self.valor}"

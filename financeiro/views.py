@@ -1,6 +1,7 @@
 import json
 import io
 import logging
+import html as _html_mod
 from decimal import Decimal
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.generic import ListView, CreateView, DetailView, UpdateView, TemplateView
@@ -40,31 +41,35 @@ def parse_valor_monetario(valor_str):
     """
     Parse flexível para valores monetários.
     Suporta: 2000000, 2.000.000, 2,000000, 2000000.00, 2.000.000,00, etc.
+    Levanta ValueError se o valor não puder ser parseado.
     """
-    try:
-        valor_str = valor_str.strip().replace(' ', '')
-        
-        if not valor_str:
-            return Decimal('0')
-        
-        # Se tem vírgula, é formato europeu (1.234.567,89)
-        if ',' in valor_str:
-            valor_str = valor_str.replace('.', '').replace(',', '.')
-        # Se tem ponto, precisa validar se é separador de milhar ou decimal
-        elif '.' in valor_str:
-            partes = valor_str.split('.')
-            # Se múltiplos pontos OU último grupo tem 3 dígitos (milhar), remove todos
-            if len(partes) > 2:
-                # Múltiplos pontos = todos são separadores de milhar
-                valor_str = valor_str.replace('.', '')
-            elif len(partes) == 2 and len(partes[1]) == 3:
-                # Último grupo tem 3 dígitos = é separador de milhar
-                valor_str = valor_str.replace('.', '')
-            # Senão, deixa como está (é decimal tipo 20.00)
-        
-        return Decimal(valor_str)
-    except Exception:
-        return Decimal('0')
+    valor_str = valor_str.strip().replace(' ', '')
+    
+    if not valor_str:
+        raise ValueError('Valor monetário vazio')
+    
+    # Se tem vírgula, é formato europeu (1.234.567,89)
+    if ',' in valor_str:
+        valor_str = valor_str.replace('.', '').replace(',', '.')
+    # Se tem ponto, precisa validar se é separador de milhar ou decimal
+    elif '.' in valor_str:
+        partes = valor_str.split('.')
+        if len(partes) > 2:
+            valor_str = valor_str.replace('.', '')
+        elif len(partes) == 2 and len(partes[1]) == 3:
+            valor_str = valor_str.replace('.', '')
+    
+    resultado = Decimal(valor_str)
+    if resultado < 0:
+        raise ValueError('Valor monetário negativo')
+    return resultado
+
+
+def _safe(text):
+    """Escapa caracteres HTML/XML especiais para prevenir XSS em PDFs e emails."""
+    if not text:
+        return ''
+    return _html_mod.escape(str(text))
 
 
 def _user_tem_acesso_total(request):
@@ -95,7 +100,7 @@ def _pode_escrever(request):
         return True
     if usuario_tem_permissao(request, 'acesso_auditoria'):
         return False
-    return True
+    return False
 
 
 def requer_escrita_financeira(view_func):
@@ -111,6 +116,22 @@ def requer_escrita_financeira(view_func):
     return wrapper
 
 
+def safe_pdf(view_func):
+    """Decorator que captura erros em PDF views e retorna 500 amigável."""
+    def wrapper(request, *args, **kwargs):
+        try:
+            return view_func(request, *args, **kwargs)
+        except Exception:
+            logger.exception("Erro ao gerar PDF")
+            return HttpResponse(
+                '<html><body><h3>Erro ao gerar PDF</h3>'
+                '<p>Ocorreu um erro interno. Tente novamente ou contacte o suporte.</p>'
+                '<a href="javascript:history.back()">Voltar</a></body></html>',
+                status=500, content_type='text/html',
+            )
+    return wrapper
+
+
 class BaseContextMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -120,6 +141,10 @@ class BaseContextMixin:
             context['nome'] = self.request.session['usuario'].get('nome', '')
         from users.permissoes import get_usuario_permissoes
         context['user_permissoes'] = get_usuario_permissoes(self.request)
+        context['pode_aprovar_requisicao'] = _user_tem_acesso_total(self.request) or (
+            'aprovar_requisicao' in context['user_permissoes']
+        )
+        context['pode_escrever'] = _pode_escrever(self.request)
         return context
 
     def _resolve_usuario_id(self):
@@ -215,6 +240,12 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
         self._salvar_custos(self.object)
+        self.object._recalcular_totais()
+        self.object._gerar_assinatura_digital()
+        self.object.save(update_fields=[
+            'subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral',
+            'assinatura_digital',
+        ])
         registrar_historico(
             'Requisicao', self.object.pk, self.object.numero_requisicao, 'Criada',
             estado_novo='Pendente', valor=self.object.total_geral,
@@ -242,7 +273,11 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
             
             logger.debug(f"CUSTO DEBUG [CREATE]: descricao={descricao}, valor_raw='{valor_raw}'")
             
-            valor = parse_valor_monetario(valor_raw)
+            try:
+                valor = parse_valor_monetario(valor_raw)
+            except ValueError:
+                logger.warning("CUSTO DEBUG [CREATE]: valor inválido '%s', ignorando", valor_raw)
+                continue
             
             logger.debug(f"CUSTO DEBUG [CREATE]: valor_raw='{valor_raw}' => valor={valor}")
             
@@ -294,10 +329,6 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # Garantir que os totais estão recalculados (compatibilidade com dados antigos)
-        self.object._recalcular_totais()
-        self.object.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
         
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'requisicoes'
@@ -366,7 +397,14 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
             return self.form_invalid(form)
         
         response = super().form_valid(form)
+        self.object.linhas.all().delete()
         self._salvar_custos(self.object)
+        self.object._recalcular_totais()
+        self.object._gerar_assinatura_digital()
+        self.object.save(update_fields=[
+            'subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral',
+            'assinatura_digital',
+        ])
         return response
 
     def _salvar_custos(self, requisicao):
@@ -387,7 +425,11 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
             
             logger.debug(f"CUSTO DEBUG [UPDATE]: descricao={descricao}, valor_raw='{valor_raw}'")
             
-            valor = parse_valor_monetario(valor_raw)
+            try:
+                valor = parse_valor_monetario(valor_raw)
+            except ValueError:
+                logger.warning("CUSTO DEBUG [UPDATE]: valor inválido '%s', ignorando", valor_raw)
+                continue
             
             logger.debug(f"CUSTO DEBUG [UPDATE]: valor_raw='{valor_raw}' => valor={valor}")
             
@@ -420,6 +462,7 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
         return context
 
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def cancelar_requisicao(request, pk):
@@ -469,6 +512,7 @@ def eliminar_requisicao(request, pk):
 
 
 @requer_sessao_ativa
+@require_POST
 @requer_escrita_financeira
 def aceitar_requisicao(request, pk):
     """Marca a Requisição de Fundos como Aceite pelo cliente"""
@@ -497,6 +541,7 @@ def aceitar_requisicao(request, pk):
     return redirect('financeiro:requisicao_detalhe', pk=pk)
 
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def rejeitar_requisicao(request, pk):
@@ -641,61 +686,169 @@ def eliminar_linha_requisicao(request, pk, linha_id):
     messages.success(request, 'Linha removida com sucesso.')
     return redirect('financeiro:requisicao_detalhe', pk=pk)
 
+"""
+View requisicao_pdf — layout reestruturado (estilo FactPlus/NETSULWEL)
+usando exclusivamente os campos que já existiam na função original.
 
+Dependência nova: qrcode
+    pip install qrcode[pil]
+
+Se preferires não gerar QR code real, substitui o bloco "QR CODE" por um
+Paragraph vazio, como estava na versão anterior.
+"""
+import io
+from datetime import datetime
+from decimal import Decimal
+
+import qrcode
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    Image as RLImage,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+from reportlab.platypus.flowables import HRFlowable
+
+from users.models import Usuario
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Conversão de valores para extenso (Kwanzas)
+# ──────────────────────────────────────────────────────────────────────────
+_UNIDADES = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove']
+_DEZ_A_DEZENOVE = ['dez', 'onze', 'doze', 'treze', 'catorze', 'quinze',
+                    'dezasseis', 'dezassete', 'dezoito', 'dezanove']
+_DEZENAS = ['', 'dez', 'vinte', 'trinta', 'quarenta', 'cinquenta',
+            'sessenta', 'setenta', 'oitenta', 'noventa']
+_CENTENAS = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos',
+             'seiscentos', 'setecentos', 'oitocentos', 'novecentos']
+
+
+def _grupo_3_digitos(n):
+    """Converte um número de 0 a 999 para texto por extenso."""
+    if n == 0:
+        return ''
+    centena = n // 100
+    resto = n % 100
+    partes = []
+    if centena > 0:
+        partes.append('cem' if n == 100 else _CENTENAS[centena])
+    if resto > 0:
+        if partes:
+            partes.append('e')
+        if resto < 10:
+            partes.append(_UNIDADES[resto])
+        elif resto < 20:
+            partes.append(_DEZ_A_DEZENOVE[resto - 10])
+        else:
+            dezena, unidade = resto // 10, resto % 10
+            if unidade == 0:
+                partes.append(_DEZENAS[dezena])
+            else:
+                partes.append(f'{_DEZENAS[dezena]} e {_UNIDADES[unidade]}')
+    return ' '.join(partes)
+
+
+def _extenso_inteiro(n):
+    if n == 0:
+        return 'zero'
+    escalas = [
+        (1_000_000_000, 'mil milhões', 'mil milhões'),
+        (1_000_000, 'milhão', 'milhões'),
+        (1_000, 'mil', 'mil'),
+    ]
+    partes = []
+    resto = n
+    for valor_escala, singular, plural in escalas:
+        qtd, resto = divmod(resto, valor_escala)
+        if qtd > 0:
+            if valor_escala == 1_000 and qtd == 1:
+                partes.append('mil')
+            else:
+                nome = singular if qtd == 1 else plural
+                partes.append(f'{_grupo_3_digitos(qtd)} {nome}')
+    if resto > 0:
+        partes.append(_grupo_3_digitos(resto))
+
+    if not partes:
+        return 'zero'
+    if len(partes) == 1:
+        return partes[0]
+
+    ultimo_grupo = n % 1000
+    usa_e = ultimo_grupo == 0 or ultimo_grupo < 100 or ultimo_grupo % 100 == 0
+    if usa_e and ultimo_grupo > 0:
+        return ', '.join(partes[:-1]) + ' e ' + partes[-1]
+    return ', '.join(partes)
+
+
+def valor_por_extenso(valor):
+    """Ex.: 3499.80 -> 'Três mil e quatrocentos e noventa e nove kwanzas
+    e oitenta cêntimos'"""
+    valor = Decimal(valor).quantize(Decimal('0.01'))
+    inteiro = int(valor)
+    centavos = int((valor - inteiro) * 100)
+
+    texto_inteiro = _extenso_inteiro(inteiro)
+    moeda = 'kwanza' if inteiro == 1 else 'kwanzas'
+    texto = f'{texto_inteiro} {moeda}'
+    if centavos > 0:
+        texto_centavos = _grupo_3_digitos(centavos)
+        cent_label = 'cêntimo' if centavos == 1 else 'cêntimos'
+        texto += f' e {texto_centavos} {cent_label}'
+    return texto[:1].upper() + texto[1:]
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# VIEW
+# ──────────────────────────────────────────────────────────────────────────
 @requer_sessao_ativa
 def requisicao_pdf(request, pk):
-    """Gera PDF da Requisição de Fundos com layout profissional e dados reais"""
-    from datetime import datetime
-    from decimal import Decimal
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.units import cm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
-    from reportlab.platypus.flowables import HRFlowable
-    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-    from users.models import Usuario
-    
+    """Gera PDF da Requisição de Fundos com layout estilo FactPlus/NETSULWEL,
+    usando os mesmos campos e dados da versão original."""
+
     requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
     buffer = io.BytesIO()
-    
+
     PAGE_W, PAGE_H = A4
     MARGIN = 0.7 * cm
     W = PAGE_W - 2 * MARGIN
-    
+
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
         leftMargin=MARGIN, rightMargin=MARGIN,
         topMargin=0.5 * cm, bottomMargin=1.0 * cm,
         title=f"Requisição de Fundos {requisicao.numero_requisicao}",
     )
-    
+
     # Cores
     COR_PRIMARIO = colors.HexColor('#0f172a')
-    COR_SECUNDARIO = colors.HexColor('#334155')
+    COR_SECUNDARIO = colors.white
     COR_CINZA = colors.HexColor('#64748b')
     COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
     COR_BORDA = colors.HexColor('#cbd5e1')
     COR_VERDE = colors.HexColor('#059669')
     COR_VERMELHO = colors.HexColor('#dc2626')
     COR_BRANCO = colors.white
-    COR_HEADER = colors.HexColor('#1e293b')
+    COR_HEADER = colors.white
 
-    # Estilos
     def st(name, **kw):
         defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRIMARIO, leading=11)
         defaults.update(kw)
         return ParagraphStyle(name, **defaults)
 
-    s_small = st('small', fontSize=6.5, textColor=COR_CINZA, leading=8)
-    s_normal = st('normal', fontSize=8, leading=9)
-    s_bold = st('bold', fontName='Helvetica-Bold')
-
     banca = requisicao.banca
     cliente = requisicao.cliente
     processo = requisicao.processo_aduaneiro
 
-    # Buscar dados do despachante responsável (dono da banca)
+    # Despachante responsável (dono da banca)
     responsavel_nome = 'DESPACHANTE OFICIAL'
     responsavel_nif = '—'
     responsavel_cedula = '—'
@@ -704,27 +857,27 @@ def requisicao_pdf(request, pk):
     if banca:
         try:
             usuario_banca = Usuario.objects.get(id=banca.usuario_id)
-            responsavel_nome = (usuario_banca.nome or 'DESPACHANTE OFICIAL').upper()
-            responsavel_nif = usuario_banca.nif or '—'
-            responsavel_cedula = usuario_banca.cedula or '—'
-            responsavel_telefone = usuario_banca.telefone or '—'
-            responsavel_email = usuario_banca.email or '—'
-        except:
+            responsavel_nome = _safe((usuario_banca.nome or 'DESPACHANTE OFICIAL')).upper()
+            responsavel_nif = _safe(usuario_banca.nif) or '—'
+            responsavel_cedula = _safe(usuario_banca.cedula) or '—'
+            responsavel_telefone = _safe(usuario_banca.telefone) or '—'
+            responsavel_email = _safe(usuario_banca.email) or '—'
+        except Exception:
             responsavel_nome = 'DESPACHANTE OFICIAL'
+
+    agora = datetime.now()
+    nif_txt = banca.nif if banca else 'N/D'
+    nome_txt = _safe(banca.nome) if banca else 'Despachante Oficial'
+    cdoa = _safe(banca.licenca_cdoa) if banca else '—'
+    endereco = _safe(banca.endereco) if banca else '—'
+    telefone = _safe(banca.telefone) if banca else '—'
+    email_b = _safe(banca.email) if banca else '—'
 
     story = []
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # HEADER: Logo + Pág (linha 1) | Despachante + Dados Documento (linha 2)
-    # ──────────────────────────────────────────────────────────────────────────
-    agora = datetime.now()
-    nif_txt = banca.nif if banca else 'N/D'
-    nome_txt = banca.nome if banca else 'Despachante Oficial'
-    cdoa = banca.licenca_cdoa if banca else '—'
-    endereco = banca.endereco if banca else '—'
-    telefone = banca.telefone if banca else '—'
-    email_b = banca.email if banca else '—'
-
+    # ════════════════════════════════════════════════════════════════
+    # LOGO (esquerda) + QR CODE (direita)
+    # ══════════════════════════════════════════════════════════════════
     logo_path = None
     if banca and hasattr(banca, 'logo') and banca.logo:
         try:
@@ -732,260 +885,233 @@ def requisicao_pdf(request, pk):
         except Exception:
             logo_path = None
 
-    col_logo = []
+    col_logo = Paragraph('', st('empty', fontSize=1))
     if logo_path:
         try:
-            col_logo.append(RLImage(logo_path, width=2.2 * cm, height=1.6 * cm))
+            col_logo = RLImage(logo_path, width=2.4 * cm, height=1.7 * cm)
         except Exception:
-            col_logo.append(Paragraph('', s_small))
-    else:
-        col_logo.append(Paragraph('', s_small))
+            col_logo = Paragraph('', st('empty', fontSize=1))
 
-    # Linha 1: Logo (esquerda) + Página/Data/Hora (direita)
-    top_line = Table([[
-        col_logo,
-        Paragraph(f'<font size="6.5" color="#94a3b8">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
-                  st('top', alignment=TA_RIGHT, fontSize=6.5))
-    ]], colWidths=[2.5 * cm, W - 2.5 * cm])
+    nr_du = processo.numero_du if processo else '—'
+    merc = requisicao.mercadoria_descricao[:60] if requisicao.mercadoria_descricao else '—'
+
+    qr_data = (
+        f"=== REQUISIÇÃO DE FUNDOS ===\n"
+        f"Nº: {requisicao.numero_requisicao}\n"
+        f"Data: {requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else '—'}\n"
+        f"Validade: {requisicao.data_validade.strftime('%d/%m/%Y') if requisicao.data_validade else '—'}\n"
+        f"Estado: {requisicao.estado}\n"
+        f"\n--- CLIENTE ---\n"
+        f"Nome: {cliente.nome if cliente else '—'}\n"
+        f"NIF: {cliente.nif if cliente else '—'}\n"
+        f"Contacto: {requisicao.pessoa_contacto or '—'}\n"
+        f"\n--- PROCESSO ---\n"
+        f"DU: {nr_du}\n"
+        f"Mercadoria: {merc}\n"
+        f"Origem: {requisicao.origem or '—'}\n"
+        f"Destino: {requisicao.destino or '—'}\n"
+        f"Transporte: {requisicao.meio_transporte or '—'}\n"
+        f"B/L/AWB: {requisicao.numero_bl_awb or '—'}\n"
+        f"Valor CIF: {fmt_kz(requisicao.valor_cif or 0)} KZ\n"
+        f"Peso Bruto: {requisicao.peso_bruto_kg or '—'} Kg\n"
+        f"\n--- VALORES ---\n"
+        f"Subtotal: {fmt_kz(requisicao.subtotal_geral or 0)} KZ\n"
+        f"IVA: {fmt_kz(requisicao.iva_honorarios or 0)} KZ\n"
+        f"Retenção: {fmt_kz(requisicao.retencao or 0)} KZ\n"
+        f"TOTAL: {fmt_kz(requisicao.total_geral or 0)} KZ\n"
+        f"\n--- DESPACHANTE ---\n"
+        f"Nome: {responsavel_nome}\n"
+        f"NIF: {responsavel_nif}\n"
+        f"Cédula: {responsavel_cedula}\n"
+    )
+    import qrcode as _qr
+    _qr_buf = io.BytesIO()
+    _qr_obj = _qr.QRCode(version=1, box_size=10, border=2)
+    _qr_obj.add_data(qr_data)
+    _qr_obj.make(fit=True)
+    _qr_obj.make_image(fill_color="black", back_color="white").save(_qr_buf, format='PNG')
+    _qr_buf.seek(0)
+    qr_flowable = RLImage(_qr_buf, width=1.9 * cm, height=1.9 * cm)
+
+    top_line = Table([[col_logo, qr_flowable]], colWidths=[W - 1.9 * cm, 1.9 * cm])
     top_line.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     story.append(top_line)
     story.append(Spacer(1, 0.15 * cm))
 
-    # Linha 2: Identificação do Despachante (esquerda) + Dados do Documento (direita)
-    despachante_info = (
-        f'<font size="7" color="{COR_VERDE.hexval()}"><b>DESPACHANTE RESPONSÁVEL: {responsavel_nome}</b></font><br/>'
-        f'<font size="6.5" color="#64748b">NIF: {responsavel_nif}</font><br/>'
-        f'<font size="6.5" color="#64748b">Cédula CDOA: {responsavel_cedula}</font><br/>'
-        f'<font size="6.5" color="#64748b">Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}</font>'
+    # ══════════════════════════════════════════════════════════════════
+    # BLOCO EMPRESA (esquerda) + BLOCO CLIENTE (direita)
+    # ══════════════════════════════════════════════════════════════════
+    empresa_info = (
+        f'<font size="9"><b>{nome_txt}</b></font><br/>'
+        f'<font size="7.5" color="#334155">{endereco}</font><br/>'
+        f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
+        f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
+        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Cédula CDOA: {cdoa}</font>'
     )
-
-    data_emissao = requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else '—'
-    data_validade = requisicao.data_validade.strftime('%d/%m/%Y') if requisicao.data_validade else '—'
-    moeda = requisicao.moeda_referencia or 'AOA'
-    cambio = requisicao.cambio_referencia or '—'
-
-    doc_info = (
-        f'<font size="7" color="#475569"><b>Dados do Documento</b></font><br/><br/>'
-        f'<font size="6.5" color="#64748b"><b>Tipo:</b> Requisição de Fundos</font><br/>'
-        f'<font size="6.5" color="#64748b"><b>Nº:</b> {requisicao.numero_requisicao}</font><br/>'
-        f'<font size="6.5" color="#64748b"><b>Emissão:</b> {data_emissao}</font><br/>'
-        f'<font size="6.5" color="#64748b"><b>Validade:</b> {data_validade}</font><br/>'
-        f'<font size="6.5" color="#64748b"><b>Moeda:</b> {moeda} &nbsp;|&nbsp; <b>Câmbio:</b> {cambio}</font>'
+    cli_nome = _safe(cliente.nome) if cliente else '—'
+    cli_nif = _safe(cliente.nif) if cliente else '—'
+    cli_end = _safe(cliente.localizacao) if cliente else '—'
+    cliente_info = (
+        f'<font size="7.5">Exmo.(s) Sr(s)</font><br/>'
+        f'<font size="9"><b>{cli_nome}</b></font><br/>'
+        f'<font size="7.5" color="#334155">{cli_end}</font><br/>'
+        f'<font size="7.5" color="#334155">NIF: {cli_nif}</font>'
     )
-
     header_body = Table([[
-        Paragraph(despachante_info, st('desp_info', fontSize=6.5, leading=9)),
-        Paragraph(doc_info, st('doc_info', fontSize=6.5, leading=9, alignment=TA_RIGHT)),
+        Paragraph(empresa_info, st('empresa_info', fontSize=7.5, leading=10)),
+        Paragraph(cliente_info, st('cliente_info', fontSize=7.5, leading=10)),
     ]], colWidths=[W * 0.55, W * 0.45])
     header_body.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(header_body)
-    story.append(Spacer(1, 0.2 * cm))
+    story.append(Spacer(1, 0.35 * cm))
 
-    # HASH e versão do sistema
+    # ══════════════════════════════════════════════════════════════════
+    # TÍTULO DO DOCUMENTO
+    # ══════════════════════════════════════════════════════════════════
+    story.append(Paragraph('<font size="7.5">Original</font>', st('original', fontSize=7.5)))
     story.append(Paragraph(
-        f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; Processado por programa válido nº35/AGT/2019</font>',
-        st('hash_line', fontSize=6)
+        f'<font size="12"><b>Requisição de Fundos n.º {requisicao.numero_requisicao}</b></font>',
+        st('titulo', fontSize=12)
     ))
-    story.append(Spacer(1, 0.15 * cm))
-    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
     story.append(Spacer(1, 0.2 * cm))
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # DADOS DO CLIENTE
-    # ══════════════════════════════════════════════════════════════════════════
-    cli_nome = cliente.nome if cliente else '—'
-    cli_nif = cliente.nif if cliente else '—'
-    cli_end = cliente.localizacao if cliente else '—'
-    cli_tel = cliente.telefone if cliente else '—'
-    cli_email = cliente.email if cliente else '—'
+    # ══════════════════════════════════════════════════════════════════
+    # DADOS DO DOCUMENTO (linha estilo "Data do Documento | ... | V/ Ref.")
+    # ══════════════════════════════════════════════════════════════════
+    data_emissao = requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else '—'
+    data_validade = requisicao.data_validade.strftime('%d/%m/%Y') if requisicao.data_validade else '—'
+    moeda = requisicao.moeda_referencia or 'AOA'
+    cambio = requisicao.cambio_referencia or '—'
     cli_contacto = requisicao.pessoa_contacto or '—'
-
-    cliente_rows = [
-        [Paragraph('<b>Dados do Cliente (Importador/Exportador)</b>',
-                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)), '', ''],
-        [Paragraph('<font size="7"><b>Nome/Firma:</b></font>', st('cl')),
-         Paragraph(f'<font size="7">{cli_nome}</font>', st('cl')),
-         Paragraph('<font size="7"><b>NIF:</b></font>', st('cl')),
-         Paragraph(f'<font size="7">{cli_nif}</font>', st('cl'))],
-        [Paragraph('<font size="7"><b>Endereço:</b></font>', st('cl')),
-         Paragraph(f'<font size="7">{cli_end}</font>', st('cl')),
-         Paragraph('<font size="7"><b>Contacto:</b></font>', st('cl')),
-         Paragraph(f'<font size="7">{cli_contacto}</font>', st('cl'))],
-        [Paragraph('<font size="7"><b>Tel:</b></font>', st('cl')),
-         Paragraph(f'<font size="7">{cli_tel}</font>', st('cl')),
-         Paragraph('<font size="7"><b>Email:</b></font>', st('cl')),
-         Paragraph(f'<font size="7">{cli_email}</font>', st('cl'))],
-    ]
-    t_cliente = Table(cliente_rows, colWidths=[W * 0.12, W * 0.38, W * 0.10, W * 0.40])
-    t_cliente.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR', (0, 0), (-1, 0), COR_BRANCO),
-        ('SPAN', (0, 0), (-1, 0)),
-        ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
-        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
-    ]))
-    story.append(t_cliente)
-    story.append(Spacer(1, 0.2 * cm))
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # REFERÊNCIAS DO PROCESSO ADUANEIRO (CARGA)
-    # ══════════════════════════════════════════════════════════════════════════
     ref_processo = processo.id if processo else '—'
     nr_du = processo.numero_du if processo else '—'
-    bl = requisicao.numero_bl_awb or '—'
-    transporte = requisicao.meio_transporte or (processo.meio_transporte if processo else '—')
-    origem = requisicao.origem or (f"{getattr(processo, 'pais_origem', '') or ''} / {getattr(processo, 'porto_embarque', '') or ''}".strip(' /') or '—')
-    destino = requisicao.destino or (getattr(processo, 'porto_desembarque', '') or '—')
-    merc = requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else '—')
-    peso_bruto = f"{requisicao.peso_bruto_kg:.2f} Kg" if requisicao.peso_bruto_kg else (f"{processo.peso_bruto:.2f} Kg" if processo and processo.peso_bruto else '—')
-    peso_liq = f"{requisicao.peso_liquido_kg:.2f} Kg" if requisicao.peso_liquido_kg else (f"{processo.peso_liquido:.2f} Kg" if processo and processo.peso_liquido else '—')
-    cbm = f"{requisicao.cbm_metros_cubicos:.3f}" if requisicao.cbm_metros_cubicos else '—'
-    volumes = requisicao.quantidade_volumes or (f"{processo.quantidade} unid." if processo and processo.quantidade else '—')
-    v_cif = fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else (fmt_kz(processo.valor_cif) if processo and processo.valor_cif else '—')
-    processo_total = fmt_kz(processo.total_geral) if processo and processo.total_geral else '—'
 
-    processo_rows = [
-        [Paragraph('<b>Referências do Processo Aduaneiro (Carga)</b>',
-                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)), '', ''],
-        [Paragraph('<font size="7"><b>Ref. Interna:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{ref_processo}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Nr DU:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{nr_du}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Documento Transporte:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{bl}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Navio/Voo:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{transporte}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Origem:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{origem}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Destino:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{destino}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Mercadoria:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{merc}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Valor CIF:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{v_cif}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Peso Bruto:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{peso_bruto}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Peso Líquido:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{peso_liq}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>CBM (m³):</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{cbm}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Volumes:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{volumes}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Total do Processo:</b></font>', st('pr', fontName='Helvetica-Bold')),
-         Paragraph(f'<font size="7">{processo_total} KZ</font>', st('pr')),
-         Paragraph('', st('pr')), Paragraph('', st('pr'))],
+    dados_doc_header = [
+        Paragraph('<b>Data de Emissão</b>', st('ddh', fontSize=7.5)),
+        Paragraph('<b>Data de Validade</b>', st('ddh', fontSize=7.5)),
+        Paragraph('<b>Data/Hora de Emissão</b>', st('ddh', fontSize=7.5)),
+        Paragraph('<b>NIF Cliente</b>', st('ddh', fontSize=7.5)),
+        Paragraph('<b>V/ Ref.</b>', st('ddh', fontSize=7.5)),
     ]
-    t_processo = Table(processo_rows, colWidths=[W * 0.16, W * 0.34, W * 0.13, W * 0.37])
-    t_processo.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR', (0, 0), (-1, 0), COR_BRANCO),
-        ('SPAN', (0, 0), (-1, 0)),
-        ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    dados_doc_valores = [
+        Paragraph(data_emissao, st('ddv', fontSize=7.5)),
+        Paragraph(data_validade, st('ddv', fontSize=7.5)),
+        Paragraph(agora.strftime('%Y-%m-%d %H:%M'), st('ddv', fontSize=7.5)),
+        Paragraph(cli_nif, st('ddv', fontSize=7.5)),
+        Paragraph(cli_contacto, st('ddv', fontSize=7.5)),
+    ]
+    t_dados_doc = Table([dados_doc_header, dados_doc_valores], colWidths=[W / 5] * 5)
+    t_dados_doc.setStyle(TableStyle([
+        ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_CINZA),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
-        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]))
-    story.append(t_processo)
-    story.append(Spacer(1, 0.25 * cm))
+    story.append(t_dados_doc)
+    story.append(Paragraph(
+        f'<font size="7" color="#64748b">Observações: Requisição referente ao processo {ref_processo} — Nr DU {nr_du}</font>',
+        st('obs', fontSize=7)
+    ))
+    story.append(Spacer(1, 0.3 * cm))
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # TABELA DE 3 COLUNAS: Designação | Direitos | Despesas Inerentes
-    # ══════════════════════════════════════════════════════════════════════════
-    valor_aduaneiro = processo.valor_total if processo and hasattr(processo, 'valor_total') else requisicao.valor_cif or Decimal('0')
-    _cambio = requisicao.cambio_referencia or '—'
-    _v_aduaneiro = fmt_kz(valor_aduaneiro)
-    designacao_text = (
-        f'<font size="7"><b>Mercadoria:</b></font><br/>'
-        f'<font size="7">{merc}</font><br/><br/>'
-        f'<font size="7"><b>Documentos</b></font><br/>'
-        f'<font size="6.5">BL: {bl}</font><br/>'
-        f'<font size="6.5">Procedência: {origem}</font><br/>'
-        f'<font size="6.5">Navio/Avião: {transporte}</font><br/>'
-        f'<font size="6.5">Nr DU: {nr_du}</font><br/>'
-        f'<font size="6.5">Valor CIF: {v_cif}</font><br/>'
-        f'<font size="6.5">Câmbio: {_cambio}</font><br/>'
-        f'<font size="6.5">Valor aduaneiro: {_v_aduaneiro}</font>'
+    # ══════════════════════════════════════════════════════════════════
+    # TABELA DE ITENS (linha a linha: Código | Descrição | Valor | Tipo | Total)
+    # ══════════════════════════════════════════════════════════════════
+    bl = requisicao.numero_bl_awb or '—'
+    transporte = requisicao.meio_transporte or (processo.meio_transporte if processo else '—')
+    origem = requisicao.origem or (
+        f"{getattr(processo, 'pais_origem', '') or ''} / {getattr(processo, 'porto_embarque', '') or ''}".strip(' /') or '—'
     )
+    destino = requisicao.destino or (getattr(processo, 'porto_desembarque', '') or '—')
+    merc = requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else '—')
+    peso_bruto = (
+        f"{requisicao.peso_bruto_kg:.2f} Kg" if requisicao.peso_bruto_kg
+        else (f"{processo.peso_bruto:.2f} Kg" if processo and processo.peso_bruto else '—')
+    )
+    peso_liq = (
+        f"{requisicao.peso_liquido_kg:.2f} Kg" if requisicao.peso_liquido_kg
+        else (f"{processo.peso_liquido:.2f} Kg" if processo and processo.peso_liquido else '—')
+    )
+    v_cif = fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else (
+        fmt_kz(processo.valor_cif) if processo and processo.valor_cif else '—'
+    )
+    processo_total = fmt_kz(processo.total_geral) if processo and processo.total_geral else '—'
+
+    itens_header = [
+        Paragraph('<b>Código</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO)),
+        Paragraph('<b>Descrição</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO)),
+        Paragraph('<b>Valor</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+        Paragraph('<b>Tipo</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO)),
+        Paragraph('<b>Total</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+    ]
+    itens_rows = [itens_header]
+
+    itens_rows.append([
+        Paragraph('CIF', st('ic', fontSize=7)),
+        Paragraph(f'Mercadoria: {merc}', st('ic', fontSize=7)),
+        Paragraph(v_cif, st('ic', fontSize=7, alignment=TA_RIGHT)),
+        Paragraph('Valor CIF', st('ic', fontSize=7)),
+        Paragraph(v_cif, st('ic', fontSize=7, alignment=TA_RIGHT)),
+    ])
+
     despesas_doc = requisicao.linhas.filter(documentada=True)
     total_direitos = Decimal('0')
-    direitos_text = ''
-    for linha in despesas_doc:
+    for idx, linha in enumerate(despesas_doc, start=1):
         if linha.valor and linha.valor > 0:
-            direitos_text += (
-                f'<font size="6.5">{linha.despesa_tipo or "Despesa"}</font><br/>'
-                f'<font size="7" color="{COR_VERMELHO.hexval()}"><b>{fmt_kz(linha.valor)}</b></font><br/>'
-            )
             total_direitos += linha.valor
-    if total_direitos == 0:
-        direitos_text = (
-            '<font size="6.5">EP 14</font><br/>'
-            '<font size="6.5">EP 15</font><br/>'
-            '<font size="6.5">EP 17</font>'
-        )
+            itens_rows.append([
+                Paragraph(f'EP{idx:02d}', st('ic', fontSize=7)),
+                Paragraph(linha.despesa_tipo or 'Despesa', st('ic', fontSize=7)),
+                Paragraph(fmt_kz(linha.valor), st('ic', fontSize=7, alignment=TA_RIGHT, textColor=COR_PRIMARIO)),
+                Paragraph('Direito (documentado)', st('ic', fontSize=7)),
+                Paragraph(fmt_kz(linha.valor), st('ic', fontSize=7, alignment=TA_RIGHT)),
+            ])
 
-    # Coluna 3: Despesas inerentes (NÃO DOCUMENTADAS)
     despesas_nao_doc = requisicao.linhas.filter(documentada=False)
     total_despesas = Decimal('0')
-    despesas_text = ''
-    for linha in despesas_nao_doc:
+    for idx, linha in enumerate(despesas_nao_doc, start=1):
         if linha.valor and linha.valor > 0:
-            despesas_text += (
-                f'<font size="6.5">{linha.despesa_tipo or "Despesa"}</font><br/>'
-                f'<font size="7" color="{COR_VERMELHO.hexval()}"><b>{fmt_kz(linha.valor)}</b></font><br/>'
-            )
             total_despesas += linha.valor
-    if total_despesas == 0:
-        despesas_text = '<font size="6.5">Honorários: —</font>'
+            itens_rows.append([
+                Paragraph(f'DE{idx:02d}', st('ic', fontSize=7)),
+                Paragraph(linha.despesa_tipo or 'Despesa', st('ic', fontSize=7)),
+                Paragraph(fmt_kz(linha.valor), st('ic', fontSize=7, alignment=TA_RIGHT, textColor=COR_PRIMARIO)),
+                Paragraph('Despesa (não documentada)', st('ic', fontSize=7)),
+                Paragraph(fmt_kz(linha.valor), st('ic', fontSize=7, alignment=TA_RIGHT)),
+            ])
 
-    tres_colunas = Table([
-        [Paragraph('<b>Designação da mercadoria</b>', st('col_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)),
-         Paragraph('<b>Direitos e mais imposições</b>', st('col_h2', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)),
-         Paragraph('<b>Despesas inerentes</b>', st('col_h3', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO))],
-        [Paragraph(designacao_text, st('designacao', fontSize=6.5, leading=9)),
-         Paragraph(direitos_text, st('direitos', fontSize=6.5, leading=9)),
-         Paragraph(despesas_text, st('despesas', fontSize=6.5, leading=9))]
-    ], colWidths=[W/3 - 0.15*cm, W/3 - 0.15*cm, W/3 - 0.15*cm])
-
-    tres_colunas.setStyle(TableStyle([
+    t_itens = Table(itens_rows, colWidths=[W * 0.10, W * 0.38, W * 0.16, W * 0.20, W * 0.16])
+    t_itens.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR', (0, 0), (-1, 0), COR_BRANCO),
-        ('GRID', (0, 0), (-1, -1), 0.5, COR_BORDA),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 7),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 7),
-        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
-        ('FONTNAME', (1, 1), (2, -1), 'Helvetica'),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]))
-    story.append(tres_colunas)
+    story.append(t_itens)
     story.append(Spacer(1, 0.2 * cm))
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # RESUMO FINANCEIRO
-    # ══════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════
+    # IMPOSTO/IVA + REFERÊNCIA DO PROCESSO (esquerda) | SUMÁRIO (direita)
+    # ══════════════════════════════════════════════════════════════════
     iva_pct = Decimal('0.14')
     ret_pct = Decimal('0.065')
     sttl = requisicao.subtotal_geral or Decimal('0')
@@ -993,83 +1119,176 @@ def requisicao_pdf(request, pk):
     ret_val = requisicao.retencao or Decimal('0')
     total = requisicao.total_geral or Decimal('0')
 
-    resumo_rows = [
-        [Paragraph('<b>Resumo Financeiro</b>',
-                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)),
-         '', ''],
-        [Paragraph('<font size="7">Subtotal (Direitos + Despesas)</font>', st('rl')),
-         Paragraph(f'<font size="7">{fmt_kz(sttl)} KZ</font>', st('rr')),
-         Paragraph('', st('rl')), Paragraph('', st('rr'))],
-        [Paragraph(f'<font size="7">IVA ({iva_pct*100:.0f}%)</font>', st('rl')),
-         Paragraph(f'<font size="7">{fmt_kz(iva_val)} KZ</font>', st('rr')),
-         Paragraph('', st('rl')), Paragraph('', st('rr'))],
-        [Paragraph(f'<font size="7">Retenção ({ret_pct*100:.1f}%)</font>', st('rl')),
-         Paragraph(f'<font size="7">{fmt_kz(ret_val)} KZ</font>', st('rr')),
-         Paragraph('', st('rl')), Paragraph('', st('rr'))],
-        [Paragraph('<font size="8"><b>Total a Pagar</b></font>', st('rl', fontName='Helvetica-Bold', fontSize=8)),
-         Paragraph(f'<font size="9" color="{COR_VERMELHO.hexval()}"><b>{fmt_kz(total)} KZ</b></font>',
-                   st('rr', fontName='Helvetica-Bold', fontSize=9, textColor=COR_VERMELHO)),
-         Paragraph('', st('rl')), Paragraph('', st('rr'))],
+    imposto_rows = [
+        [Paragraph('<b>Impostos</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
+         Paragraph('<b>Incidência</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
+         Paragraph('<b>Valor</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_RIGHT))],
+        [Paragraph(f'IVA - {iva_pct*100:.2f}', st('imc', fontSize=7)),
+         Paragraph(f'{fmt_kz(sttl)} KZ', st('imc', fontSize=7)),
+         Paragraph(f'{fmt_kz(iva_val)} KZ', st('imc', fontSize=7, alignment=TA_RIGHT))],
+        [Paragraph(f'Retenção - {ret_pct*100:.1f}', st('imc', fontSize=7)),
+         Paragraph(f'{fmt_kz(sttl)} KZ', st('imc', fontSize=7)),
+         Paragraph(f'{fmt_kz(ret_val)} KZ', st('imc', fontSize=7, alignment=TA_RIGHT))],
     ]
-
-    resumo = Table(resumo_rows, colWidths=[W * 0.40, W * 0.30, W * 0.15, W * 0.15])
-    resumo.setStyle(TableStyle([
+    t_imposto = Table(imposto_rows, colWidths=[W * 0.55 * 0.30, W * 0.55 * 0.40, W * 0.55 * 0.30])
+    t_imposto.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR', (0, 0), (-1, 0), COR_BRANCO),
-        ('SPAN', (0, 0), (-1, 0)),
-        ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 7),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 7),
-        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
-        ('LINEABOVE', (0, 4), (-1, 4), 1.5, COR_VERMELHO),
+        ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.0, COR_CINZA),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.3, COR_BORDA),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
     ]))
-    story.append(resumo)
+
+    ref_texto = (
+        f'<font size="7.5"><b>Referência do Processo</b></font><br/>'
+        f'<font size="7" color="#334155">Nr DU: {nr_du}</font><br/>'
+        f'<font size="7" color="#334155">Peso bruto/líquido: {peso_bruto} / {peso_liq}</font><br/>'
+        f'<font size="7" color="#334155">Total do processo: {processo_total} KZ</font>'
+    )
+    bloco_esquerdo = [
+        [t_imposto],
+        [Spacer(1, 0.25 * cm)],
+        [Paragraph(ref_texto, st('ref_proc', fontSize=7, leading=10))],
+    ]
+    t_bloco_esquerdo = Table(bloco_esquerdo, colWidths=[W * 0.55])
+    t_bloco_esquerdo.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+
+    valor_extenso = valor_por_extenso(total)
+    sumario_rows = [
+        [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO))],
+        [Spacer(1, 0.15 * cm)],
+        [Paragraph(f'<font size="7">Subtotal (Direitos + Despesas): <b>{fmt_kz(sttl)} KZ</b></font>',
+                   st('sum_l', fontSize=7, leading=10))],
+        [Paragraph(f'<font size="7">IVA ({iva_pct*100:.0f}%): <b>{fmt_kz(iva_val)} KZ</b></font>',
+                   st('sum_l', fontSize=7, leading=10))],
+        [Paragraph(f'<font size="7">Retenção ({ret_pct*100:.1f}%): <b>{fmt_kz(ret_val)} KZ</b></font>',
+                   st('sum_l', fontSize=7, leading=10))],
+        [Spacer(1, 0.15 * cm)],
+        [Paragraph(f'<font size="10" color="#0f172a"><b>Total: {fmt_kz(total)} KZ</b></font>',
+                   st('sum_total', fontSize=10, leading=12))],
+        [Spacer(1, 0.1 * cm)],
+        [Paragraph(f'<font size="6.5" color="#64748b"><i>{valor_extenso}</i></font>',
+                   st('sum_ext', fontSize=6.5, leading=8))],
+    ]
+    t_sumario = Table(sumario_rows, colWidths=[W * 0.35])
+    t_sumario.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, 0), COR_HEADER),
+        ('TOPPADDING', (0, 0), (0, 0), 5),
+        ('BOTTOMPADDING', (0, 0), (0, 0), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 1), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
+    ]))
+    bloco_direito = t_sumario
+
+    t_resumo = Table([[t_bloco_esquerdo, '', '', bloco_direito]], colWidths=[W * 0.60, W * 0.02, W * 0.03, W * 0.35])
+    t_resumo.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(t_resumo)
     story.append(Spacer(1, 0.2 * cm))
 
+    # ══════════════════════════════════════════════════════════════════
     # NOTA
+    # ══════════════════════════════════════════════════════════════════
     nota_box = Table([[
-        Paragraph('<font size="6.5"><i>NOTA: Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários</i></font>',
-                  st('nota', fontSize=6.5, alignment=TA_CENTER, textColor=COR_SECUNDARIO))
+        Paragraph('<b>Nota</b>', st('nota_h', fontSize=7.5, textColor=COR_PRIMARIO)),
     ]], colWidths=[W])
     nota_box.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), COR_CINZA_CLARO),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('BOX', (0, 0), (-1, -1), 0.3, COR_BORDA),
+        ('BACKGROUND', (0, 0), (-1, 0), COR_SECUNDARIO),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+        ('LEFTPADDING', (0, 0), (-1, 0), 6),
     ]))
     story.append(nota_box)
-    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph(
+        'Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+        st('nota_txt', fontSize=7, textColor=COR_SECUNDARIO)
+    ))
+    story.append(Spacer(1, 0.15 * cm))
 
+    # ══════════════════════════════════════════════════════════════════
+    # DESPACHANTE RESPONSÁVEL
+    # ══════════════════════════════════════════════════════════════════
+    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.15 * cm))
+    desp_box = Table([[
+        Paragraph('<b>Despachante Responsável</b>', st('desp_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+    ]], colWidths=[W])
+    desp_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+        ('LEFTPADDING', (0, 0), (-1, 0), 6),
+    ]))
+    story.append(desp_box)
+    story.append(Spacer(1, 0.1 * cm))
+    story.append(Paragraph(
+        f'{responsavel_nome} &nbsp;|&nbsp; NIF: {responsavel_nif} &nbsp;|&nbsp; '
+        f'Cédula CDOA: {responsavel_cedula}',
+        st('desp_l1', fontSize=7.5, textColor=COR_PRIMARIO)
+    ))
+    story.append(Paragraph(
+        f'Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}',
+        st('desp_l2', fontSize=7, textColor=COR_CINZA)
+    ))
+    story.append(Spacer(1, 0.15 * cm))
+
+    # ══════════════════════════════════════════════════════════════════
     # ASSINATURA
+    # ══════════════════════════════════════════════════════════════════
+    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.1 * cm))
     ass_data = [
-        [Paragraph('<b>Recebido por:</b>', st('ass_lab', fontSize=7.5)),
-         Paragraph('', st('ass_spc', fontSize=7.5))],
-        [Paragraph('', st('ass_spc', fontSize=1)),
-         Paragraph('', st('ass_spc', fontSize=1))],
-        [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA),
-         HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
+        [Paragraph('<b>Recebido por:</b>', st('ass_lab', fontSize=8)),
+         Paragraph('', st('ass_spc', fontSize=8))],
+        [Spacer(1, 0.2 * cm), Spacer(1, 0.2 * cm)],
+        [HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA),
+         HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA)],
         [Paragraph('<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
-         Paragraph(f'<font size="7.5"><b>O Cliente</b></font>', st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
+         Paragraph('<font size="7.5"><b>O Cliente</b></font>', st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
         [Paragraph('', st('ass_spc', fontSize=3)),
-         Paragraph(f'<font size="7"><b>{cliente.nome if cliente else "Cliente"}</b></font>', st('ass_nome', fontSize=7, fontName='Helvetica-Bold', alignment=TA_CENTER))],
+         Paragraph(f'<font size="7"><b>{cli_nome}</b></font>',
+                   st('ass_nome', fontSize=7, fontName='Helvetica-Bold', alignment=TA_CENTER))],
     ]
-    assinatura = Table(ass_data, colWidths=[W/2, W/2])
+    assinatura = Table(ass_data, colWidths=[W / 2, W / 2])
     assinatura.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(assinatura)
-    story.append(Spacer(1, 0.3 * cm))
+    story.append(Spacer(1, 0.15 * cm))
+
+    # ══════════════════════════════════════════════════════════════════
+    # RODAPÉ: HASH + PÁGINA/DATA
+    # ══════════════════════════════════════════════════════════════════
+    story.append(HRFlowable(width=W, thickness=0.5, color=colors.HexColor('#e2e2e2')))
+    story.append(Spacer(1, 0.1 * cm))
+    story.append(Paragraph(
+        f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; '
+        f'Processado por programa válido nº35/AGT/2019<br/>'
+        f'Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
+        st('footer', fontSize=6)
+    ))
 
     # BUILD DO PDF
     doc.build(story)
@@ -1079,7 +1298,7 @@ def requisicao_pdf(request, pk):
     response['Content-Disposition'] = f'inline; filename="Requisicao_{requisicao.numero_requisicao}.pdf"'
     return response
 
-
+@require_POST
 @requer_sessao_ativa
 def requisicao_enviar_email(request, pk):
     """Envia a Requisição de Fundos por email com PDF anexado (novo design)"""
@@ -1135,7 +1354,7 @@ def requisicao_enviar_email(request, pk):
             try:
                 img = RLImage(logo_path, width=2.2*cm, height=1.5*cm)
                 col1.append(img)
-            except:
+            except Exception:
                 col1.append(Paragraph('', s_small))
         else:
             col1.append(Paragraph('', s_small))
@@ -1256,7 +1475,7 @@ Equipa SICDOA
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <h2 style="color: #137fec;">Requisição de Fundos</h2>
-            <p>Prezado(a) <strong>{cliente.nome}</strong>,</p>
+            <p>Prezado(a) <strong>{_safe(cliente.nome)}</strong>,</p>
             <p>Segue em anexo a Requisição de Fundos referente ao seu processo aduaneiro.</p>
             
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
@@ -1323,7 +1542,7 @@ Equipa SICDOA
         )
     except Exception as e:
         logger.exception(f"Erro ao enviar email da requisição {requisicao.pk}")
-        messages.error(request, f'Erro ao enviar e-mail: {str(e)}')
+        messages.error(request, 'Erro ao enviar e-mail. Tente novamente mais tarde.')
 
     return redirect('financeiro:requisicao_detalhe', pk=pk)
 
@@ -1397,7 +1616,7 @@ def criar_factura_de_requisicao(request, pk):
         
         subtotal = honorarios + taxas_aduaneiras + emolumentos + despesas_operacionais
         iva = (subtotal * Decimal('0.14')).quantize(Decimal('0.01'))
-        valor_total = subtotal + iva + retencao
+        valor_total = subtotal + iva - retencao
         
         return honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, valor_total
     
@@ -1472,7 +1691,7 @@ def criar_factura_de_requisicao(request, pk):
         return redirect('financeiro:factura_detalhe', pk=factura.pk)
     
     # GET - mostrar confirmação
-    honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, valor_total = _mapear_linhas(requisicao.linhas.all())
+    honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, valor_total = _mapear_linhas(requisicao.linhas.all())
     
     # Calcular próximo número de factura
     ano = timezone.now().year
@@ -1585,113 +1804,7 @@ def requisicao_criar_factura_recibo(request, pk):
     return render(request, 'financeiro/criar_factura_recibo_de_requisicao.html', context)
 
 
-def _user_tem_acesso_total(request):
-    """True se user tem bypass de scoping (Admin ou permissÃ£o admin)."""
-    from users.permissoes import _is_admin_ou_acesso_total
-    papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
-        return True
-    if _is_admin_ou_acesso_total(request):
-        return True
-    return False
-
-
-def _tem_escopo_filial(perm_set, filial_id=None):
-    """True se o user estÃ¡ escopeado a uma filial (por filial_id ou permissÃ£o)."""
-    if filial_id:
-        return True
-    return any(p in (perm_set or set()) for p in ('gerir_filial', 'gerir_financeiro', 'gerir_financeiro_filial',))
-
-
-def _pode_escrever(request):
-    """True se o user pode escrever no mÃ³dulo financeiro (nÃ£o Ã© apenas auditor)."""
-    papel = request.session.get('usuario', {}).get('papel', '')
-    if papel in ('Administrador', 'Despachante Oficial'):
-        return True
-    from users.permissoes import usuario_tem_permissao, _is_admin_ou_acesso_total
-    if _is_admin_ou_acesso_total(request):
-        return True
-    if usuario_tem_permissao(request, 'acesso_auditoria'):
-        return False
-    return True
-
-
-def requer_escrita_financeira(view_func):
-    """Decorator: bloqueia acesso de escrita a auditores."""
-    def wrapper(request, *args, **kwargs):
-        if not _pode_escrever(request):
-            messages.error(request, 'OperaÃ§Ã£o nÃ£o permitida. Auditores tÃªm acesso apenas de leitura.')
-            referer = request.META.get('HTTP_REFERER')
-            if referer:
-                return redirect(referer)
-            return redirect('financeiro:factura_lista')
-        return view_func(request, *args, **kwargs)
-    return wrapper
-from .forms import (
-    FacturaClienteForm, ReciboClienteForm, ReciboClienteUpdateForm,
-    NotaCreditoForm, NotaDebitoForm, FacturaReciboForm
-)
-
-class BaseContextMixin:
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.request.session.get('usuario'):
-            context['usuario'] = self.request.session['usuario']
-            context['papel'] = self.request.session['usuario'].get('papel', '')
-            context['nome'] = self.request.session['usuario'].get('nome', '')
-        from users.permissoes import get_usuario_permissoes
-        context['user_permissoes'] = get_usuario_permissoes(self.request)
-        context['pode_aprovar_requisicao'] = _user_tem_acesso_total(self.request) or (
-            'aprovar_requisicao' in context['user_permissoes']
-        )
-        return context
-
-    def _resolve_usuario_id(self):
-        """Retorna o usuario_id efectivo para filtragem de dados.
-        
-        Para colaboradores da banca, usa o usuario_id do despachante dono da banca.
-        Para os restantes users, usa o prÃ³prio usuario_id da sessÃ£o.
-        """
-        banca_usuario_id = self.request.session.get('banca_usuario_id')
-        if banca_usuario_id:
-            return banca_usuario_id
-        return self.request.session.get('usuario_id')
-
-    def _get_user_cliente_filter(self):
-        if _user_tem_acesso_total(self.request):
-            return {}
-        from users.permissoes import get_usuario_permissoes
-        perm_set = get_usuario_permissoes(self.request)
-        banca_id = self.request.session.get('banca_id')
-        if not banca_id:
-            usuario_id = self._resolve_usuario_id()
-            if not usuario_id:
-                return {}
-            return {'cliente__usuario_id': usuario_id}
-        filtro = {'banca_id': banca_id}
-        filial_id = self.request.session.get('colaborador_filial_id')
-        if _tem_escopo_filial(perm_set, filial_id) and filial_id:
-            filtro['filial_id'] = filial_id
-        return filtro
-
-    def _get_user_filter_direct(self):
-        if _user_tem_acesso_total(self.request):
-            return {}
-        from users.permissoes import get_usuario_permissoes
-        perm_set = get_usuario_permissoes(self.request)
-        banca_id = self.request.session.get('banca_id')
-        if not banca_id:
-            usuario_id = self._resolve_usuario_id()
-            if not usuario_id:
-                return {}
-            return {'usuario_id': usuario_id}
-        filtro = {'banca_id': banca_id}
-        filial_id = self.request.session.get('colaborador_filial_id')
-        if _tem_escopo_filial(perm_set, filial_id) and filial_id:
-            filtro['filial_id'] = filial_id
-        return filtro
-
-# â”€â”€â”€ Notas Home â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Notas Home —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class NotasHomeView(BaseContextMixin, TemplateView):
@@ -1704,7 +1817,7 @@ class NotasHomeView(BaseContextMixin, TemplateView):
         return context
 
 
-# â”€â”€â”€ Facturas Home â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Facturas Home —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class FacturasHomeView(BaseContextMixin, TemplateView):
@@ -1717,7 +1830,7 @@ class FacturasHomeView(BaseContextMixin, TemplateView):
         return context
 
 
-# â”€â”€â”€ DU â†’ Factura Consolidation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ DU â†’ Factura Consolidation —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
 @requer_sessao_ativa
 def du_custos_json(request, pk):
@@ -1726,21 +1839,21 @@ def du_custos_json(request, pk):
     else:
         usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
         du = get_object_or_404(DeclaracaoUnica, pk=pk, status='Aprovada', despachante_id=usuario_id)
-    taxas = float(str(du.total_impostos or 0))
-    emolumentos = float(str(du.total_emgead or 0))
-    iva_val = float(str(du.iva or 0))
+    taxas = Decimal(str(du.total_impostos or 0))
+    emolumentos = Decimal(str(du.total_emgead or 0))
+    iva_val = Decimal(str(du.iva or 0))
     base = taxas + emolumentos
-    honorarios = round(base * 0.05, 2)
-    despesas = round(base * 0.02, 2)
+    honorarios = (base * Decimal('0.05')).quantize(Decimal('0.01'))
+    despesas = (base * Decimal('0.02')).quantize(Decimal('0.01'))
     total_encargos = base + honorarios + despesas + iva_val
     data = {
-        'taxas_aduaneiras': taxas,
-        'emolumentos': emolumentos,
-        'iva': iva_val,
-        'honorarios_despachante': honorarios,
-        'despesas_operacionais': despesas,
+        'taxas_aduaneiras': float(taxas),
+        'emolumentos': float(emolumentos),
+        'iva': float(iva_val),
+        'honorarios_despachante': float(honorarios),
+        'despesas_operacionais': float(despesas),
         'outros_encargos': 0,
-        'total_estimado': round(total_encargos, 2),
+        'total_estimado': float(total_encargos),
     }
     return JsonResponse(data)
 
@@ -1754,14 +1867,15 @@ def _get_object_or_404_com_scope(request, model, pk, scope_field='cliente__usuar
         return get_object_or_404(model, **base)
     usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
     if not usuario_id:
-        return get_object_or_404(model, **base)
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied('Sessão inválida.')
     base[scope_field] = usuario_id
     return get_object_or_404(model, **base)
 
 
 
 
-# â”€â”€â”€ Facturas Finais â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Facturas Finais —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class FacturaClienteListView(BaseContextMixin, ListView):
@@ -1896,6 +2010,7 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
         return response
 
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def cancelar_factura(request, pk):
@@ -1936,6 +2051,7 @@ def eliminar_factura(request, pk):
     return redirect('financeiro:factura_lista')
 
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def factura_enviar_email(request, pk):
@@ -1943,7 +2059,7 @@ def factura_enviar_email(request, pk):
     cliente = factura.cliente
 
     if not cliente.email:
-        messages.error(request, f'O cliente {cliente.nome} nÃ£o possui endereÃ§o de email configurado.')
+        messages.error(request, f'O cliente {cliente.nome} não possui endereço de email configurado.')
         return redirect('financeiro:factura_detalhe', pk=pk)
 
     try:
@@ -1954,25 +2070,36 @@ def factura_enviar_email(request, pk):
             ('NIF do Cliente', factura.cliente.nif),
             ('Nome do Cliente', factura.cliente.nome),
             ('Processo Aduaneiro', factura.processo_aduaneiro.numero_du if factura.processo_aduaneiro else 'N/D'),
-            ('Data de EmissÃ£o', factura.data_emissao.strftime('%d/%m/%Y %H:%M')),
+            ('Data de Emissão', factura.data_emissao.strftime('%d/%m/%Y %H:%M')),
             ('Data de Vencimento', factura.data_vencimento.strftime('%d/%m/%Y')),
             ('Estado', factura.estado),
             ('Emitido Por', factura.criado_por_nome),
-            ('DescriÃ§Ã£o', factura.descricao),
+            ('Descrição', factura.descricao),
         ]
-        colunas_pdf = ['DescriÃ§Ã£o do Item / Encargo', 'Valor (KZ)']
+        colunas_pdf = ['Descrição do Item / Encargo', 'Valor (KZ)']
         linhas_pdf = [
-            ['HonorÃ¡rios do Despachante', fmt_kz(factura.honorarios_despachante)],
+            ['Honorários do Despachante', fmt_kz(factura.honorarios_despachante)],
             ['Taxas Aduaneiras', fmt_kz(factura.taxas_aduaneiras)],
             ['Emolumentos', fmt_kz(factura.emolumentos)],
             ['Despesas Operacionais', fmt_kz(factura.despesas_operacionais)],
             ['IVA', fmt_kz(factura.iva)],
             ['Outros Encargos', fmt_kz(factura.outros_encargos)],
         ]
+        qr_texto = (
+            "=== FACTURA FINAL ===\n"
+            f"Numero: {factura.numero_factura}\n"
+            f"Cliente: {factura.cliente.nome}\n"
+            f"NIF: {factura.cliente.nif}\n"
+            f"Valor Total: {fmt_kz(factura.valor_total)} KZ\n"
+            f"Estado: {factura.estado}\n"
+            f"Emissao: {factura.data_emissao.strftime('%d/%m/%Y')}\n"
+            f"Vencimento: {factura.data_vencimento.strftime('%d/%m/%Y')}"
+        )
         _construir_pdf_base(
             buffer, f"Factura Final {factura.numero_factura}",
-            "Documento de CobranÃ§a de Despacho Aduaneiro", factura.estado,
-            dados_kv_pdf, colunas_pdf, linhas_pdf, factura.valor_total
+            "Documento de Cobrança de Despacho Aduaneiro", factura.estado,
+            dados_kv_pdf, colunas_pdf, linhas_pdf, factura.valor_total,
+            qr_flowable=_gerar_qr_code_flowable(qr_texto)
         )
         buffer.seek(0)
         anexos = [(f'Factura_{factura.numero_factura}.pdf', buffer.read(), 'application/pdf')]
@@ -1981,7 +2108,7 @@ def factura_enviar_email(request, pk):
 
         texto = f"""Prezado(a) {cliente.nome},
 
-Segue em anexo a Factura Final referente Ã  prestaÃ§Ã£o de serviÃ§os de despacho.
+Segue em anexo a Factura Final referente à prestação de serviços de despacho.
 
 Detalhes:
   NÃºmero: {factura.numero_factura}
@@ -2000,7 +2127,7 @@ Equipa SICDOA
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <h2 style="color: #137fec;">Factura Final</h2>
-            <p>Prezado(a) <strong>{cliente.nome}</strong>,</p>
+            <p>Prezado(a) <strong>{_safe(cliente.nome)}</strong>,</p>
             <p>Segue em anexo a Factura Final com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
@@ -2037,12 +2164,12 @@ Equipa SICDOA
         _enviar(assunto, texto, html, cliente.email, anexos=anexos)
         messages.success(request, f'Factura {factura.numero_factura} enviada por e-mail para {cliente.email} com sucesso.')
     except Exception as e:
-        messages.error(request, f'Erro ao enviar e-mail: {str(e)}')
+        messages.error(request, 'Erro ao enviar e-mail. Tente novamente mais tarde.')
 
     return redirect('financeiro:factura_detalhe', pk=pk)
 
 
-# â”€â”€â”€ GestÃ£o de Recibos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Gestão de Recibos —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class ReciboClienteListView(BaseContextMixin, ListView):
@@ -2133,16 +2260,18 @@ class ReciboClienteDetailView(BaseContextMixin, DetailView):
         return context
 
 
+@require_POST
 @requer_sessao_ativa
+@requer_escrita_financeira
 def cancelar_recibo(request, pk):
     recibo = _get_object_or_404_com_scope(request, ReciboCliente, pk)
     if recibo.estado == 'Cancelado':
-        messages.error(request, 'Este recibo jÃ¡ estÃ¡ cancelado.')
+        messages.error(request, 'Este recibo já está cancelado.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
     pode_cancelar = _user_tem_acesso_total(request)
     if not pode_cancelar:
-        messages.error(request, 'NÃ£o tem permissÃ£o para cancelar recibos.')
+        messages.error(request, 'Não tem permissão para cancelar recibos.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2163,17 +2292,19 @@ def cancelar_recibo(request, pk):
     return redirect('financeiro:recibo_detalhe', pk=pk)
 
 
+@requer_escrita_financeira
 @requer_sessao_ativa
+@require_POST
 def editar_recibo(request, pk):
     from .forms import ReciboClienteUpdateForm
     recibo = _get_object_or_404_com_scope(request, ReciboCliente, pk)
     if not recibo.editavel:
-        messages.error(request, 'Este recibo nÃ£o pode ser editado.')
+        messages.error(request, 'Este recibo não pode ser editado.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
     pode_editar = _user_tem_acesso_total(request)
     if not pode_editar:
-        messages.error(request, 'NÃ£o tem permissÃ£o para editar recibos.')
+        messages.error(request, 'Não tem permissão para editar recibos.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2199,7 +2330,7 @@ def editar_recibo(request, pk):
     return render(request, 'financeiro/recibo_form.html', context)
 
 
-# â”€â”€â”€ Notas de CrÃ©dito â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Notas de Crédito —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class NotaCreditoListView(BaseContextMixin, ListView):
@@ -2232,7 +2363,7 @@ class NotaCreditoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     form_class = NotaCreditoForm
     template_name = 'financeiro/nota_credito_form.html'
     success_url = reverse_lazy('financeiro:nota_credito_lista')
-    success_message = "Nota de CrÃ©dito emitida com sucesso!"
+    success_message = "Nota de Crédito emitida com sucesso!"
 
     def form_valid(self, form):
         form.instance.utilizador_criador_id = self.request.session.get('usuario_id')
@@ -2295,7 +2426,7 @@ class NotaCreditoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
     model = NotaCredito
     form_class = NotaCreditoForm
     template_name = 'financeiro/nota_credito_form.html'
-    success_message = "Nota de CrÃ©dito actualizada com sucesso!"
+    success_message = "Nota de Crédito actualizada com sucesso!"
 
     def get_success_url(self):
         return reverse('financeiro:nota_credito_detalhe', kwargs={'pk': self.object.pk})
@@ -2309,7 +2440,7 @@ class NotaCreditoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['titulo'] = "Editar Nota de CrÃ©dito"
+        context['titulo'] = "Editar Nota de Crédito"
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'notas_credito'
         clientes_qs = Cliente.objects.filter(ativo=True)
@@ -2339,16 +2470,17 @@ class NotaCreditoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
         return response
 
 
+@require_POST
 @requer_sessao_ativa
+@requer_escrita_financeira
 def aprovar_nota_credito(request, pk):
     usuario_id = request.session.get('usuario_id')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
-    pode_aprovar = (
-        _user_tem_acesso_total(request) or
-        nota.utilizador_criador_id == usuario_id
-    )
+    pode_aprovar = _user_tem_acesso_total(request)
+    if nota.utilizador_criador_id == usuario_id:
+        pode_aprovar = False
     if not pode_aprovar:
-        messages.error(request, 'NÃ£o tem permissÃ£o para aprovar esta nota de crÃ©dito.')
+        messages.error(request, 'Não tem permissão para aprovar esta nota de crédito.')
         return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2366,25 +2498,27 @@ def aprovar_nota_credito(request, pk):
             cliente_nome=nota.cliente.nome,
             banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
-        messages.success(request, f'Nota de CrÃ©dito {nota.numero_nota} aprovada e creditada na conta corrente do cliente.')
+        messages.success(request, f'Nota de Crédito {nota.numero_nota} aprovada e creditada na conta corrente do cliente.')
 
-        # Envio automÃ¡tico de email ao cliente
+        # Envio automático de email ao cliente
         if nota.cliente.email:
             try:
                 from utils.email_utils import _enviar
-                assunto = f"Nota de CrÃ©dito {nota.numero_nota} aprovada â€” SICDOA"
+                assunto = f"Nota de Crédito {nota.numero_nota} aprovada â€” SICDOA"
                 texto = (
                     f"Prezado(a) {nota.cliente.nome},\n\n"
-                    f"A Nota de CrÃ©dito {nota.numero_nota} foi aprovada no valor de {fmt_kz(nota.valor_creditado)} Kz.\n"
+                    f"A Nota de Crédito {nota.numero_nota} foi aprovada no valor de {fmt_kz(nota.valor_creditado)} Kz.\n"
                     f"Motivo: {nota.motivo}\n\n"
                     f"Atenciosamente,\nEquipa SICDOA"
                 )
                 _enviar(assunto, texto, '', nota.cliente.email)
             except Exception:
-                logger.exception("Falha ao enviar email de aprovaÃ§Ã£o de Nota de CrÃ©dito %s", nota.numero_nota)
+                logger.exception("Falha ao enviar email de aprovação de Nota de Crédito %s", nota.numero_nota)
     return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
+@require_POST
 @requer_sessao_ativa
+@requer_escrita_financeira
 def rejeitar_nota_credito(request, pk):
     usuario_id = request.session.get('usuario_id')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
@@ -2393,7 +2527,7 @@ def rejeitar_nota_credito(request, pk):
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_rejeitar:
-        messages.error(request, 'NÃ£o tem permissÃ£o para rejeitar esta nota de crÃ©dito.')
+        messages.error(request, 'Não tem permissão para rejeitar esta nota de crédito.')
         return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2408,15 +2542,17 @@ def rejeitar_nota_credito(request, pk):
             cliente_nome=nota.cliente.nome,
             banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
-        messages.warning(request, f'Nota de CrÃ©dito {nota.numero_nota} rejeitada.')
+        messages.warning(request, f'Nota de Crédito {nota.numero_nota} rejeitada.')
     return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
 
+@require_POST
 @requer_sessao_ativa
+@requer_escrita_financeira
 def cancelar_nota_credito(request, pk):
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
     if nota.estado not in ('Pendente',):
-        messages.error(request, 'Apenas notas de crÃ©dito pendentes podem ser canceladas.')
+        messages.error(request, 'Apenas notas de crédito pendentes podem ser canceladas.')
         return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
     usuario_id = request.session.get('usuario_id')
@@ -2426,7 +2562,7 @@ def cancelar_nota_credito(request, pk):
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_cancelar:
-        messages.error(request, 'Apenas o criador ou o Administrador podem cancelar esta nota de crÃ©dito.')
+        messages.error(request, 'Apenas o criador ou o Administrador podem cancelar esta nota de crédito.')
         return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2441,11 +2577,11 @@ def cancelar_nota_credito(request, pk):
             cliente_nome=nota.cliente.nome,
             banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
-        messages.success(request, f'Nota de CrÃ©dito {nota.numero_nota} cancelada com sucesso.')
+        messages.success(request, f'Nota de Crédito {nota.numero_nota} cancelada com sucesso.')
     return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
 
-# â”€â”€â”€ Notas de DÃ©bito â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Notas de Débito —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class NotaDebitoListView(BaseContextMixin, ListView):
@@ -2478,7 +2614,7 @@ class NotaDebitoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     form_class = NotaDebitoForm
     template_name = 'financeiro/nota_debito_form.html'
     success_url = reverse_lazy('financeiro:nota_debito_lista')
-    success_message = "Nota de DÃ©bito emitida com sucesso!"
+    success_message = "Nota de Débito emitida com sucesso!"
 
     def form_valid(self, form):
         form.instance.utilizador_criador_id = self.request.session.get('usuario_id')
@@ -2542,7 +2678,7 @@ class NotaDebitoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
     model = NotaDebito
     form_class = NotaDebitoForm
     template_name = 'financeiro/nota_debito_form.html'
-    success_message = "Nota de DÃ©bito actualizada com sucesso!"
+    success_message = "Nota de Débito actualizada com sucesso!"
 
     def get_success_url(self):
         return reverse('financeiro:nota_debito_detalhe', kwargs={'pk': self.object.pk})
@@ -2556,7 +2692,7 @@ class NotaDebitoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['titulo'] = "Editar Nota de DÃ©bito"
+        context['titulo'] = "Editar Nota de Débito"
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'notas_debito'
         clientes_qs = Cliente.objects.filter(ativo=True)
@@ -2586,16 +2722,17 @@ class NotaDebitoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
         return response
 
 
+@require_POST
 @requer_sessao_ativa
+@requer_escrita_financeira
 def aprovar_nota_debito(request, pk):
     usuario_id = request.session.get('usuario_id')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
-    pode_aprovar = (
-        _user_tem_acesso_total(request) or
-        nota.utilizador_criador_id == usuario_id
-    )
+    pode_aprovar = _user_tem_acesso_total(request)
+    if nota.utilizador_criador_id == usuario_id:
+        pode_aprovar = False
     if not pode_aprovar:
-        messages.error(request, 'NÃ£o tem permissÃ£o para aprovar esta nota de dÃ©bito.')
+        messages.error(request, 'Não tem permissão para aprovar esta nota de débito.')
         return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2613,26 +2750,28 @@ def aprovar_nota_debito(request, pk):
             cliente_nome=nota.cliente.nome,
             banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
-        messages.success(request, f'Nota de DÃ©bito {nota.numero_nota} aprovada e debitada na conta corrente do cliente.')
+        messages.success(request, f'Nota de Débito {nota.numero_nota} aprovada e debitada na conta corrente do cliente.')
 
-        # Envio automÃ¡tico de email ao cliente
+        # Envio automático de email ao cliente
         if nota.cliente.email:
             try:
                 from utils.email_utils import _enviar
-                assunto = f"Nota de DÃ©bito {nota.numero_nota} aprovada â€” SICDOA"
+                assunto = f"Nota de Débito {nota.numero_nota} aprovada â€” SICDOA"
                 texto = (
                     f"Prezado(a) {nota.cliente.nome},\n\n"
-                    f"A Nota de DÃ©bito {nota.numero_nota} foi aprovada no valor de {fmt_kz(nota.valor)} Kz.\n"
+                    f"A Nota de Débito {nota.numero_nota} foi aprovada no valor de {fmt_kz(nota.valor)} Kz.\n"
                     f"Motivo: {nota.motivo}\n\n"
                     f"Atenciosamente,\nEquipa SICDOA"
                 )
                 _enviar(assunto, texto, '', nota.cliente.email)
             except Exception:
-                logger.exception("Falha ao enviar email de aprovaÃ§Ã£o de Nota de DÃ©bito %s", nota.numero_nota)
+                logger.exception("Falha ao enviar email de aprovação de Nota de Débito %s", nota.numero_nota)
     return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
 
+@require_POST
 @requer_sessao_ativa
+@requer_escrita_financeira
 def rejeitar_nota_debito(request, pk):
     usuario_id = request.session.get('usuario_id')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
@@ -2641,7 +2780,7 @@ def rejeitar_nota_debito(request, pk):
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_rejeitar:
-        messages.error(request, 'NÃ£o tem permissÃ£o para rejeitar esta nota de dÃ©bito.')
+        messages.error(request, 'Não tem permissão para rejeitar esta nota de débito.')
         return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2656,15 +2795,17 @@ def rejeitar_nota_debito(request, pk):
             cliente_nome=nota.cliente.nome,
             banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
-        messages.warning(request, f'Nota de DÃ©bito {nota.numero_nota} rejeitada.')
+        messages.warning(request, f'Nota de Débito {nota.numero_nota} rejeitada.')
     return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
 
+@require_POST
 @requer_sessao_ativa
+@requer_escrita_financeira
 def cancelar_nota_debito(request, pk):
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
     if nota.estado not in ('Pendente',):
-        messages.error(request, 'Apenas notas de dÃ©bito pendentes podem ser canceladas.')
+        messages.error(request, 'Apenas notas de débito pendentes podem ser canceladas.')
         return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
     usuario_id = request.session.get('usuario_id')
@@ -2674,7 +2815,7 @@ def cancelar_nota_debito(request, pk):
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_cancelar:
-        messages.error(request, 'Apenas o criador ou o Administrador podem cancelar esta nota de dÃ©bito.')
+        messages.error(request, 'Apenas o criador ou o Administrador podem cancelar esta nota de débito.')
         return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
     if request.method == 'POST':
@@ -2689,11 +2830,41 @@ def cancelar_nota_debito(request, pk):
             cliente_nome=nota.cliente.nome,
             banca_id=nota.banca_id, filial_id=nota.filial_id,
         )
-        messages.success(request, f'Nota de DÃ©bito {nota.numero_nota} cancelada com sucesso.')
+        messages.success(request, f'Nota de Débito {nota.numero_nota} cancelada com sucesso.')
     return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
 
-# â”€â”€â”€ Facturas-Recibo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+@requer_sessao_ativa
+@requer_escrita_financeira
+def eliminar_nota_debito(request, pk):
+    if request.method != 'POST':
+        return redirect('financeiro:nota_debito_lista')
+    nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
+    if nota.estado != 'Pendente':
+        messages.error(request, 'Apenas notas de débito pendentes podem ser eliminadas.')
+        return redirect('financeiro:nota_debito_lista')
+    numero = nota.numero_nota
+    nota.delete()
+    messages.success(request, f'Nota de Débito {numero} eliminada com sucesso.')
+    return redirect('financeiro:nota_debito_lista')
+
+
+@requer_sessao_ativa
+@requer_escrita_financeira
+def eliminar_nota_credito(request, pk):
+    if request.method != 'POST':
+        return redirect('financeiro:nota_credito_lista')
+    nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
+    if nota.estado != 'Pendente':
+        messages.error(request, 'Apenas notas de crédito pendentes podem ser eliminadas.')
+        return redirect('financeiro:nota_credito_lista')
+    numero = nota.numero_nota
+    nota.delete()
+    messages.success(request, f'Nota de Crédito {numero} eliminada com sucesso.')
+    return redirect('financeiro:nota_credito_lista')
+
+
+# —€—€—€ Facturas-Recibo —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class FacturaReciboListView(BaseContextMixin, ListView):
@@ -2834,6 +3005,7 @@ class FacturaReciboDetailView(BaseContextMixin, DetailView):
         )[:20]
         return context
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def cancelar_factura_recibo(request, pk):
@@ -2858,9 +3030,20 @@ def cancelar_factura_recibo(request, pk):
     return redirect('financeiro:factura_recibo_detalhe', pk=pk)
 
 
-# â”€â”€â”€ GeraÃ§Ã£o de PDFs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Geração de PDFs —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
-def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_colunas, tabela_linhas, total_geral):
+def _gerar_qr_code_flowable(dados_texto, size=1.8*cm):
+    import qrcode as _qr
+    from reportlab.platypus import Image as RLImage
+    _qr_buf = io.BytesIO()
+    _qr_obj = _qr.QRCode(version=1, box_size=10, border=2)
+    _qr_obj.add_data(dados_texto)
+    _qr_obj.make(fit=True)
+    _qr_obj.make_image(fill_color='black', back_color='white').save(_qr_buf, format='PNG')
+    _qr_buf.seek(0)
+    return RLImage(_qr_buf, width=size, height=size)
+
+def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_colunas, tabela_linhas, total_geral, qr_flowable=None):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -2870,11 +3053,11 @@ def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_
 
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        leftMargin=1.8*cm, rightMargin=1.8*cm,
-        topMargin=1.8*cm, bottomMargin=2*cm,
+        leftMargin=1.2*cm, rightMargin=1.2*cm,
+        topMargin=0.8*cm, bottomMargin=1.0*cm,
         title=titulo,
     )
-    W = A4[0] - 3.6*cm
+    W = A4[0] - 2.4*cm
 
     cor_cdoa = colors.HexColor('#1a3a5c')
     cor_cdoa_gold = colors.HexColor('#c9a84c')
@@ -2893,91 +3076,405 @@ def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_
 
     story = []
 
-    # CabeÃ§alho CDOA
-    cdoa_header = Table([
-        [
-            Paragraph('<font color="white"><b>REPÃšBLICA DE ANGOLA</b><br/><font size="8">CÃ‚MARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)</font></font>',
-                       ParagraphStyle('cdoa_top', fontSize=11, fontName='Helvetica-Bold', alignment=0, leading=14)),
-            Paragraph(f'<font color="{cor_cdoa_gold}"><b>{info_geral}</b></font>',
-                       ParagraphStyle('cdoa_right', fontSize=10, fontName='Helvetica-Bold', alignment=2))
-        ]
-    ], colWidths=[W - 5.5*cm, 5.5*cm])
+    # Cabeçalho CDOA + QR Code
+    if qr_flowable:
+        cdoa_header = Table([
+            [
+                Paragraph('<font color="white"><b>REPÚBLICA DE ANGOLA</b><br/><font size="8">CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)</font></font>',
+                           ParagraphStyle('cdoa_top', fontSize=11, fontName='Helvetica-Bold', alignment=0, leading=14)),
+                qr_flowable
+            ]
+        ], colWidths=[W - 2.0*cm, 2.0*cm])
+    else:
+        cdoa_header = Table([
+            [
+                Paragraph('<font color="white"><b>REPÚBLICA DE ANGOLA</b><br/><font size="8">CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)</font></font>',
+                           ParagraphStyle('cdoa_top', fontSize=11, fontName='Helvetica-Bold', alignment=0, leading=14)),
+                Paragraph(f'<font color="{cor_cdoa_gold}"><b>{info_geral}</b></font>',
+                           ParagraphStyle('cdoa_right', fontSize=10, fontName='Helvetica-Bold', alignment=2))
+            ]
+        ], colWidths=[W - 5.5*cm, 5.5*cm])
     cdoa_header.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), cor_cdoa),
         ('LEFTPADDING', (0, 0), (-1, -1), 12),
         ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
     ]))
     story.append(cdoa_header)
-    story.append(Spacer(1, 0.5*cm))
+    story.append(Spacer(1, 0.3*cm))
 
-    # TÃ­tulo do documento
-    story.append(Paragraph(titulo.upper(), ParagraphStyle('doc_titulo', fontSize=20, fontName='Helvetica-Bold', textColor=cor_cdoa, spaceAfter=4)))
+    # Título do documento
+    story.append(Paragraph(titulo.upper(), ParagraphStyle('doc_titulo', fontSize=16, fontName='Helvetica-Bold', textColor=cor_cdoa, spaceAfter=2)))
     story.append(Paragraph(subtitulo, s_subtitulo))
-    story.append(HRFlowable(width=W, thickness=2, color=cor_cdoa_gold, spaceAfter=12))
+    story.append(HRFlowable(width=W, thickness=1.5, color=cor_cdoa_gold, spaceAfter=6))
 
     # Tabela KV
     rows = []
     for k, v in dados_kv:
         rows.append([Paragraph(str(k), s_small), Paragraph(str(v) if v else 'N/D', s_normal)])
-    t_kv = Table(rows, colWidths=[5.5*cm, W - 5.5*cm])
+    t_kv = Table(rows, colWidths=[5.0*cm, W - 5.0*cm])
     t_kv.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (0, -1), cor_label_bg),
         ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
         ('ROWBACKGROUNDS', (1, 0), (1, -1), [colors.white, cor_linha_par]),
     ]))
     story.append(t_kv)
-    story.append(Spacer(1, 0.6*cm))
+    story.append(Spacer(1, 0.3*cm))
 
     # Tabela de Detalhes
     if tabela_colunas and tabela_linhas:
-        story.append(Paragraph("<b>DETALHE DOS CUSTOS / VALORES</b>", ParagraphStyle('det', fontSize=10, fontName='Helvetica-Bold', textColor=cor_primaria, spaceAfter=6)))
+        story.append(Paragraph("<b>DETALHE DOS CUSTOS / VALORES</b>", ParagraphStyle('det', fontSize=9, fontName='Helvetica-Bold', textColor=cor_cabecalho, spaceAfter=4)))
         t_data = [tabela_colunas]
         for row in tabela_linhas:
             t_data.append([Paragraph(str(cell), s_normal) for cell in row])
         
-        t_det = Table(t_data, colWidths=[W - 4*cm, 4*cm])
+        t_det = Table(t_data, colWidths=[W - 3.5*cm, 3.5*cm])
         t_det.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), cor_primaria),
+            ('BACKGROUND', (0, 0), (-1, 0), cor_cabecalho),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, cor_linha_par]),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
         ]))
         story.append(t_det)
-        story.append(Spacer(1, 0.4*cm))
+        story.append(Spacer(1, 0.25*cm))
 
     # Total Geral
     t_tot = Table([[
-        Paragraph('<b>TOTAL</b>', ParagraphStyle('tp', fontSize=11, fontName='Helvetica-Bold', textColor=colors.white)),
-        Paragraph(f'<b>{fmt_kz(total_geral)} KZ</b>', ParagraphStyle('tv', fontSize=11, fontName='Helvetica-Bold', textColor=colors.white, alignment=2)),
-    ]], colWidths=[W - 4*cm, 4*cm])
+        Paragraph('<b>TOTAL</b>', ParagraphStyle('tp', fontSize=10, fontName='Helvetica-Bold', textColor=cor_cabecalho)),
+        Paragraph(f'<b>{fmt_kz(total_geral)} KZ</b>', ParagraphStyle('tv', fontSize=10, fontName='Helvetica-Bold', textColor=cor_cabecalho, alignment=2)),
+    ]], colWidths=[W - 3.5*cm, 3.5*cm])
     t_tot.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), cor_cabecalho),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('BACKGROUND', (0, 0), (-1, -1), cor_label_bg),
+        ('LINEABOVE', (0, 0), (-1, 0), 1.5, cor_cabecalho),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
     ]))
     story.append(t_tot)
 
     # Assinatura
-    story.append(Spacer(1, 1.2*cm))
-    story.append(HRFlowable(width=6.5*cm, thickness=0.8, color=colors.HexColor('#94a3b8'), hAlign='CENTER'))
-    story.append(Paragraph('Assinatura do ResponsÃ¡vel', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
+    story.append(Spacer(1, 0.8*cm))
+    story.append(HRFlowable(width=6*cm, thickness=0.5, color=colors.HexColor('#94a3b8'), hAlign='CENTER'))
+    story.append(Paragraph('Assinatura do Responsável', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
 
     doc.build(story)
 
+
+def _construir_pdf_documento(
+    buffer, titulo, subtitulo, banca, cliente,
+    numero_doc, data_emissao, data_validade=None,
+    dados_doc_header=None, dados_doc_valores=None,
+    tabela_colunas=None, tabela_linhas=None,
+    sumario_linhas=None, total_geral=0,
+    nota_texto=None, qr_flowable=None,
+):
+    """Constrói PDF no mesmo padrão visual da Requisição de Fundos:
+    Logo+QR, Empresa/Cliente lado a lado, título, dados do documento,
+    tabela de itens, sumário, assinatura e rodapé."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus.flowables import HRFlowable
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from datetime import datetime
+    from users.models import Usuario
+
+    PAGE_W, PAGE_H = A4
+    MARGIN = 0.7 * cm
+    W = PAGE_W - 2 * MARGIN
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=MARGIN, rightMargin=MARGIN,
+        topMargin=0.5 * cm, bottomMargin=1.0 * cm,
+        title=titulo,
+    )
+
+    COR_PRIMARIO = colors.HexColor('#0f172a')
+    COR_SECUNDARIO = colors.white
+    COR_CINZA = colors.HexColor('#64748b')
+    COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
+    COR_BORDA = colors.HexColor('#cbd5e1')
+    COR_BRANCO = colors.white
+    COR_HEADER = colors.white
+
+    def st(name, **kw):
+        defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRIMARIO, leading=11)
+        defaults.update(kw)
+        return ParagraphStyle(name, **defaults)
+
+    agora = datetime.now()
+
+    nif_txt = banca.nif if banca else 'N/D'
+    nome_txt = _safe(banca.nome) if banca else 'Despachante Oficial'
+    cdoa = _safe(banca.licenca_cdoa) if banca else '—'
+    endereco = _safe(banca.endereco) if banca else '—'
+    telefone = _safe(banca.telefone) if banca else '—'
+    email_b = _safe(banca.email) if banca else '—'
+
+    # Despachante responsável
+    responsavel_nome = 'DESPACHANTE OFICIAL'
+    responsavel_nif = '—'
+    responsavel_cedula = '—'
+    responsavel_telefone = '—'
+    responsavel_email = '—'
+    if banca:
+        try:
+            usuario_banca = Usuario.objects.get(id=banca.usuario_id)
+            responsavel_nome = _safe((usuario_banca.nome or 'DESPACHANTE OFICIAL')).upper()
+            responsavel_nif = _safe(usuario_banca.nif) or '—'
+            responsavel_cedula = _safe(usuario_banca.cedula) or '—'
+            responsavel_telefone = _safe(usuario_banca.telefone) or '—'
+            responsavel_email = _safe(usuario_banca.email) or '—'
+        except Exception:
+            pass
+
+    story = []
+
+    # LOGO + QR CODE
+    logo_path = None
+    if banca and hasattr(banca, 'logo') and banca.logo:
+        try:
+            logo_path = banca.logo.path
+        except Exception:
+            pass
+
+    col_logo = Paragraph('', st('empty', fontSize=1))
+    if logo_path:
+        try:
+            col_logo = RLImage(logo_path, width=2.4 * cm, height=1.7 * cm)
+        except Exception:
+            pass
+
+    qr_cell = qr_flowable if qr_flowable else Paragraph('', st('empty', fontSize=1))
+    top_line = Table([[col_logo, qr_cell]], colWidths=[W - 1.9 * cm, 1.9 * cm])
+    top_line.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(top_line)
+    story.append(Spacer(1, 0.15 * cm))
+
+    # EMPRESA (esq) + CLIENTE (dir)
+    cli_nome = _safe(cliente.nome) if cliente else '—'
+    cli_nif = _safe(cliente.nif) if cliente else '—'
+    cli_end = _safe(getattr(cliente, 'localizacao', '')) or '—'
+    empresa_info = (
+        f'<font size="9"><b>{nome_txt}</b></font><br/>'
+        f'<font size="7.5" color="#334155">{endereco}</font><br/>'
+        f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
+        f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
+        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Cédula CDOA: {cdoa}</font>'
+    )
+    cliente_info = (
+        f'<font size="7.5">Exmo.(s) Sr(s)</font><br/>'
+        f'<font size="9"><b>{cli_nome}</b></font><br/>'
+        f'<font size="7.5" color="#334155">{cli_end}</font><br/>'
+        f'<font size="7.5" color="#334155">NIF: {cli_nif}</font>'
+    )
+    header_body = Table([[
+        Paragraph(empresa_info, st('empresa_info', fontSize=7.5, leading=10)),
+        Paragraph(cliente_info, st('cliente_info', fontSize=7.5, leading=10)),
+    ]], colWidths=[W * 0.55, W * 0.45])
+    header_body.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_body)
+    story.append(Spacer(1, 0.35 * cm))
+
+    # TÍTULO
+    story.append(Paragraph('<font size="7.5">Original</font>', st('original', fontSize=7.5)))
+    story.append(Paragraph(
+        f'<font size="12"><b>{titulo}</b></font>',
+        st('titulo', fontSize=12)
+    ))
+    if subtitulo:
+        story.append(Paragraph(f'<font size="8" color="#64748b">{subtitulo}</font>', st('subtitulo', fontSize=8)))
+    story.append(Spacer(1, 0.2 * cm))
+
+    # DADOS DO DOCUMENTO (linha)
+    if dados_doc_header and dados_doc_valores:
+        ncols = len(dados_doc_header)
+        t_dados = Table([dados_doc_header, dados_doc_valores], colWidths=[W / ncols] * ncols)
+        t_dados.setStyle(TableStyle([
+            ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_CINZA),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(t_dados)
+        story.append(Spacer(1, 0.3 * cm))
+
+    # TABELA DE ITENS
+    if tabela_colunas and tabela_linhas:
+        itens_header = [
+            Paragraph(f'<b>{c}</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO))
+            for c in tabela_colunas
+        ]
+        itens_rows = [itens_header]
+        for row in tabela_linhas:
+            itens_rows.append([Paragraph(str(cell), st('ic', fontSize=7)) for cell in row])
+
+        ncols = len(tabela_colunas)
+        col_w = W / ncols
+        t_itens = Table(itens_rows, colWidths=[col_w] * ncols)
+        t_itens.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+            ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(t_itens)
+        story.append(Spacer(1, 0.2 * cm))
+
+    # SUMÁRIO (direita)
+    if sumario_linhas is not None:
+        sumario_rows = [
+            [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO))],
+            [Spacer(1, 0.15 * cm)],
+        ]
+        for label, val in sumario_linhas:
+            sumario_rows.append([
+                Paragraph(f'<font size="7">{label}: <b>{val}</b></font>',
+                          st('sum_l', fontSize=7, leading=10))
+            ])
+        sumario_rows.append([Spacer(1, 0.15 * cm)])
+        sumario_rows.append([
+            Paragraph(f'<font size="10" color="#0f172a"><b>Total: {fmt_kz(total_geral)} KZ</b></font>',
+                      st('sum_total', fontSize=10, leading=12))
+        ])
+        valor_ext = valor_por_extenso(total_geral)
+        sumario_rows.append([Spacer(1, 0.1 * cm)])
+        sumario_rows.append([
+            Paragraph(f'<font size="6.5" color="#64748b"><i>{valor_ext}</i></font>',
+                      st('sum_ext', fontSize=6.5, leading=8))
+        ])
+        t_sumario = Table(sumario_rows, colWidths=[W * 0.35])
+        t_sumario.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), COR_HEADER),
+            ('TOPPADDING', (0, 0), (0, 0), 5),
+            ('BOTTOMPADDING', (0, 0), (0, 0), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
+        ]))
+        story.append(t_sumario)
+        story.append(Spacer(1, 0.2 * cm))
+
+    # NOTA
+    if nota_texto:
+        nota_box = Table([[
+            Paragraph('<b>Nota</b>', st('nota_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+        ]], colWidths=[W])
+        nota_box.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), COR_SECUNDARIO),
+            ('TOPPADDING', (0, 0), (-1, 0), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+            ('LEFTPADDING', (0, 0), (-1, 0), 6),
+        ]))
+        story.append(nota_box)
+        story.append(Paragraph(nota_texto, st('nota_txt', fontSize=7, textColor=COR_SECUNDARIO)))
+        story.append(Spacer(1, 0.15 * cm))
+
+    # DESPACHANTE RESPONSÁVEL
+    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.15 * cm))
+    desp_box = Table([[
+        Paragraph('<b>Despachante Responsável</b>', st('desp_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+    ]], colWidths=[W])
+    desp_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+        ('LEFTPADDING', (0, 0), (-1, 0), 6),
+    ]))
+    story.append(desp_box)
+    story.append(Spacer(1, 0.1 * cm))
+    story.append(Paragraph(
+        f'{responsavel_nome} &nbsp;|&nbsp; NIF: {responsavel_nif} &nbsp;|&nbsp; '
+        f'Cédula CDOA: {responsavel_cedula}',
+        st('desp_l1', fontSize=7.5, textColor=COR_PRIMARIO)
+    ))
+    story.append(Paragraph(
+        f'Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}',
+        st('desp_l2', fontSize=7, textColor=COR_CINZA)
+    ))
+    story.append(Spacer(1, 0.15 * cm))
+
+    # ASSINATURA
+    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.1 * cm))
+    ass_data = [
+        [Paragraph('<b>Recebido por:</b>', st('ass_lab', fontSize=8)),
+         Paragraph('', st('ass_spc', fontSize=8))],
+        [Spacer(1, 0.2 * cm), Spacer(1, 0.2 * cm)],
+        [HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA),
+         HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA)],
+        [Paragraph('<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
+         Paragraph('<font size="7.5"><b>O Cliente</b></font>', st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
+        [Paragraph('', st('ass_spc', fontSize=3)),
+         Paragraph(f'<font size="7"><b>{cli_nome}</b></font>',
+                   st('ass_nome', fontSize=7, fontName='Helvetica-Bold', alignment=TA_CENTER))],
+    ]
+    assinatura = Table(ass_data, colWidths=[W / 2, W / 2])
+    assinatura.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(assinatura)
+    story.append(Spacer(1, 0.15 * cm))
+
+    # RODAPÉ
+    story.append(HRFlowable(width=W, thickness=0.5, color=colors.HexColor('#e2e2e2')))
+    story.append(Spacer(1, 0.1 * cm))
+    story.append(Paragraph(
+        f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; '
+        f'Processado por programa válido nº35/AGT/2019<br/>'
+        f'Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
+        st('footer', fontSize=6)
+    ))
+
+    doc.build(story)
+
+
+@safe_pdf
 @requer_sessao_ativa
 def factura_pdf(request, pk):
     """Gera PDF da Factura Final no layout oficial angolano (fiel ao modelo FACTURA FT)."""
@@ -3001,7 +3498,7 @@ def factura_pdf(request, pk):
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
         leftMargin=MARGIN, rightMargin=MARGIN,
-        topMargin=0.4 * cm, bottomMargin=1.5 * cm,
+        topMargin=0.4 * cm, bottomMargin=1.0 * cm,
         title=f"Factura {factura.numero_factura}",
     )
 
@@ -3010,9 +3507,9 @@ def factura_pdf(request, pk):
     COR_CINZA    = colors.HexColor('#64748b')
     COR_CLARO    = colors.HexColor('#f1f5f9')
     COR_BORDA    = colors.HexColor('#cbd5e1')
-    COR_HEADER   = colors.HexColor('#1e293b')
+    COR_HEADER   = colors.white
     COR_PRIMARIO = colors.HexColor('#0f172a')
-    COR_VERMELHO = colors.HexColor('#dc2626')
+    COR_VERMELHO = colors.white
     COR_BRANCO   = colors.white
     COR_VERDE    = colors.HexColor('#059669')
     COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
@@ -3028,7 +3525,7 @@ def factura_pdf(request, pk):
     s_bold     = st('bold', fontName='Helvetica-Bold')
     s_right    = st('right', alignment=TA_RIGHT)
     s_center   = st('center', alignment=TA_CENTER)
-    s_th       = st('th', fontName='Helvetica-Bold', fontSize=7, textColor=COR_BRANCO, alignment=TA_CENTER, leading=9)
+    s_th       = st('th', fontName='Helvetica-Bold', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_CENTER, leading=9)
     s_td       = st('td', fontSize=8, leading=10)
     s_td_right = st('td_r', fontSize=8, leading=10, alignment=TA_RIGHT)
     s_td_cent  = st('td_c', fontSize=8, leading=10, alignment=TA_CENTER)
@@ -3046,12 +3543,12 @@ def factura_pdf(request, pk):
     if banca:
         try:
             usuario_banca = Usuario.objects.get(id=banca.usuario_id)
-            responsavel_nome = (usuario_banca.nome or 'DESPACHANTE OFICIAL').upper()
-            responsavel_nif = usuario_banca.nif or '—'
-            responsavel_cedula = usuario_banca.cedula or '—'
-            responsavel_telefone = usuario_banca.telefone or '—'
-            responsavel_email = usuario_banca.email or '—'
-        except:
+            responsavel_nome = _safe((usuario_banca.nome or 'DESPACHANTE OFICIAL')).upper()
+            responsavel_nif = _safe(usuario_banca.nif) or '—'
+            responsavel_cedula = _safe(usuario_banca.cedula) or '—'
+            responsavel_telefone = _safe(usuario_banca.telefone) or '—'
+            responsavel_email = _safe(usuario_banca.email) or '—'
+        except Exception:
             responsavel_nome = 'DESPACHANTE OFICIAL'
 
     story = []
@@ -3061,11 +3558,11 @@ def factura_pdf(request, pk):
     # ──────────────────────────────────────────────────────────────────────────
     agora = datetime.now()
     nif_txt = banca.nif if banca else 'N/D'
-    nome_txt = banca.nome if banca else 'Despachante Oficial'
-    cdoa = banca.licenca_cdoa if banca else '—'
-    endereco = banca.endereco if banca else '—'
-    telefone = banca.telefone if banca else '—'
-    email_b = banca.email if banca else '—'
+    nome_txt = _safe(banca.nome) if banca else 'Despachante Oficial'
+    cdoa = _safe(banca.licenca_cdoa) if banca else '—'
+    endereco = _safe(banca.endereco) if banca else '—'
+    telefone = _safe(banca.telefone) if banca else '—'
+    email_b = _safe(banca.email) if banca else '—'
 
     logo_path = None
     if banca and hasattr(banca, 'logo') and banca.logo:
@@ -3074,35 +3571,29 @@ def factura_pdf(request, pk):
         except Exception:
             logo_path = None
 
-    col_logo = []
+    col_logo = Paragraph('', s_small)
     if logo_path:
         try:
-            col_logo.append(RLImage(logo_path, width=2.2 * cm, height=1.6 * cm))
+            col_logo = RLImage(logo_path, width=2.2 * cm, height=1.6 * cm)
         except Exception:
-            col_logo.append(Paragraph('', s_small))
-    else:
-        col_logo.append(Paragraph('', s_small))
+            col_logo = Paragraph('', s_small)
 
-    # Linha 1: Logo (esquerda) + Página/Data/Hora (direita)
+    # Linha 1: Logo (esquerda) — QR Code será adicionado depois
     top_line = Table([[
-        col_logo,
-        Paragraph(f'<font size="6.5" color="#94a3b8">Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
-                  st('top', alignment=TA_RIGHT, fontSize=6.5))
-    ]], colWidths=[2.5 * cm, W - 2.5 * cm])
+        col_logo, ''
+    ]], colWidths=[W - 1.9 * cm, 1.9 * cm])
     top_line.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
-    story.append(top_line)
-    story.append(Spacer(1, 0.15 * cm))
 
     # Linha 2: Identificação do Despachante (esquerda) + Dados do Documento (direita)
     despachante_info = (
-        f'<font size="7" color="{COR_VERDE.hexval()}"><b>DESPACHANTE RESPONSÁVEL: {responsavel_nome}</b></font><br/>'
+        f'<font size="7" color="{COR_VERDE.hexval()}"><b>DESPACHANTE: {responsavel_nome}</b></font><br/>'
         f'<font size="6.5" color="#64748b">NIF: {responsavel_nif}</font><br/>'
         f'<font size="6.5" color="#64748b">Cédula CDOA: {responsavel_cedula}</font><br/>'
         f'<font size="6.5" color="#64748b">Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}</font>'
@@ -3113,7 +3604,7 @@ def factura_pdf(request, pk):
     moeda_fact = getattr(getattr(factura, 'requisicao_fundo', None), 'moeda_referencia', '') or 'AOA'
 
     doc_info = (
-        f'<font size="7" color="#475569"><b>Dados do Documento</b></font><br/><br/>'
+        f'<font size="7" color="#475569"><b>Dados do Documento</b></font><br/>'
         f'<font size="6.5" color="#64748b"><b>Tipo:</b> Factura Final</font><br/>'
         f'<font size="6.5" color="#64748b"><b>Nº:</b> {factura.numero_factura}</font><br/>'
         f'<font size="6.5" color="#64748b"><b>Emissão:</b> {data_emissao_f}</font><br/>'
@@ -3134,25 +3625,25 @@ def factura_pdf(request, pk):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(header_body)
-    story.append(Spacer(1, 0.2 * cm))
+    story.append(Spacer(1, 0.1 * cm))
 
     # HASH e versão do sistema
     story.append(Paragraph(
         f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; Processado por programa válido nº35/AGT/2019</font>',
         st('hash_line', fontSize=6)
     ))
-    story.append(Spacer(1, 0.15 * cm))
+    story.append(Spacer(1, 0.1 * cm))
     story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
-    story.append(Spacer(1, 0.2 * cm))
+    story.append(Spacer(1, 0.1 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 3 — Barra do número da fatura
     # ══════════════════════════════════════════════════════════════════════════
     t_num = Table([[
         Paragraph(f'<b>FACTURA FT {factura.numero_factura}</b>',
-                  st('num_ft', fontSize=10, fontName='Helvetica-Bold', textColor=COR_BRANCO)),
-        Paragraph(f'<font size="9" color="white">Fatura Nº: {factura.numero_factura}</font>',
-                  st('num_ft2', fontSize=9, textColor=COR_BRANCO, alignment=TA_RIGHT)),
+                  st('num_ft', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
+        Paragraph(f'<font size="9" color="#0f172a">Fatura Nº: {factura.numero_factura}</font>',
+                  st('num_ft2', fontSize=9, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
     ]], colWidths=[W * 0.6, W * 0.4])
     t_num.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), COR_HEADER),
@@ -3163,22 +3654,22 @@ def factura_pdf(request, pk):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(t_num)
-    story.append(Spacer(1, 0.2 * cm))
+    story.append(Spacer(1, 0.1 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 4 — Dados do Cliente + Referências do Processo Aduaneiro
     # ══════════════════════════════════════════════════════════════════════════
     # ── Dados do Cliente ────────────────────────────────────────────────────
-    cli_nome  = cliente.nome if cliente else '—'
-    cli_nif   = cliente.nif if cliente else '—'
-    cli_end   = cliente.localizacao if cliente else '—'
-    cli_tel   = cliente.telefone if cliente else '—'
-    cli_email = cliente.email if cliente else '—'
+    cli_nome  = _safe(cliente.nome) if cliente else '—'
+    cli_nif   = _safe(cliente.nif) if cliente else '—'
+    cli_end   = _safe(cliente.localizacao) if cliente else '—'
+    cli_tel   = _safe(cliente.telefone) if cliente else '—'
+    cli_email = _safe(cliente.email) if cliente else '—'
     cli_contacto = getattr(factura.requisicao_fundo, 'pessoa_contacto', '—') if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo else '—'
 
     cliente_rows = [
         [Paragraph('<b>Dados do Cliente (Importador/Exportador)</b>',
-                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)), '', ''],
+                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_PRIMARIO)), '', ''],
         [Paragraph('<font size="7"><b>Nome/Firma:</b></font>', st('cl')),
          Paragraph(f'<font size="7">{cli_nome}</font>', st('cl')),
          Paragraph('<font size="7"><b>NIF:</b></font>', st('cl')),
@@ -3195,18 +3686,18 @@ def factura_pdf(request, pk):
     t_cliente = Table(cliente_rows, colWidths=[W * 0.12, W * 0.38, W * 0.10, W * 0.40])
     t_cliente.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR', (0, 0), (-1, 0), COR_BRANCO),
+        ('TEXTCOLOR', (0, 0), (-1, 0), COR_PRIMARIO),
         ('SPAN', (0, 0), (-1, 0)),
         ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ('LEFTPADDING', (0, 0), (-1, -1), 5),
         ('RIGHTPADDING', (0, 0), (-1, -1), 5),
         ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
     ]))
     story.append(t_cliente)
-    story.append(Spacer(1, 0.2 * cm))
+    story.append(Spacer(1, 0.1 * cm))
 
     # ── Referências do Processo Aduaneiro (Carga) ──────────────────────────
     ref_processo = processo.id if processo else '—'
@@ -3244,7 +3735,7 @@ def factura_pdf(request, pk):
 
     processo_rows = [
         [Paragraph('<b>Referências do Processo Aduaneiro (Carga)</b>',
-                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)), '', ''],
+                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_PRIMARIO)), '', ''],
         [Paragraph('<font size="7"><b>Ref. Interna:</b></font>', st('pr')),
          Paragraph(f'<font size="7">{ref_processo}</font>', st('pr')),
          Paragraph('<font size="7"><b>Nr DU:</b></font>', st('pr')),
@@ -3268,18 +3759,74 @@ def factura_pdf(request, pk):
     t_processo = Table(processo_rows, colWidths=[W * 0.16, W * 0.34, W * 0.13, W * 0.37])
     t_processo.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR', (0, 0), (-1, 0), COR_BRANCO),
+        ('TEXTCOLOR', (0, 0), (-1, 0), COR_PRIMARIO),
         ('SPAN', (0, 0), (-1, 0)),
         ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ('LEFTPADDING', (0, 0), (-1, -1), 5),
         ('RIGHTPADDING', (0, 0), (-1, -1), 5),
         ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
     ]))
     story.append(t_processo)
-    story.append(Spacer(1, 0.15 * cm))
+    story.append(Spacer(1, 0.1 * cm))
+
+    # QR Code da Factura (após todas as variáveis estarem definidas)
+    nr_du_qr = processo.numero_du if processo else '—'
+    merc_qr = (getattr(getattr(factura, 'requisicao_fundo', None), 'mercadoria_descricao', '') or '')[:60] or '—'
+
+    qr_data = (
+        f"=== FACTURA FINAL ===\n"
+        f"Nº: {factura.numero_factura}\n"
+        f"Data: {data_emissao_f}\n"
+        f"Vencimento: {data_venc}\n"
+        f"Estado: {factura.estado}\n"
+        f"\n--- CLIENTE ---\n"
+        f"Nome: {cli_nome}\n"
+        f"NIF: {cli_nif}\n"
+        f"\n--- PROCESSO ---\n"
+        f"DU: {nr_du_qr}\n"
+        f"Mercadoria: {merc_qr}\n"
+        f"Origem: {origem}\n"
+        f"Destino: {destino}\n"
+        f"Transporte: {transporte}\n"
+        f"Valor CIF: {v_cif_proc or '—'} KZ\n"
+        f"\n--- VALORES ---\n"
+        f"Honorários: {fmt_kz(factura.honorarios_despachante)} KZ\n"
+        f"Taxas Aduaneiras: {fmt_kz(factura.taxas_aduaneiras)} KZ\n"
+        f"Emolumentos: {fmt_kz(factura.emolumentos)} KZ\n"
+        f"Desp. Operacionais: {fmt_kz(factura.despesas_operacionais)} KZ\n"
+        f"IVA: {fmt_kz(factura.iva)} KZ\n"
+        f"Retenção: {fmt_kz(factura.retencao)} KZ\n"
+        f"TOTAL: {fmt_kz(factura.valor_total)} KZ\n"
+        f"\n--- DESPACHANTE ---\n"
+        f"Nome: {responsavel_nome}\n"
+        f"NIF: {responsavel_nif}\n"
+        f"Cédula: {responsavel_cedula}\n"
+    )
+    import qrcode as _qr
+    _qr_buf = io.BytesIO()
+    _qr_obj = _qr.QRCode(version=1, box_size=10, border=2)
+    _qr_obj.add_data(qr_data)
+    _qr_obj.make(fit=True)
+    _qr_obj.make_image(fill_color="black", back_color="white").save(_qr_buf, format='PNG')
+    _qr_buf.seek(0)
+    qr_flowable = RLImage(_qr_buf, width=1.9 * cm, height=1.9 * cm)
+
+    top_line = Table([[
+        col_logo, qr_flowable
+    ]], colWidths=[W - 1.9 * cm, 1.9 * cm])
+    top_line.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.insert(0, Spacer(1, 0.15 * cm))
+    story.insert(0, top_line)
 
     # ── Subtítulo "Original"
     story.append(Paragraph('<b>Original</b>', st('orig', fontSize=10, fontName='Helvetica-Bold', alignment=TA_CENTER,
@@ -3287,100 +3834,111 @@ def factura_pdf(request, pk):
     story.append(Spacer(1, 0.15 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
-    # BLOCO 5 — Tabela de itens (Ref | Item | A | Descrição | Quant.Un | Preço | %Desc | %IVA | Valor)
+    # BLOCO 5 — Tabela de itens (Ref | Descrição | Tipo | Valor)
     # ══════════════════════════════════════════════════════════════════════════
     # Cabeçalho
     ITENS_HEADER = [
-        Paragraph('Ref. | Item', s_th),
-        Paragraph('A',           s_th),
-        Paragraph('Discriminação | Description', s_th),
-        Paragraph('Quant. Un',   s_th),
-        Paragraph('Preço | Price', s_th),
-        Paragraph('%Desc',       s_th),
-        Paragraph('%IVA',        s_th),
-        Paragraph('Valor | Amount', s_th),
+        Paragraph('Ref.', s_th),
+        Paragraph('Descrição', s_th),
+        Paragraph('Tipo', s_th),
+        Paragraph('Valor (KZ)', s_th),
     ]
-    # Larguras das colunas
-    cw = [1.4*cm, 0.6*cm, W - 1.4*cm - 0.6*cm - 1.8*cm - 2.0*cm - 1.2*cm - 1.2*cm - 2.0*cm,
-          1.8*cm, 2.0*cm, 1.2*cm, 1.2*cm, 2.0*cm]
+    cw = [1.2*cm, W - 1.2*cm - 4.0*cm - 3.0*cm, 4.0*cm, 3.0*cm]
 
-    # Construir linhas de itens a partir da Requisição (classificação correcta)
     ITENS = [ITENS_HEADER]
-    DESP_TAXAS = {'Direitos Aduaneiros', 'Taxa Administrativa', 'Inspeção Sanitária',
-                   'Multas e Desdobramento', 'Multas'}
-    DESP_EMOL  = {'JUP', 'Factura de Exportação', 'Emissão DAR'}
+    total_geral_itens = Decimal('0')
 
-    taxas_total = Decimal('0')
-    emol_total  = Decimal('0')
-    oper_total  = Decimal('0')
-    honor_total = Decimal('0')
-    outros_total = Decimal('0')
-    
+    # Adicionar linha CIF
+    v_cif_val = factura.requisicao_fundo.valor_cif if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo and factura.requisicao_fundo.valor_cif else (processo.valor_cif if processo and processo.valor_cif else Decimal('0'))
+    if v_cif_val and v_cif_val > 0:
+        ITENS.append([
+            Paragraph('CIF', s_td_cent),
+            Paragraph(merc[:50] if merc else 'Mercadoria', s_td),
+            Paragraph('Valor CIF', s_td),
+            Paragraph(fmt_kz(v_cif_val), s_td_right),
+        ])
+
+    # Listar cada linha da requisição individualmente
     if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
-        for linha in factura.requisicao_fundo.linhas.all():
+        # Despesas documentadas
+        despesas_doc = factura.requisicao_fundo.linhas.filter(documentada=True)
+        for idx, linha in enumerate(despesas_doc, start=1):
             v = linha.valor or Decimal('0')
             if not v or v <= 0:
                 continue
-            tc = (linha.tipo_custo or '').strip()
-            dt = (linha.despesa_tipo or '').strip()
-            
-            if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
-                honor_total += v
-            elif tc == 'Impostos e Taxas Aduaneiras (AGT)':
-                taxas_total += v
-            elif tc == 'Despesas Portuárias e Terminais':
-                emol_total += v
-            elif tc in ('Logística e Transporte', 'Outros') or not tc:
-                if dt in DESP_TAXAS:
-                    taxas_total += v
-                elif dt in DESP_EMOL:
-                    emol_total += v
-                else:
-                    oper_total += v
-            else:
-                outros_total += v
+            ITENS.append([
+                Paragraph(f'EP{idx:02d}', s_td_cent),
+                Paragraph(linha.despesa_tipo or 'Despesa', s_td),
+                Paragraph('Direito (documentado)', s_td),
+                Paragraph(fmt_kz(v), s_td_right),
+            ])
+            total_geral_itens += v
 
-    # Fallback para Facturas sem requisição vinculada
-    if not honor_total and not taxas_total and not emol_total and not oper_total and not outros_total:
-        taxas_total = factura.taxas_aduaneiras
-        emol_total  = factura.emolumentos
-        oper_total  = factura.despesas_operacionais
-        honor_total = factura.honorarios_despachante
-        outros_total = factura.outros_encargos
+        # Despesas não documentadas
+        despesas_nao_doc = factura.requisicao_fundo.linhas.filter(documentada=False)
+        for idx, linha in enumerate(despesas_nao_doc, start=1):
+            v = linha.valor or Decimal('0')
+            if not v or v <= 0:
+                continue
+            ITENS.append([
+                Paragraph(f'DE{idx:02d}', s_td_cent),
+                Paragraph(linha.despesa_tipo or 'Despesa', s_td),
+                Paragraph('Despesa (não documentada)', s_td),
+                Paragraph(fmt_kz(v), s_td_right),
+            ])
+            total_geral_itens += v
 
-    item_map = [
-        ('06', 'Impostos e Taxas Aduaneiras', taxas_total),
-        ('07', 'Emolumentos Gerais', emol_total),
-        ('08', 'Despesas Operacionais', oper_total),
-        ('14', 'Honorários do Despachante', honor_total),
-    ]
+    # Se não tem requisição vinculada, usar os valores directos da factura
+    if total_geral_itens == 0:
+        if factura.honorarios_despachante and factura.honorarios_despachante > 0:
+            ITENS.append([
+                Paragraph('01', s_td_cent),
+                Paragraph('Honorários do Despachante', s_td),
+                Paragraph('Honorários', s_td),
+                Paragraph(fmt_kz(factura.honorarios_despachante), s_td_right),
+            ])
+            total_geral_itens += factura.honorarios_despachante
+        if factura.taxas_aduaneiras and factura.taxas_aduaneiras > 0:
+            ITENS.append([
+                Paragraph('02', s_td_cent),
+                Paragraph('Impostos e Taxas Aduaneiras', s_td),
+                Paragraph('Taxas Aduaneiras', s_td),
+                Paragraph(fmt_kz(factura.taxas_aduaneiras), s_td_right),
+            ])
+            total_geral_itens += factura.taxas_aduaneiras
+        if factura.emolumentos and factura.emolumentos > 0:
+            ITENS.append([
+                Paragraph('03', s_td_cent),
+                Paragraph('Emolumentos Gerais', s_td),
+                Paragraph('Emolumentos', s_td),
+                Paragraph(fmt_kz(factura.emolumentos), s_td_right),
+            ])
+            total_geral_itens += factura.emolumentos
+        if factura.despesas_operacionais and factura.despesas_operacionais > 0:
+            ITENS.append([
+                Paragraph('04', s_td_cent),
+                Paragraph('Despesas Operacionais', s_td),
+                Paragraph('Despesas Operacionais', s_td),
+                Paragraph(fmt_kz(factura.despesas_operacionais), s_td_right),
+            ])
+            total_geral_itens += factura.despesas_operacionais
+        if factura.outros_encargos and factura.outros_encargos > 0:
+            ITENS.append([
+                Paragraph('05', s_td_cent),
+                Paragraph('Outros Encargos', s_td),
+                Paragraph('Outros', s_td),
+                Paragraph(fmt_kz(factura.outros_encargos), s_td_right),
+            ])
+            total_geral_itens += factura.outros_encargos
 
-    for ref, desc, valor in item_map:
-        if not valor or valor <= 0:
-            continue
-        if ref == '14':
-            pct_iva = '14%'
-        else:
-            pct_iva = 'M00'
-        ITENS.append([
-            Paragraph(ref,  s_td_cent),
-            Paragraph('1',  s_td_cent),
-            Paragraph(desc, s_td),
-            Paragraph('1,00 UN', s_td_cent),
-            Paragraph(fmt_kz(valor), s_td_cent),
-            Paragraph('—', s_td_cent),
-            Paragraph(pct_iva, s_td_cent),
-            Paragraph(fmt_kz(valor), s_td_right),
-        ])
-
-    # Linhas em branco para preencher o espaço (mínimo 8 linhas de itens)
-    while len(ITENS) < 10:
-        ITENS.append(['', '', '', '', '', '', '', ''])
+    # Linhas em branco para preencher o espaço (mínimo 6 linhas)
+    while len(ITENS) < 7:
+        ITENS.append(['', '', '', ''])
 
     t_itens = Table(ITENS, colWidths=cw, repeatRows=1)
     t_itens.setStyle(TableStyle([
         ('BACKGROUND',    (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR',     (0, 0), (-1, 0), COR_BRANCO),
+        ('TEXTCOLOR',     (0, 0), (-1, 0), COR_PRIMARIO),
         ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE',      (0, 0), (-1, 0), 7),
         ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
@@ -3416,11 +3974,42 @@ def factura_pdf(request, pk):
     story.append(nota_box)
     story.append(Spacer(1, 0.2 * cm))
 
+    # Totais por categoria (para secção de totalizadores)
+    taxas_total = Decimal('0')
+    emol_total = Decimal('0')
+    oper_total = Decimal('0')
+    honor_total = Decimal('0')
+    outros_total = Decimal('0')
+
+    if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
+        for linha in factura.requisicao_fundo.linhas.all():
+            v = linha.valor or Decimal('0')
+            if not v or v <= 0:
+                continue
+            tc = (linha.tipo_custo or '').strip()
+            dt = (linha.despesa_tipo or '').strip()
+            if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
+                honor_total += v
+            elif tc == 'Impostos e Taxas Aduaneiras (AGT)':
+                taxas_total += v
+            elif tc == 'Despesas Portuárias e Terminais':
+                emol_total += v
+            elif tc in ('Logística e Transporte', 'Outros') or not tc:
+                oper_total += v
+            else:
+                outros_total += v
+    else:
+        taxas_total = factura.taxas_aduaneiras or Decimal('0')
+        emol_total = factura.emolumentos or Decimal('0')
+        oper_total = factura.despesas_operacionais or Decimal('0')
+        honor_total = factura.honorarios_despachante or Decimal('0')
+        outros_total = factura.outros_encargos or Decimal('0')
+
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 6 — Resumo IVA (esquerda) + Totalizadores (direita)
     # ══════════════════════════════════════════════════════════════════════════
     iva_header = [
-        Paragraph('<b>Resumo IVA</b>', st('iva_t', fontSize=8, fontName='Helvetica-Bold', textColor=COR_BRANCO)),
+        Paragraph('<b>Resumo IVA</b>', st('iva_t', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
         '', '', ''
     ]
     iva_sub = [
@@ -3442,10 +4031,10 @@ def factura_pdf(request, pk):
     t_iva.setStyle(TableStyle([
         ('SPAN',          (0, 0), (-1, 0)),
         ('BACKGROUND',    (0, 0), (-1, 0), COR_HEADER),
-        ('BACKGROUND',    (0, 1), (-1, 1), colors.HexColor('#334155')),
-        ('TEXTCOLOR',     (0, 0), (-1, 1), COR_BRANCO),
+        ('BACKGROUND',    (0, 1), (-1, 1), colors.HexColor('#f1f5f9')),
+        ('TEXTCOLOR',     (0, 0), (-1, 1), COR_PRIMARIO),
         ('GRID',          (0, 1), (-1, -1), 0.3, COR_BORDA),
-        ('BOX',           (0, 0), (-1, -1), 0.5, COR_HEADER),
+        ('BOX',           (0, 0), (-1, -1), 0.5, COR_BORDA),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
         ('TOPPADDING',    (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -3477,20 +4066,18 @@ def factura_pdf(request, pk):
         _tot_row('Total IVA',    fmt_kz(factura.iva)),
         [Paragraph(f'<font size="10" name="Helvetica-Bold"><b>Total (AKZ):</b></font>',
                     st('tot_final', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
-         Paragraph(f'<font size="10" name="Helvetica-Bold" color="#dc2626"><b>{fmt_kz(factura.valor_total)}</b></font>',
-                    st('totv_final', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=COR_VERMELHO))],
-        [Paragraph(''), Paragraph('')],
-        _tot_row('Total Alternativo:', fmt_kz(factura.valor_total)),
+         Paragraph(f'<font size="10" name="Helvetica-Bold" color="#0f172a"><b>{fmt_kz(factura.valor_total)}</b></font>',
+                    st('totv_final', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=COR_PRIMARIO))],
     ]
 
     t_tot = Table(tot_rows, colWidths=[W * 0.35, W * 0.2])
     t_tot.setStyle(TableStyle([
         ('GRID',          (0, 0), (-1, -2), 0.3, COR_BORDA),
-        ('LINEABOVE',     (0, 7), (-1, 7), 1.5, COR_VERMELHO),
-        ('BACKGROUND',    (0, 7), (-1, 7), COR_CLARO),
+        ('LINEABOVE',     (0, 5), (-1, 5), 1.5, COR_CINZA),
+        ('BACKGROUND',    (0, 5), (-1, 5), COR_CLARO),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
-        ('TOPPADDING',    (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING',    (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING',   (0, 0), (-1, -1), 6),
         ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
         ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
@@ -3506,7 +4093,7 @@ def factura_pdf(request, pk):
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(t_bottom)
-    story.append(Spacer(1, 0.4 * cm))
+    story.append(Spacer(1, 0.15 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 7 — Assinatura + Operador
@@ -3530,53 +4117,70 @@ def factura_pdf(request, pk):
     story.append(t_ass)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # BLOCO 8 — Dados Bancários
+    # BLOCO 8 — Dados Bancários (rodapé compacto)
     # ══════════════════════════════════════════════════════════════════════════
-    if banca and (banca.banco or banca.numero_conta or banca.iban or banca.instrucoes_pagamento):
-        story.append(Spacer(1, 0.3 * cm))
-        story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
-        story.append(Spacer(1, 0.15 * cm))
+    bancos_pdf = []
+    if banca:
+        try:
+            bancos_pdf = json.loads(banca.dados_bancarios_json or '[]')
+        except (json.JSONDecodeError, ValueError):
+            bancos_pdf = []
+        if not isinstance(bancos_pdf, list):
+            bancos_pdf = []
 
-        bank_rows = [
-            [Paragraph('<b>Dados Bancários</b>',
-                       st('bank_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_BRANCO)), ''],
-        ]
-        if banca.banco:
-            bank_rows.append([
-                Paragraph('<font size="7"><b>Banco:</b></font>', st('bk')),
-                Paragraph(f'<font size="7">{banca.banco}</font>', st('bk')),
-            ])
-        if banca.numero_conta:
-            bank_rows.append([
-                Paragraph('<font size="7"><b>Nº da Conta:</b></font>', st('bk')),
-                Paragraph(f'<font size="7">{banca.numero_conta}</font>', st('bk')),
-            ])
-        if banca.iban:
-            bank_rows.append([
-                Paragraph('<font size="7"><b>IBAN:</b></font>', st('bk')),
-                Paragraph(f'<font size="7">{banca.iban}</font>', st('bk')),
-            ])
-        if banca.instrucoes_pagamento:
-            texto_pagamento = banca.instrucoes_pagamento.replace('\n', '<br/>').replace('\r', '')
-            bank_rows.append([
-                Paragraph('<font size="7"><b>Instruções de Pagamento:</b></font>', st('bk')),
-                Paragraph(f'<font size="7">{texto_pagamento}</font>', st('bk')),
-            ])
+    has_bank_data = False
+    if bancos_pdf:
+        has_bank_data = any(b.get('banco') for b in bancos_pdf if isinstance(b, dict))
+    elif banca:
+        has_bank_data = bool(banca.banco or banca.numero_conta or banca.iban)
 
-        t_bank = Table(bank_rows, colWidths=[W * 0.25, W * 0.75])
-        t_bank.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-            ('TEXTCOLOR', (0, 0), (-1, 0), COR_BRANCO),
-            ('SPAN', (0, 0), (-1, 0)),
-            ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
-        ]))
-        story.append(t_bank)
+    if has_bank_data or (banca and banca.instrucoes_pagamento):
+        story.append(Spacer(1, 0.1 * cm))
+        story.append(HRFlowable(width=W, thickness=0.3, color=COR_BORDA))
+        story.append(Spacer(1, 0.08 * cm))
+
+        story.append(Paragraph(
+            '<font size="5.5" color="#1e293b"><b>Dados Bancários</b></font>',
+            st('bank_title', fontSize=5.5)
+        ))
+        story.append(Spacer(1, 0.03 * cm))
+
+        if bancos_pdf:
+            for i, b in enumerate(bancos_pdf):
+                if not isinstance(b, dict) or not b.get('banco'):
+                    continue
+                num = f'{i + 1}.'
+                banco_txt = b['banco']
+                iban_txt = b.get('iban', '—')
+                story.append(Paragraph(
+                    f'<font size="5" color="#475569">'
+                    f'<b>{num}</b> &nbsp;'
+                    f'<b>Banco:</b> {banco_txt} &nbsp;|&nbsp;'
+                    f'<b>IBAN:</b> <font name="Courier">{iban_txt}</font>'
+                    f'</font>',
+                    st(f'bank_line_{i}', fontSize=5, leading=6.5, leftIndent=8)
+                ))
+        elif banca:
+            lines = []
+            if banca.banco:
+                lines.append(f'<b>Banco:</b> {banca.banco}')
+            if banca.iban:
+                lines.append(f'<b>IBAN:</b> <font name="Courier">{banca.iban}</font>')
+            if banca.numero_conta:
+                lines.append(f'<b>Conta:</b> {banca.numero_conta}')
+            if lines:
+                story.append(Paragraph(
+                    f'<font size="5" color="#475569">{" &nbsp;|&nbsp; ".join(lines)}</font>',
+                    st('bank_foot', fontSize=5, leading=6.5, leftIndent=8)
+                ))
+
+        if banca and banca.instrucoes_pagamento:
+            texto_pagamento = banca.instrucoes_pagamento.replace('\n', ' ').replace('\r', '')
+            story.append(Spacer(1, 0.02 * cm))
+            story.append(Paragraph(
+                f'<font size="4.5" color="#64748b"><i>{texto_pagamento}</i></font>',
+                st('bank_inst', fontSize=4.5, leading=6, leftIndent=8)
+            ))
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONSTRUIR E RETORNAR
@@ -3587,36 +4191,61 @@ def factura_pdf(request, pk):
     response['Content-Disposition'] = f'inline; filename="Factura_{factura.numero_factura}.pdf"'
     return response
 
+@safe_pdf
 @requer_sessao_ativa
 def recibo_pdf(request, pk):
     recibo = _get_object_or_404_com_scope(request, ReciboCliente, pk)
+    banca = recibo.banca
+    cliente = recibo.cliente
     buffer = io.BytesIO()
 
-    dados_kv = [
-        ('NIF do Cliente', recibo.cliente.nif),
-        ('Nome do Cliente', recibo.cliente.nome),
-        ('Factura Relacionada', recibo.factura.numero_factura),
-        ('Forma de Pagamento', recibo.forma_pagamento),
-        ('Data do Pagamento', recibo.data_pagamento.strftime('%d/%m/%Y')),
-        ('Referência Bancária', recibo.referencia_bancaria or 'N/D'),
-        ('Emitido Por', recibo.utilizador_responsavel_nome),
-        ('Estado', 'PAGO'),
+    s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
+
+    dd_h = [
+        Paragraph('<b>Nº Recibo</b>', s), Paragraph('<b>Factura</b>', s),
+        Paragraph('<b>Forma Pgto</b>', s), Paragraph('<b>Data Pgto</b>', s),
+        Paragraph('<b>Referência</b>', s),
+    ]
+    dd_v = [
+        Paragraph(recibo.numero_recibo, s), Paragraph(recibo.factura.numero_factura, s),
+        Paragraph(recibo.forma_pagamento, s),
+        Paragraph(recibo.data_pagamento.strftime('%d/%m/%Y') if recibo.data_pagamento else '—', s),
+        Paragraph(recibo.referencia_bancaria or 'N/D', s),
     ]
 
-    colunas = ['Conceito', 'Valor Recebido (KZ)']
+    colunas = ['Descrição', 'Valor Recebido (KZ)']
     linhas = [
         [f'Pagamento da Factura {recibo.factura.numero_factura}', fmt_kz(recibo.valor_recebido)]
     ]
 
-    _construir_pdf_base(
-        buffer, 
-        f"Recibo de Pagamento {recibo.numero_recibo}",
-        f"Documento Comprovativo de Pagamento",
-        "PAGO",
-        dados_kv,
-        colunas,
-        linhas,
-        recibo.valor_recebido
+    sumario = [
+        ('Valor Recebido', f'{fmt_kz(recibo.valor_recebido)} KZ'),
+        ('Estado', 'PAGO'),
+        ('Emitido Por', recibo.utilizador_responsavel_nome),
+    ]
+
+    qr_texto = (
+        "=== RECIBO DE PAGAMENTO ===\n"
+        f"Numero: {recibo.numero_recibo}\n"
+        f"Factura: {recibo.factura.numero_factura}\n"
+        f"Cliente: {cliente.nome}\n"
+        f"NIF: {cliente.nif}\n"
+        f"Valor: {fmt_kz(recibo.valor_recebido)} KZ\n"
+        f"Pagamento: {recibo.forma_pagamento}\n"
+        f"Data: {recibo.data_pagamento.strftime('%d/%m/%Y')}\n"
+        f"Referencia: {recibo.referencia_bancaria or 'N/D'}"
+    )
+
+    _construir_pdf_documento(
+        buffer, f"Recibo de Pagamento {recibo.numero_recibo}",
+        "Documento Comprovativo de Pagamento", banca, cliente,
+        recibo.numero_recibo,
+        recibo.data_pagamento or recibo.data_criacao.date() if hasattr(recibo, 'data_criacao') else None,
+        dados_doc_header=dd_h, dados_doc_valores=dd_v,
+        tabela_colunas=colunas, tabela_linhas=linhas,
+        sumario_linhas=sumario, total_geral=recibo.valor_recebido,
+        nota_texto='Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+        qr_flowable=_gerar_qr_code_flowable(qr_texto),
     )
 
     buffer.seek(0)
@@ -3624,678 +4253,29 @@ def recibo_pdf(request, pk):
     response['Content-Disposition'] = f'inline; filename="Recibo_{recibo.numero_recibo}.pdf"'
     return response
 
-@requer_sessao_ativa
 
-def nota_credito_pdf(request, pk):
-
-    """Gera PDF da Nota de CrÃ©dito com design profissional"""
-
-    nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
-
-    buffer = io.BytesIO()
-
-    
-
-    from reportlab.lib import colors
-
-    from reportlab.lib.pagesizes import A4
-
-    from reportlab.lib.styles import ParagraphStyle
-
-    from reportlab.lib.units import cm
-
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
-
-    from reportlab.platypus.flowables import HRFlowable
-
-    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-
-    
-
-    doc = SimpleDocTemplate(
-
-        buffer, pagesize=A4,
-
-        leftMargin=0.8*cm, rightMargin=0.8*cm,
-
-        topMargin=0.8*cm, bottomMargin=1.5*cm,
-
-        title=f"Nota de CrÃ©dito {nota.numero_nota}",
-
-    )
-
-    W = A4[0] - 1.6*cm
-
-    
-
-    cor_cabecalho = colors.HexColor('#0f172a')
-
-    cor_credito = colors.HexColor('#10b981')
-
-    cor_cinza_claro = colors.HexColor('#f1f5f9')
-
-    cor_borda = colors.HexColor('#cbd5e1')
-
-    
-
-    s_small = ParagraphStyle('small', fontSize=8, fontName='Helvetica', textColor=colors.HexColor('#64748b'), leading=10)
-
-    
-
-    story = []
-
-    
-
-    banca = nota.banca
-
-    logo_path = None
-
-    if banca and hasattr(banca, 'logo') and banca.logo:
-
-        logo_path = banca.logo.path
-
-    
-
-    col1 = []
-
-    if logo_path:
-
-        try:
-
-            img = RLImage(logo_path, width=2.2*cm, height=1.5*cm)
-
-            col1.append(img)
-
-        except:
-
-            col1.append(Paragraph('<i>Logo nÃ£o encontrado</i>', s_small))
-
-    else:
-
-        col1.append(Paragraph('', s_small))
-
-    
-
-    col2_text = f"""<b>{banca.nome if banca else 'Banca'}</b><br/>
-
-<font size="7">NIF: {banca.nif if banca and hasattr(banca, 'nif') else 'N/D'}<br/>
-
-{banca.endereco if banca and hasattr(banca, 'endereco') else ''}<br/>
-
-Tel: {banca.telefone if banca and hasattr(banca, 'telefone') else 'N/D'}</font>"""
-
-    col2 = [Paragraph(col2_text, ParagraphStyle('banca_info', fontSize=10, fontName='Helvetica', textColor=cor_cabecalho, leading=12))]
-
-    
-
-    col3_text = f"""<b>NOTA DE CRÃ‰DITO</b><br/>
-
-<font size="8" color="#10b981"><b>NÂº: {nota.numero_nota}</b></font><br/>
-
-<font size="8">Data: {nota.data.strftime('%d/%m/%Y')}<br/>
-
-Estado: {nota.estado}</font>"""
-
-    col3 = [Paragraph(col3_text, ParagraphStyle('doc_info', fontSize=10, fontName='Helvetica-Bold', textColor=cor_credito, leading=12, alignment=TA_RIGHT))]
-
-    
-
-    t_cabecalho = Table([[col1, col2, col3]], colWidths=[2.5*cm, W/2 - 1.25*cm, W/2 - 1.25*cm])
-
-    t_cabecalho.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('ALIGN', (2, 0), (2, 0), 'RIGHT')]))
-
-    story.append(t_cabecalho)
-
-    story.append(Spacer(1, 0.3*cm))
-
-    story.append(HRFlowable(width=W, thickness=1.5, color=cor_credito))
-
-    story.append(Spacer(1, 0.3*cm))
-
-    
-
-    cliente = nota.cliente
-
-    factura = nota.factura_relacionada
-
-    
-
-    cliente_text = f"""<b>CLIENTE</b><br/>
-
-<font size="8">{cliente.nome}<br/>
-
-NIF: {cliente.nif}<br/>
-
-Telefone: {cliente.telefone or 'N/D'}<br/>
-
-Email: {cliente.email or 'N/D'}</font>"""
-
-    
-
-    doc_text = f"""<b>DOCUMENTO RELACIONADO</b><br/>
-
-<font size="8">Factura: {factura.numero_factura if factura else 'N/D'}<br/>
-
-Data Factura: {factura.data.strftime('%d/%m/%Y') if factura and hasattr(factura, 'data') else 'N/D'}<br/>
-
-Motivo: {nota.motivo}<br/>
-
-Estado: <b>{nota.estado}</b></font>"""
-
-    
-
-    t_info = Table([[
-
-        Paragraph(cliente_text, ParagraphStyle('cliente', fontSize=9, fontName='Helvetica', textColor=cor_cabecalho, leading=11)),
-
-        Paragraph(doc_text, ParagraphStyle('doc', fontSize=9, fontName='Helvetica', textColor=cor_cabecalho, leading=11))
-
-    ]], colWidths=[W/2 - 0.2*cm, W/2 - 0.2*cm])
-
-    t_info.setStyle(TableStyle([
-
-        ('BACKGROUND', (0, 0), (-1, -1), cor_cinza_claro),
-
-        ('GRID', (0, 0), (-1, -1), 0.5, cor_borda),
-
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-
-    ]))
-
-    story.append(t_info)
-
-    story.append(Spacer(1, 0.5*cm))
-
-    
-
-    story.append(Paragraph('<b style="color:#10b981">DETALHES DA NOTA DE CRÃ‰DITO</b>', ParagraphStyle('tab_titulo', fontSize=10, fontName='Helvetica-Bold', spaceAfter=6)))
-
-    
-
-    linhas_credito = [
-
-        ['Conceito', 'Valor (KZ)'],
-
-        [f'CrÃ©dito referente Ã  Factura {factura.numero_factura if factura else ""}', fmt_kz(nota.valor_creditado or 0)]
-
-    ]
-
-    
-
-    t_credito = Table(linhas_credito, colWidths=[W - 3*cm, 3*cm])
-
-    t_credito.setStyle(TableStyle([
-
-        ('BACKGROUND', (0, 0), (-1, 0), cor_credito),
-
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-
-        ('TOPPADDING', (0, 0), (-1, 0), 6),
-
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-
-        ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
-
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
-
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-
-    ]))
-
-    story.append(t_credito)
-
-    story.append(Spacer(1, 0.4*cm))
-
-    
-
-    t_total = Table([['VALOR TOTAL DO CRÃ‰DITO', fmt_kz(nota.valor_creditado or 0)]], colWidths=[W - 3*cm, 3*cm])
-
-    t_total.setStyle(TableStyle([
-
-        ('BACKGROUND', (0, 0), (-1, -1), cor_credito),
-
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-
-        ('FONTSIZE', (0, 0), (-1, -1), 12),
-
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-
-    ]))
-
-    story.append(t_total)
-
-    story.append(Spacer(1, 0.6*cm))
-
-    
-
-    info_text = f"""<b>InformaÃ§Ãµes de Processamento</b><br/>
-
-<font size="8">Criado por: {nota.utilizador_criador_nome or 'Sistema'} em {nota.data_criacao.strftime('%d/%m/%Y Ã s %H:%M')}<br/>
-
-Aprovado por: {nota.utilizador_aprovador_nome or 'Pendente aprovaÃ§Ã£o'}</font>"""
-
-    story.append(Paragraph(info_text, s_small))
-
-    story.append(Spacer(1, 0.4*cm))
-
-    
-
-    story.append(Spacer(1, 0.5*cm))
-
-    story.append(HRFlowable(width=4*cm, thickness=0.5, color=colors.HexColor('#94a3b8'), hAlign='CENTER'))
-
-    story.append(Paragraph('Assinatura do ResponsÃ¡vel', ParagraphStyle('ass', fontSize=7, fontName='Helvetica', alignment=TA_CENTER)))
-
-    
-
-    story.append(Spacer(1, 0.5*cm))
-
-    rodape_text = f"""<font size="7" color="#64748b">
-
-Esta Nota de CrÃ©dito foi processada por computador. Tem validade legal conforme legislaÃ§Ã£o em vigor.
-
-Emitido em: {nota.data.strftime('%d de %B de %Y')}
-
-    </font>"""
-
-    story.append(Paragraph(rodape_text, ParagraphStyle('rodape', fontSize=7, fontName='Helvetica', textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)))
-
-    
-
-    doc.build(story)
-
-    
-
-    buffer.seek(0)
-
-    response = HttpResponse(buffer.read(), content_type='application/pdf')
-
-    response['Content-Disposition'] = f'inline; filename="NotaCredito_{nota.numero_nota}.pdf"'
-
-    return response
-
-
-
-
-
-@requer_sessao_ativa
-
-def nota_debito_pdf(request, pk):
-
-    """Gera PDF da Nota de DÃ©bito com design profissional"""
-
-    nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
-
-    buffer = io.BytesIO()
-
-
-
-    from reportlab.lib import colors
-
-    from reportlab.lib.pagesizes import A4
-
-    from reportlab.lib.styles import ParagraphStyle
-
-    from reportlab.lib.units import cm
-
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
-
-    from reportlab.platypus.flowables import HRFlowable
-
-    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-
-    
-
-    doc = SimpleDocTemplate(
-
-        buffer, pagesize=A4,
-
-        leftMargin=0.8*cm, rightMargin=0.8*cm,
-
-        topMargin=0.8*cm, bottomMargin=1.5*cm,
-
-        title=f"Nota de DÃ©bito {nota.numero_nota}",
-
-    )
-
-    W = A4[0] - 1.6*cm
-
-    
-
-    cor_cabecalho = colors.HexColor('#0f172a')
-
-    cor_debito = colors.HexColor('#ef4444')
-
-    cor_cinza_claro = colors.HexColor('#f1f5f9')
-
-    cor_borda = colors.HexColor('#cbd5e1')
-
-    
-
-    s_small = ParagraphStyle('small', fontSize=8, fontName='Helvetica', textColor=colors.HexColor('#64748b'), leading=10)
-
-    
-
-    story = []
-
-    
-
-    banca = nota.banca
-
-    logo_path = None
-
-    if banca and hasattr(banca, 'logo') and banca.logo:
-
-        logo_path = banca.logo.path
-
-    
-
-    col1 = []
-
-    if logo_path:
-
-        try:
-
-            img = RLImage(logo_path, width=2.2*cm, height=1.5*cm)
-
-            col1.append(img)
-
-        except:
-
-            col1.append(Paragraph('<i>Logo nÃ£o encontrado</i>', s_small))
-
-    else:
-
-        col1.append(Paragraph('', s_small))
-
-    
-
-    col2_text = f"""<b>{banca.nome if banca else 'Banca'}</b><br/>
-
-<font size="7">NIF: {banca.nif if banca and hasattr(banca, 'nif') else 'N/D'}<br/>
-
-{banca.endereco if banca and hasattr(banca, 'endereco') else ''}<br/>
-
-Tel: {banca.telefone if banca and hasattr(banca, 'telefone') else 'N/D'}</font>"""
-
-    col2 = [Paragraph(col2_text, ParagraphStyle('banca_info', fontSize=10, fontName='Helvetica', textColor=cor_cabecalho, leading=12))]
-
-    
-
-    col3_text = f"""<b>NOTA DE DÃ‰BITO</b><br/>
-
-<font size="8" color="#ef4444"><b>NÂº: {nota.numero_nota}</b></font><br/>
-
-<font size="8">Data: {nota.data.strftime('%d/%m/%Y')}<br/>
-
-Estado: {nota.estado}</font>"""
-
-    col3 = [Paragraph(col3_text, ParagraphStyle('doc_info', fontSize=10, fontName='Helvetica-Bold', textColor=cor_debito, leading=12, alignment=TA_RIGHT))]
-
-    
-
-    t_cabecalho = Table([[col1, col2, col3]], colWidths=[2.5*cm, W/2 - 1.25*cm, W/2 - 1.25*cm])
-
-    t_cabecalho.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('ALIGN', (2, 0), (2, 0), 'RIGHT')]))
-
-    story.append(t_cabecalho)
-
-    story.append(Spacer(1, 0.3*cm))
-
-    story.append(HRFlowable(width=W, thickness=1.5, color=cor_debito))
-
-    story.append(Spacer(1, 0.3*cm))
-
-    
-
-    cliente = nota.cliente
-
-    factura = nota.factura_relacionada
-
-    
-
-    cliente_text = f"""<b>CLIENTE</b><br/>
-
-<font size="8">{cliente.nome}<br/>
-
-NIF: {cliente.nif}<br/>
-
-Telefone: {cliente.telefone or 'N/D'}<br/>
-
-Email: {cliente.email or 'N/D'}</font>"""
-
-    
-
-    doc_text = f"""<b>DOCUMENTO RELACIONADO</b><br/>
-
-<font size="8">Factura: {factura.numero_factura if factura else 'N/D'}<br/>
-
-Data Factura: {factura.data.strftime('%d/%m/%Y') if factura and hasattr(factura, 'data') else 'N/D'}<br/>
-
-Motivo: {nota.motivo}<br/>
-
-Estado: <b>{nota.estado}</b></font>"""
-
-    
-
-    t_info = Table([[
-
-        Paragraph(cliente_text, ParagraphStyle('cliente', fontSize=9, fontName='Helvetica', textColor=cor_cabecalho, leading=11)),
-
-        Paragraph(doc_text, ParagraphStyle('doc', fontSize=9, fontName='Helvetica', textColor=cor_cabecalho, leading=11))
-
-    ]], colWidths=[W/2 - 0.2*cm, W/2 - 0.2*cm])
-
-    t_info.setStyle(TableStyle([
-
-        ('BACKGROUND', (0, 0), (-1, -1), cor_cinza_claro),
-
-        ('GRID', (0, 0), (-1, -1), 0.5, cor_borda),
-
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-
-    ]))
-
-    story.append(t_info)
-
-    story.append(Spacer(1, 0.5*cm))
-
-    
-
-    story.append(Paragraph('<b style="color:#ef4444">DETALHES DA NOTA DE DÃ‰BITO</b>', ParagraphStyle('tab_titulo', fontSize=10, fontName='Helvetica-Bold', spaceAfter=6)))
-
-    
-
-    linhas_debito = [
-
-        ['Conceito', 'Valor (KZ)'],
-
-        [f'DÃ©bito adicional referente Ã  Factura {factura.numero_factura if factura else ""}', fmt_kz(nota.valor or 0)]
-
-    ]
-
-    
-
-    t_debito = Table(linhas_debito, colWidths=[W - 3*cm, 3*cm])
-
-    t_debito.setStyle(TableStyle([
-
-        ('BACKGROUND', (0, 0), (-1, 0), cor_debito),
-
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-
-        ('TOPPADDING', (0, 0), (-1, 0), 6),
-
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-
-        ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
-
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
-
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-
-    ]))
-
-    story.append(t_debito)
-
-    story.append(Spacer(1, 0.4*cm))
-
-    
-
-    t_total = Table([['VALOR TOTAL DO DÃ‰BITO', fmt_kz(nota.valor or 0)]], colWidths=[W - 3*cm, 3*cm])
-
-    t_total.setStyle(TableStyle([
-
-        ('BACKGROUND', (0, 0), (-1, -1), cor_debito),
-
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-
-        ('FONTSIZE', (0, 0), (-1, -1), 12),
-
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-
-    ]))
-
-    story.append(t_total)
-
-    story.append(Spacer(1, 0.6*cm))
-
-    
-
-    info_text = f"""<b>InformaÃ§Ãµes de Processamento</b><br/>
-
-<font size="8">Criado por: {nota.utilizador_criador_nome or 'Sistema'} em {nota.data_criacao.strftime('%d/%m/%Y Ã s %H:%M')}<br/>
-
-Aprovado por: {nota.utilizador_aprovador_nome or 'Pendente aprovaÃ§Ã£o'}</font>"""
-
-    story.append(Paragraph(info_text, s_small))
-
-    story.append(Spacer(1, 0.4*cm))
-
-    
-
-    story.append(Spacer(1, 0.5*cm))
-
-    story.append(HRFlowable(width=4*cm, thickness=0.5, color=colors.HexColor('#94a3b8'), hAlign='CENTER'))
-
-    story.append(Paragraph('Assinatura do ResponsÃ¡vel', ParagraphStyle('ass', fontSize=7, fontName='Helvetica', alignment=TA_CENTER)))
-
-    
-
-    story.append(Spacer(1, 0.5*cm))
-
-    rodape_text = f"""<font size="7" color="#64748b">
-
-Esta Nota de DÃ©bito foi processada por computador. Tem validade legal conforme legislaÃ§Ã£o em vigor.
-
-Emitido em: {nota.data.strftime('%d de %B de %Y')}
-
-    </font>"""
-
-    story.append(Paragraph(rodape_text, ParagraphStyle('rodape', fontSize=7, fontName='Helvetica', textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)))
-
-    
-
-    doc.build(story)
-
-
-
-    buffer.seek(0)
-
-    response = HttpResponse(buffer.read(), content_type='application/pdf')
-
-    response['Content-Disposition'] = f'inline; filename="NotaDebito_{nota.numero_nota}.pdf"'
-
-    return response
-
-
+@safe_pdf
 @requer_sessao_ativa
 def factura_recibo_pdf(request, pk):
     fr = _get_object_or_404_com_scope(request, FacturaRecibo, pk)
+    banca = fr.banca
+    cliente = fr.cliente
     buffer = io.BytesIO()
 
-    dados_kv = [
-        ('NIF do Cliente', fr.cliente.nif),
-        ('Nome do Cliente', fr.cliente.nome),
-        ('Forma de Pagamento', fr.forma_pagamento),
-        ('Data do Pagamento', fr.data.strftime('%d/%m/%Y')),
-        ('Emitido Por', fr.utilizador_responsavel_nome),
-        ('Estado', fr.estado),
+    s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
+
+    dd_h = [
+        Paragraph('<b>Nº Factura-Recibo</b>', s), Paragraph('<b>Data</b>', s),
+        Paragraph('<b>Forma Pgto</b>', s), Paragraph('<b>Estado</b>', s),
+        Paragraph('<b>Emitido Por</b>', s),
+    ]
+    dd_v = [
+        Paragraph(fr.numero_factura_recibo, s),
+        Paragraph(fr.data.strftime('%d/%m/%Y') if fr.data else '—', s),
+        Paragraph(fr.forma_pagamento, s), Paragraph(fr.estado, s),
+        Paragraph(fr.utilizador_responsavel_nome, s),
     ]
 
-    # Breakdown de custos se houver requisição associada
     requisicao = fr.requisicao_fundo or (fr.factura.requisicao_fundo if fr.factura_id else None)
     if requisicao:
         colunas = ['Rubrica', 'Valor (KZ)']
@@ -4307,20 +4287,34 @@ def factura_recibo_pdf(request, pk):
         if not linhas:
             linhas = [['Honorários do Despachante (Pacote)', fmt_kz(fr.valor)]]
     else:
-        colunas = ['Descrição / Venda Direta', 'Valor Pago (KZ)']
-        linhas = [
-            ['Prestação de Serviços de Despacho com pagamento imediato', fmt_kz(fr.valor)]
-        ]
+        colunas = ['Descrição', 'Valor Pago (KZ)']
+        linhas = [['Prestação de Serviços de Despacho com pagamento imediato', fmt_kz(fr.valor)]]
 
-    _construir_pdf_base(
-        buffer, 
-        f"Factura-Recibo {fr.numero_factura_recibo}",
-        f"Venda a Pronto Pagamento",
-        "PAGO",
-        dados_kv,
-        colunas,
-        linhas,
-        fr.valor
+    sumario = [
+        ('Valor Pago', f'{fmt_kz(fr.valor)} KZ'),
+        ('Forma de Pagamento', fr.forma_pagamento),
+        ('Estado', fr.estado),
+    ]
+
+    qr_texto = (
+        "=== FACTURA-RECIBO ===\n"
+        f"Numero: {fr.numero_factura_recibo}\n"
+        f"Cliente: {cliente.nome}\n"
+        f"NIF: {cliente.nif}\n"
+        f"Valor: {fmt_kz(fr.valor)} KZ\n"
+        f"Pagamento: {fr.forma_pagamento}\n"
+        f"Data: {fr.data.strftime('%d/%m/%Y')}"
+    )
+
+    _construir_pdf_documento(
+        buffer, f"Factura-Recibo {fr.numero_factura_recibo}",
+        "Venda a Pronto Pagamento", banca, cliente,
+        fr.numero_factura_recibo, fr.data,
+        dados_doc_header=dd_h, dados_doc_valores=dd_v,
+        tabela_colunas=colunas, tabela_linhas=linhas,
+        sumario_linhas=sumario, total_geral=fr.valor,
+        nota_texto='Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+        qr_flowable=_gerar_qr_code_flowable(qr_texto),
     )
 
     buffer.seek(0)
@@ -4329,36 +4323,63 @@ def factura_recibo_pdf(request, pk):
     return response
 
 
+@safe_pdf
 @requer_sessao_ativa
 def nota_credito_pdf(request, pk):
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
+    banca = nota.banca
+    cliente = nota.cliente
     buffer = io.BytesIO()
 
-    dados_kv = [
-        ('NIF do Cliente', nota.cliente.nif),
-        ('Nome do Cliente', nota.cliente.nome),
-        ('Factura Relacionada', nota.factura_relacionada.numero_factura),
-        ('Motivo do Crédito', nota.motivo),
-        ('Data de Emissão', nota.data.strftime('%d/%m/%Y')),
+    s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
+
+    dd_h = [
+        Paragraph('<b>Nº Nota</b>', s), Paragraph('<b>Factura</b>', s),
+        Paragraph('<b>Data</b>', s), Paragraph('<b>Estado</b>', s),
+        Paragraph('<b>Motivo</b>', s),
+    ]
+    dd_v = [
+        Paragraph(nota.numero_nota, s),
+        Paragraph(nota.factura_relacionada.numero_factura, s),
+        Paragraph(nota.data.strftime('%d/%m/%Y') if nota.data else '—', s),
+        Paragraph(nota.estado, s),
+        Paragraph(nota.motivo[:60], s),
+    ]
+
+    colunas = ['Descrição', 'Valor Creditado (KZ)']
+    linhas = [
+        [f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}',
+         fmt_kz(nota.valor_creditado)]
+    ]
+
+    sumario = [
+        ('Valor Creditado', f'{fmt_kz(nota.valor_creditado)} KZ'),
         ('Estado', nota.estado),
         ('Criado Por', nota.utilizador_criador_nome),
         ('Aprovado Por', nota.utilizador_aprovador_nome or 'N/D'),
     ]
 
-    colunas = ['Conceito', 'Valor Creditado (KZ)']
-    linhas = [
-        [f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor_creditado)]
-    ]
+    qr_texto = (
+        "=== NOTA DE CREDITO ===\n"
+        f"Numero: {nota.numero_nota}\n"
+        f"Factura: {nota.factura_relacionada.numero_factura}\n"
+        f"Cliente: {cliente.nome}\n"
+        f"NIF: {cliente.nif}\n"
+        f"Valor: {fmt_kz(nota.valor_creditado)} KZ\n"
+        f"Motivo: {nota.motivo}\n"
+        f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
+        f"Estado: {nota.estado}"
+    )
 
-    _construir_pdf_base(
-        buffer, 
-        f"Nota de Crédito {nota.numero_nota}",
-        "Documento de Retificação de Facturação",
-        nota.estado,
-        dados_kv,
-        colunas,
-        linhas,
-        nota.valor_creditado
+    _construir_pdf_documento(
+        buffer, f"Nota de Crédito {nota.numero_nota}",
+        "Documento de Retificação de Facturação", banca, cliente,
+        nota.numero_nota, nota.data,
+        dados_doc_header=dd_h, dados_doc_valores=dd_v,
+        tabela_colunas=colunas, tabela_linhas=linhas,
+        sumario_linhas=sumario, total_geral=nota.valor_creditado,
+        nota_texto='Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+        qr_flowable=_gerar_qr_code_flowable(qr_texto),
     )
 
     buffer.seek(0)
@@ -4367,35 +4388,62 @@ def nota_credito_pdf(request, pk):
     return response
 
 
+@safe_pdf
 @requer_sessao_ativa
 def nota_debito_pdf(request, pk):
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
+    banca = nota.banca
+    cliente = nota.cliente
     buffer = io.BytesIO()
 
-    dados_kv = [
-        ('NIF do Cliente', nota.cliente.nif),
-        ('Nome do Cliente', nota.cliente.nome),
-        ('Factura Relacionada', nota.factura_relacionada.numero_factura),
-        ('Motivo do Débito', nota.motivo),
-        ('Data de Emissão', nota.data.strftime('%d/%m/%Y')),
+    s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
+
+    dd_h = [
+        Paragraph('<b>Nº Nota</b>', s), Paragraph('<b>Factura</b>', s),
+        Paragraph('<b>Data</b>', s), Paragraph('<b>Estado</b>', s),
+        Paragraph('<b>Motivo</b>', s),
+    ]
+    dd_v = [
+        Paragraph(nota.numero_nota, s),
+        Paragraph(nota.factura_relacionada.numero_factura, s),
+        Paragraph(nota.data.strftime('%d/%m/%Y') if nota.data else '—', s),
+        Paragraph(nota.estado, s),
+        Paragraph(nota.motivo[:60], s),
+    ]
+
+    colunas = ['Descrição', 'Valor Debitado (KZ)']
+    linhas = [
+        [f'Débito adicional referente à Factura {nota.factura_relacionada.numero_factura}',
+         fmt_kz(nota.valor)]
+    ]
+
+    sumario = [
+        ('Valor Debitado', f'{fmt_kz(nota.valor)} KZ'),
         ('Estado', nota.estado),
         ('Criado Por', nota.utilizador_criador_nome),
     ]
 
-    colunas = ['Conceito', 'Valor Debitado (KZ)']
-    linhas = [
-        [f'Débito adicional referente à Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor)]
-    ]
+    qr_texto = (
+        "=== NOTA DE DEBITO ===\n"
+        f"Numero: {nota.numero_nota}\n"
+        f"Factura: {nota.factura_relacionada.numero_factura}\n"
+        f"Cliente: {cliente.nome}\n"
+        f"NIF: {cliente.nif}\n"
+        f"Valor: {fmt_kz(nota.valor)} KZ\n"
+        f"Motivo: {nota.motivo}\n"
+        f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
+        f"Estado: {nota.estado}"
+    )
 
-    _construir_pdf_base(
-        buffer, 
-        f"Nota de Débito {nota.numero_nota}",
-        "Documento de Encargo Adicional",
-        nota.estado,
-        dados_kv,
-        colunas,
-        linhas,
-        nota.valor
+    _construir_pdf_documento(
+        buffer, f"Nota de Débito {nota.numero_nota}",
+        "Documento de Encargo Adicional", banca, cliente,
+        nota.numero_nota, nota.data,
+        dados_doc_header=dd_h, dados_doc_valores=dd_v,
+        tabela_colunas=colunas, tabela_linhas=linhas,
+        sumario_linhas=sumario, total_geral=nota.valor,
+        nota_texto='Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+        qr_flowable=_gerar_qr_code_flowable(qr_texto),
     )
 
     buffer.seek(0)
@@ -4404,8 +4452,9 @@ def nota_debito_pdf(request, pk):
     return response
 
 
-# â”€â”€â”€ Envio por Email â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Envio por Email —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def recibo_enviar_email(request, pk):
@@ -4413,28 +4462,50 @@ def recibo_enviar_email(request, pk):
     cliente = recibo.cliente
 
     if not cliente.email:
-        messages.error(request, f'O cliente {cliente.nome} nÃ£o possui endereÃ§o de email configurado.')
+        messages.error(request, f'O cliente {cliente.nome} não possui endereço de email configurado.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
     try:
         from utils.email_utils import _enviar
 
         buffer = io.BytesIO()
-        dados_kv = [
-            ('NIF do Cliente', recibo.cliente.nif),
-            ('Nome do Cliente', recibo.cliente.nome),
-            ('Factura Relacionada', recibo.factura.numero_factura),
-            ('Forma de Pagamento', recibo.forma_pagamento),
-            ('Data do Pagamento', recibo.data_pagamento.strftime('%d/%m/%Y')),
-            ('ReferÃªncia BancÃ¡ria', recibo.referencia_bancaria or 'N/D'),
-            ('Emitido Por', recibo.utilizador_responsavel_nome),
+        banca = recibo.banca
+        s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
+        dd_h = [
+            Paragraph('<b>Nº Recibo</b>', s), Paragraph('<b>Factura</b>', s),
+            Paragraph('<b>Forma Pgto</b>', s), Paragraph('<b>Data Pgto</b>', s),
+            Paragraph('<b>Referência</b>', s),
         ]
-        colunas = ['Conceito', 'Valor Recebido (KZ)']
+        dd_v = [
+            Paragraph(recibo.numero_recibo, s), Paragraph(recibo.factura.numero_factura, s),
+            Paragraph(recibo.forma_pagamento, s),
+            Paragraph(recibo.data_pagamento.strftime('%d/%m/%Y') if recibo.data_pagamento else '—', s),
+            Paragraph(recibo.referencia_bancaria or 'N/D', s),
+        ]
+        colunas = ['Descrição', 'Valor Recebido (KZ)']
         linhas = [[f'Pagamento da Factura {recibo.factura.numero_factura}', fmt_kz(recibo.valor_recebido)]]
-        _construir_pdf_base(
+        sumario = [('Valor Recebido', f'{fmt_kz(recibo.valor_recebido)} KZ'), ('Estado', 'PAGO'), ('Emitido Por', recibo.utilizador_responsavel_nome)]
+        qr_texto = (
+            "=== RECIBO DE PAGAMENTO ===\n"
+            f"Numero: {recibo.numero_recibo}\n"
+            f"Factura: {recibo.factura.numero_factura}\n"
+            f"Cliente: {recibo.cliente.nome}\n"
+            f"NIF: {recibo.cliente.nif}\n"
+            f"Valor: {fmt_kz(recibo.valor_recebido)} KZ\n"
+            f"Pagamento: {recibo.forma_pagamento}\n"
+            f"Data: {recibo.data_pagamento.strftime('%d/%m/%Y')}\n"
+            f"Referencia: {recibo.referencia_bancaria or 'N/D'}"
+        )
+        _construir_pdf_documento(
             buffer, f"Recibo de Pagamento {recibo.numero_recibo}",
-            "Documento Comprovativo de Pagamento", "PAGO",
-            dados_kv, colunas, linhas, recibo.valor_recebido
+            "Documento Comprovativo de Pagamento", banca, cliente,
+            recibo.numero_recibo,
+            recibo.data_pagamento or recibo.data_criacao.date() if hasattr(recibo, 'data_criacao') else None,
+            dados_doc_header=dd_h, dados_doc_valores=dd_v,
+            tabela_colunas=colunas, tabela_linhas=linhas,
+            sumario_linhas=sumario, total_geral=recibo.valor_recebido,
+            nota_texto='Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+            qr_flowable=_gerar_qr_code_flowable(qr_texto),
         )
         buffer.seek(0)
         anexos = [(f'Recibo_{recibo.numero_recibo}.pdf', buffer.read(), 'application/pdf')]
@@ -4443,7 +4514,7 @@ def recibo_enviar_email(request, pk):
         
         texto = f"""Prezado(a) {cliente.nome},
         
-Confirmamos a recepÃ§Ã£o do seu pagamento no valor de {fmt_kz(recibo.valor_recebido)} KZ.
+Confirmamos a recepção do seu pagamento no valor de {fmt_kz(recibo.valor_recebido)} KZ.
 
 Detalhes do Recibo:
   NÃºmero: {recibo.numero_recibo}
@@ -4461,9 +4532,9 @@ Equipa SICDOA
         html = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <h2 style="color: #137fec;">ConfirmaÃ§Ã£o de Pagamento</h2>
-            <p>Prezado(a) <strong>{cliente.nome}</strong>,</p>
-            <p>Confirmamos a recepÃ§Ã£o do seu pagamento com os seguintes detalhes:</p>
+            <h2 style="color: #137fec;">Confirmação de Pagamento</h2>
+            <p>Prezado(a) <strong>{_safe(cliente.nome)}</strong>,</p>
+            <p>Confirmamos a recepção do seu pagamento com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">NÃºmero do Recibo:</td>
@@ -4486,7 +4557,7 @@ Equipa SICDOA
                     <td style="padding: 10px;">{recibo.data_pagamento.strftime('%d/%m/%Y')}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; font-weight: bold; color: #475569;">ReferÃªncia BancÃ¡ria:</td>
+                    <td style="padding: 10px; font-weight: bold; color: #475569;">ReferÃªncia Bancária:</td>
                     <td style="padding: 10px;">{recibo.referencia_bancaria or 'N/D'}</td>
                 </tr>
             </table>
@@ -4499,10 +4570,11 @@ Equipa SICDOA
         _enviar(assunto, texto, html, cliente.email, anexos=anexos)
         messages.success(request, f'Recibo {recibo.numero_recibo} enviado por e-mail para {cliente.email} com sucesso.')
     except Exception as e:
-        messages.error(request, f'Erro ao enviar e-mail: {str(e)}')
+        messages.error(request, 'Erro ao enviar e-mail. Tente novamente mais tarde.')
 
     return redirect('financeiro:recibo_detalhe', pk=pk)
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def factura_recibo_enviar_email(request, pk):
@@ -4514,40 +4586,58 @@ def factura_recibo_enviar_email(request, pk):
         return redirect('financeiro:factura_recibo_detalhe', pk=pk)
 
     if not cliente.email:
-        messages.error(request, f'O cliente {cliente.nome} nÃ£o possui endereÃ§o de email configurado.')
+        messages.error(request, f'O cliente {cliente.nome} não possui endereço de email configurado.')
         return redirect('financeiro:factura_recibo_detalhe', pk=pk)
 
     try:
         from utils.email_utils import _enviar
 
         buffer = io.BytesIO()
-        dados_kv_pdf = [
-            ('NIF do Cliente', fr.cliente.nif),
-            ('Nome do Cliente', fr.cliente.nome),
-            ('Forma de Pagamento', fr.forma_pagamento),
-            ('Data do Pagamento', fr.data.strftime('%d/%m/%Y')),
-            ('Emitido Por', fr.utilizador_responsavel_nome),
-            ('Estado', fr.estado),
+        banca = fr.banca
+        s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
+        dd_h = [
+            Paragraph('<b>Nº Factura-Recibo</b>', s), Paragraph('<b>Data</b>', s),
+            Paragraph('<b>Forma Pgto</b>', s), Paragraph('<b>Estado</b>', s),
+            Paragraph('<b>Emitido Por</b>', s),
+        ]
+        dd_v = [
+            Paragraph(fr.numero_factura_recibo, s),
+            Paragraph(fr.data.strftime('%d/%m/%Y') if fr.data else '—', s),
+            Paragraph(fr.forma_pagamento, s), Paragraph(fr.estado, s),
+            Paragraph(fr.utilizador_responsavel_nome, s),
         ]
         requisicao = fr.requisicao_fundo or (fr.factura.requisicao_fundo if fr.factura_id else None)
         if requisicao:
-            colunas_pdf = ['Rubrica', 'Valor (KZ)']
-            linhas_pdf = []
+            colunas = ['Rubrica', 'Valor (KZ)']
+            linhas = []
             for linha in requisicao.linhas.all():
                 if linha.valor:
                     desc = linha.despesa_tipo or linha.tipo_custo or 'Outros'
-                    linhas_pdf.append([desc, fmt_kz(linha.valor)])
-            if not linhas_pdf:
-                linhas_pdf = [['HonorÃ¡rios do Despachante (Pacote)', fmt_kz(fr.valor)]]
+                    linhas.append([desc, fmt_kz(linha.valor)])
+            if not linhas:
+                linhas = [['Honorários do Despachante (Pacote)', fmt_kz(fr.valor)]]
         else:
-            colunas_pdf = ['DescriÃ§Ã£o / Venda Direta', 'Valor Pago (KZ)']
-            linhas_pdf = [
-                ['PrestaÃ§Ã£o de ServiÃ§os de Despacho com pagamento imediato', fmt_kz(fr.valor)]
-            ]
-        _construir_pdf_base(
+            colunas = ['Descrição', 'Valor Pago (KZ)']
+            linhas = [['Prestação de Serviços de Despacho com pagamento imediato', fmt_kz(fr.valor)]]
+        sumario = [('Valor Pago', f'{fmt_kz(fr.valor)} KZ'), ('Forma de Pagamento', fr.forma_pagamento), ('Estado', fr.estado)]
+        qr_texto = (
+            "=== FACTURA-RECIBO ===\n"
+            f"Numero: {fr.numero_factura_recibo}\n"
+            f"Cliente: {fr.cliente.nome}\n"
+            f"NIF: {fr.cliente.nif}\n"
+            f"Valor: {fmt_kz(fr.valor)} KZ\n"
+            f"Pagamento: {fr.forma_pagamento}\n"
+            f"Data: {fr.data.strftime('%d/%m/%Y')}"
+        )
+        _construir_pdf_documento(
             buffer, f"Factura-Recibo {fr.numero_factura_recibo}",
-            "Venda a Pronto Pagamento", "PAGO",
-            dados_kv_pdf, colunas_pdf, linhas_pdf, fr.valor
+            "Venda a Pronto Pagamento", banca, cliente,
+            fr.numero_factura_recibo, fr.data,
+            dados_doc_header=dd_h, dados_doc_valores=dd_v,
+            tabela_colunas=colunas, tabela_linhas=linhas,
+            sumario_linhas=sumario, total_geral=fr.valor,
+            nota_texto='Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+            qr_flowable=_gerar_qr_code_flowable(qr_texto),
         )
         buffer.seek(0)
         anexos = [(f'FacturaRecibo_{fr.numero_factura_recibo}.pdf', buffer.read(), 'application/pdf')]
@@ -4556,7 +4646,7 @@ def factura_recibo_enviar_email(request, pk):
 
         texto = f"""Prezado(a) {cliente.nome},
 
-Segue em anexo a Factura-Recibo referente Ã  prestaÃ§Ã£o de serviÃ§os de despacho.
+Segue em anexo a Factura-Recibo referente à prestação de serviços de despacho.
 
 Detalhes:
   NÃºmero: {fr.numero_factura_recibo}
@@ -4573,8 +4663,8 @@ Equipa SICDOA
         html = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <h2 style="color: #137fec;">Factura-Recibo â€” ConfirmaÃ§Ã£o de Pagamento</h2>
-            <p>Prezado(a) <strong>{cliente.nome}</strong>,</p>
+            <h2 style="color: #137fec;">Factura-Recibo â€” Confirmação de Pagamento</h2>
+            <p>Prezado(a) <strong>{_safe(cliente.nome)}</strong>,</p>
             <p>Segue em anexo a Factura-Recibo com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
@@ -4603,13 +4693,14 @@ Equipa SICDOA
         _enviar(assunto, texto, html, cliente.email, anexos=anexos)
         messages.success(request, f'Factura-Recibo {fr.numero_factura_recibo} enviada por e-mail para {cliente.email} com sucesso.')
     except Exception as e:
-        messages.error(request, f'Erro ao enviar e-mail: {str(e)}')
+        messages.error(request, 'Erro ao enviar e-mail. Tente novamente mais tarde.')
 
     return redirect('financeiro:factura_recibo_detalhe', pk=pk)
 
 
-# â”€â”€â”€ Envio por Email â€” Notas de CrÃ©dito e DÃ©bito â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# —€—€—€ Envio por Email â€” Notas de Crédito e Débito —€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€—€
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def nota_credito_enviar_email(request, pk):
@@ -4617,40 +4708,59 @@ def nota_credito_enviar_email(request, pk):
     cliente = nota.cliente
 
     if not cliente.email:
-        messages.error(request, f'O cliente {cliente.nome} nÃ£o possui endereÃ§o de email configurado.')
+        messages.error(request, f'O cliente {cliente.nome} não possui endereço de email configurado.')
         return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
     try:
         from utils.email_utils import _enviar
 
         buffer = io.BytesIO()
-        dados_kv_pdf = [
-            ('NIF do Cliente', nota.cliente.nif),
-            ('Nome do Cliente', nota.cliente.nome),
-            ('Factura Relacionada', nota.factura_relacionada.numero_factura),
-            ('Motivo do CrÃ©dito', nota.motivo),
-            ('Data de EmissÃ£o', nota.data.strftime('%d/%m/%Y')),
-            ('Estado', nota.estado),
-            ('Criado Por', nota.utilizador_criador_nome),
-            ('Aprovado Por', nota.utilizador_aprovador_nome or 'N/D'),
+        banca = nota.banca
+        s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
+        dd_h = [
+            Paragraph('<b>Nº Nota</b>', s), Paragraph('<b>Factura</b>', s),
+            Paragraph('<b>Data</b>', s), Paragraph('<b>Estado</b>', s),
+            Paragraph('<b>Motivo</b>', s),
         ]
-        colunas_pdf = ['Conceito', 'Valor Creditado (KZ)']
-        linhas_pdf = [
-            [f'CrÃ©dito referente Ã  Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor_creditado)]
+        dd_v = [
+            Paragraph(nota.numero_nota, s),
+            Paragraph(nota.factura_relacionada.numero_factura, s),
+            Paragraph(nota.data.strftime('%d/%m/%Y') if nota.data else '—', s),
+            Paragraph(nota.estado, s),
+            Paragraph(nota.motivo[:60], s),
         ]
-        _construir_pdf_base(
-            buffer, f"Nota de CrÃ©dito {nota.numero_nota}",
-            "Documento de RetificaÃ§Ã£o de FaturaÃ§Ã£o", nota.estado,
-            dados_kv_pdf, colunas_pdf, linhas_pdf, nota.valor_creditado
+        colunas = ['Descrição', 'Valor Creditado (KZ)']
+        linhas = [[f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor_creditado)]]
+        sumario = [('Valor Creditado', f'{fmt_kz(nota.valor_creditado)} KZ'), ('Estado', nota.estado), ('Criado Por', nota.utilizador_criador_nome), ('Aprovado Por', nota.utilizador_aprovador_nome or 'N/D')]
+        qr_texto = (
+            "=== NOTA DE CREDITO ===\n"
+            f"Numero: {nota.numero_nota}\n"
+            f"Factura: {nota.factura_relacionada.numero_factura}\n"
+            f"Cliente: {nota.cliente.nome}\n"
+            f"NIF: {nota.cliente.nif}\n"
+            f"Valor: {fmt_kz(nota.valor_creditado)} KZ\n"
+            f"Motivo: {nota.motivo}\n"
+            f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
+            f"Estado: {nota.estado}"
+        )
+        _construir_pdf_documento(
+            buffer, f"Nota de Crédito {nota.numero_nota}",
+            "Documento de Retificação de Facturação", banca, cliente,
+            nota.numero_nota, nota.data,
+            dados_doc_header=dd_h, dados_doc_valores=dd_v,
+            tabela_colunas=colunas, tabela_linhas=linhas,
+            sumario_linhas=sumario, total_geral=nota.valor_creditado,
+            nota_texto='Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+            qr_flowable=_gerar_qr_code_flowable(qr_texto),
         )
         buffer.seek(0)
         anexos = [(f'NotaCredito_{nota.numero_nota}.pdf', buffer.read(), 'application/pdf')]
 
-        assunto = f"Nota de CrÃ©dito {nota.numero_nota} â€” SICDOA"
+        assunto = f"Nota de Crédito {nota.numero_nota} â€” SICDOA"
 
         texto = f"""Prezado(a) {cliente.nome},
 
-Segue em anexo a Nota de CrÃ©dito referente Ã  factura {nota.factura_relacionada.numero_factura}.
+Segue em anexo a Nota de Crédito referente à factura {nota.factura_relacionada.numero_factura}.
 
 Detalhes:
   NÃºmero: {nota.numero_nota}
@@ -4667,9 +4777,9 @@ Equipa SICDOA
         html = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <h2 style="color: #137fec;">Nota de CrÃ©dito</h2>
-            <p>Prezado(a) <strong>{cliente.nome}</strong>,</p>
-            <p>Segue em anexo a Nota de CrÃ©dito com os seguintes detalhes:</p>
+            <h2 style="color: #137fec;">Nota de Crédito</h2>
+            <p>Prezado(a) <strong>{_safe(cliente.nome)}</strong>,</p>
+            <p>Segue em anexo a Nota de Crédito com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">NÃºmero:</td>
@@ -4685,7 +4795,7 @@ Equipa SICDOA
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Motivo:</td>
-                    <td style="padding: 10px;">{nota.motivo}</td>
+                    <td style="padding: 10px;">{_safe(nota.motivo)}</td>
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Data:</td>
@@ -4698,13 +4808,14 @@ Equipa SICDOA
         """
 
         _enviar(assunto, texto, html, cliente.email, anexos=anexos)
-        messages.success(request, f'Nota de CrÃ©dito {nota.numero_nota} enviada por e-mail para {cliente.email} com sucesso.')
+        messages.success(request, f'Nota de Crédito {nota.numero_nota} enviada por e-mail para {cliente.email} com sucesso.')
     except Exception as e:
-        messages.error(request, f'Erro ao enviar e-mail: {str(e)}')
+        messages.error(request, 'Erro ao enviar e-mail. Tente novamente mais tarde.')
 
     return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
 
+@require_POST
 @requer_sessao_ativa
 @requer_escrita_financeira
 def nota_debito_enviar_email(request, pk):
@@ -4712,38 +4823,59 @@ def nota_debito_enviar_email(request, pk):
     cliente = nota.cliente
 
     if not cliente.email:
-        messages.error(request, f'O cliente {cliente.nome} nÃ£o possui endereÃ§o de email configurado.')
+        messages.error(request, f'O cliente {cliente.nome} não possui endereço de email configurado.')
         return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
     try:
         from utils.email_utils import _enviar
 
         buffer = io.BytesIO()
-        dados_kv_pdf = [
-            ('NIF do Cliente', nota.cliente.nif),
-            ('Nome do Cliente', nota.cliente.nome),
-            ('Factura Relacionada', nota.factura_relacionada.numero_factura),
-            ('Motivo do DÃ©bito', nota.motivo),
-            ('Data de EmissÃ£o', nota.data.strftime('%d/%m/%Y')),
-            ('Criado Por', nota.utilizador_criador_nome),
+        banca = nota.banca
+        s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
+        dd_h = [
+            Paragraph('<b>Nº Nota</b>', s), Paragraph('<b>Factura</b>', s),
+            Paragraph('<b>Data</b>', s), Paragraph('<b>Estado</b>', s),
+            Paragraph('<b>Motivo</b>', s),
         ]
-        colunas_pdf = ['Conceito', 'Valor Debitado (KZ)']
-        linhas_pdf = [
-            [f'DÃ©bito adicional referente Ã  Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor)]
+        dd_v = [
+            Paragraph(nota.numero_nota, s),
+            Paragraph(nota.factura_relacionada.numero_factura, s),
+            Paragraph(nota.data.strftime('%d/%m/%Y') if nota.data else '—', s),
+            Paragraph(nota.estado, s),
+            Paragraph(nota.motivo[:60], s),
         ]
-        _construir_pdf_base(
-            buffer, f"Nota de DÃ©bito {nota.numero_nota}",
-            "Documento de Encargo Adicional", "EMITIDA",
-            dados_kv_pdf, colunas_pdf, linhas_pdf, nota.valor
+        colunas = ['Descrição', 'Valor Debitado (KZ)']
+        linhas = [[f'Débito adicional referente à Factura {nota.factura_relacionada.numero_factura}', fmt_kz(nota.valor)]]
+        sumario = [('Valor Debitado', f'{fmt_kz(nota.valor)} KZ'), ('Estado', nota.estado), ('Criado Por', nota.utilizador_criador_nome)]
+        qr_texto = (
+            "=== NOTA DE DEBITO ===\n"
+            f"Numero: {nota.numero_nota}\n"
+            f"Factura: {nota.factura_relacionada.numero_factura}\n"
+            f"Cliente: {nota.cliente.nome}\n"
+            f"NIF: {nota.cliente.nif}\n"
+            f"Valor: {fmt_kz(nota.valor)} KZ\n"
+            f"Motivo: {nota.motivo}\n"
+            f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
+            f"Estado: {nota.estado}"
+        )
+        _construir_pdf_documento(
+            buffer, f"Nota de Débito {nota.numero_nota}",
+            "Documento de Encargo Adicional", banca, cliente,
+            nota.numero_nota, nota.data,
+            dados_doc_header=dd_h, dados_doc_valores=dd_v,
+            tabela_colunas=colunas, tabela_linhas=linhas,
+            sumario_linhas=sumario, total_geral=nota.valor,
+            nota_texto='Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
+            qr_flowable=_gerar_qr_code_flowable(qr_texto),
         )
         buffer.seek(0)
         anexos = [(f'NotaDebito_{nota.numero_nota}.pdf', buffer.read(), 'application/pdf')]
 
-        assunto = f"Nota de DÃ©bito {nota.numero_nota} â€” SICDOA"
+        assunto = f"Nota de Débito {nota.numero_nota} â€” SICDOA"
 
         texto = f"""Prezado(a) {cliente.nome},
 
-Segue em anexo a Nota de DÃ©bito referente Ã  factura {nota.factura_relacionada.numero_factura}.
+Segue em anexo a Nota de Débito referente à factura {nota.factura_relacionada.numero_factura}.
 
 Detalhes:
   NÃºmero: {nota.numero_nota}
@@ -4760,9 +4892,9 @@ Equipa SICDOA
         html = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <h2 style="color: #137fec;">Nota de DÃ©bito</h2>
-            <p>Prezado(a) <strong>{cliente.nome}</strong>,</p>
-            <p>Segue em anexo a Nota de DÃ©bito com os seguintes detalhes:</p>
+            <h2 style="color: #137fec;">Nota de Débito</h2>
+            <p>Prezado(a) <strong>{_safe(cliente.nome)}</strong>,</p>
+            <p>Segue em anexo a Nota de Débito com os seguintes detalhes:</p>
             <table style="width: 100%; max-width: 600px; border-collapse: collapse; margin-top: 15px;">
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">NÃºmero:</td>
@@ -4778,7 +4910,7 @@ Equipa SICDOA
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Motivo:</td>
-                    <td style="padding: 10px;">{nota.motivo}</td>
+                    <td style="padding: 10px;">{_safe(nota.motivo)}</td>
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px; font-weight: bold; color: #475569;">Data:</td>
@@ -4791,9 +4923,9 @@ Equipa SICDOA
         """
 
         _enviar(assunto, texto, html, cliente.email, anexos=anexos)
-        messages.success(request, f'Nota de DÃ©bito {nota.numero_nota} enviada por e-mail para {cliente.email} com sucesso.')
+        messages.success(request, f'Nota de Débito {nota.numero_nota} enviada por e-mail para {cliente.email} com sucesso.')
     except Exception as e:
-        messages.error(request, f'Erro ao enviar e-mail: {str(e)}')
+        messages.error(request, 'Erro ao enviar e-mail. Tente novamente mais tarde.')
 
     return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
@@ -4851,7 +4983,7 @@ def api_dados_usuario_banca(request):
         })
         
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        return JsonResponse({'success': False, 'error': 'Erro interno. Tente novamente.'})
 
 
 @requer_sessao_ativa
@@ -4889,10 +5021,39 @@ def api_dados_cliente(request):
             return JsonResponse({'success': False, 'error': 'Cliente não encontrado'})
         
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        return JsonResponse({'success': False, 'error': 'Erro interno. Tente novamente.'})
 
 
-@requer_sessao_ativa 
+@requer_sessao_ativa
+@require_http_methods(["GET"])
+def api_buscar_cliente(request):
+    """API: Busca clientes por NIF ou nome para autocomplete"""
+    try:
+        q = request.GET.get('q', '').strip()
+        if len(q) < 1:
+            return JsonResponse({'success': True, 'clientes': []})
+
+        qs = Cliente.objects.filter(ativo=True)
+        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+        if usuario_id and not _user_tem_acesso_total(request):
+            qs = qs.filter(usuario_id=usuario_id)
+
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(nif__icontains=q) | Q(nome__icontains=q)
+        ).order_by('nome')[:20]
+
+        clientes = [
+            {'value': c.id, 'label': f'{c.nif} - {c.nome}', 'nome': c.nome, 'nif': c.nif}
+            for c in qs
+        ]
+        return JsonResponse({'success': True, 'clientes': clientes})
+    except Exception as e:
+        logger.exception("Erro ao buscar clientes")
+        return JsonResponse({'success': False, 'error': 'Erro interno.'})
+
+
+@requer_sessao_ativa
 @require_http_methods(["GET"])
 def api_processos_cliente(request):
     """API: Retorna processos aduaneiros do cliente selecionado com filtro robusto"""
@@ -4917,12 +5078,12 @@ def api_processos_cliente(request):
                 })
         
         # ┌─ Construir filtro base ───────────────────────────────────────────┐
-        filtro = {
-            # Filtro 1: Nome do exportador corresponde ao nome do cliente
-            'exportador_nome__iexact': cliente.nome,
-            # Filtro 2: Status DEVE ser 'Submetida' (apenas para criação de requisição)
-            'status': 'Submetida',
-        }
+        filtro = {}
+        if cliente.nif:
+            filtro['nif_declarante__iexact'] = cliente.nif
+        else:
+            filtro['exportador_nome__iexact'] = cliente.nome
+        filtro['status'] = 'Submetida'
         
         # ┌─ Adicionar filtro por utilizador/despachante ──────────────────────┐
         if not _user_tem_acesso_total(request):
@@ -4946,11 +5107,10 @@ def api_processos_cliente(request):
         })
         
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception("Erro ao carregar processos")
         return JsonResponse({
             'success': False, 
-            'error': f'Erro ao carregar processos: {str(e)}'
+            'error': 'Erro ao carregar processos.'
         })
 
 
@@ -5065,7 +5225,7 @@ def api_dados_processo(request):
                     'status': processo.status or 'Rascunho',
                     
                     # Dados da carga — mapeamento correcto do formulário DU
-                    'numero_bl_awb': _val('numero_conhecimento'),  # DU usa "Conhecimento" não "B/L AWB"
+                    'numero_bl_awb': _ad('documento_precedente'),  # DU: Documento Precedente (Campo 40, 1ª adição)
                     'meio_transporte': _val('transporte_identidade', 'meio_transporte'),  # DU: "Identidade Meio Transporte"
                     'origem': _combinar_porto_pais('porto_embarque', pais_origem),  # DU: porto + país de origem
                     'destino': _combinar_porto_pais('porto_desembarque', dados_dict.get('pais_destino_campo53', '')),  # DU: porto + país destino automático
@@ -5098,7 +5258,6 @@ def api_dados_processo(request):
             return JsonResponse({'success': False, 'error': 'Processo não encontrado ou sem permissão de acesso'})
         
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'success': False, 'error': f'Erro ao carregar dados: {str(e)}'})
+        logger.exception("Erro ao carregar dados")
+        return JsonResponse({'success': False, 'error': 'Erro ao carregar dados.'})
 

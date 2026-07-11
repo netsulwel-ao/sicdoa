@@ -66,6 +66,7 @@ class Banca(models.Model):
     numero_conta        = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº da Conta')
     iban                = models.CharField(max_length=50, blank=True, default='', verbose_name='IBAN')
     instrucoes_pagamento = models.TextField(blank=True, default='', verbose_name='Instruções de Pagamento')
+    dados_bancarios_json = models.TextField(blank=True, default='', verbose_name='Dados Bancários (JSON)')
 
     ativa       = models.BooleanField(default=True)
     criado_em   = models.DateTimeField(auto_now_add=True)
@@ -94,6 +95,17 @@ class Banca(models.Model):
     def total_filiais(self):
         """Retorna o número de filiais ativas"""
         return self.filiais.filter(ativa=True).count()
+
+    @property
+    def bancos_lista(self):
+        if not self.dados_bancarios_json:
+            return []
+        try:
+            import json
+            lista = json.loads(self.dados_bancarios_json)
+            return lista if isinstance(lista, list) else []
+        except (json.JSONDecodeError, ValueError):
+            return []
 
 class FilialBanca(models.Model):
     """Filial/delegação da banca noutra província."""

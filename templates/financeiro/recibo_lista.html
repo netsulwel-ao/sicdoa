@@ -16,11 +16,13 @@
           </div>
           <div class="flex items-center gap-2">
             {% include 'includes/view-toggle.html' %}
+            {% if pode_escrever %}
             <a href="{% url 'financeiro:recibo_criar' %}"
               class="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 active:scale-95 transition-all shadow-sm">
               <i class="fas fa-plus"></i>
               <span>Emitir Recibo</span>
             </a>
+            {% endif %}
           </div>
         </div>
       </div>

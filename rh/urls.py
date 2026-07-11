@@ -35,6 +35,7 @@ urlpatterns = [
 
     # Banca
     path('banca/', views.banca_view, name='rh_banca'),
+    path('banca/detalhe/', views.banca_detalhe_view, name='rh_banca_detalhe'),
     path('banca/criar/', views.banca_criar_view, name='rh_banca_criar'),
     path('banca/editar/', views.banca_editar_view, name='rh_banca_editar'),
 

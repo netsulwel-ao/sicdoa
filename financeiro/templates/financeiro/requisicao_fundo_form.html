@@ -116,6 +116,7 @@
           <div>
             <label for="id_pessoa_contacto" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Pessoa de Contacto</label>
             {{ form.pessoa_contacto }}
+            <p class="field-hint">Preenchido automaticamente com o nome do cliente</p>
           </div>
 
           <div class="md:col-span-2">
@@ -313,7 +314,6 @@
           <table class="w-full text-sm">
             <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Descrição</th>
                 <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Tipo</th>
                 <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Doc.</th>
                 <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Valor (KZ)</th>
@@ -324,7 +324,6 @@
               {% if requisicao.pk %}
                 {% for custo in requisicao.linhas.all %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" data-linha-id="{{ custo.id }}">
-                  <td class="px-6 py-4 text-gray-900 dark:text-white font-medium">{{ custo.descricao }}</td>
                   <td class="px-6 py-4">
                     <span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">{{ custo.despesa_tipo }}</span>
                   </td>
@@ -362,11 +361,7 @@
               <i class="fas fa-plus-circle text-primary"></i>Adicionar Custo
             </h3>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Descrição</label>
-              <input type="text" id="custo-descricao" placeholder="Ex: Direitos aduaneiros" class="w-full px-4 py-2.5 bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
-            </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Documentada</label>
               <select id="custo-documentada" class="w-full px-4 py-2.5 bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
@@ -407,12 +402,6 @@
         <div>
           <label for="id_observacoes" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Observações (Opcional)</label>
           {{ form.observacoes }}
-        </div>
-
-        <div class="mt-4">
-          <label for="id_instrucoes_envio" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Instruções de Envio</label>
-          {{ form.instrucoes_envio }}
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ex: Enviar comprovativo para email XXX</p>
         </div>
       </div>
 
@@ -638,12 +627,32 @@
   }
 </style>
 
+<script src="{% static 'du/searchable-dropdown.js' %}"></script>
 <!-- JavaScript para Auto-preenchimento em Cascata -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // ════════════════════════════════════════════════════════════════════════════════
   // AUTO-PREENCHIMENTO EM CASCATA: BANCA → CLIENTE → PROCESSO → DADOS
   // ════════════════════════════════════════════════════════════════════════════════
+
+  // ────────────────────────────────────────────────────────────────────────────────
+  // 0️⃣ CAMPO CLIENTE — AUTOCOMPLETE SEARCHABLE
+  // ────────────────────────────────────────────────────────────────────────────────
+
+  const clienteSelect = document.getElementById('id_cliente');
+  if (clienteSelect && typeof autocompleteSelect === 'function') {
+    autocompleteSelect(clienteSelect, {
+      placeholder: 'Digite o NIF ou nome do cliente...',
+      ajax: function(query, callback) {
+        fetch('/financeiro/api/buscar-cliente/?q=' + encodeURIComponent(query))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            callback(data.success ? data.clientes : []);
+          })
+          .catch(function() { callback([]); });
+      }
+    });
+  }
   
   // ────────────────────────────────────────────────────────────────────────────────
   // 1️⃣ AUTO-PREENCHER BANCA/FILIAL DO USUÁRIO LOGADO (ao carregar página)
@@ -759,7 +768,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // 2️⃣ QUANDO CLIENTE É SELECIONADO → AUTO-PREENCHER DADOS E FILTRAR PROCESSOS
   // ────────────────────────────────────────────────────────────────────────────────
   
-  const clienteSelect = document.getElementById('id_cliente');
   const processoSelect = document.getElementById('id_processo_aduaneiro');
   
   if (clienteSelect && processoSelect) {
@@ -778,10 +786,10 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
           if (data.success && data.cliente) {
-            // Auto-preencher pessoa de contacto se houver email
+            // Auto-preencher pessoa de contacto com o nome do cliente
             const pessoaContactoField = document.getElementById('id_pessoa_contacto');
-            if (pessoaContactoField && data.cliente.email && !pessoaContactoField.value) {
-              pessoaContactoField.value = data.cliente.email || data.cliente.nome;
+            if (pessoaContactoField && data.cliente.nome) {
+              pessoaContactoField.value = data.cliente.nome;
               highlightField(pessoaContactoField, 'filled');
             }
             
@@ -871,6 +879,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('cargo-auto-badge').style.display = 'none';
         return;
       }
+
+      // Limpar campos anteriores antes de preencher com novos dados
+      clearCargoFields();
       
       console.log('🔍 Processo selecionado:', processoId);
       
@@ -1259,7 +1270,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let custoCounter = 0;
   const $ = id => document.getElementById(id);
-  const custoDescricao = $('custo-descricao');
   const custoDocumentada = $('custo-documentada');
   const custoDespesaTipo = $('custo-despesa-tipo');
   const custoValor = $('custo-valor');
@@ -1316,7 +1326,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   $('btn-adicionar-custo').addEventListener('click', function() {
-    const descricao = custoDescricao.value.trim();
     const docVal = custoDocumentada.value;
     const despesaTipo = custoDespesaTipo.value;
     if (!despesaTipo) {
@@ -1346,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const hDesc = document.createElement('input');
     hDesc.type = 'hidden';
     hDesc.name = 'custo_' + idx + '_descricao';
-    hDesc.value = descricao;
+    hDesc.value = despesaTipo;
     formEl.appendChild(hDesc);
 
     const hDoc = document.createElement('input');
@@ -1396,7 +1405,6 @@ document.addEventListener('DOMContentLoaded', function() {
     tr.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors custo-inline';
     tr.dataset.custoIdx = idx;
     tr.innerHTML =
-      '<td class="px-6 py-4 text-gray-900 dark:text-white font-medium">' + descricao + '</td>' +
       '<td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">' + despesaTipo + '</span></td>' +
       '<td class="px-6 py-4 text-center"><span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ' + (docVal === 'true' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Sim' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">Não') + '</span></td>' +
       '<td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white tabular-nums custo-valor-display">' + formatNumber(valorNum) + '</td>' +
@@ -1404,15 +1412,13 @@ document.addEventListener('DOMContentLoaded', function() {
     custosTbody.appendChild(tr);
 
     // Limpar formulário
-    custoDescricao.value = '';
     custoDocumentada.value = 'false';
     preencherDespesaTipo('false');
     custoValor.value = '';
-    custoDescricao.focus();
 
     alternarEstadoVazio();
     actualizarTotal();
-    showToast('✅ Custo adicionado: ' + descricao, 'success');
+    showToast('✅ Custo adicionado: ' + despesaTipo, 'success');
   });
 
   // Delegar evento de remover
