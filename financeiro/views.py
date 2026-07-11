@@ -950,10 +950,10 @@ def requisicao_pdf(request, pk):
     # ══════════════════════════════════════════════════════════════════
     empresa_info = (
         f'<font size="9"><b>{nome_txt}</b></font><br/>'
-        f'<font size="7.5" color="#334155">{endereco}</font><br/>'
+        f'<font size="7.5" color="#334155">Residência: {endereco}</font><br/>'
         f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
         f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
-        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Cédula CDOA: {cdoa}</font>'
+        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Licença CDOA: {cdoa}</font>'
     )
     cli_nome = _safe(cliente.nome) if cliente else '—'
     cli_nif = _safe(cliente.nif) if cliente else '—'
@@ -3282,10 +3282,10 @@ def _construir_pdf_documento(
     cli_end = _safe(getattr(cliente, 'localizacao', '')) or '—'
     empresa_info = (
         f'<font size="9"><b>{nome_txt}</b></font><br/>'
-        f'<font size="7.5" color="#334155">{endereco}</font><br/>'
+        f'<font size="7.5" color="#334155">Residência: {endereco}</font><br/>'
         f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
         f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
-        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Cédula CDOA: {cdoa}</font>'
+        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Licença CDOA: {cdoa}</font>'
     )
     cliente_info = (
         f'<font size="7.5">Exmo.(s) Sr(s)</font><br/>'

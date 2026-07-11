@@ -770,10 +770,10 @@ def du_download_pdf(request, du_uuid):
         # ════════════════════════════════════════════════════════════════
         empresa_info = (
             f'<font size="9"><b>{nome_banco_txt}</b></font><br/>'
-            f'<font size="7.5" color="#334155">{endereco_banco}</font><br/>'
+            f'<font size="7.5" color="#334155">Residência: {endereco_banco}</font><br/>'
             f'<font size="7.5" color="#334155">Tel: {tel_banco}</font><br/>'
             f'<font size="7.5" color="#334155">Email: {email_banco}</font><br/>'
-            f'<font size="7.5" color="#334155">NIF: {nif_banco} &nbsp;|&nbsp; CDOA: {cdoa_txt}</font>'
+            f'<font size="7.5" color="#334155">NIF: {nif_banco} &nbsp;|&nbsp; Licença CDOA: {cdoa_txt}</font>'
         )
         exp_nome = _safe(dados.get('exportador_nome', du.exportador_nome)) or '—'
         exp_nif  = _safe(du.nif_declarante) or '—'
