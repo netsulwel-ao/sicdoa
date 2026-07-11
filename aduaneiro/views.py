@@ -606,422 +606,633 @@ def du_alterar_status(request, du_uuid):
 # ─── DU — Download PDF ───────────────────────────────────────────────────────
 
 def du_download_pdf(request, du_uuid):
-    """Gera e devolve o PDF da DU com todos os dados, despachante e campo de assinatura."""
+    """Gera PDF da DU com layout profissional (padrão Requisição de Fundos)."""
     if not _sessao_ok(request):
         return redirect('login')
 
-    du    = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
+    du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
     _, uid = _banca_owner(request)
 
     if du.usuario_id != uid and not _is_admin_ou_acesso_total(request):
         return redirect('aduaneiro:du_lista')
 
+    import html as _html_mod
+    def _safe(text):
+        if not text:
+            return ''
+        return _html_mod.escape(str(text))
+
     try:
         from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.styles import ParagraphStyle
         from reportlab.lib.units import cm
         from reportlab.platypus import (
-            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+            HRFlowable, Image as RLImage, Paragraph, SimpleDocTemplate,
+            Spacer, Table, TableStyle,
         )
+        import qrcode as _qr
 
-        # Buscar dados do despachante (proprietario da DU)
+        # ── Dados do despachante ──────────────────────────────────────────
         try:
             dono = Usuario.objects.get(id=du.usuario_id)
-            desp_nome     = dono.nome
-            desp_nif      = dono.nif or ''
-            desp_cedula   = dono.cedula or ''
-            desp_papel    = dono.papel
-            desp_email    = dono.email or ''
-            desp_telefone = dono.telefone or ''
+            desp_nome     = _safe(dono.nome)
+            desp_nif      = _safe(dono.nif) or '—'
+            desp_cedula   = _safe(dono.cedula) or '—'
+            desp_papel    = _safe(dono.papel) or 'Despachante Oficial'
+            desp_email    = _safe(dono.email) or '—'
+            desp_telefone = _safe(dono.telefone) or '—'
         except Usuario.DoesNotExist:
             dados_j = du.get_dados()
-            desp_nome     = dados_j.get('despachante_nome',    du.nome_declarante or 'N/D')
-            desp_nif      = dados_j.get('despachante_nif',     du.nif_declarante  or 'N/D')
-            desp_cedula   = dados_j.get('despachante_licenca', 'N/D')
+            desp_nome     = _safe(dados_j.get('despachante_nome', du.nome_declarante or 'N/D'))
+            desp_nif      = _safe(dados_j.get('despachante_nif', du.nif_declarante or 'N/D'))
+            desp_cedula   = _safe(dados_j.get('despachante_licenca', 'N/D'))
             desp_papel    = 'Despachante Oficial'
-            desp_email    = ''
-            desp_telefone = ''
+            desp_email    = '—'
+            desp_telefone = '—'
+
+        # ── Banca ─────────────────────────────────────────────────────────
+        banca = du.banca
+        nome_banco_txt = _safe(banca.nome) if banca else 'CDOA'
+        nif_banco      = _safe(banca.nif) if banca else 'N/D'
+        cdoa_txt       = _safe(banca.licenca_cdoa) if banca else '—'
+        endereco_banco = _safe(banca.endereco) if banca else '—'
+        tel_banco      = _safe(banca.telefone) if banca else '—'
+        email_banco    = _safe(banca.email) if banca else '—'
+
+        agora = timezone.now()
+        dados = du.get_dados()
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer, pagesize=A4,
-            leftMargin=1.8*cm, rightMargin=1.8*cm,
-            topMargin=1.8*cm, bottomMargin=2*cm,
+            leftMargin=0.7*cm, rightMargin=0.7*cm,
+            topMargin=0.5*cm, bottomMargin=1.0*cm,
             title=f'DU {du.numero_du or du.du_uuid}',
         )
-        W = A4[0] - 3.6*cm
+        PAGE_W, PAGE_H = A4
+        W = PAGE_W - 1.4*cm
 
-        cor_cdoa = colors.HexColor('#1a3a5c')
-        cor_cdoa_gold = colors.HexColor('#c9a84c')
-        cor_primaria  = colors.HexColor('#137fec')
-        cor_cabecalho = colors.HexColor('#0f172a')
-        cor_linha_par = colors.HexColor('#f8fafc')
-        cor_borda     = colors.HexColor('#e2e8f0')
-        cor_label_bg  = colors.HexColor('#f1f5f9')
+        # ── Cores (padrão requisição) ────────────────────────────────────
+        COR_PRIMARIO    = colors.HexColor('#0f172a')
+        COR_SECUNDARIO  = colors.white
+        COR_CINZA       = colors.HexColor('#64748b')
+        COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
+        COR_BORDA       = colors.HexColor('#cbd5e1')
+        COR_BRANCO      = colors.white
+        COR_HEADER      = colors.white
+        COR_CDOA        = colors.HexColor('#1a3a5c')
+        COR_GOLD        = colors.HexColor('#c9a84c')
+        COR_PRIMAZUL    = colors.HexColor('#137fec')
 
-        s_secao = ParagraphStyle('secao',
-            fontSize=10, fontName='Helvetica-Bold',
-            textColor=cor_cdoa, spaceBefore=10, spaceAfter=4)
-        s_normal = ParagraphStyle('normal',
-            fontSize=8.5, fontName='Helvetica',
-            textColor=cor_cabecalho, leading=12)
-        s_bold = ParagraphStyle('bold',
-            fontSize=8.5, fontName='Helvetica-Bold',
-            textColor=cor_cabecalho, leading=12)
-        s_small = ParagraphStyle('small',
-            fontSize=7.5, fontName='Helvetica',
-            textColor=colors.HexColor('#64748b'), leading=10)
-        s_assinatura = ParagraphStyle('assinatura',
-            fontSize=8, fontName='Helvetica',
-            textColor=colors.HexColor('#475569'), leading=11)
+        def st(name, **kw):
+            defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRIMARIO, leading=11)
+            defaults.update(kw)
+            return ParagraphStyle(name, **defaults)
+
+        s_small = st('small', fontSize=7, textColor=COR_CINZA, leading=9)
+        s_bold7 = st('bold7', fontSize=7, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, leading=9)
+        s_kv_label = st('kv_label', fontSize=7, fontName='Helvetica', textColor=COR_CINZA, leading=9)
+        s_kv_value = st('kv_value', fontSize=7.5, fontName='Helvetica', textColor=COR_PRIMARIO, leading=10)
 
         story = []
-        dados = du.get_dados()
 
-        # Cabecalho CDOA
-        status_cores = {
-            'Aprovada':   ('#dcfce7', '#166534'),
-            'Rascunho':   ('#fef9c3', '#854d0e'),
-            'Rejeitada':  ('#fee2e2', '#991b1b'),
-            'Submetida':  ('#dbeafe', '#1e40af'),
-            'Em Analise': ('#f3e8ff', '#6b21a8'),
-        }
-        sc = status_cores.get(du.status, ('#f1f5f9', '#374151'))
+        # ════════════════════════════════════════════════════════════════
+        # LOGO (esquerda) + QR CODE (direita)
+        # ════════════════════════════════════════════════════════════════
+        logo_path = None
+        if banca and hasattr(banca, 'logo') and banca.logo:
+            try:
+                logo_path = banca.logo.path
+            except Exception:
+                logo_path = None
 
-        # Header CDOA
-        cdoa_header = Table([
-            [
-                Paragraph('<font color="white"><b>REPÚBLICA DE ANGOLA</b><br/><font size="8">CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)</font></font>',
-                       ParagraphStyle('cdoa_top', fontSize=11, fontName='Helvetica-Bold', alignment=0, leading=14)),
-                Paragraph(
-                    f'<font color="{sc[1]}"><b>{du.status}</b></font>',
-                    ParagraphStyle('cdoa_right', fontSize=10, fontName='Helvetica-Bold',
-                               alignment=2)
-                ),
-            ]
-        ], colWidths=[W - 3.5*cm, 3.5*cm])
-        cdoa_header.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), cor_cdoa),
-            ('LEFTPADDING', (0, 0), (-1, -1), 12),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-            ('TOPPADDING', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        col_logo = Paragraph('', st('empty', fontSize=1))
+        if logo_path:
+            try:
+                col_logo = RLImage(logo_path, width=2.4*cm, height=1.7*cm)
+            except Exception:
+                col_logo = Paragraph('', st('empty', fontSize=1))
+
+        nr_du = _safe(du.numero_du) or 'Rascunho'
+        ref = _safe(du.ref_despachante) or '—'
+        merc = _safe(dados.get('exportador_nome', du.exportador_nome)) or '—'
+
+        qr_data = (
+            f"=== DECLARACAO UNICA (DU) ===\n"
+            f"DU: {nr_du}\n"
+            f"Processo: {du.codigo_processo or 'N/D'}\n"
+            f"Ref: {ref}\n"
+            f"Data: {du.created_at.strftime('%d/%m/%Y %H:%M')}\n"
+            f"Estado: {du.status}\n"
+            f"\n--- EXPORTADOR ---\n"
+            f"Nome: {merc}\n"
+            f"NIF: {du.nif_declarante or 'N/D'}\n"
+            f"\n--- DESPACHANTE ---\n"
+            f"Nome: {desp_nome}\n"
+            f"NIF: {desp_nif}\n"
+            f"Cedula: {desp_cedula}\n"
+            f"\n--- VALORES ---\n"
+            f"FOB: {fmt_kz(du.valor_fob)} KZ\n"
+            f"Frete: {fmt_kz(du.valor_frete or 0)} KZ\n"
+            f"Seguro: {fmt_kz(du.valor_seguro or 0)} KZ\n"
+            f"CIF: {fmt_kz(du.valor_cif)} KZ\n"
+            f"TOTAL: {fmt_kz(du.total_geral)} KZ\n"
+        )
+        _qr_buf = io.BytesIO()
+        _qr_obj = _qr.QRCode(version=1, box_size=10, border=2)
+        _qr_obj.add_data(qr_data)
+        _qr_obj.make(fit=True)
+        _qr_obj.make_image(fill_color="black", back_color="white").save(_qr_buf, format='PNG')
+        _qr_buf.seek(0)
+        qr_flowable = RLImage(_qr_buf, width=1.9*cm, height=1.9*cm)
+
+        top_line = Table([[col_logo, qr_flowable]], colWidths=[W - 1.9*cm, 1.9*cm])
+        top_line.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
-        story.append(cdoa_header)
-        story.append(Spacer(1, 1*cm))
+        story.append(top_line)
+        story.append(Spacer(1, 0.15*cm))
 
-        s_titulo = ParagraphStyle('titulo',
-            fontSize=20, fontName='Helvetica-Bold',
-            textColor=cor_cdoa, spaceAfter=24)
-        s_subtitulo = ParagraphStyle('subtitulo',
-            fontSize=10, fontName='Helvetica',
-            textColor=colors.HexColor('#475569'), spaceAfter=8, leading=14)
-
-        header_data = [[
-            Paragraph('DECLARACAO UNICA (DU)', s_titulo),
-        ]]
-        t_header = Table(header_data, colWidths=[W])
-        t_header.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        # ════════════════════════════════════════════════════════════════
+        # BLOCO DESPACHANTE (esquerda) + BLOCO EXPORTADOR (direita)
+        # ════════════════════════════════════════════════════════════════
+        empresa_info = (
+            f'<font size="9"><b>{nome_banco_txt}</b></font><br/>'
+            f'<font size="7.5" color="#334155">{endereco_banco}</font><br/>'
+            f'<font size="7.5" color="#334155">Tel: {tel_banco}</font><br/>'
+            f'<font size="7.5" color="#334155">Email: {email_banco}</font><br/>'
+            f'<font size="7.5" color="#334155">NIF: {nif_banco} &nbsp;|&nbsp; CDOA: {cdoa_txt}</font>'
+        )
+        exp_nome = _safe(dados.get('exportador_nome', du.exportador_nome)) or '—'
+        exp_nif  = _safe(du.nif_declarante) or '—'
+        exp_end  = _safe(dados.get('exportador_endereco', '')) or '—'
+        cli_info = (
+            f'<font size="7.5">Exportador / Remetente</font><br/>'
+            f'<font size="9"><b>{exp_nome}</b></font><br/>'
+            f'<font size="7.5" color="#334155">{exp_end}</font><br/>'
+            f'<font size="7.5" color="#334155">NIF: {exp_nif}</font>'
+        )
+        header_body = Table([[
+            Paragraph(empresa_info, st('empresa_info', fontSize=7.5, leading=10)),
+            Paragraph(cli_info, st('cli_info', fontSize=7.5, leading=10)),
+        ]], colWidths=[W*0.55, W*0.45])
+        header_body.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
-        story.append(t_header)
-        story.append(Spacer(1, 0.5*cm))
+        story.append(header_body)
+        story.append(Spacer(1, 0.35*cm))
+
+        # ════════════════════════════════════════════════════════════════
+        # TÍTULO DO DOCUMENTO
+        # ════════════════════════════════════════════════════════════════
+        story.append(Paragraph('<font size="7.5">Original</font>', st('original', fontSize=7.5)))
         story.append(Paragraph(
-            f'N: <b>{du.numero_du or "Rascunho"}</b> | Processo: <b>{du.codigo_processo or "N/D"}</b><br/>'
-            f'Ref.: <b>{du.ref_despachante or "N/D"}</b> | Data: <b>{du.created_at.strftime("%d/%m/%Y %H:%M")}</b>',
-            s_subtitulo
+            f'<font size="12"><b>DECLARAÇÃO ÚNICA (DU) n.º {nr_du}</b></font>',
+            st('titulo', fontSize=12)
         ))
-        story.append(HRFlowable(width=W, thickness=2, color=cor_cdoa_gold, spaceAfter=8))
+        story.append(Spacer(1, 0.15*cm))
 
-        def tabela_kv(linhas, col_label=5.5*cm):
+        # ════════════════════════════════════════════════════════════════
+        # DADOS DO DOCUMENTO (5 colunas)
+        # ════════════════════════════════════════════════════════════════
+        data_sub = du.created_at.strftime('%d/%m/%Y') if du.created_at else '—'
+        hora_sub = du.created_at.strftime('%H:%M') if du.created_at else '—'
+
+        dados_doc_header = [
+            Paragraph('<b>Nº DU</b>', st('ddh', fontSize=7.5)),
+            Paragraph('<b>Processo</b>', st('ddh', fontSize=7.5)),
+            Paragraph('<b>Ref. Despachante</b>', st('ddh', fontSize=7.5)),
+            Paragraph('<b>Data Submissão</b>', st('ddh', fontSize=7.5)),
+            Paragraph('<b>Estado</b>', st('ddh', fontSize=7.5)),
+        ]
+        dados_doc_valores = [
+            Paragraph(nr_du, st('ddv', fontSize=7.5)),
+            Paragraph(du.codigo_processo or 'N/D', st('ddv', fontSize=7.5)),
+            Paragraph(ref, st('ddv', fontSize=7.5)),
+            Paragraph(f'{data_sub} {hora_sub}', st('ddv', fontSize=7.5)),
+            Paragraph(du.status or 'Rascunho', st('ddv', fontSize=7.5)),
+        ]
+        t_dados_doc = Table([dados_doc_header, dados_doc_valores], colWidths=[W/5]*5)
+        t_dados_doc.setStyle(TableStyle([
+            ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_CINZA),
+            ('LINEBELOW', (0, 1), (-1, 1), 0.5, COR_CINZA),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(t_dados_doc)
+        story.append(Spacer(1, 0.25*cm))
+
+        # ════════════════════════════════════════════════════════════════
+        # SECCÕES 1-4: IDENTIFICAÇÃO + EXPORTADOR + DESTINATÁRIO + DESPACHANTE
+        # ════════════════════════════════════════════════════════════════
+        def tabela_kvCompacta(linhas, col_label=4.5*cm):
             rows = []
             for k, v in linhas:
                 rows.append([
-                    Paragraph(str(k), s_small),
-                    Paragraph(str(v) if v else 'N/D', s_normal),
+                    Paragraph(str(k), s_kv_label),
+                    Paragraph(str(v) if v else 'N/D', s_kv_value),
                 ])
             if not rows:
                 return None
             t = Table(rows, colWidths=[col_label, W - col_label])
             t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, -1), cor_label_bg),
-                ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
+                ('BACKGROUND', (0, 0), (0, -1), COR_CINZA_CLARO),
+                ('GRID', (0, 0), (-1, -1), 0.3, COR_BORDA),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ('LEFTPADDING', (0, 0), (-1, -1), 6),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-                ('ROWBACKGROUNDS', (1, 0), (1, -1), [colors.white, cor_linha_par]),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('ROWBACKGROUNDS', (1, 0), (1, -1), [COR_BRANCO, colors.HexColor('#f8fafc')]),
             ]))
             return t
 
-        def titulo_secao(texto):
-            story.append(Paragraph(texto, s_secao))
+        def sec_titulo(txt):
+            story.append(Spacer(1, 0.15*cm))
+            story.append(Paragraph(f'<b>{txt}</b>', st('sec', fontSize=8, fontName='Helvetica-Bold',
+                                                       textColor=COR_PRIMARIO, spaceBefore=4, spaceAfter=2)))
 
-        # 1. IDENTIFICACAO
-        titulo_secao('1. IDENTIFICACAO DA DECLARACAO')
-        t = tabela_kv([
-            ('Regime Aduaneiro',       dados.get('regime_aduaneiro', du.regime_aduaneiro)),
-            ('Referencia Interna',     dados.get('ref_despachante',  du.ref_despachante)),
-            ('Estancia',               dados.get('estancia', '')),
-            ('Vinheta',                dados.get('vinheta_selecionada', dados.get('vinheta', ''))),
-            ('INCOTERM',               dados.get('incoterm', '')),
-            ('Natureza da Transacao',  dados.get('natureza_transacao', '')),
-            ('Conta de Credito',       dados.get('conta_credito', '')),
-            ('Conta de Garantia',      dados.get('conta_garantias', '')),
-            ('Localizacao Mercadoria', dados.get('localizacao_mercadoria', '')),
-            ('Identificacao Armazem',  dados.get('identificacao_armzem', '')),
+        # 1. IDENTIFICAÇÃO
+        sec_titulo('1. Identificação da Declaração')
+        t = tabela_kvCompacta([
+            ('Regime Aduaneiro',     dados.get('regime_aduaneiro', du.regime_aduaneiro)),
+            ('Ref. Interna',          dados.get('ref_despachante', du.ref_despachante)),
+            ('Estância',              dados.get('estancia', '')),
+            ('Vinheta',               dados.get('vinheta_selecionada', dados.get('vinheta', ''))),
+            ('INCOTERM',              dados.get('incoterm', '')),
+            ('Natureza da Transação', dados.get('natureza_transacao', '')),
+            ('Conta de Crédito',      dados.get('conta_credito', '')),
+            ('Conta de Garantia',     dados.get('conta_garantias', '')),
         ])
         if t: story.append(t)
 
         # 2. EXPORTADOR
-        titulo_secao('2. EXPORTADOR / REMETENTE')
-        t = tabela_kv([
-            ('Nome / Razao Social', dados.get('exportador_nome', du.exportador_nome)),
+        sec_titulo('2. Exportador / Remetente')
+        t = tabela_kvCompacta([
+            ('Nome / Razão Social', dados.get('exportador_nome', du.exportador_nome)),
             ('NIF',                 dados.get('exportador_codigo', du.nif_declarante)),
-            ('Endereco',            dados.get('exportador_endereco', '')),
+            ('Endereço',            dados.get('exportador_endereco', '')),
         ])
         if t: story.append(t)
 
-        # 3. DESTINATARIO
-        titulo_secao('3. DESTINATARIO / CONSIGNATARIO')
-        t = tabela_kv([
-            ('Nome / Razao Social', dados.get('destinatario_nome', du.destinatario_nome)),
+        # 3. DESTINATÁRIO
+        sec_titulo('3. Destinatário / Consignatário')
+        t = tabela_kvCompacta([
+            ('Nome / Razão Social', dados.get('destinatario_nome', du.destinatario_nome)),
             ('NIF',                 dados.get('destinatario_nif', '')),
             ('Telefone',            dados.get('destinatario_telefone', '')),
-            ('Endereco',            dados.get('destinatario_endereco', '')),
+            ('Endereço',            dados.get('destinatario_endereco', '')),
         ])
         if t: story.append(t)
 
         # 4. DESPACHANTE
-        titulo_secao('4. DESPACHANTE / DECLARANTE')
-        t = tabela_kv([
-            ('Nome Completo',       desp_nome),
-            ('Papel / Funcao',      desp_papel),
-            ('NIF',                 desp_nif),
-            ('N Cedula / Licenca',  desp_cedula),
-            ('Email',               desp_email),
-            ('Telefone',            desp_telefone),
+        sec_titulo('4. Despachante / Declarante')
+        t = tabela_kvCompacta([
+            ('Nome Completo',      desp_nome),
+            ('Papel / Função',     desp_papel),
+            ('NIF',                desp_nif),
+            ('Nº Cédula / Licença', desp_cedula),
         ])
         if t: story.append(t)
 
-        # 5. INFORMACOES COMERCIAIS
-        titulo_secao('5. INFORMACOES COMERCIAIS E FINANCEIRAS')
-        t = tabela_kv([
-            ('Valor FOB',           f"{dados.get('valor_fob', '0')} {dados.get('moeda_fob', '')}"),
-            ('Cambio FOB',          dados.get('cambio_fob', '')),
-            ('Valor FOB (KZ)',       dados.get('valor_fob_kz', '')),
-            ('Valor Seguro',        f"{dados.get('valor_seguro', '0')} {dados.get('moeda_seguro', '')}"),
-            ('Cambio Seguro',       dados.get('cambio_seguro', '')),
-            ('Valor Seguro (KZ)',    dados.get('valor_seguro_kz', '')),
-            ('Valor Frete',         f"{dados.get('valor_frete', '0')} {dados.get('moeda_frete', '')}"),
-            ('Cambio Frete',        dados.get('cambio_frete', '')),
-            ('Valor Frete (KZ)',     dados.get('valor_frete_kz', '')),
-            ('Forma de Pagamento',  dados.get('forma_pagamento', '')),
-            ('Banco',               dados.get('nome_banco', '')),
-            ('Termo de Pagamento',  dados.get('termo_pagamento', '')),
+        # ════════════════════════════════════════════════════════════════
+        # SECCÃO 5: INFORMAÇÕES COMERCIAIS
+        # ════════════════════════════════════════════════════════════════
+        sec_titulo('5. Informações Comerciais e Financeiras')
+        t = tabela_kvCompacta([
+            ('Valor FOB',          f"{dados.get('valor_fob', '0')} {dados.get('moeda_fob', '')}"),
+            ('Câmbio FOB',         dados.get('cambio_fob', '')),
+            ('Valor Seguro',       f"{dados.get('valor_seguro', '0')} {dados.get('moeda_seguro', '')}"),
+            ('Câmbio Seguro',      dados.get('cambio_seguro', '')),
+            ('Valor Frete',        f"{dados.get('valor_frete', '0')} {dados.get('moeda_frete', '')}"),
+            ('Câmbio Frete',       dados.get('cambio_frete', '')),
+            ('Forma de Pagamento', dados.get('forma_pagamento', '')),
+            ('Banco',              dados.get('nome_banco', '')),
+            ('Termo de Pagamento', dados.get('termo_pagamento', '')),
         ])
         if t: story.append(t)
 
-        # 6. TRANSPORTE
-        titulo_secao('6. TRANSPORTE')
-        t = tabela_kv([
+        # ════════════════════════════════════════════════════════════════
+        # SECCÃO 6: TRANSPORTE
+        # ════════════════════════════════════════════════════════════════
+        sec_titulo('6. Transporte')
+        t = tabela_kvCompacta([
             ('Modo de Transporte',   dados.get('modo_transporte', du.meio_transporte or '')),
-            ('N Conhecimento',       dados.get('numero_conhecimento', '')),
-            ('Data Conhecimento',    dados.get('data_conhecimento', '')),
+            ('Nº Conhecimento',      dados.get('numero_conhecimento', '')),
             ('Porto de Embarque',    dados.get('porto_embarque', du.porto_embarque or '')),
             ('Porto de Desembarque', dados.get('porto_desembarque', du.porto_desembarque or '')),
-            ('Pais de Expedicao',    dados.get('pais_expedicao', '')),
-            ('Ha Contentores?',      'Sim' if dados.get('tem_contentores') == 'sim' else 'Nao'),
+            ('País de Expedição',    dados.get('pais_expedicao', '')),
         ])
         if t: story.append(t)
 
         contentores = dados.get('contentores', [])
         if contentores:
-            titulo_secao('6.1. CONTENTORES')
-            cont_rows = [['N', 'Identificacao', 'Tipo', 'Peso Bruto', 'Qtd. Volumes']]
+            story.append(Spacer(1, 0.1*cm))
+            cont_header = [
+                Paragraph('<b>Nº</b>', s_bold7),
+                Paragraph('<b>Identificação</b>', s_bold7),
+                Paragraph('<b>Tipo</b>', s_bold7),
+                Paragraph('<b>Peso Bruto</b>', s_bold7),
+                Paragraph('<b>Qtd. Volumes</b>', s_bold7),
+            ]
+            cont_rows = [cont_header]
             for i, c in enumerate(contentores, 1):
                 cont_rows.append([
-                    str(i),
-                    c.get('identificacao', 'N/D'),
-                    c.get('tipo', 'N/D'),
-                    c.get('peso_bruto', 'N/D'),
-                    c.get('qtd_volumes', 'N/D'),
+                    Paragraph(str(i), s_kv_value),
+                    Paragraph(c.get('identificacao', 'N/D'), s_kv_value),
+                    Paragraph(c.get('tipo', 'N/D'), s_kv_value),
+                    Paragraph(c.get('peso_bruto', 'N/D'), s_kv_value),
+                    Paragraph(c.get('qtd_volumes', 'N/D'), s_kv_value),
                 ])
             t_cont = Table(cont_rows, colWidths=[0.8*cm, 5*cm, 3*cm, 3*cm, 3*cm])
             t_cont.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), cor_cdoa),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, cor_linha_par]),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('BACKGROUND', (0, 0), (-1, 0), COR_PRIMARIO),
+                ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+                ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
             ]))
             story.append(t_cont)
 
-        # 7. ADICOES
+        # ════════════════════════════════════════════════════════════════
+        # SECCÃO 7: ADIÇÕES (tabela de itens)
+        # ════════════════════════════════════════════════════════════════
         adicoes = dados.get('adicoes', [])
         if adicoes:
-            titulo_secao(f'7. ADICOES ({len(adicoes)})')
-            for i, ad in enumerate(adicoes, 1):
-                story.append(Paragraph(f'Adicao {i}', ParagraphStyle('ad_titulo',
-                    fontSize=8.5, fontName='Helvetica-Bold',
-                    textColor=cor_primaria, spaceBefore=4, spaceAfter=2)))
-                t = tabela_kv([
-                    ('Codigo Pautal',        ad.get('codigo_pautal', '')),
-                    ('Descricao Mercadoria', ad.get('descricao_mercadoria', '')),
-                    ('Pais de Origem',       ad.get('pais_origem', '')),
-                    ('Codigo Procedimento',  ad.get('codigo_procedimento', '')),
-                    ('Codigo de Isencao',    ad.get('codigo_isencao', '000')),
-                    ('Quantidade',           ad.get('quantidade', '')),
-                    ('Peso Bruto (kg)',       ad.get('peso_bruto', '')),
-                    ('Peso Liquido (kg)',     ad.get('peso_liquido', '')),
-                    ('Valor FOB',            f"{ad.get('valor_fob', '0')} {ad.get('moeda_fob', '')}"),
-                    ('Valor FOB (KZ)',        ad.get('valor_fob_kz', '')),
-                    ('Valor CIF (KZ)',        ad.get('montante_kz', '')),
-                    ('Reparticao Seguro',    ad.get('reparticao_seguro', '')),
-                    ('Reparticao Frete',     ad.get('reparticao_frete', '')),
-                ], col_label=5.5*cm)
-                if t: story.append(t)
+            sec_titulo(f'7. Adições ({len(adicoes)})')
+            ad_header = [
+                Paragraph('<b>Cód. Pautal</b>', s_bold7),
+                Paragraph('<b>Descrição</b>', s_bold7),
+                Paragraph('<b>Qtd</b>', s_bold7, alignment=TA_RIGHT),
+                Paragraph('<b>Peso (kg)</b>', s_bold7, alignment=TA_RIGHT),
+                Paragraph('<b>Valor FOB</b>', s_bold7, alignment=TA_RIGHT),
+                Paragraph('<b>Valor CIF</b>', s_bold7, alignment=TA_RIGHT),
+            ]
+            ad_rows = [ad_header]
+            total_fob_ad = Decimal('0')
+            total_cif_ad = Decimal('0')
+            for ad in adicoes:
+                fob_val = Decimal(str(ad.get('valor_fob_kz', 0) or 0))
+                cif_val = Decimal(str(ad.get('montante_kz', 0) or 0))
+                total_fob_ad += fob_val
+                total_cif_ad += cif_val
+                ad_rows.append([
+                    Paragraph(_safe(ad.get('codigo_pautal', '')), s_kv_value),
+                    Paragraph(_safe(ad.get('descricao_mercadoria', ''))[:60], s_kv_value),
+                    Paragraph(str(ad.get('quantidade', '')), s_kv_value, alignment=TA_RIGHT),
+                    Paragraph(str(ad.get('peso_bruto', '')), s_kv_value, alignment=TA_RIGHT),
+                    Paragraph(fmt_kz(fob_val), s_kv_value, alignment=TA_RIGHT),
+                    Paragraph(fmt_kz(cif_val), s_kv_value, alignment=TA_RIGHT),
+                ])
+            t_ad = Table(ad_rows, colWidths=[W*0.12, W*0.33, W*0.09, W*0.11, W*0.17, W*0.18])
+            t_ad.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+                ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+                ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            story.append(t_ad)
+            story.append(Spacer(1, 0.1*cm))
 
+            # Impostos por adição (se existirem)
+            for i, ad in enumerate(adicoes, 1):
                 impostos = ad.get('impostos', {})
                 if impostos:
-                    imp_rows = [['Imposto', 'Base (KZ)', 'Taxa (%)', 'Valor (KZ)', 'Accao']]
+                    imp_rows = [[
+                        Paragraph('<b>Imposto</b>', s_bold7),
+                        Paragraph('<b>Base (KZ)</b>', s_bold7, alignment=TA_RIGHT),
+                        Paragraph('<b>Taxa</b>', s_bold7, alignment=TA_RIGHT),
+                        Paragraph('<b>Valor (KZ)</b>', s_bold7, alignment=TA_RIGHT),
+                        Paragraph('<b>Accão</b>', s_bold7),
+                    ]]
                     for cod, info in impostos.items():
                         if isinstance(info, dict) and info.get('valor', 0):
                             imp_rows.append([
-                                cod,
-                                fmt_kz(info.get('base', 0)),
-                                f"{info.get('taxa', 0)}%",
-                                fmt_kz(info.get('valor', 0)),
-                                info.get('acao', ''),
+                                Paragraph(str(cod), s_kv_value),
+                                Paragraph(fmt_kz(info.get('base', 0)), s_kv_value, alignment=TA_RIGHT),
+                                Paragraph(f"{info.get('taxa', 0)}%", s_kv_value, alignment=TA_RIGHT),
+                                Paragraph(fmt_kz(info.get('valor', 0)), s_kv_value, alignment=TA_RIGHT),
+                                Paragraph(str(info.get('acao', '')), s_kv_value),
                             ])
                     if len(imp_rows) > 1:
-                        story.append(Spacer(1, 1.0*cm))
-                        t_imp = Table(imp_rows, colWidths=[W*0.18, W*0.22, W*0.14, W*0.26, W*0.2])
+                        story.append(Spacer(1, 0.08*cm))
+                        t_imp = Table(imp_rows, colWidths=[W*0.22, W*0.22, W*0.12, W*0.22, W*0.22])
                         t_imp.setStyle(TableStyle([
-                            ('BACKGROUND', (0, 0), (-1, 0), cor_cdoa),
-                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                            ('FONTSIZE', (0, 0), (-1, -1), 7.5),
-                            ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
-                            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, cor_linha_par]),
+                            ('BACKGROUND', (0, 0), (-1, 0), COR_CDOA),
+                            ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+                            ('LINEBELOW', (0, 1), (-1, -1), 0.3, COR_BORDA),
                             ('TOPPADDING', (0, 0), (-1, -1), 3),
                             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                            ('LEFTPADDING', (0, 0), (-1, -1), 5),
-                            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+                            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
                         ]))
                         story.append(t_imp)
 
-        # 8. CALCULOS DE TAXACAO
-        titulo_secao('8. RESUMO DE TAXACAO')
-        totais_rows = [
-            [Paragraph('<b>Imposto</b>', s_bold), Paragraph('<b>Valor (KZ)</b>', s_bold)],
-            ['DERIMP - Direitos de Importacao',    fmt_kz(du.total_derimp)],
-            ['IEC - Imposto Especial de Consumo',  fmt_kz(du.total_iec)],
-            ['05M - Emolumentos Gerais (EMGEAD)',   fmt_kz(du.total_emgead)],
-            ['DIREXP - Direitos de Exportacao',     fmt_kz(du.total_direxp)],
-            ['IVA',                                 fmt_kz(du.total_iva)],
+        # ════════════════════════════════════════════════════════════════
+        # SECCÃO 8: RESUMO DE TAXAÇÃO + VALORES (esquerda) | SUMÁRIO (direita)
+        # ════════════════════════════════════════════════════════════════
+        imposto_rows = [
+            [Paragraph('<b>Imposto</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
+             Paragraph('<b>Incidência</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
+             Paragraph('<b>Valor (KZ)</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_RIGHT))],
+            [Paragraph('DERIMP - Direitos de Importação', st('imc', fontSize=7)),
+             Paragraph('Sobre CIF', st('imc', fontSize=7)),
+             Paragraph(fmt_kz(du.total_derimp), st('imc', fontSize=7, alignment=TA_RIGHT))],
+            [Paragraph('IEC - Imposto Especial de Consumo', st('imc', fontSize=7)),
+             Paragraph('Sobre CIF', st('imc', fontSize=7)),
+             Paragraph(fmt_kz(du.total_iec), st('imc', fontSize=7, alignment=TA_RIGHT))],
+            [Paragraph('EMGEAD - Emolumentos Gerais', st('imc', fontSize=7)),
+             Paragraph('Sobre CIF', st('imc', fontSize=7)),
+             Paragraph(fmt_kz(du.total_emgead), st('imc', fontSize=7, alignment=TA_RIGHT))],
+            [Paragraph('DIREXP - Direitos de Exportação', st('imc', fontSize=7)),
+             Paragraph('Sobre CIF', st('imc', fontSize=7)),
+             Paragraph(fmt_kz(du.total_direxp), st('imc', fontSize=7, alignment=TA_RIGHT))],
+            [Paragraph('IVA', st('imc', fontSize=7)),
+             Paragraph('Sobre CIF', st('imc', fontSize=7)),
+             Paragraph(fmt_kz(du.total_iva), st('imc', fontSize=7, alignment=TA_RIGHT))],
         ]
-        t_tot = Table(totais_rows, colWidths=[W - 4*cm, 4*cm])
-        t_tot.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), cor_cdoa),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-            ('GRID', (0, 0), (-1, -1), 0.4, cor_borda),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, cor_linha_par]),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        t_imposto = Table(imposto_rows, colWidths=[W*0.55*0.50, W*0.55*0.20, W*0.55*0.30])
+        t_imposto.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+            ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+            ('LINEBELOW', (0, 0), (-1, 0), 1.0, COR_CINZA),
+            ('LINEBELOW', (0, 1), (-1, -1), 0.3, COR_BORDA),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
         ]))
-        story.append(t_tot)
 
-        t_total = Table([[
-            Paragraph('<b>TOTAL A PAGAR</b>', ParagraphStyle('tp',
-                fontSize=11, fontName='Helvetica-Bold', textColor=colors.white)),
-            Paragraph(f'<b>{fmt_kz(du.total_geral)} KZ</b>', ParagraphStyle('tv',
-                fontSize=11, fontName='Helvetica-Bold', textColor=colors.white, alignment=2)),
-        ]], colWidths=[W - 4*cm, 4*cm])
-        t_total.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), cor_cdoa),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        # Valores aduaneiros
+        val_texto = (
+            f'<font size="7.5"><b>Valores Aduaneiros</b></font><br/>'
+            f'<font size="7" color="#334155">FOB: {fmt_kz(du.valor_fob)} KZ</font><br/>'
+            f'<font size="7" color="#334155">Frete: {fmt_kz(du.valor_frete or 0)} KZ</font><br/>'
+            f'<font size="7" color="#334155">Seguro: {fmt_kz(du.valor_seguro or 0)} KZ</font><br/>'
+            f'<font size="7" color="#334155">CIF: {fmt_kz(du.valor_cif)} KZ</font>'
+        )
+        bloco_esquerdo = [
+            [t_imposto],
+            [Spacer(1, 0.15*cm)],
+            [Paragraph(val_texto, st('val_ad', fontSize=7, leading=10))],
+        ]
+        t_bloco_esquerdo = Table(bloco_esquerdo, colWidths=[W*0.55])
+        t_bloco_esquerdo.setStyle(TableStyle([
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+
+        total_geral = du.total_geral or Decimal('0')
+        sumario_rows = [
+            [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO))],
+            [Spacer(1, 0.15*cm)],
+            [Paragraph(f'<font size="7">FOB: <b>{fmt_kz(du.valor_fob)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Paragraph(f'<font size="7">Frete: <b>{fmt_kz(du.valor_frete or 0)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Paragraph(f'<font size="7">Seguro: <b>{fmt_kz(du.valor_seguro or 0)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Paragraph(f'<font size="7">CIF: <b>{fmt_kz(du.valor_cif)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Spacer(1, 0.1*cm)],
+            [Paragraph(f'<font size="7">DERIMP: <b>{fmt_kz(du.total_derimp)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Paragraph(f'<font size="7">IEC: <b>{fmt_kz(du.total_iec)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Paragraph(f'<font size="7">EMGEAD: <b>{fmt_kz(du.total_emgead)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Paragraph(f'<font size="7">IVA: <b>{fmt_kz(du.total_iva)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Spacer(1, 0.15*cm)],
+            [Paragraph(f'<font size="10" color="#0f172a"><b>Total: {fmt_kz(total_geral)} KZ</b></font>',
+                       st('sum_total', fontSize=10, leading=12))],
+        ]
+        t_sumario = Table(sumario_rows, colWidths=[W*0.35])
+        t_sumario.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), COR_HEADER),
+            ('TOPPADDING', (0, 0), (0, 0), 5),
+            ('BOTTOMPADDING', (0, 0), (0, 0), 5),
             ('LEFTPADDING', (0, 0), (-1, -1), 6),
             ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
         ]))
-        story.append(t_total)
 
-        # 9. VALORES ADUANEIROS
-        titulo_secao('9. VALORES ADUANEIROS')
-        t = tabela_kv([
-            ('Valor FOB (KZ)',    fmt_kz(du.valor_fob)),
-            ('Valor Frete (KZ)', fmt_kz(du.valor_frete or 0)),
-            ('Valor Seguro (KZ)', fmt_kz(du.valor_seguro or 0)),
-            ('Valor CIF (KZ)',    fmt_kz(du.valor_cif)),
-        ])
-        if t: story.append(t)
+        t_resumo = Table([[t_bloco_esquerdo, '', '', t_sumario]], colWidths=[W*0.60, W*0.02, W*0.03, W*0.35])
+        t_resumo.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        story.append(Spacer(1, 0.2*cm))
+        story.append(t_resumo)
+        story.append(Spacer(1, 0.2*cm))
 
-        # 10. ASSINATURA E CARIMBO
-        story.append(Spacer(1, 0.8*cm))
-        story.append(HRFlowable(width=W, thickness=1, color=cor_borda, spaceAfter=6))
-        titulo_secao('10. DECLARACAO E ASSINATURA DO DESPACHANTE')
+        # ════════════════════════════════════════════════════════════════
+        # DESPACHANTE RESPONSÁVEL
+        # ════════════════════════════════════════════════════════════════
+        story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+        story.append(Spacer(1, 0.15*cm))
+        desp_box = Table([[
+            Paragraph('<b>Despachante Responsável</b>', st('desp_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+        ]], colWidths=[W])
+        desp_box.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+            ('TOPPADDING', (0, 0), (-1, 0), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+            ('LEFTPADDING', (0, 0), (-1, 0), 6),
+        ]))
+        story.append(desp_box)
+        story.append(Spacer(1, 0.1*cm))
+        story.append(Paragraph(
+            f'{desp_nome} &nbsp;|&nbsp; NIF: {desp_nif} &nbsp;|&nbsp; '
+            f'Cédula CDOA: {desp_cedula}',
+            st('desp_l1', fontSize=7.5, textColor=COR_PRIMARIO)
+        ))
+        story.append(Paragraph(
+            f'Tel: {desp_telefone} &nbsp;|&nbsp; Email: {desp_email}',
+            st('desp_l2', fontSize=7, textColor=COR_CINZA)
+        ))
+        story.append(Spacer(1, 0.15*cm))
 
-        data_hoje = timezone.now().strftime('%d/%m/%Y')
+        # Declaração
         story.append(Paragraph(
             f'Eu, <b>{desp_nome}</b>, portador do NIF <b>{desp_nif}</b>, '
-            f'N de Cedula/Licenca <b>{desp_cedula}</b>, na qualidade de <b>{desp_papel}</b>, '
-            f'declaro que as informacoes constantes nesta Declaracao Unica sao verdadeiras e '
+            f'Nº de Cédula/Licença <b>{desp_cedula}</b>, na qualidade de <b>{desp_papel}</b>, '
+            f'declaro que as informações constantes nesta Declaração Única são verdadeiras e '
             f'conformes com os documentos que as suportam, assumindo total responsabilidade '
-            f'pelo seu conteudo.',
-            ParagraphStyle('declaracao', fontSize=8.5, fontName='Helvetica',
-                           textColor=cor_cabecalho, leading=13, spaceAfter=16)
+            f'pelo seu conteúdo.',
+            st('declaracao', fontSize=7.5, textColor=COR_PRIMARIO, leading=11, spaceAfter=8)
         ))
 
-        assin_data = [[
-            Table([
-                [Paragraph('Assinatura do Despachante', s_assinatura)],
-                [Spacer(1, 1.8*cm)],
-                [HRFlowable(width=6.5*cm, thickness=0.8, color=colors.HexColor('#94a3b8'))],
-                [Paragraph(f'<b>{desp_nome}</b>', ParagraphStyle('an',
-                    fontSize=8, fontName='Helvetica-Bold', textColor=cor_cabecalho))],
-                [Paragraph(desp_papel, s_assinatura)],
-                [Paragraph(f'Data: {data_hoje}', s_assinatura)],
-            ], colWidths=[7*cm]),
-            Spacer(1, 0.5*cm),
-            Table([
-                [Paragraph('Carimbo / Selo', s_assinatura)],
-                [Table([['']], colWidths=[6.5*cm], rowHeights=[2.5*cm],
-                    style=TableStyle([
-                        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
-                        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
-                    ]))],
-                [Paragraph('(Carimbo da empresa / entidade)', ParagraphStyle('cc',
-                    fontSize=7, fontName='Helvetica',
-                    textColor=colors.HexColor('#94a3b8'), alignment=1))],
-            ], colWidths=[7*cm]),
-        ]]
-        t_assin = Table(assin_data, colWidths=[7.5*cm, 0.5*cm, 7.5*cm])
-        t_assin.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
+        # ════════════════════════════════════════════════════════════════
+        # ASSINATURA
+        # ════════════════════════════════════════════════════════════════
+        story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+        story.append(Spacer(1, 0.1*cm))
+        ass_data = [
+            [Paragraph('<b>Assinatura do Despachante:</b>', st('ass_lab', fontSize=8)),
+             Paragraph('', st('ass_spc', fontSize=8))],
+            [Spacer(1, 0.2*cm), Spacer(1, 0.2*cm)],
+            [HRFlowable(width=5.5*cm, thickness=0.8, color=COR_CINZA),
+             HRFlowable(width=5.5*cm, thickness=0.8, color=COR_CINZA)],
+            [Paragraph(f'<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
+             Paragraph(f'<font size="7.5"><b>{desp_nome}</b></font>',
+                       st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
+            [Paragraph('', st('ass_spc', fontSize=3)),
+             Paragraph(f'<font size="7">{desp_papel}</font>',
+                       st('ass_papel', fontSize=7, alignment=TA_CENTER))],
+        ]
+        assinatura = Table(ass_data, colWidths=[W/2, W/2])
+        assinatura.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
         ]))
-        story.append(t_assin)
+        story.append(assinatura)
+        story.append(Spacer(1, 0.15*cm))
 
-        story.append(Spacer(1, 0.5*cm))
-        story.append(HRFlowable(width=W, thickness=0.5, color=cor_borda, spaceAfter=4))
+        # ════════════════════════════════════════════════════════════════
+        # RODAPÉ: HASH + PÁGINA/DATA
+        # ════════════════════════════════════════════════════════════════
+        story.append(HRFlowable(width=W, thickness=0.5, color=colors.HexColor('#e2e2e2')))
+        story.append(Spacer(1, 0.1*cm))
         story.append(Paragraph(
-            f'Documento gerado pelo Sistema CDOA  |  '
-            f'DU N {du.numero_du or "Rascunho"}  |  '
-            f'Processo: {du.codigo_processo or "N/D"}  |  '
-            f'Gerado em: {timezone.now().strftime("%d/%m/%Y %H:%M")}',
-            ParagraphStyle('rodape', fontSize=7, fontName='Helvetica',
-                           textColor=colors.HexColor('#94a3b8'), alignment=1)
+            f'<font size="6" color="#94a3b8"><b>{nome_banco_txt} - HASH</b> &nbsp;|&nbsp; '
+            f'Processado por programa válido nº35/AGT/2019<br/>'
+            f'Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
+            st('footer', fontSize=6)
         ))
 
         doc.build(story)
@@ -1034,9 +1245,12 @@ def du_download_pdf(request, du_uuid):
 
     except ImportError:
         return HttpResponse(
-            'ReportLab nao instalado. Execute: pip install reportlab',
+            'ReportLab não instalado. Execute: pip install reportlab',
             status=500
         )
+    except Exception:
+        logger.exception("Erro ao gerar PDF da DU")
+        return HttpResponse('Erro ao gerar PDF.', status=500)
 
 
 
