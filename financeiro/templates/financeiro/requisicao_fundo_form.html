@@ -290,6 +290,12 @@
             {{ form.cambio_referencia }}
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Opcional</p>
           </div>
+
+          <div>
+            <label for="id_taxa_iva" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Taxa de IVA <span class="text-red-500">*</span></label>
+            {{ form.taxa_iva }}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Aplicada sobre o subtotal</p>
+          </div>
         </div>
       </div>
 
@@ -769,6 +775,11 @@ document.addEventListener('DOMContentLoaded', function() {
   // ────────────────────────────────────────────────────────────────────────────────
   
   const processoSelect = document.getElementById('id_processo_aduaneiro');
+
+  if (processoSelect && !clienteSelect.value) {
+    processoSelect.innerHTML = '<option value="">Selecione um cliente primeiro</option>';
+    processoSelect.disabled = true;
+  }
   
   if (clienteSelect && processoSelect) {
     clienteSelect.addEventListener('change', function() {

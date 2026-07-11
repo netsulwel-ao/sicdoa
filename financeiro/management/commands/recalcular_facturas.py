@@ -20,7 +20,15 @@ class Command(BaseCommand):
         atualizadas = 0
         for ft in facturas:
             subtotal = ft.honorarios_despachante + ft.taxas_aduaneiras + ft.emolumentos + ft.despesas_operacionais + ft.outros_encargos
-            novo_iva = (subtotal * Decimal('0.14')).quantize(Decimal('0.01'))
+            iva_pct = Decimal('14')
+            if ft.requisicao_fundo_id:
+                try:
+                    _rf_iva = ft.requisicao_fundo.taxa_iva
+                    if _rf_iva:
+                        iva_pct = Decimal(_rf_iva)
+                except Exception:
+                    pass
+            novo_iva = (subtotal * iva_pct / Decimal('100')).quantize(Decimal('0.01'))
             # Copiar retencao da requisicao vinculada, se existir
             if ft.requisicao_fundo:
                 novo_retencao = ft.requisicao_fundo.retencao or Decimal('0')

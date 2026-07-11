@@ -146,7 +146,12 @@
     fecharConfirm();
     if (formId) {
       var f = document.getElementById(formId);
-      if (f) f.submit();
+      if (f) {
+        if (typeof window._sanitizarCamposMonetarios === 'function') {
+          window._sanitizarCamposMonetarios(f);
+        }
+        f.submit();
+      }
     } else if (typeof cb === 'function') {
       cb();
     }

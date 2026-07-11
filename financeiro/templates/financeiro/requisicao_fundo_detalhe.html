@@ -10,9 +10,9 @@
   {% if messages %}
     {% for message in messages %}
       <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
-        {% if message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800
-        {% elif message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800
-        {% else %}bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800{% endif %}">
+        {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200
+        {% elif message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200
+        {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
         {{ message }}
       </div>
     {% endfor %}
@@ -20,26 +20,26 @@
 
   <!-- Breadcrumb + Cabecalho -->
   <div class="mb-6">
-    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+    <div class="flex items-center gap-2 text-sm text-gray-400 mb-3">
       <a href="{% url 'financeiro:requisicao_lista' %}" class="hover:text-primary transition-colors">Requisicoes</a>
-      <i class="fas fa-chevron-right text-xs"></i>
-      <span class="text-gray-900 dark:text-white font-medium">{{ requisicao.numero_requisicao }}</span>
+      <i class="fas fa-chevron-right text-xs text-gray-300"></i>
+      <span class="text-gray-800 font-medium">{{ requisicao.numero_requisicao }}</span>
     </div>
 
     <div class="flex items-start justify-between gap-4 flex-wrap">
       <div>
         <div class="flex items-center gap-3 mb-1">
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ requisicao.numero_requisicao }}</h1>
+          <h1 class="text-2xl font-bold text-gray-900">{{ requisicao.numero_requisicao }}</h1>
           <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold
-            {% if requisicao.estado == 'Pendente' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
-            {% elif requisicao.estado == 'Aceite' %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400
-            {% elif requisicao.estado == 'Rejeitada' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
-            {% elif requisicao.estado == 'Anulada' %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400
-            {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+            {% if requisicao.estado == 'Pendente' %}bg-yellow-100 text-yellow-700
+            {% elif requisicao.estado == 'Aceite' %}bg-primary/10 text-primary
+            {% elif requisicao.estado == 'Rejeitada' %}bg-red-100 text-red-600
+            {% elif requisicao.estado == 'Anulada' %}bg-gray-100 text-gray-500
+            {% else %}bg-gray-100 text-gray-500{% endif %}">
             {{ requisicao.get_estado_display }}
           </span>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
+        <p class="text-sm text-gray-500">
           Emitida em {{ requisicao.data_emissao|date:"d/m/Y" }} &bull; {{ requisicao.cliente.nome }}
         </p>
       </div>
@@ -47,18 +47,18 @@
       <!-- Acoes -->
       <div class="flex items-center gap-2 flex-wrap">
         <a href="{% url 'financeiro:requisicao_lista' %}"
-          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+          class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm">
           <i class="fas fa-arrow-left"></i>Voltar
         </a>
         <a href="{% url 'financeiro:requisicao_pdf' requisicao.id %}"
-          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+          class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm">
           <i class="fas fa-file-pdf"></i>PDF
         </a>
         <form method="post" action="{% url 'financeiro:requisicao_enviar_email' requisicao.id %}" class="inline">
           {% csrf_token %}
           <button type="button"
             onclick="confirmarFormPost(this.form, {tipo:'info', titulo:'Enviar Requisicao', mensagem:'Enviar requisicao por email?', textoBotao:'Sim, Enviar'})"
-            class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+            class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm">
             <i class="fas fa-envelope"></i>Email
           </button>
         </form>
@@ -74,12 +74,12 @@
           {% with requisicao.facturas.all as facturas_lista %}
             {% if facturas_lista|length > 0 %}
               <a href="{% url 'financeiro:factura_detalhe' facturas_lista.0.pk %}"
-                 class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors shadow-sm">
+                 class="flex items-center gap-2 px-4 py-2 bg-cdoa text-white rounded-xl text-sm font-medium hover:opacity-90 transition-colors shadow-sm">
                 <i class="fas fa-file-invoice"></i>Ver Factura
               </a>
             {% else %}
               <a href="{% url 'financeiro:requisicao_criar_factura' requisicao.id %}"
-                 class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors shadow-sm">
+                 class="flex items-center gap-2 px-4 py-2 bg-cdoa text-white rounded-xl text-sm font-medium hover:opacity-90 transition-colors shadow-sm">
                 <i class="fas fa-plus"></i>Gerar Factura Final
               </a>
             {% endif %}
@@ -88,12 +88,12 @@
           {% with requisicao.facturas_recibo.all as fr_lista %}
             {% if fr_lista|length > 0 %}
               <a href="{% url 'financeiro:factura_recibo_detalhe' fr_lista.0.pk %}"
-                 class="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors shadow-sm">
+                 class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">
                 <i class="fas fa-file-invoice-dollar"></i>Ver Factura-Recibo
               </a>
             {% else %}
               <a href="{% url 'financeiro:requisicao_criar_factura_recibo' requisicao.id %}"
-                 class="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors shadow-sm">
+                 class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">
                 <i class="fas fa-receipt"></i>Gerar Factura-Recibo
               </a>
             {% endif %}
@@ -110,82 +110,88 @@
     <div class="lg:col-span-2 space-y-5">
 
       <!-- 1. Dados de Carga -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <i class="fas fa-ship text-primary"></i>Dados da Carga
-        </h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-5">
-          <div>
-            <p class="text-xs text-gray-400 mb-0.5">DU</p>
-            <p class="text-sm font-mono font-semibold text-gray-900 dark:text-white">{{ requisicao.processo_aduaneiro.numero_du|default:"Rascunho" }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-400 mb-0.5">B/L / AWB</p>
-            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ requisicao.numero_bl_awb|default:"-" }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-400 mb-0.5">Valor CIF</p>
-            <p class="text-sm font-bold text-primary">{{ requisicao.valor_cif|default:"-" }} <span class="text-xs font-medium text-gray-500">USD</span></p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-400 mb-0.5">Origem</p>
-            <p class="text-sm text-gray-900 dark:text-white">{{ requisicao.origem|default:"-" }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-400 mb-0.5">Destino</p>
-            <p class="text-sm text-gray-900 dark:text-white">{{ requisicao.destino|default:"-" }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-400 mb-0.5">Peso (kg)</p>
-            <p class="text-sm text-gray-900 dark:text-white">{{ requisicao.peso_bruto_kg|default:"-" }}</p>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-ship"></i></span>
+            Dados da Carga
+          </h2>
+        </div>
+        <div class="p-6">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-5">
+            <div>
+              <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">DU</p>
+              <p class="text-sm font-mono font-semibold text-gray-900">{{ requisicao.processo_aduaneiro.numero_du|default:"Rascunho" }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">B/L / AWB</p>
+              <p class="text-sm font-semibold text-gray-900">{{ requisicao.numero_bl_awb|default:"-" }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Valor CIF</p>
+              <p class="text-sm font-bold text-primary">{{ requisicao.valor_cif|default:"-" }} <span class="text-xs font-medium text-gray-400">USD</span></p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Origem</p>
+              <p class="text-sm text-gray-800">{{ requisicao.origem|default:"-" }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Destino</p>
+              <p class="text-sm text-gray-800">{{ requisicao.destino|default:"-" }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Peso (kg)</p>
+              <p class="text-sm text-gray-800">{{ requisicao.peso_bruto_kg|default:"-" }}</p>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 2. Despesas DOCUMENTADAS -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-green-50 to-green-50/50 dark:from-green-900/20 dark:to-green-900/10">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
           <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold text-green-700 dark:text-green-400 uppercase tracking-wider flex items-center gap-2">
-              <i class="fas fa-check-circle"></i>Despesas Documentadas
+            <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-check-circle"></i></span>
+              Despesas Documentadas
             </h2>
-            <span class="text-xs font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2.5 py-1 rounded-full">{{ linhas_documentadas|length }}</span>
+            <span class="text-xs font-semibold bg-primary/10 text-primary px-2.5 py-1 rounded-full">{{ linhas_documentadas|length }}</span>
           </div>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+            <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Despesa</th>
-                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Descricao</th>
-                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Anexo</th>
-                <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Valor</th>
+                <th class="px-6 py-3 text-left font-semibold text-gray-500 uppercase text-xs tracking-wide">Despesa</th>
+                <th class="px-6 py-3 text-left font-semibold text-gray-500 uppercase text-xs tracking-wide">Descricao</th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-500 uppercase text-xs tracking-wide">Anexo</th>
+                <th class="px-6 py-3 text-right font-semibold text-gray-500 uppercase text-xs tracking-wide">Valor</th>
                 {% if requisicao.estado == 'Pendente' %}
-                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300"></th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-500 uppercase text-xs tracking-wide"></th>
                 {% endif %}
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-700/60">
+            <tbody class="divide-y divide-gray-100">
               {% for custo in linhas_documentadas %}
-              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <td class="px-6 py-3.5 text-gray-900 dark:text-white font-semibold text-xs">{{ custo.despesa_tipo }}</td>
-                <td class="px-6 py-3.5 text-gray-600 dark:text-gray-400 text-xs">{{ custo.descricao }}</td>
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-900 font-semibold text-xs">{{ custo.despesa_tipo }}</td>
+                <td class="px-6 py-3.5 text-gray-500 text-xs">{{ custo.descricao }}</td>
                 <td class="px-6 py-3.5 text-center">
                   {% if custo.documento_justificativo %}
-                    <a href="{{ custo.documento_justificativo.url }}" target="_blank" class="inline-flex items-center gap-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-xs font-medium">
+                    <a href="{{ custo.documento_justificativo.url }}" target="_blank" class="inline-flex items-center gap-1 text-primary hover:text-primary/80 text-xs font-medium">
                       <i class="fas fa-file-alt"></i>Ver
                     </a>
                   {% else %}
-                    <span class="text-gray-300 dark:text-gray-600 text-xs">-</span>
+                    <span class="text-gray-300 text-xs">-</span>
                   {% endif %}
                 </td>
-                <td class="px-6 py-3.5 text-right font-bold text-gray-900 dark:text-white">{{ custo.valor|fmtkz }} <span class="text-xs font-medium text-gray-500">Kz</span></td>
+                <td class="px-6 py-3.5 text-right font-bold text-gray-900">{{ custo.valor|fmtkz }} <span class="text-xs font-medium text-gray-400">Kz</span></td>
                 {% if requisicao.estado == 'Pendente' %}
                 <td class="px-6 py-3.5 text-center">
                   <div class="flex items-center justify-center gap-1">
                     <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Editar"><i class="fas fa-pen text-xs"></i></a>
-                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></a>
+                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></a>
                   </div>
                 </td>
                 {% endif %}
@@ -194,18 +200,18 @@
               <tr>
                 <td colspan="{% if requisicao.estado == 'Pendente' %}5{% else %}4{% endif %}" class="px-6 py-10 text-center">
                   <div class="flex flex-col items-center gap-2">
-                    <i class="fas fa-inbox text-gray-300 dark:text-gray-600 text-2xl"></i>
-                    <span class="text-sm text-gray-400 dark:text-gray-500">Nenhuma despesa documentada</span>
+                    <i class="fas fa-inbox text-gray-300 text-2xl"></i>
+                    <span class="text-sm text-gray-400">Nenhuma despesa documentada</span>
                   </div>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
             {% if linhas_documentadas %}
-            <tfoot class="bg-green-50 dark:bg-green-900/10 border-t border-green-200 dark:border-green-800">
+            <tfoot class="bg-gray-50 border-t border-gray-200">
               <tr>
-                <td colspan="{% if requisicao.estado == 'Pendente' %}4{% else %}3{% endif %}" class="px-6 py-3 text-right font-bold text-green-700 dark:text-green-400 text-sm">Subtotal Documentadas</td>
-                <td class="px-6 py-3 text-right font-bold text-green-700 dark:text-green-400 text-sm">{{ subtotal_documentadas|fmtkz }} <span class="text-xs">Kz</span></td>
+                <td colspan="{% if requisicao.estado == 'Pendente' %}4{% else %}3{% endif %}" class="px-6 py-3 text-right font-bold text-cdoa text-sm">Subtotal Documentadas</td>
+                <td class="px-6 py-3 text-right font-bold text-cdoa text-sm">{{ subtotal_documentadas|fmtkz }} <span class="text-xs">Kz</span></td>
                 {% if requisicao.estado == 'Pendente' %}<td></td>{% endif %}
               </tr>
             </tfoot>
@@ -215,39 +221,40 @@
       </div>
 
       <!-- 3. Despesas NAO-DOCUMENTADAS -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-purple-50/50 dark:from-purple-900/20 dark:to-purple-900/10">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
           <div class="flex items-center justify-between">
-            <h2 class="text-sm font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider flex items-center gap-2">
-              <i class="fas fa-minus-circle"></i>Despesas Nao-Documentadas
+            <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center text-xs"><i class="fas fa-minus-circle"></i></span>
+              Despesas Nao-Documentadas
             </h2>
-            <span class="text-xs font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 px-2.5 py-1 rounded-full">{{ linhas_nao_documentadas|length }}</span>
+            <span class="text-xs font-semibold bg-secondary/15 text-secondary px-2.5 py-1 rounded-full">{{ linhas_nao_documentadas|length }}</span>
           </div>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+            <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Despesa</th>
-                <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Descricao</th>
-                <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Valor</th>
+                <th class="px-6 py-3 text-left font-semibold text-gray-500 uppercase text-xs tracking-wide">Despesa</th>
+                <th class="px-6 py-3 text-left font-semibold text-gray-500 uppercase text-xs tracking-wide">Descricao</th>
+                <th class="px-6 py-3 text-right font-semibold text-gray-500 uppercase text-xs tracking-wide">Valor</th>
                 {% if requisicao.estado == 'Pendente' %}
-                <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300"></th>
+                <th class="px-6 py-3 text-center font-semibold text-gray-500 uppercase text-xs tracking-wide"></th>
                 {% endif %}
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-700/60">
+            <tbody class="divide-y divide-gray-100">
               {% for custo in linhas_nao_documentadas %}
-              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <td class="px-6 py-3.5 text-gray-900 dark:text-white font-semibold text-xs">{{ custo.despesa_tipo }}</td>
-                <td class="px-6 py-3.5 text-gray-600 dark:text-gray-400 text-xs">{{ custo.descricao }}</td>
-                <td class="px-6 py-3.5 text-right font-bold text-gray-900 dark:text-white">{{ custo.valor|fmtkz }} <span class="text-xs font-medium text-gray-500">Kz</span></td>
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-3.5 text-gray-900 font-semibold text-xs">{{ custo.despesa_tipo }}</td>
+                <td class="px-6 py-3.5 text-gray-500 text-xs">{{ custo.descricao }}</td>
+                <td class="px-6 py-3.5 text-right font-bold text-gray-900">{{ custo.valor|fmtkz }} <span class="text-xs font-medium text-gray-400">Kz</span></td>
                 {% if requisicao.estado == 'Pendente' %}
                 <td class="px-6 py-3.5 text-center">
                   <div class="flex items-center justify-center gap-1">
                     <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Editar"><i class="fas fa-pen text-xs"></i></a>
-                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></a>
+                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></a>
                   </div>
                 </td>
                 {% endif %}
@@ -256,18 +263,18 @@
               <tr>
                 <td colspan="{% if requisicao.estado == 'Pendente' %}4{% else %}3{% endif %}" class="px-6 py-10 text-center">
                   <div class="flex flex-col items-center gap-2">
-                    <i class="fas fa-inbox text-gray-300 dark:text-gray-600 text-2xl"></i>
-                    <span class="text-sm text-gray-400 dark:text-gray-500">Nenhuma despesa nao-documentada</span>
+                    <i class="fas fa-inbox text-gray-300 text-2xl"></i>
+                    <span class="text-sm text-gray-400">Nenhuma despesa nao-documentada</span>
                   </div>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
             {% if linhas_nao_documentadas %}
-            <tfoot class="bg-purple-50 dark:bg-purple-900/10 border-t border-purple-200 dark:border-purple-800">
+            <tfoot class="bg-gray-50 border-t border-gray-200">
               <tr>
-                <td colspan="{% if requisicao.estado == 'Pendente' %}3{% else %}2{% endif %}" class="px-6 py-3 text-right font-bold text-purple-700 dark:text-purple-400 text-sm">Subtotal Nao-Documentadas</td>
-                <td class="px-6 py-3 text-right font-bold text-purple-700 dark:text-purple-400 text-sm">{{ subtotal_nao_documentadas|fmtkz }} <span class="text-xs">Kz</span></td>
+                <td colspan="{% if requisicao.estado == 'Pendente' %}3{% else %}2{% endif %}" class="px-6 py-3 text-right font-bold text-secondary text-sm">Subtotal Nao-Documentadas</td>
+                <td class="px-6 py-3 text-right font-bold text-secondary text-sm">{{ subtotal_nao_documentadas|fmtkz }} <span class="text-xs">Kz</span></td>
                 {% if requisicao.estado == 'Pendente' %}<td></td>{% endif %}
               </tr>
             </tfoot>
@@ -279,7 +286,7 @@
       <!-- Botao Adicionar Custo -->
       {% if requisicao.estado == 'Pendente' %}
       <div class="flex justify-center">
-        <a href="{% url 'financeiro:requisicao_linha_adicionar' requisicao.pk %}" class="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-primary/40 dark:border-primary/30 text-primary rounded-xl font-medium hover:bg-primary/5 dark:hover:bg-primary/5 transition-colors">
+        <a href="{% url 'financeiro:requisicao_linha_adicionar' requisicao.pk %}" class="flex items-center gap-2 px-6 py-3 bg-white border-2 border-dashed border-primary/30 text-primary rounded-xl font-medium hover:bg-primary/5 transition-colors">
           <i class="fas fa-plus-circle"></i> Adicionar Novo Custo
         </a>
       </div>
@@ -287,34 +294,37 @@
 
       <!-- 4. Historico -->
       {% if historico %}
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <i class="fas fa-clock text-primary"></i>Historico
-        </h2>
-        <div class="space-y-0">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-clock"></i></span>
+            Historico
+          </h2>
+        </div>
+        <div class="p-6 space-y-0">
           {% for h in historico %}
           <div class="flex items-start gap-3 {% if not forloop.last %}pb-4{% endif %}">
             <div class="flex-shrink-0 mt-0.5">
               {% if h.accao == 'Criada' %}
-                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"><i class="fas fa-plus text-xs"></i></span>
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary"><i class="fas fa-plus text-xs"></i></span>
               {% elif h.accao == 'Aceite' %}
-                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400"><i class="fas fa-check text-xs"></i></span>
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-50 text-green-600"><i class="fas fa-check text-xs"></i></span>
               {% elif h.accao == 'Rejeitada' %}
-                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"><i class="fas fa-times text-xs"></i></span>
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 text-red-500"><i class="fas fa-times text-xs"></i></span>
               {% elif h.accao == 'Anulada' %}
-                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"><i class="fas fa-ban text-xs"></i></span>
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-500"><i class="fas fa-ban text-xs"></i></span>
               {% else %}
-                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"><i class="fas fa-circle text-xs"></i></span>
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400"><i class="fas fa-circle text-xs"></i></span>
               {% endif %}
             </div>
             <div class="flex-1 min-w-0 pt-1">
-              <p class="text-sm font-semibold text-gray-900 dark:text-white">
+              <p class="text-sm font-semibold text-gray-900">
                 {{ h.accao }}
                 {% if h.estado_anterior and h.estado_novo and h.estado_anterior != h.estado_novo %}
                   <span class="text-gray-400 font-normal"> &mdash; de <span class="font-semibold">{{ h.estado_anterior }}</span> para <span class="font-semibold">{{ h.estado_novo }}</span></span>
                 {% endif %}
               </p>
-              <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              <p class="text-xs text-gray-400 mt-0.5">
                 {{ h.utilizador_nome|default:"Sistema" }} &bull; {{ h.data|date:"d/m/Y H:i" }}
               </p>
             </div>
@@ -329,118 +339,134 @@
     <!-- Sidebar (1/3) -->
     <div class="space-y-5">
 
-      <!-- Resumo Financeiro -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Resumo Financeiro</h2>
-
-        <!-- Total Destacado -->
-        <div class="text-center mb-5">
-          <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">Total</p>
-          <p class="text-3xl font-bold text-primary">{{ requisicao.total_geral|fmtkz }} <span class="text-base font-medium text-gray-500">Kz</span></p>
+      <!-- Resumo Financeiro — Destaque com Gold -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gradient-to-r from-[#1a3a5c] to-[#0f2840]">
+          <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <i class="fas fa-coins text-secondary"></i>Resumo Financeiro
+          </h2>
         </div>
+        <div class="p-6">
+          <!-- Total Destacado -->
+          <div class="text-center mb-5 pb-5 border-b border-gray-100">
+            <p class="text-xs text-gray-400 mb-1 uppercase tracking-wide">Total</p>
+            <p class="text-3xl font-bold text-cdoa">{{ requisicao.total_geral|fmtkz }} <span class="text-base font-medium text-gray-400">Kz</span></p>
+          </div>
 
-        <div class="space-y-3">
-          <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
-            <span class="text-sm text-gray-600 dark:text-gray-400">Subtotal</span>
-            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.subtotal_geral|fmtkz }} Kz</span>
+          <div class="space-y-3">
+            <div class="flex justify-between items-center pb-3 border-b border-gray-100">
+              <span class="text-sm text-gray-500">Subtotal</span>
+              <span class="font-semibold text-gray-900">{{ requisicao.subtotal_geral|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
+            </div>
+            <div class="flex justify-between items-center pb-3 border-b border-gray-100">
+              <span class="text-sm text-gray-500">IVA {{ requisicao.get_taxa_iva_display }}</span>
+              <span class="font-semibold text-gray-900">{{ requisicao.iva_honorarios|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-500">Retencao 6.5%</span>
+              <span class="font-semibold text-gray-900">{{ requisicao.retencao|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
+            </div>
           </div>
-          <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
-            <span class="text-sm text-gray-600 dark:text-gray-400">IVA 14%</span>
-            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.iva_honorarios|fmtkz }} Kz</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600 dark:text-gray-400">Retencao 6.5%</span>
-            <span class="font-semibold text-gray-900 dark:text-white">{{ requisicao.retencao|fmtkz }} Kz</span>
-          </div>
-        </div>
 
-        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-          <p class="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
-            <i class="fas fa-info-circle mr-1"></i>{{ requisicao.valor_total_extenso }}
-          </p>
+          <div class="mt-5 p-3 bg-primary/5 rounded-xl border border-primary/10">
+            <p class="text-xs text-primary font-medium leading-relaxed">
+              <i class="fas fa-info-circle mr-1"></i>{{ requisicao.valor_total_extenso }}
+            </p>
+          </div>
         </div>
       </div>
 
       <!-- Cliente -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <i class="fas fa-user-circle text-primary"></i>Cliente
-        </h2>
-        <div class="space-y-3">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-user-circle"></i></span>
+            Cliente
+          </h2>
+        </div>
+        <div class="p-5 space-y-3">
           <div>
-            <p class="text-xs text-gray-400 mb-0.5">Nome</p>
-            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ requisicao.cliente.nome }}</p>
+            <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Nome</p>
+            <p class="text-sm font-semibold text-gray-900">{{ requisicao.cliente.nome }}</p>
           </div>
           <div>
-            <p class="text-xs text-gray-400 mb-0.5">NIF</p>
-            <p class="text-sm font-mono font-semibold text-gray-900 dark:text-white">{{ requisicao.cliente.nif }}</p>
+            <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">NIF</p>
+            <p class="text-sm font-mono font-semibold text-gray-900">{{ requisicao.cliente.nif }}</p>
           </div>
           <div>
-            <p class="text-xs text-gray-400 mb-0.5">Contacto</p>
-            <p class="text-sm text-gray-900 dark:text-white">{{ requisicao.cliente.telefone|default:"-" }}</p>
+            <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Contacto</p>
+            <p class="text-sm text-gray-700">{{ requisicao.cliente.telefone|default:"-" }}</p>
           </div>
           <div>
-            <p class="text-xs text-gray-400 mb-0.5">Email</p>
-            <p class="text-sm text-gray-900 dark:text-white">{{ requisicao.cliente.email|default:"-" }}</p>
+            <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Email</p>
+            <p class="text-sm text-gray-700">{{ requisicao.cliente.email|default:"-" }}</p>
           </div>
         </div>
       </div>
 
       <!-- Despachante -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <i class="fas fa-user-tie text-primary"></i>Despachante
-        </h2>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-user-tie"></i></span>
+            Despachante
+          </h2>
+        </div>
         {% if requisicao.banca %}
-        <div class="space-y-3">
+        <div class="p-5 space-y-3">
           <div>
-            <p class="text-xs text-gray-400 mb-0.5">Nome</p>
-            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ requisicao.banca.nome }}</p>
+            <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Nome</p>
+            <p class="text-sm font-semibold text-gray-900">{{ requisicao.banca.nome }}</p>
           </div>
           <div>
-            <p class="text-xs text-gray-400 mb-0.5">NIF</p>
-            <p class="text-sm font-mono text-gray-900 dark:text-white">{{ requisicao.banca.nif }}</p>
+            <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">NIF</p>
+            <p class="text-sm font-mono text-gray-900">{{ requisicao.banca.nif }}</p>
           </div>
           <div>
-            <p class="text-xs text-gray-400 mb-0.5">Licenca CDOA</p>
-            <p class="text-sm text-gray-900 dark:text-white">{{ requisicao.banca.licenca_cdoa|default:"-" }}</p>
+            <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Licenca CDOA</p>
+            <p class="text-sm text-gray-700">{{ requisicao.banca.licenca_cdoa|default:"-" }}</p>
           </div>
         </div>
         {% else %}
-        <p class="text-sm text-gray-400 dark:text-gray-500">Sem despachante associado</p>
+        <div class="p-5">
+          <p class="text-sm text-gray-400">Sem despachante associado</p>
+        </div>
         {% endif %}
       </div>
 
       <!-- Documentos Gerados -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <i class="fas fa-file-alt text-primary"></i>Documentos
-        </h2>
-        <div class="space-y-2">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-file-alt"></i></span>
+            Documentos
+          </h2>
+        </div>
+        <div class="p-4 space-y-2">
           {% with requisicao.facturas.all as facturas_lista %}
-          <div class="flex items-center justify-between p-2.5 rounded-xl {% if facturas_lista|length > 0 %}bg-green-50 dark:bg-green-900/20{% else %}bg-gray-50 dark:bg-gray-700/30{% endif %}">
-            <div class="flex items-center gap-2">
-              <i class="fas fa-file-invoice {% if facturas_lista|length > 0 %}text-green-500{% else %}text-gray-400{% endif %}"></i>
-              <span class="text-xs font-medium {% if facturas_lista|length > 0 %}text-green-700 dark:text-green-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">Factura Final</span>
+          <div class="flex items-center justify-between p-3 rounded-xl {% if facturas_lista|length > 0 %}bg-primary/5 border border-primary/10{% else %}bg-gray-50 border border-gray-100{% endif %}">
+            <div class="flex items-center gap-2.5">
+              <i class="fas fa-file-invoice {% if facturas_lista|length > 0 %}text-primary{% else %}text-gray-300{% endif %}"></i>
+              <span class="text-xs font-medium {% if facturas_lista|length > 0 %}text-cdoa{% else %}text-gray-400{% endif %}">Factura Final</span>
             </div>
             {% if facturas_lista|length > 0 %}
-              <a href="{% url 'financeiro:factura_detalhe' facturas_lista.0.pk %}" class="text-xs font-semibold text-green-600 dark:text-green-400 hover:underline">Ver</a>
+              <a href="{% url 'financeiro:factura_detalhe' facturas_lista.0.pk %}" class="text-xs font-semibold text-primary hover:underline">Ver</a>
             {% else %}
-              <span class="text-xs text-gray-400">-</span>
+              <span class="text-xs text-gray-300">-</span>
             {% endif %}
           </div>
           {% endwith %}
 
           {% with requisicao.facturas_recibo.all as fr_lista %}
-          <div class="flex items-center justify-between p-2.5 rounded-xl {% if fr_lista|length > 0 %}bg-teal-50 dark:bg-teal-900/20{% else %}bg-gray-50 dark:bg-gray-700/30{% endif %}">
-            <div class="flex items-center gap-2">
-              <i class="fas fa-file-invoice-dollar {% if fr_lista|length > 0 %}text-teal-500{% else %}text-gray-400{% endif %}"></i>
-              <span class="text-xs font-medium {% if fr_lista|length > 0 %}text-teal-700 dark:text-teal-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">Factura-Recibo</span>
+          <div class="flex items-center justify-between p-3 rounded-xl {% if fr_lista|length > 0 %}bg-primary/5 border border-primary/10{% else %}bg-gray-50 border border-gray-100{% endif %}">
+            <div class="flex items-center gap-2.5">
+              <i class="fas fa-file-invoice-dollar {% if fr_lista|length > 0 %}text-primary{% else %}text-gray-300{% endif %}"></i>
+              <span class="text-xs font-medium {% if fr_lista|length > 0 %}text-cdoa{% else %}text-gray-400{% endif %}">Factura-Recibo</span>
             </div>
             {% if fr_lista|length > 0 %}
-              <a href="{% url 'financeiro:factura_recibo_detalhe' fr_lista.0.pk %}" class="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline">Ver</a>
+              <a href="{% url 'financeiro:factura_recibo_detalhe' fr_lista.0.pk %}" class="text-xs font-semibold text-primary hover:underline">Ver</a>
             {% else %}
-              <span class="text-xs text-gray-400">-</span>
+              <span class="text-xs text-gray-300">-</span>
             {% endif %}
           </div>
           {% endwith %}
@@ -449,37 +475,40 @@
 
       <!-- Acoes de Gestao -->
       {% if requisicao.estado == 'Pendente' %}
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <i class="fas fa-cog text-primary"></i>Gestao
-        </h2>
-        <div class="space-y-2">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-cog"></i></span>
+            Gestao
+          </h2>
+        </div>
+        <div class="p-4 space-y-2">
           <form method="post" action="{% url 'financeiro:requisicao_aceitar' requisicao.id %}">
             {% csrf_token %}
             <button type="button" onclick="confirmarFormPost(this.form, { tipo:'success', titulo:'Aceitar Proposta', mensagem:'Confirma que o cliente ACEITOU esta proposta?', textoBotao:'Sim, Aceitar', textoCancelar:'Voltar' })"
-              class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-xl transition-colors">
+              class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200">
               <i class="fas fa-check"></i>Aceitar Proposta
             </button>
           </form>
           <form method="post" action="{% url 'financeiro:requisicao_rejeitar' requisicao.id %}">
             {% csrf_token %}
             <button type="button" onclick="confirmarFormPost(this.form, { tipo:'warning', titulo:'Rejeitar Proposta', mensagem:'Confirma que o cliente REJEITOU esta proposta?', textoBotao:'Sim, Rejeitar', textoCancelar:'Voltar' })"
-              class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-xl transition-colors">
+              class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-xl transition-colors border border-yellow-200">
               <i class="fas fa-times"></i>Rejeitar Proposta
             </button>
           </form>
           <form method="post" action="{% url 'financeiro:requisicao_cancelar' requisicao.id %}">
             {% csrf_token %}
             <button type="button" onclick="confirmarFormPost(this.form, { tipo:'warning', titulo:'Anular Requisicao', mensagem:'Tem a certeza que pretende ANULAR esta requisicao?', textoBotao:'Sim, Anular', textoCancelar:'Voltar' })"
-              class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-xl transition-colors">
+              class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200">
               <i class="fas fa-ban"></i>Anular Requisicao
             </button>
           </form>
-          <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+          <div class="pt-2 border-t border-gray-100">
             <form method="post" action="{% url 'financeiro:requisicao_eliminar' requisicao.id %}">
               {% csrf_token %}
               <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Eliminar Requisicao', mensagem:'Tem a certeza que pretende ELIMINAR permanentemente esta requisicao? Esta accao nao pode ser desfeita.', textoBotao:'Sim, Eliminar', textoCancelar:'Voltar' })"
-                class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors">
+                class="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-colors">
                 <i class="fas fa-trash"></i>Eliminar Requisicao
               </button>
             </form>

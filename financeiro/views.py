@@ -13,7 +13,8 @@ from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.core.mail import EmailMultiAlternatives
-from django.db.models import Q, Count, Prefetch
+from django.db import models as db_models, transaction
+from django.db.models import Q, Count, Prefetch, Sum, Value
 from django.views.decorators.http import require_POST, require_http_methods
 
 from django.conf import settings
@@ -917,7 +918,7 @@ def requisicao_pdf(request, pk):
         f"Peso Bruto: {requisicao.peso_bruto_kg or '—'} Kg\n"
         f"\n--- VALORES ---\n"
         f"Subtotal: {fmt_kz(requisicao.subtotal_geral or 0)} KZ\n"
-        f"IVA: {fmt_kz(requisicao.iva_honorarios or 0)} KZ\n"
+        f"IVA ({requisicao.taxa_iva}%): {fmt_kz(requisicao.iva_honorarios or 0)} KZ\n"
         f"Retenção: {fmt_kz(requisicao.retencao or 0)} KZ\n"
         f"TOTAL: {fmt_kz(requisicao.total_geral or 0)} KZ\n"
         f"\n--- DESPACHANTE ---\n"
@@ -1113,7 +1114,7 @@ def requisicao_pdf(request, pk):
     # ══════════════════════════════════════════════════════════════════
     # IMPOSTO/IVA + REFERÊNCIA DO PROCESSO (esquerda) | SUMÁRIO (direita)
     # ══════════════════════════════════════════════════════════════════
-    iva_pct = Decimal('0.14')
+    iva_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
     ret_pct = Decimal('0.065')
     sttl = requisicao.subtotal_geral or Decimal('0')
     iva_val = requisicao.iva_honorarios or Decimal('0')
@@ -1460,7 +1461,7 @@ Detalhes da Requisição:
   
 Totalizações:
   Subtotal Geral: {fmt_kz(requisicao.subtotal_geral)} KZ
-  IVA (14% Honorários): {fmt_kz(requisicao.iva_honorarios)} KZ
+  IVA ({requisicao.taxa_iva}% Honorários): {fmt_kz(requisicao.iva_honorarios)} KZ
   Retenção (6.5% Honorários): {fmt_kz(requisicao.retencao)} KZ
   Total Geral a Pagar: {fmt_kz(requisicao.total_geral)} KZ
 
@@ -1505,7 +1506,7 @@ Equipa SICDOA
                     <td style="padding: 10px; text-align: right;">{fmt_kz(requisicao.subtotal_geral)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; color: #475569;">IVA (14% Honorários):</td>
+                    <td style="padding: 10px; color: #475569;">IVA ({requisicao.taxa_iva}% Honorários):</td>
                     <td style="padding: 10px; text-align: right;">{fmt_kz(requisicao.iva_honorarios)} KZ</td>
                 </tr>
                 <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
@@ -1616,7 +1617,8 @@ def criar_factura_de_requisicao(request, pk):
         retencao = (base_retencao * Decimal('0.065')).quantize(Decimal('0.01'))
         
         subtotal = honorarios + taxas_aduaneiras + emolumentos + despesas_operacionais
-        iva = (subtotal * Decimal('0.14')).quantize(Decimal('0.01'))
+        iva_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
+        iva = (subtotal * iva_pct).quantize(Decimal('0.01'))
         valor_total = subtotal + iva - retencao
         
         return honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, valor_total
@@ -1900,6 +1902,26 @@ class FacturaClienteListView(BaseContextMixin, ListView):
         context['busca'] = self.request.GET.get('busca', '')
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = 'facturas_finais'
+        base_qs = self.get_queryset()
+        agg = base_qs.aggregate(
+            total_valor=Sum('valor_total'),
+            total_pago=Sum('valor_pago'),
+            total_pendente=Sum(
+                db_models.Case(
+                    db_models.When(estado='Pendente', then='valor_total'),
+                    default=Value(0),
+                    output_field=db_models.DecimalField(),
+                )
+            ),
+        )
+        context['total_facturado'] = agg['total_valor'] or Decimal('0')
+        context['total_recebido'] = agg['total_pago'] or Decimal('0')
+        context['total_pendente'] = (agg['total_pendente'] or Decimal('0'))
+        total_valor = context['total_facturado']
+        context['percent_recebido'] = round((context['total_recebido'] / total_valor * 100), 1) if total_valor else 0
+        context['total_facturas'] = base_qs.count()
+        context['total_pago_count'] = base_qs.filter(estado='Paga').count()
+        context['total_pendente_count'] = base_qs.filter(estado='Pendente').count()
         return context
 
 # ELIMINADO: Criacão standalone substituída pela criacão a partir da Requisição de Fundo
@@ -1976,6 +1998,17 @@ class FacturaClienteDetailView(BaseContextMixin, DetailView):
             context['dias_restantes'] = (f.data_vencimento - hoje).days
         else:
             context['dias_restantes'] = 0
+
+        # Taxa IVA dinâmica (da Requisição vinculada ou 14%)
+        taxa_iva_pct = '14'
+        if f.requisicao_fundo_id:
+            try:
+                _rf_iva = RequisicaoFundo.objects.filter(pk=f.requisicao_fundo_id).values_list('taxa_iva', flat=True).first()
+                if _rf_iva:
+                    taxa_iva_pct = _rf_iva
+            except Exception:
+                pass
+        context['taxa_iva_pct'] = taxa_iva_pct
 
         return context
 
@@ -2351,19 +2384,40 @@ class NotaCreditoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     success_message = "Nota de Crédito emitida com sucesso!"
 
     def form_valid(self, form):
-        form.instance.utilizador_criador_id = self.request.session.get('usuario_id')
+        usuario_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
+        form.instance.utilizador_criador_id = usuario_id
         form.instance.utilizador_criador_nome = usuario_data.get('nome', '')
         form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+        form.instance.estado = 'Aprovada'
+        form.instance.utilizador_aprovador_id = usuario_id
+        form.instance.utilizador_aprovador_nome = usuario_data.get('nome', '')
+        form.instance.data_aprovacao = timezone.now()
         response = super().form_valid(form)
-        registrar_historico(
-            'NotaCredito', self.object.pk, self.object.numero_nota, 'Criada',
-            estado_novo='Pendente', valor=self.object.valor_creditado,
-            utilizador_id=self.object.utilizador_criador_id, utilizador_nome=self.object.utilizador_criador_nome,
-            cliente_nome=self.object.cliente.nome,
-            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
-        )
+        if self.object.cliente.email:
+            _email_nota = {
+                'nota_numero': self.object.numero_nota,
+                'cliente_nome': self.object.cliente.nome,
+                'valor': fmt_kz(self.object.valor_creditado),
+                'motivo': self.object.motivo,
+                'email': self.object.cliente.email,
+            }
+            import threading
+            def _enviar_async():
+                try:
+                    from utils.email_utils import _enviar
+                    _enviar(
+                        f"Nota de Crédito {_email_nota['nota_numero']} emitida – SICDOA",
+                        f"Prezado(a) {_email_nota['cliente_nome']},\n\n"
+                        f"Foi emitida uma Nota de Crédito no valor de {_email_nota['valor']} Kz.\n"
+                        f"Motivo: {_email_nota['motivo']}\n\n"
+                        f"Atenciosamente,\nEquipa SICDOA",
+                        '', _email_nota['email']
+                    )
+                except Exception:
+                    logger.exception("Falha ao enviar email de Nota de Crédito %s", _email_nota['nota_numero'])
+            threading.Thread(target=_enviar_async, daemon=True).start()
         return response
 
     def get_context_data(self, **kwargs):
@@ -2536,8 +2590,8 @@ def rejeitar_nota_credito(request, pk):
 @requer_escrita_financeira
 def cancelar_nota_credito(request, pk):
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
-    if nota.estado not in ('Pendente',):
-        messages.error(request, 'Apenas notas de crédito pendentes podem ser canceladas.')
+    if nota.estado not in ('Pendente', 'Aprovada'):
+        messages.error(request, 'Apenas notas de crédito pendentes ou aprovadas podem ser canceladas.')
         return redirect('financeiro:nota_credito_detalhe', pk=pk)
 
     usuario_id = request.session.get('usuario_id')
@@ -2602,19 +2656,40 @@ class NotaDebitoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     success_message = "Nota de Débito emitida com sucesso!"
 
     def form_valid(self, form):
-        form.instance.utilizador_criador_id = self.request.session.get('usuario_id')
+        usuario_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
+        form.instance.utilizador_criador_id = usuario_id
         form.instance.utilizador_criador_nome = usuario_data.get('nome', '')
         form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+        form.instance.estado = 'Aprovada'
+        form.instance.utilizador_aprovador_id = usuario_id
+        form.instance.utilizador_aprovador_nome = usuario_data.get('nome', '')
+        form.instance.data_aprovacao = timezone.now()
         response = super().form_valid(form)
-        registrar_historico(
-            'NotaDebito', self.object.pk, self.object.numero_nota, 'Criada',
-            estado_novo='Pendente', valor=self.object.valor,
-            utilizador_id=self.object.utilizador_criador_id, utilizador_nome=self.object.utilizador_criador_nome,
-            cliente_nome=self.object.cliente.nome,
-            banca_id=self.object.banca_id, filial_id=self.object.filial_id,
-        )
+        if self.object.cliente.email:
+            _email_nd = {
+                'nota_numero': self.object.numero_nota,
+                'cliente_nome': self.object.cliente.nome,
+                'valor': fmt_kz(self.object.valor),
+                'motivo': self.object.motivo,
+                'email': self.object.cliente.email,
+            }
+            import threading
+            def _enviar_async():
+                try:
+                    from utils.email_utils import _enviar
+                    _enviar(
+                        f"Nota de Débito {_email_nd['nota_numero']} emitida – SICDOA",
+                        f"Prezado(a) {_email_nd['cliente_nome']},\n\n"
+                        f"Foi emitida uma Nota de Débito no valor de {_email_nd['valor']} Kz.\n"
+                        f"Motivo: {_email_nd['motivo']}\n\n"
+                        f"Atenciosamente,\nEquipa SICDOA",
+                        '', _email_nd['email']
+                    )
+                except Exception:
+                    logger.exception("Falha ao enviar email de Nota de Débito %s", _email_nd['nota_numero'])
+            threading.Thread(target=_enviar_async, daemon=True).start()
         return response
 
     def get_context_data(self, **kwargs):
@@ -2789,8 +2864,8 @@ def rejeitar_nota_debito(request, pk):
 @requer_escrita_financeira
 def cancelar_nota_debito(request, pk):
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
-    if nota.estado not in ('Pendente',):
-        messages.error(request, 'Apenas notas de débito pendentes podem ser canceladas.')
+    if nota.estado not in ('Pendente', 'Aprovada'):
+        messages.error(request, 'Apenas notas de débito pendentes ou aprovadas podem ser canceladas.')
         return redirect('financeiro:nota_debito_detalhe', pk=pk)
 
     usuario_id = request.session.get('usuario_id')
@@ -2825,10 +2900,20 @@ def eliminar_nota_debito(request, pk):
     if request.method != 'POST':
         return redirect('financeiro:nota_debito_lista')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
-    if nota.estado != 'Pendente':
-        messages.error(request, 'Apenas notas de débito pendentes podem ser eliminadas.')
+    if nota.estado not in ('Pendente', 'Aprovada'):
+        messages.error(request, 'Apenas notas de débito pendentes ou aprovadas podem ser eliminadas.')
         return redirect('financeiro:nota_debito_lista')
     numero = nota.numero_nota
+    with transaction.atomic():
+        if nota.estado == 'Aprovada' and nota.factura_relacionada_id:
+            valor_nd = nota.valor or Decimal('0')
+            FacturaCliente.objects.filter(pk=nota.factura_relacionada_id).update(
+                ajuste_nota_debito=db_models.F('ajuste_nota_debito') - valor_nd,
+                valor_total=db_models.F('valor_total') - valor_nd,
+            )
+            cliente = Cliente.objects.select_for_update().get(pk=nota.cliente.pk)
+            cliente.saldo_conta_corrente += valor_nd
+            cliente.save(update_fields=['saldo_conta_corrente'])
     nota.delete()
     messages.success(request, f'Nota de Débito {numero} eliminada com sucesso.')
     return redirect('financeiro:nota_debito_lista')
@@ -2840,10 +2925,20 @@ def eliminar_nota_credito(request, pk):
     if request.method != 'POST':
         return redirect('financeiro:nota_credito_lista')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
-    if nota.estado != 'Pendente':
-        messages.error(request, 'Apenas notas de crédito pendentes podem ser eliminadas.')
+    if nota.estado not in ('Pendente', 'Aprovada'):
+        messages.error(request, 'Apenas notas de crédito pendentes ou aprovadas podem ser eliminadas.')
         return redirect('financeiro:nota_credito_lista')
     numero = nota.numero_nota
+    with transaction.atomic():
+        if nota.estado == 'Aprovada' and nota.factura_relacionada_id:
+            valor_nc = nota.valor_creditado or Decimal('0')
+            FacturaCliente.objects.filter(pk=nota.factura_relacionada_id).update(
+                ajuste_nota_credito=db_models.F('ajuste_nota_credito') - valor_nc,
+                valor_total=db_models.F('valor_total') + valor_nc,
+            )
+            cliente = Cliente.objects.select_for_update().get(pk=nota.cliente.pk)
+            cliente.saldo_conta_corrente -= valor_nc
+            cliente.save(update_fields=['saldo_conta_corrente'])
     nota.delete()
     messages.success(request, f'Nota de Crédito {numero} eliminada com sucesso.')
     return redirect('financeiro:nota_credito_lista')
@@ -3761,6 +3856,16 @@ def factura_pdf(request, pk):
     nr_du_qr = processo.numero_du if processo else '—'
     merc_qr = (getattr(getattr(factura, 'requisicao_fundo', None), 'mercadoria_descricao', '') or '')[:60] or '—'
 
+    # Taxa IVA para QR code e resumo
+    factura_iva_pct = Decimal('14')
+    if factura.requisicao_fundo_id:
+        try:
+            _rf_iva = RequisicaoFundo.objects.filter(pk=factura.requisicao_fundo_id).values_list('taxa_iva', flat=True).first()
+            if _rf_iva:
+                factura_iva_pct = Decimal(_rf_iva)
+        except Exception:
+            pass
+
     qr_data = (
         f"=== FACTURA FINAL ===\n"
         f"Nº: {factura.numero_factura}\n"
@@ -3782,7 +3887,7 @@ def factura_pdf(request, pk):
         f"Taxas Aduaneiras: {fmt_kz(factura.taxas_aduaneiras)} KZ\n"
         f"Emolumentos: {fmt_kz(factura.emolumentos)} KZ\n"
         f"Desp. Operacionais: {fmt_kz(factura.despesas_operacionais)} KZ\n"
-        f"IVA: {fmt_kz(factura.iva)} KZ\n"
+        f"IVA ({factura_iva_pct}%): {fmt_kz(factura.iva)} KZ\n"
         f"Retenção: {fmt_kz(factura.retencao)} KZ\n"
         f"TOTAL: {fmt_kz(factura.valor_total)} KZ\n"
         f"\n--- DESPACHANTE ---\n"
@@ -4006,10 +4111,10 @@ def factura_pdf(request, pk):
     iva_rows = [
         iva_header,
         iva_sub,
-        ['14%',
+        [f'{factura_iva_pct}%',
          Paragraph(fmt_kz(factura.honorarios_despachante), s_td_right),
-         Paragraph('14,00', s_td_right),
-         Paragraph(f'{fmt_kz(factura.iva)} IVA - Regime Simplificado', s_td)],
+         Paragraph(f'{factura_iva_pct:.2f}'.replace('.', ','), s_td_right),
+         Paragraph(f'{fmt_kz(factura.iva)} IVA', s_td)],
         ['', Paragraph('<b>0,00</b>', s_td_right), Paragraph('<b>0,00</b>', s_td_right), ''],
     ]
     t_iva = Table(iva_rows, colWidths=[1.4*cm, 2.0*cm, 1.2*cm, W*0.35 - 4.6*cm])
@@ -4047,8 +4152,9 @@ def factura_pdf(request, pk):
         _tot_row('Outros',       fmt_kz(factura.outros_encargos)),
         _tot_row('IEC',          '0,00'),
         _tot_row('Retenção',     fmt_kz(factura.retencao) if factura.retencao > 0 else '0,00'),
-        _tot_row('Descontos',    '0,00'),
-        _tot_row('Total IVA',    fmt_kz(factura.iva)),
+        _tot_row('Nota Crédito', f'-{fmt_kz(factura.ajuste_nota_credito)}' if factura.ajuste_nota_credito > 0 else '0,00'),
+        _tot_row('Nota Débito',  f'+{fmt_kz(factura.ajuste_nota_debito)}' if factura.ajuste_nota_debito > 0 else '0,00'),
+        _tot_row(f'Total IVA ({factura_iva_pct:.0f}%)',    fmt_kz(factura.iva)),
         [Paragraph(f'<font size="10" name="Helvetica-Bold"><b>Total (AKZ):</b></font>',
                     st('tot_final', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
          Paragraph(f'<font size="10" name="Helvetica-Bold" color="#0f172a"><b>{fmt_kz(factura.valor_total)}</b></font>',
@@ -4058,8 +4164,8 @@ def factura_pdf(request, pk):
     t_tot = Table(tot_rows, colWidths=[W * 0.35, W * 0.2])
     t_tot.setStyle(TableStyle([
         ('GRID',          (0, 0), (-1, -2), 0.3, COR_BORDA),
-        ('LINEABOVE',     (0, 5), (-1, 5), 1.5, COR_CINZA),
-        ('BACKGROUND',    (0, 5), (-1, 5), COR_CLARO),
+        ('LINEABOVE',     (0, 7), (-1, 7), 1.5, COR_CINZA),
+        ('BACKGROUND',    (0, 7), (-1, 7), COR_CLARO),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
         ('TOPPADDING',    (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
@@ -5016,7 +5122,16 @@ def api_buscar_cliente(request):
     try:
         q = request.GET.get('q', '').strip()
         if len(q) < 1:
-            return JsonResponse({'success': True, 'clientes': []})
+            qs = Cliente.objects.filter(ativo=True)
+            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+            if usuario_id and not _user_tem_acesso_total(request):
+                qs = qs.filter(usuario_id=usuario_id)
+            qs = qs.order_by('nome')[:20]
+            clientes = [
+                {'value': c.id, 'label': f'{c.nif} - {c.nome}', 'nome': c.nome, 'nif': c.nif}
+                for c in qs
+            ]
+            return JsonResponse({'success': True, 'clientes': clientes})
 
         qs = Cliente.objects.filter(ativo=True)
         usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
@@ -5245,4 +5360,35 @@ def api_dados_processo(request):
     except Exception as e:
         logger.exception("Erro ao carregar dados")
         return JsonResponse({'success': False, 'error': 'Erro ao carregar dados.'})
+
+
+@requer_sessao_ativa
+@require_http_methods(["GET"])
+def api_facturas_por_cliente(request):
+    """API: Retorna facturas de um cliente para filtrar dropdown de NC/ND"""
+    try:
+        cliente_id = request.GET.get('cliente_id')
+        if not cliente_id:
+            return JsonResponse({'success': True, 'facturas': []})
+
+        try:
+            cliente_id = int(cliente_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'success': True, 'facturas': []})
+
+        facturas = (
+            FacturaCliente.objects
+            .filter(cliente_id=cliente_id)
+            .exclude(estado='Cancelada')
+            .order_by('-data_emissao')
+            .values('id', 'numero_factura', 'valor_total', 'estado')
+        )
+        return JsonResponse({
+            'success': True,
+            'facturas': list(facturas)
+        })
+
+    except Exception as e:
+        logger.exception("Erro ao buscar facturas por cliente")
+        return JsonResponse({'success': False, 'error': 'Erro ao carregar facturas.'})
 

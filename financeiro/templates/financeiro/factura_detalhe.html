@@ -125,7 +125,7 @@
               {% endif %}
               {% if factura.iva %}
               <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">IVA 14%</td>
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">IVA {{ taxa_iva_pct }}%</td>
                 <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.iva|fmtkz }} Kz</td>
               </tr>
               {% endif %}
@@ -139,6 +139,18 @@
               <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Outros Encargos</td>
                 <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.outros_encargos|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+              {% if factura.ajuste_nota_credito %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors bg-green-50/50">
+                <td class="px-6 py-3.5 text-green-700 font-medium"><i class="fas fa-minus-circle text-xs mr-1"></i>Nota de Credito</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-green-700">-{{ factura.ajuste_nota_credito|fmtkz }} Kz</td>
+              </tr>
+              {% endif %}
+              {% if factura.ajuste_nota_debito %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors bg-red-50/50">
+                <td class="px-6 py-3.5 text-red-700 font-medium"><i class="fas fa-plus-circle text-xs mr-1"></i>Nota de Debito</td>
+                <td class="px-6 py-3.5 text-right font-semibold text-red-700">+{{ factura.ajuste_nota_debito|fmtkz }} Kz</td>
               </tr>
               {% endif %}
             </tbody>
@@ -234,6 +246,18 @@
         {% endwith %}
 
         <div class="space-y-3">
+          {% if factura.ajuste_nota_credito %}
+          <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-sm text-green-600">Nota de Credito</span>
+            <span class="font-semibold text-green-600">-{{ factura.ajuste_nota_credito|fmtkz }} Kz</span>
+          </div>
+          {% endif %}
+          {% if factura.ajuste_nota_debito %}
+          <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-sm text-red-600">Nota de Debito</span>
+            <span class="font-semibold text-red-600">+{{ factura.ajuste_nota_debito|fmtkz }} Kz</span>
+          </div>
+          {% endif %}
           <div class="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
             <span class="text-sm text-gray-600 dark:text-gray-400">Valor Pago</span>
             <span class="font-semibold text-green-600 dark:text-green-400">{{ factura.valor_pago|fmtkz }} Kz</span>

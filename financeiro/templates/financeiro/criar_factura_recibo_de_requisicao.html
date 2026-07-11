@@ -6,130 +6,167 @@
 {% block content %}
 <div class="max-w-5xl mx-auto w-full">
 
+  <!-- Mensagens -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+        {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200
+        {% elif message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200
+        {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
   <!-- Breadcrumb -->
-  <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
-    <a href="{% url 'financeiro:requisicao_lista' %}" class="hover:text-primary transition-colors">Requisições de Fundos</a>
-    <i class="fas fa-chevron-right text-xs"></i>
+  <div class="flex items-center gap-2 text-sm text-gray-400 mb-4">
+    <a href="{% url 'financeiro:requisicao_lista' %}" class="hover:text-primary transition-colors">Requisições</a>
+    <i class="fas fa-chevron-right text-xs text-gray-300"></i>
     <a href="{% url 'financeiro:requisicao_detalhe' requisicao.pk %}" class="hover:text-primary transition-colors">{{ requisicao.numero_requisicao }}</a>
-    <i class="fas fa-chevron-right text-xs"></i>
-    <span class="text-gray-900 dark:text-white font-medium">Emitir Factura-Recibo</span>
+    <i class="fas fa-chevron-right text-xs text-gray-300"></i>
+    <span class="text-gray-800 font-medium">Emitir Factura-Recibo</span>
   </div>
 
   <!-- Cabeçalho -->
   <div class="mb-6 flex items-start justify-between gap-4 flex-wrap">
     <div>
       <div class="flex items-center gap-3 mb-1">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Emitir Factura-Recibo</h1>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+        <h1 class="text-2xl font-bold text-gray-900">Emitir Factura-Recibo</h1>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
           <i class="fas fa-receipt"></i>Novo Recibo
         </span>
       </div>
-      <p class="text-sm text-gray-500 dark:text-gray-400">
-        A Factura-Recibo será gerada a partir da Requisição de Fundos <strong class="text-gray-700 dark:text-gray-300">{{ requisicao.numero_requisicao }}</strong>.
+      <p class="text-sm text-gray-500">
+        A Factura-Recibo será gerada a partir da Requisição de Fundos
+        <strong class="text-gray-700">{{ requisicao.numero_requisicao }}</strong>.
         Confirme os dados e a forma de pagamento.
       </p>
     </div>
+    <a href="{% url 'financeiro:requisicao_detalhe' requisicao.pk %}"
+       class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm">
+      <i class="fas fa-arrow-left"></i>Voltar
+    </a>
   </div>
 
   <!-- Grid principal -->
   <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-    <!-- Coluna: Preview -->
+    <!-- ═══════ Coluna: Preview ═══════ -->
     <div class="lg:col-span-3 space-y-5">
 
       <!-- Documento Preview -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
 
         <!-- Cabeçalho do documento -->
-        <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-gray-800">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white">
           <div class="flex items-start justify-between gap-4">
             <div>
               {% if requisicao.banca %}
-              <p class="text-lg font-bold text-gray-900 dark:text-white">{{ requisicao.banca.nome }}</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">NIF: {{ requisicao.banca.nif|default:"—" }} | Licença: {{ requisicao.banca.licenca_cdoa|default:"—" }}</p>
+              <p class="text-lg font-bold text-gray-900">{{ requisicao.banca.nome }}</p>
+              <p class="text-xs text-gray-500 mt-0.5">NIF: {{ requisicao.banca.nif|default:"—" }} &bull; Licença: {{ requisicao.banca.licenca_cdoa|default:"—" }}</p>
               {% endif %}
             </div>
             <div class="text-right">
-              <div class="inline-block px-4 py-2 bg-primary/10 dark:bg-primary/20 rounded-xl border border-primary/20">
+              <div class="inline-block px-4 py-2 bg-primary/10 rounded-xl border border-primary/20">
                 <p class="text-xs font-semibold text-primary uppercase tracking-wider">Factura-Recibo</p>
                 <p class="text-lg font-bold text-primary font-mono mt-0.5">PAGO</p>
               </div>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Pagamento: <strong class="text-gray-700 dark:text-gray-300">{{ hoje|date:"d/m/Y" }}</strong></p>
+              <p class="text-xs text-gray-500 mt-2">Pagamento: <strong class="text-gray-700">{{ hoje|date:"d/m/Y" }}</strong></p>
             </div>
           </div>
         </div>
 
-        <!-- Cliente + Origem -->
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <!-- Cliente + Requisição -->
+        <div class="px-6 py-4 border-b border-gray-100">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-user text-primary text-sm"></i>
               </div>
               <div>
-                <p class="font-semibold text-gray-900 dark:text-white">{{ requisicao.cliente.nome }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">NIF: {{ requisicao.cliente.nif|default:"—" }} | {{ requisicao.cliente.telefone|default:"—" }}</p>
+                <p class="font-semibold text-gray-900">{{ requisicao.cliente.nome }}</p>
+                <p class="text-xs text-gray-500">NIF: {{ requisicao.cliente.nif|default:"—" }} &bull; {{ requisicao.cliente.telefone|default:"—" }}</p>
               </div>
             </div>
-            <div class="w-px h-10 bg-gray-200 dark:bg-gray-700"></div>
+            <div class="w-px h-10 bg-gray-200"></div>
             <div class="text-right">
-              <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Requisição</p>
-              <p class="font-mono text-sm font-medium text-gray-700 dark:text-gray-300">{{ requisicao.numero_requisicao }}</p>
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Requisição</p>
+              <p class="font-mono text-sm font-medium text-gray-700">{{ requisicao.numero_requisicao }}</p>
             </div>
           </div>
         </div>
 
+        <!-- Processo Aduaneiro -->
+        {% if requisicao.processo_aduaneiro %}
+        <div class="px-6 py-3 border-b border-gray-100 bg-gray-50/50">
+          <div class="flex items-center gap-3 text-sm">
+            <i class="fas fa-ship text-cdoa text-xs"></i>
+            <span class="text-gray-500">Processo Aduaneiro:</span>
+            <span class="font-mono font-semibold text-gray-800">{{ requisicao.processo_aduaneiro.numero_du }}</span>
+            {% if requisicao.processo_aduaneiro.bl_awb %}
+              <span class="text-gray-400">&bull;</span>
+              <span class="font-mono text-gray-600">{{ requisicao.processo_aduaneiro.bl_awb }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Tabela de Custos -->
         <div class="px-6 py-5">
-          <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Discriminação dos Custos</p>
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Discriminação dos Custos</p>
 
-          <div class="grid grid-cols-[1fr_100px_80px] gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-700/30 rounded-t-xl border-b border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          <!-- Header da tabela -->
+          <div class="grid grid-cols-[1fr_140px] gap-4 px-4 py-2.5 bg-gray-50 rounded-t-xl border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
             <span>Rubrica</span>
-            <span class="text-center">Doc.</span>
             <span class="text-right">Valor (KZ)</span>
           </div>
 
-          <div class="divide-y divide-gray-100 dark:divide-gray-700/60">
+          <!-- Linhas -->
+          <div class="divide-y divide-gray-100">
             {% for linha in requisicao.linhas.all %}
-            <div class="grid grid-cols-[1fr_100px_80px] gap-2 px-4 py-2.5 text-sm hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
-              <div>
-                <span class="text-gray-900 dark:text-white font-medium">{{ linha.despesa_tipo }}</span>
-                <span class="text-xs text-gray-400 ml-2">{{ linha.descricao|truncatechars:20 }}</span>
+            <div class="grid grid-cols-[1fr_140px] gap-4 px-4 py-3 text-sm hover:bg-gray-50/50 transition-colors">
+              <div class="flex items-center gap-2.5">
+                <div class="w-2 h-2 rounded-full flex-shrink-0
+                  {% if 'Honorários' in linha.despesa_tipo %}bg-purple-500
+                  {% elif 'Taxas' in linha.despesa_tipo %}bg-orange-500
+                  {% elif 'Emolumentos' in linha.despesa_tipo or 'Portuárias' in linha.despesa_tipo %}bg-blue-500
+                  {% elif 'Operacionais' in linha.despesa_tipo %}bg-green-500
+                  {% else %}bg-gray-400{% endif %}"></div>
+                <div>
+                  <span class="text-gray-800 font-medium">{{ linha.despesa_tipo }}</span>
+                  {% if linha.descricao %}
+                  <p class="text-xs text-gray-400 mt-0.5">{{ linha.descricao|truncatechars:40 }}</p>
+                  {% endif %}
+                </div>
               </div>
-              <span class="text-center text-xs {% if linha.documentada %}text-green-600 dark:text-green-400{% else %}text-gray-400{% endif %}">
-                {% if linha.documentada %}Sim{% else %}Não{% endif %}
-              </span>
-              <span class="text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ linha.valor|fmtkz }}</span>
+              <span class="text-right font-semibold text-gray-900 tabular-nums">{{ linha.valor|fmtkz }}</span>
             </div>
             {% endfor %}
           </div>
 
-          <!-- Subtotal -->
-          <div class="mt-3 px-4 py-2 border-t border-gray-200 dark:border-gray-600">
-            <div class="grid grid-cols-[1fr_100px_80px] gap-2 text-sm">
-              <span class="text-gray-500 dark:text-gray-400 font-medium">Subtotal</span>
-              <span></span>
-              <span class="text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ requisicao.subtotal_geral|fmtkz }}</span>
+          <!-- Totais -->
+          <div class="mt-3 border-t border-gray-200 pt-3 space-y-2">
+            <div class="flex justify-between text-sm px-1">
+              <span class="text-gray-500">Subtotal</span>
+              <span class="font-semibold text-gray-900 tabular-nums">{{ requisicao.subtotal_geral|fmtkz }}</span>
             </div>
-            <div class="grid grid-cols-[1fr_100px_80px] gap-2 text-sm mt-1">
-              <span class="text-gray-500 dark:text-gray-400">IVA 14%</span>
-              <span></span>
-              <span class="text-right font-semibold text-gray-900 dark:text-white tabular-nums">{{ requisicao.iva_honorarios|fmtkz }}</span>
+            <div class="flex justify-between text-sm px-1">
+              <span class="text-gray-500">IVA {{ requisicao.taxa_iva }}%</span>
+              <span class="font-semibold text-gray-900 tabular-nums">{{ requisicao.iva_honorarios|fmtkz }}</span>
             </div>
-            <div class="grid grid-cols-[1fr_100px_80px] gap-2 text-sm mt-1">
-              <span class="text-gray-500 dark:text-gray-400">Retenção 6.5%</span>
-              <span></span>
-              <span class="text-right font-semibold text-red-500 tabular-nums">{{ requisicao.retencao|fmtkz }}</span>
+            <div class="flex justify-between text-sm px-1">
+              <span class="text-gray-900 font-medium">Retenção 6.5%</span>
+              <span class="font-semibold text-gray-900 tabular-nums">{{ requisicao.retencao|fmtkz }}</span>
             </div>
           </div>
 
           <!-- Total -->
-          <div class="mt-3 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 border border-primary/20 px-5 py-4">
+          <div class="mt-4 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 px-5 py-4">
             <div class="flex items-center justify-between">
               <div>
-                <p class="font-bold text-gray-900 dark:text-white text-lg">Total Pago</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  <i class="fas fa-info-circle mr-1"></i>{{ requisicao.valor_total_extenso }}
+                <p class="font-bold text-gray-900 text-lg">Total Pago</p>
+                <p class="text-xs text-gray-500 mt-1 leading-relaxed">
+                  <i class="fas fa-info-circle mr-1 text-primary/60"></i>{{ requisicao.valor_total_extenso }}
                 </p>
               </div>
               <span class="text-2xl font-bold text-primary tabular-nums">{{ requisicao.total_geral|fmtkz }} KZ</span>
@@ -137,125 +174,142 @@
           </div>
         </div>
       </div>
-
     </div>
 
-    <!-- Sidebar: Pagamento -->
+    <!-- ═══════ Coluna: Sidebar ═══════ -->
     <div class="lg:col-span-2 space-y-5">
 
-      <!-- Card Formulário -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sticky top-6">
-        <div class="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100 dark:border-gray-700">
-          <div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-            <i class="fas fa-credit-card text-green-600 dark:text-green-400"></i>
-          </div>
-          <div>
-            <p class="font-bold text-gray-900 dark:text-white">Dados de Pagamento</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Preencha para emitir a Factura-Recibo</p>
+      <!-- Card: Dados de Pagamento -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden sticky top-6">
+        <!-- Cabeçalho do card -->
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-credit-card text-primary text-sm"></i>
+            </div>
+            <div>
+              <p class="font-bold text-cdoa uppercase tracking-wider text-sm">Dados de Pagamento</p>
+              <p class="text-xs text-gray-500 mt-0.5">Confirme os dados para emitir</p>
+            </div>
           </div>
         </div>
 
-        <div class="space-y-3 mb-5 pb-4 border-b border-gray-100 dark:border-gray-700">
-          <div class="flex justify-between text-sm py-1">
-            <span class="text-gray-500 dark:text-gray-400">Cliente</span>
-            <span class="font-medium text-gray-900 dark:text-white text-right max-w-[180px] truncate" title="{{ requisicao.cliente.nome }}">{{ requisicao.cliente.nome }}</span>
+        <div class="p-6">
+          <!-- Resumo -->
+          <div class="space-y-3 mb-5 pb-5 border-b border-gray-100">
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-500">Cliente</span>
+              <span class="font-medium text-gray-900 text-right max-w-[180px] truncate" title="{{ requisicao.cliente.nome }}">{{ requisicao.cliente.nome }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-500">Requisição</span>
+              <span class="font-mono font-medium text-gray-900">{{ requisicao.numero_requisicao }}</span>
+            </div>
+            {% if requisicao.processo_aduaneiro %}
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-500">Processo</span>
+              <span class="font-mono font-medium text-gray-900">{{ requisicao.processo_aduaneiro.numero_du }}</span>
+            </div>
+            {% endif %}
+            {% if factura %}
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-500">Factura</span>
+              <a href="{% url 'financeiro:factura_detalhe' factura.pk %}" class="font-mono font-medium text-primary hover:underline">{{ factura.numero_factura }}</a>
+            </div>
+            {% endif %}
+            <div class="flex justify-between items-center pt-3 border-t border-gray-200">
+              <span class="font-bold text-gray-900">Valor a Pagar</span>
+              <span class="font-bold text-xl text-primary tabular-nums">{{ requisicao.total_geral|fmtkz }} KZ</span>
+            </div>
           </div>
-          <div class="flex justify-between text-sm py-1">
-            <span class="text-gray-500 dark:text-gray-400">Requisição</span>
-            <span class="font-mono font-medium text-gray-900 dark:text-white">{{ requisicao.numero_requisicao }}</span>
-          </div>
-          {% if factura %}
-          <div class="flex justify-between text-sm py-1">
-            <span class="text-gray-500 dark:text-gray-400">Factura Associada</span>
-            <a href="{% url 'financeiro:factura_detalhe' factura.pk %}" class="font-mono font-medium text-primary hover:underline">{{ factura.numero_factura }}</a>
-          </div>
-          {% endif %}
-          <div class="flex justify-between items-center pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
-            <span class="font-bold text-gray-900 dark:text-white">Valor a Pagar</span>
-            <span class="font-bold text-xl text-primary tabular-nums">{{ requisicao.total_geral|fmtkz }} KZ</span>
+
+          <!-- Formulário -->
+          <form method="post" id="form-recibo">
+            {% csrf_token %}
+
+            <div class="space-y-4">
+              <!-- Forma de Pagamento -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                  Forma de Pagamento <span class="text-red-500">*</span>
+                </label>
+                <select name="forma_pagamento" required
+                  class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors">
+                  <option value="">Selecione a forma de pagamento...</option>
+                  <option value="Transferência Bancária">Transferência Bancária</option>
+                  <option value="Multicaixa">Multicaixa Express</option>
+                  <option value="TPAs">TPA</option>
+                  <option value="Depósito Bancário">Depósito Bancário</option>
+                  <option value="Numerário">Numerário</option>
+                </select>
+              </div>
+
+              <!-- Data do Pagamento -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                  Data do Pagamento <span class="text-red-500">*</span>
+                </label>
+                <input type="date" name="data" value="{{ hoje }}" max="{{ hoje }}" required
+                  class="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors">
+                <p class="text-xs text-gray-400 mt-1">Não pode ser data futura.</p>
+              </div>
+            </div>
+
+            <!-- Botões -->
+            <div class="mt-6 space-y-2">
+              <button type="button" id="btn-emitir"
+                onclick="confirmarFormPost(this.form, {tipo:'info', titulo:'Emitir Factura-Recibo', mensagem:'Tem certeza que deseja emitir a Factura-Recibo no valor de {{ requisicao.total_geral|fmtkz }} KZ para {{ requisicao.cliente.nome }}?', textoBotao:'Sim, Emitir'})"
+                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm">
+                <i class="fas fa-check-circle"></i>
+                Confirmar e Emitir Factura-Recibo
+              </button>
+              <a href="{% url 'financeiro:requisicao_detalhe' requisicao.pk %}"
+                class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
+                <i class="fas fa-arrow-left"></i>
+                Voltar sem Emitir
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Card: Passos seguintes -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-cdoa/10 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-route text-cdoa text-xs"></i>
+            </div>
+            <p class="text-xs font-bold text-cdoa uppercase tracking-wider">O que acontece a seguir</p>
           </div>
         </div>
-
-        <form method="post" id="form-recibo" class="space-y-4">
-          {% csrf_token %}
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <i class="fas fa-credit-card mr-1.5 text-gray-400"></i>Forma de Pagamento <span class="text-red-500">*</span>
-            </label>
-            <select name="forma_pagamento" required
-              class="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary dark:focus:border-primary transition-colors">
-              <option value="">Selecione...</option>
-              <option value="Transferência Bancária">Transferência Bancária</option>
-              <option value="Multicaixa">Multicaixa</option>
-              <option value="TPAs">TPAs</option>
-              <option value="Depósito Bancário">Depósito Bancário</option>
-              <option value="Numerário">Numerário</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              <i class="fas fa-calendar mr-1.5 text-gray-400"></i>Data do Pagamento <span class="text-red-500">*</span>
-            </label>
-            <input type="date" name="data" value="{{ hoje }}" max="{{ hoje }}" required
-              class="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary dark:focus:border-primary transition-colors">
-          </div>
-
-          <button type="submit"
-            class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 active:scale-[0.98] transition-all shadow-sm">
-            <i class="fas fa-check-circle"></i>
-            Confirmar e Emitir Factura-Recibo
-          </button>
-
-          <a href="{% url 'financeiro:requisicao_detalhe' requisicao.pk %}"
-            class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
-            <i class="fas fa-arrow-left"></i>
-            Voltar sem Emitir
-          </a>
-        </form>
+        <div class="p-5">
+          <ol class="space-y-4">
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+              <div>
+                <p class="text-sm font-semibold text-gray-900">Factura-Recibo emitida</p>
+                <p class="text-xs text-gray-500 mt-0.5">Registada como paga automaticamente</p>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+              <div>
+                <p class="text-sm font-semibold text-gray-900">PDF disponível</p>
+                <p class="text-xs text-gray-500 mt-0.5">Pode descarregar ou enviar por email</p>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+              <div>
+                <p class="text-sm font-semibold text-gray-900">Processo encerrado</p>
+                <p class="text-xs text-gray-500 mt-0.5">Requisição marcada como concluída</p>
+              </div>
+            </li>
+          </ol>
+        </div>
       </div>
-
-      <!-- Passos seguintes -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <i class="fas fa-route text-primary"></i>O que acontece a seguir
-        </p>
-        <ol class="space-y-3">
-          <li class="flex items-start gap-3">
-            <span class="w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-            <div>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">Factura-Recibo emitida</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Registada como Paga automaticamente</p>
-            </div>
-          </li>
-          <li class="flex items-start gap-3">
-            <span class="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-            <div>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">PDF disponível</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Pode descarregar ou enviar por email</p>
-            </div>
-          </li>
-          <li class="flex items-start gap-3">
-            <span class="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-            <div>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">Processo encerrado</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Requisição marcada como concluída</p>
-            </div>
-          </li>
-        </ol>
-      </div>
-
     </div>
   </div>
 </div>
-
-<script>
-document.getElementById('form-recibo').addEventListener('submit', function () {
-  const btn = this.querySelector('button[type="submit"]');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A emitir...';
-});
-</script>
-
 {% endblock %}

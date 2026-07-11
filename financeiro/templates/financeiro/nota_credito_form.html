@@ -1,99 +1,264 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
-    <div class="max-w-xl mx-auto w-full">
+<div class="max-w-xl mx-auto w-full">
 
-      <!-- ── Cabeçalho ── -->
-      <div class="mb-5 flex items-center justify-between">
-        <div>
-          <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2">
-            <a href="{% url 'financeiro:nota_credito_lista' %}" class="hover:text-primary transition-colors">Notas de Crédito</a>
-            <i class="fas fa-chevron-right" style="font-size:10px;"></i>
-            <span class="text-primary font-semibold">{% if object %}Editar{% else %}Nova{% endif %} Nota</span>
-          </div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{{ titulo }}</h1>
-        </div>
-        <a href="{% url 'financeiro:nota_credito_lista' %}"
-           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-          <i class="fas fa-arrow-left text-base"></i>Voltar
-        </a>
-      </div>
-
-      <!-- ── Formulário ── -->
-      <form method="post" class="space-y-6">
-        {% csrf_token %}
-
-        {% if form.non_field_errors %}
-          <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 p-4 rounded-xl text-sm font-medium">
-            {% for error in form.non_field_errors %}
-              <p>{{ error }}</p>
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Cliente</label>
-            {{ form.cliente }}
-            {% if form.cliente.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.cliente.errors.as_text }}</p>
-            {% endif %}
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Factura Relacionada</label>
-            {{ form.factura_relacionada }}
-            {% if form.factura_relacionada.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.factura_relacionada.errors.as_text }}</p>
-            {% endif %}
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Valor a Creditar (KZ)</label>
-              {{ form.valor_creditado }}
-              {% if form.valor_creditado.errors %}
-                <p class="text-red-500 text-xs mt-1">{{ form.valor_creditado.errors.as_text }}</p>
-              {% endif %}
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Data</label>
-              {{ form.data }}
-              {% if form.data.errors %}
-                <p class="text-red-500 text-xs mt-1">{{ form.data.errors.as_text }}</p>
-              {% endif %}
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Motivo do Ajuste</label>
-            {{ form.motivo }}
-            {% if form.motivo.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.motivo.errors.as_text }}</p>
-            {% endif %}
-          </div>
-        </div>
-
-        {% if object %}
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div class="flex items-center gap-2 mb-6">
-            <i class="fas fa-toggle-on text-primary text-lg"></i>
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Estado</h2>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Estado</label>
-            {{ form.estado }}
-            {% if form.estado.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.estado.errors.as_text }}</p>
-            {% endif %}
-          </div>
-        </div>
-        {% endif %}
-
-        <div class="flex items-center justify-end gap-3">
-          <a href="{% url 'financeiro:nota_credito_lista' %}" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors">Cancelar</a>
-          <button type="submit" class="px-5 py-2.5 bg-primary hover:bg-primary/90 rounded-xl text-sm font-semibold text-white transition-colors shadow-sm active:scale-95">{% if object %}Actualizar{% else %}Gravar{% endif %} Nota Crédito</button>
-        </div>
-      </form>
-
+  <!-- Mensagens de Erro -->
+  {% if form.non_field_errors %}
+    <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium bg-red-50 text-red-700 border border-red-200">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
     </div>
+  {% endif %}
+
+  <!-- Cabecalho -->
+  <div class="mb-6">
+    <div class="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
+      <a href="{% url 'financeiro:nota_credito_lista' %}" class="hover:text-primary transition-colors">Notas de Credito</a>
+      <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+      <span class="text-gray-800 font-semibold">{% if object %}Editar{% else %}Nova{% endif %}</span>
+    </div>
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ titulo }}</h1>
+        <p class="text-sm text-gray-500 mt-0.5">
+          {% if object %}A editar nota de credito {{ object.numero_nota }}{% else %}Preencha os dados para emitir nova nota de credito{% endif %}
+        </p>
+      </div>
+      <a href="{% url 'financeiro:nota_credito_lista' %}"
+        class="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm">
+        <i class="fas fa-arrow-left"></i>Voltar
+      </a>
+    </div>
+  </div>
+
+  <!-- Formulario -->
+  <form method="post" class="space-y-5">
+    {% csrf_token %}
+
+    <!-- Dados do Cliente -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+        <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-user-circle"></i></span>
+          Cliente
+        </h2>
+      </div>
+      <div class="p-5">
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Cliente <span class="text-red-500">*</span></label>
+        {{ form.cliente }}
+        {% if form.cliente.errors %}
+          <p class="text-red-500 text-xs mt-1">{{ form.cliente.errors.as_text }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Factura e Valores -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+        <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-file-invoice"></i></span>
+          Factura & Valores
+        </h2>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Factura Relacionada <span class="text-red-500">*</span></label>
+          {{ form.factura_relacionada }}
+          {% if form.factura_relacionada.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.factura_relacionada.errors.as_text }}</p>
+          {% endif %}
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Valor a Creditar (Kz) <span class="text-red-500">*</span></label>
+            {{ form.valor_creditado }}
+            {% if form.valor_creditado.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.valor_creditado.errors.as_text }}</p>
+            {% endif %}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Data <span class="text-red-500">*</span></label>
+            {{ form.data }}
+            {% if form.data.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ form.data.errors.as_text }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Motivo -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+        <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-sticky-note"></i></span>
+          Motivo
+        </h2>
+      </div>
+      <div class="p-5 space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Motivo do Ajuste <span class="text-red-500">*</span></label>
+          {{ form.motivo }}
+          {% if form.motivo.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.motivo.errors.as_text }}</p>
+          {% endif %}
+        </div>
+        <div id="motivo-outro-nc" class="hidden">
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Motivo Personalizado</label>
+          {{ form.motivo_outro }}
+          {% if form.motivo_outro.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.motivo_outro.errors.as_text }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Estado (Edicao) -->
+    {% if object %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+        <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-toggle-on"></i></span>
+          Estado
+        </h2>
+      </div>
+      <div class="p-5">
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Estado</label>
+        {{ form.estado }}
+        {% if form.estado.errors %}
+          <p class="text-red-500 text-xs mt-1">{{ form.estado.errors.as_text }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Accoes -->
+    <div class="flex items-center justify-end gap-3 pt-2">
+      <a href="{% url 'financeiro:nota_credito_lista' %}"
+        class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-semibold text-gray-600 transition-colors">
+        Cancelar
+      </a>
+      {% if not object %}
+      <button type="button" id="btnConfirmarNC"
+        class="px-6 py-2.5 bg-primary hover:bg-primary/90 rounded-xl text-sm font-semibold text-white transition-colors shadow-sm active:scale-95">
+        <i class="fas fa-check mr-1.5"></i>Gravar Nota Credito
+      </button>
+      {% else %}
+      <button type="submit"
+        class="px-6 py-2.5 bg-primary hover:bg-primary/90 rounded-xl text-sm font-semibold text-white transition-colors shadow-sm active:scale-95">
+        <i class="fas fa-check mr-1.5"></i>Actualizar Nota Credito
+      </button>
+      {% endif %}
+    </div>
+  </form>
+
+</div>
+
+<script src="{% static 'du/searchable-dropdown.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var selMotivo = document.getElementById('id_motivo_nc');
+  var divOutro = document.getElementById('motivo-outro-nc');
+  if (selMotivo && divOutro) {
+    function toggleOutro() {
+      divOutro.classList.toggle('hidden', selMotivo.value !== '__outro__');
+    }
+    selMotivo.addEventListener('change', toggleOutro);
+    toggleOutro();
+  }
+
+  var selCliente = document.getElementById('id_cliente_nc');
+  var selFactura = document.getElementById('id_factura_relacionada_nc');
+
+  if (selFactura && !selCliente.value) {
+    selFactura.innerHTML = '<option value="">Selecione um cliente primeiro</option>';
+    selFactura.disabled = true;
+  }
+
+  if (selCliente && typeof autocompleteSelect === 'function') {
+    autocompleteSelect(selCliente, {
+      placeholder: 'Digite o NIF ou nome do cliente...',
+      ajax: function(query, callback) {
+        fetch('/financeiro/api/buscar-cliente/?q=' + encodeURIComponent(query))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            callback(data.success ? data.clientes : []);
+          })
+          .catch(function() { callback([]); });
+      }
+    });
+  }
+
+  var btnConfirmar = document.getElementById('btnConfirmarNC');
+  var formEl = document.querySelector('form[method="post"]');
+
+  if (btnConfirmar && formEl) {
+    btnConfirmar.addEventListener('click', function(e) {
+      e.preventDefault();
+      var clienteTexto = selCliente.options[selCliente.selectedIndex] ? selCliente.options[selCliente.selectedIndex].text : '';
+      var facturaTexto = selFactura.options[selFactura.selectedIndex] && selFactura.value ? selFactura.options[selFactura.selectedIndex].text : '(sem factura)';
+      var valorInput = document.querySelector('.moeda');
+      var valorFmt = valorInput ? valorInput.value : '';
+      var msg = 'Tem certeza que deseja creditar ' + valorFmt + ' Kz' +
+                (selFactura.value ? ' na factura ' + facturaTexto : '') +
+                ' para o cliente ' + clienteTexto + '?';
+      confirmarFormPost(formEl, {
+        tipo: 'info',
+        titulo: 'Confirmar Nota de Credito',
+        mensagem: msg,
+        textoBotao: 'Sim, Creditar',
+      });
+    });
+  }
+
+  if (selFactura) {
+    var selectedVal = selFactura.value;
+
+    function carregarFacturas() {
+      var clienteId = selCliente ? selCliente.value : '';
+      if (!clienteId) {
+        selFactura.innerHTML = '<option value="">Selecione um cliente primeiro</option>';
+        selFactura.disabled = true;
+        return;
+      }
+      selFactura.innerHTML = '<option value="">Carregando facturas...</option>';
+      selFactura.disabled = true;
+      fetch('{% url "financeiro:api_facturas_por_cliente" %}?cliente_id=' + clienteId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var html = '<option value="">Selecione uma factura</option>';
+          if (data.success && data.facturas && data.facturas.length > 0) {
+            data.facturas.forEach(function(f) {
+              var fmt = new Intl.NumberFormat('pt-AO', {minimumFractionDigits: 2});
+              var label = f.numero_factura + ' - ' + fmt.format(parseFloat(f.valor_total)) + ' KZ (' + f.estado + ')';
+              var sel = (String(f.id) === String(selectedVal)) ? ' selected' : '';
+              html += '<option value="' + f.id + '"' + sel + '>' + label + '</option>';
+            });
+          } else {
+            html = '<option value="">Nenhuma factura encontrada</option>';
+          }
+          selFactura.innerHTML = html;
+          selFactura.disabled = false;
+        })
+        .catch(function() {
+          selFactura.innerHTML = '<option value="">Erro ao carregar</option>';
+          selFactura.disabled = false;
+        });
+    }
+
+    if (selCliente) {
+      selCliente.addEventListener('change', function() {
+        selectedVal = '';
+        carregarFacturas();
+      });
+    }
+
+    if (selCliente && selCliente.value) {
+      carregarFacturas();
+    }
+  }
+});
+</script>
 {% endblock %}

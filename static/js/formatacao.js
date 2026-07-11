@@ -55,12 +55,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.moeda').forEach(function(input) {
         if (input.disabled || input.readOnly) return;
         try {
+            var useScale = input.classList.contains('moeda-inteiro') ? 0 : 2;
             IMask(input, {
                 mask: Number,
                 thousandsSeparator: ' ',
                 radix: ',',
                 mapToRadix: ['.'],
-                scale: 2,
+                scale: useScale,
                 min: 0,
                 max: 999999999.99,
                 normalizeZeros: true
@@ -71,12 +72,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Sanitizar valores formatados antes do submit
-    document.addEventListener('submit', function(e) {
-        var form = e.target;
+    window._sanitizarCamposMonetarios = function(form) {
         form.querySelectorAll('.moeda').forEach(function(input) {
             if (input.value) {
                 var value;
-                if (input.imask && input.imask.unmaskedValue !== undefined) {
+                if (input.imask && input.imask.typedValue !== undefined && input.imask.typedValue !== null) {
+                    value = Number(input.imask.typedValue).toFixed(2);
+                } else if (input.imask && input.imask.unmaskedValue !== undefined) {
                     value = parseNumber(input.imask.unmaskedValue).toFixed(2);
                 } else {
                     value = parseNumber(input.value).toFixed(2);
@@ -84,5 +86,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 input.value = value;
             }
         });
+    };
+
+    document.addEventListener('submit', function(e) {
+        window._sanitizarCamposMonetarios(e.target);
     });
 });

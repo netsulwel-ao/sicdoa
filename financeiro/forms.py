@@ -55,7 +55,7 @@ class RequisicaoFundoForm(forms.ModelForm):
         fields = ['banca', 'filial', 'cliente', 'pessoa_contacto', 'processo_aduaneiro', 
                  'numero_bl_awb', 'meio_transporte', 'origem', 'destino', 'mercadoria_descricao',
                  'peso_bruto_kg', 'peso_liquido_kg', 'cbm_metros_cubicos', 'quantidade_volumes', 'valor_cif',
-                 'data_validade', 'moeda_referencia', 'cambio_referencia', 'observacoes']
+                 'taxa_iva', 'data_validade', 'moeda_referencia', 'cambio_referencia', 'observacoes']
         field_classes = {
             'cliente': ClienteNIFChoiceField,
         }
@@ -117,6 +117,9 @@ class RequisicaoFundoForm(forms.ModelForm):
                 'class': 'moeda w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
                 'placeholder': '0,00',
                 'inputmode': 'decimal'
+            }),
+            'taxa_iva': forms.Select(attrs={
+                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
             }),
             'data_validade': forms.DateInput(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
@@ -278,7 +281,7 @@ class FacturaClienteForm(forms.ModelForm):
         ]
         widgets = {
             'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'processo_aduaneiro': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
+            'processo_aduaneiro': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
             'honorarios_despachante': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'taxas_aduaneiras': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'emolumentos': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
@@ -458,24 +461,36 @@ class ReciboClienteUpdateForm(forms.ModelForm):
 
 
 class NotaCreditoForm(forms.ModelForm):
+    motivo_outro = forms.CharField(
+        max_length=255, required=False,
+        widget=forms.TextInput(attrs={
+            'id': 'id_motivo_outro_nc',
+            'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm',
+            'placeholder': 'Descreva o motivo...'
+        })
+    )
+
     class Meta:
         model = NotaCredito
         fields = ['cliente', 'factura_relacionada', 'valor_creditado', 'motivo', 'data']
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'factura_relacionada': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'valor_creditado': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
+            'cliente': forms.Select(attrs={'id': 'id_cliente_nc', 'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'factura_relacionada': forms.Select(attrs={'id': 'id_factura_relacionada_nc', 'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'valor_creditado': forms.TextInput(attrs={'class': 'moeda moeda-inteiro w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'motivo': forms.Select(choices=[
                 ('Erro de facturação', 'Erro de facturação'),
                 ('Desconto posterior', 'Desconto posterior'),
                 ('Devolução de valores', 'Devolução de valores'),
                 ('Ajustes contabilísticos', 'Ajustes contabilísticos'),
-            ], attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
+                ('__outro__', 'Outro'),
+            ], attrs={'id': 'id_motivo_nc', 'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('nome')
+        self.fields['factura_relacionada'].required = True
         qs = FacturaCliente.objects.select_related('cliente').all()
         self.fields['factura_relacionada'].queryset = qs
         self.fields['factura_relacionada'].label_from_instance = lambda obj: (
@@ -489,6 +504,29 @@ class NotaCreditoForm(forms.ModelForm):
                 pass
         if self.instance and self.instance.pk and self.instance.valor_creditado:
             self.initial['valor_creditado'] = fmt_kz(self.instance.valor_creditado)
+        if self.instance and self.instance.pk and self.instance.motivo:
+            if self.instance.motivo not in dict(self.base_fields['motivo'].widget.choices).values():
+                self.initial['motivo'] = '__outro__'
+                self.initial['motivo_outro'] = self.instance.motivo
+
+    def clean(self):
+        cleaned_data = super().clean()
+        motivo = cleaned_data.get('motivo')
+        if motivo == '__outro__':
+            motivo_outro = (cleaned_data.get('motivo_outro') or '').strip()
+            if not motivo_outro:
+                self.add_error('motivo_outro', 'Indique o motivo personalizado.')
+            else:
+                cleaned_data['motivo'] = motivo_outro
+        return cleaned_data
+
+    def save(self, commit=True):
+        motivo = self.cleaned_data.get('motivo')
+        if motivo == '__outro__':
+            motivo_outro = (self.cleaned_data.get('motivo_outro') or '').strip()
+            if motivo_outro:
+                self.instance.motivo = motivo_outro
+        return super().save(commit)
 
     def clean_valor_creditado(self):
         raw = self.cleaned_data.get('valor_creditado')
@@ -522,23 +560,35 @@ class NotaCreditoForm(forms.ModelForm):
 
 
 class NotaDebitoForm(forms.ModelForm):
+    motivo_outro = forms.CharField(
+        max_length=255, required=False,
+        widget=forms.TextInput(attrs={
+            'id': 'id_motivo_outro_nd',
+            'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm',
+            'placeholder': 'Descreva o motivo...'
+        })
+    )
+
     class Meta:
         model = NotaDebito
         fields = ['cliente', 'factura_relacionada', 'valor', 'motivo', 'data']
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'factura_relacionada': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'valor': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
+            'cliente': forms.Select(attrs={'id': 'id_cliente_nd', 'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'factura_relacionada': forms.Select(attrs={'id': 'id_factura_relacionada_nd', 'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'valor': forms.TextInput(attrs={'class': 'moeda moeda-inteiro w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'motivo': forms.Select(choices=[
                 ('Taxas adicionais', 'Taxas adicionais'),
                 ('Correções de valores', 'Correções de valores'),
                 ('Encargos não considerados inicialmente', 'Encargos não considerados inicialmente'),
-            ], attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
+                ('__outro__', 'Outro'),
+            ], attrs={'id': 'id_motivo_nd', 'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('nome')
+        self.fields['factura_relacionada'].required = True
         qs = FacturaCliente.objects.select_related('cliente').all()
         self.fields['factura_relacionada'].queryset = qs
         self.fields['factura_relacionada'].label_from_instance = lambda obj: (
@@ -552,6 +602,10 @@ class NotaDebitoForm(forms.ModelForm):
                 pass
         if self.instance and self.instance.pk and self.instance.valor:
             self.initial['valor'] = fmt_kz(self.instance.valor)
+        if self.instance and self.instance.pk and self.instance.motivo:
+            if self.instance.motivo not in dict(self.base_fields['motivo'].widget.choices).values():
+                self.initial['motivo'] = '__outro__'
+                self.initial['motivo_outro'] = self.instance.motivo
 
     def clean_valor(self):
         raw = self.cleaned_data.get('valor')
@@ -571,6 +625,14 @@ class NotaDebitoForm(forms.ModelForm):
         cliente = cleaned_data.get('cliente')
         factura_relacionada = cleaned_data.get('factura_relacionada')
         valor = cleaned_data.get('valor')
+        motivo = cleaned_data.get('motivo')
+
+        if motivo == '__outro__':
+            motivo_outro = (cleaned_data.get('motivo_outro') or '').strip()
+            if not motivo_outro:
+                self.add_error('motivo_outro', 'Indique o motivo personalizado.')
+            else:
+                cleaned_data['motivo'] = motivo_outro
 
         if factura_relacionada and cliente and factura_relacionada.cliente != cliente:
             self.add_error('factura_relacionada', 'A factura selecionada não pertence ao cliente escolhido.')
@@ -583,21 +645,30 @@ class NotaDebitoForm(forms.ModelForm):
 
         return cleaned_data
 
+    def save(self, commit=True):
+        motivo = self.cleaned_data.get('motivo')
+        if motivo == '__outro__':
+            motivo_outro = (self.cleaned_data.get('motivo_outro') or '').strip()
+            if motivo_outro:
+                self.instance.motivo = motivo_outro
+        return super().save(commit)
+
 
 class FacturaReciboForm(forms.ModelForm):
     class Meta:
         model = FacturaRecibo
         fields = ['cliente', 'factura', 'valor', 'forma_pagamento', 'data']
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'factura': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'valor': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
-            'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
+            'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'factura': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'valor': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
+            'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm'}),
+            'data': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('nome')
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))

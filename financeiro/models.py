@@ -48,6 +48,12 @@ class RequisicaoFundo(models.Model):
                              db_index=True, verbose_name='Estado')
     
     # Totalizações
+    TAXA_IVA_CHOICES = [
+        ('14', '14% - Regime Geral'),
+        ('6.5', '6,5% - Regime Simplificado'),
+    ]
+    taxa_iva = models.CharField(max_length=5, choices=TAXA_IVA_CHOICES, default='14',
+                                verbose_name='Taxa de IVA')
     subtotal_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
                                         verbose_name='Subtotal Geral')
     iva_honorarios = models.DecimalField(max_digits=15, decimal_places=2, default=0,
@@ -139,8 +145,9 @@ class RequisicaoFundo(models.Model):
             (linha.valor or 0) for linha in linhas
         )
         
-        # IVA = 14% sobre o Subtotal (todas as linhas)
-        self.iva_honorarios = (self.subtotal_geral * Decimal('0.14')).quantize(Decimal('0.01'))
+        # IVA = taxa_iva% sobre o Subtotal (todas as linhas)
+        iva_pct = Decimal(self.taxa_iva or '14') / Decimal('100')
+        self.iva_honorarios = (self.subtotal_geral * iva_pct).quantize(Decimal('0.01'))
         
         # Retenção = 6.5% sobre Honorários do Despachante (iteração em memória)
         valor_honorarios = sum(
@@ -418,6 +425,9 @@ class FacturaCliente(models.Model):
     outros_encargos = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Outros Encargos')
     retencao = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Retenção')
     
+    ajuste_nota_credito = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Ajuste por Nota de Crédito')
+    ajuste_nota_debito = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Ajuste por Nota de Débito')
+    
     valor_total = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Valor Total')
     valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor Pago')
     estado = models.CharField(max_length=20, choices=ESTADOS, default='Pendente', db_index=True, verbose_name='Estado')
@@ -484,7 +494,9 @@ class FacturaCliente(models.Model):
                 self.despesas_operacionais + 
                 self.iva + 
                 self.outros_encargos -
-                self.retencao
+                self.retencao -
+                self.ajuste_nota_credito +
+                self.ajuste_nota_debito
             )
 
         if not self.numero_factura:
@@ -728,6 +740,11 @@ class NotaCredito(models.Model):
             antigo_credito = old_valor if old_estado == 'Aprovada' else Decimal('0')
             diff = novo_credito - antigo_credito
             if diff != 0:
+                if self.factura_relacionada_id:
+                    FacturaCliente.objects.filter(pk=self.factura_relacionada_id).update(
+                        ajuste_nota_credito=models.F('ajuste_nota_credito') + diff,
+                        valor_total=models.F('valor_total') - diff
+                    )
                 cliente = Cliente.objects.select_for_update().get(pk=self.cliente.pk)
                 cliente.saldo_conta_corrente += diff
                 cliente.save(update_fields=['saldo_conta_corrente'])
@@ -828,6 +845,11 @@ class NotaDebito(models.Model):
             antigo_debito = old_valor if old_estado == 'Aprovada' else Decimal('0')
             diff = novo_debito - antigo_debito
             if diff != 0:
+                if self.factura_relacionada_id:
+                    FacturaCliente.objects.filter(pk=self.factura_relacionada_id).update(
+                        ajuste_nota_debito=models.F('ajuste_nota_debito') + diff,
+                        valor_total=models.F('valor_total') + diff
+                    )
                 cliente = Cliente.objects.select_for_update().get(pk=self.cliente.pk)
                 cliente.saldo_conta_corrente -= diff
                 cliente.save(update_fields=['saldo_conta_corrente'])

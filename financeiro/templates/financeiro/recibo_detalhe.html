@@ -1,137 +1,208 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
-    <div class="max-w-2xl mx-auto w-full">
+<div class="max-w-3xl mx-auto w-full">
 
-      <!-- ── Cabeçalho ── -->
-      <div class="mb-5 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2">
-            <a href="{% url 'financeiro:recibo_lista' %}" class="hover:text-primary transition-colors">Gestão de Recibos</a>
-            <i class="fas fa-chevron-right" style="font-size:10px;"></i>
-            <span class="text-primary font-semibold">Detalhes</span>
-          </div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Recibo {{ object.numero_recibo }}</h1>
-        </div>
-        <div class="flex items-center gap-2">
-          <a href="{% url 'financeiro:recibo_lista' %}"
-            class="flex items-center gap-1.5 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all">
-            <i class="fas fa-arrow-left"></i>
-            <span>Voltar</span>
-          </a>
-          {% if object.estado != 'Cancelado' and papel == 'Administrador' %}
-          <a href="{% url 'financeiro:recibo_editar' object.pk %}"
-            class="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
-            <i class="fas fa-edit"></i>
-            <span>Editar</span>
-          </a>
-          <form method="post" action="{% url 'financeiro:recibo_cancelar' object.pk %}" class="inline">
-            {% csrf_token %}
-            <button type="button" onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Cancelar Recibo', mensagem:'Tem a certeza que pretende CANCELAR este recibo? O valor será revertido da conta corrente.', textoBotao:'Cancelar Recibo', textoCancelar:'Voltar' })"
-              class="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
-              <i class="fas fa-ban"></i>
-              <span>Cancelar</span>
-            </button>
-          </form>
+  <!-- Mensagens -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+        {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200
+        {% elif message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200
+        {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Cabecalho -->
+  <div class="mb-6">
+    <div class="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
+      <a href="{% url 'financeiro:recibo_lista' %}" class="hover:text-primary transition-colors">Recibos</a>
+      <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+      <span class="text-gray-800 font-semibold">{{ object.numero_recibo }}</span>
+    </div>
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 mb-1">
+          <h1 class="text-2xl font-bold text-gray-900">{{ object.numero_recibo }}</h1>
+          {% if object.estado %}
+          <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold
+            {% if object.estado == 'Cancelado' %}bg-red-100 text-red-600
+            {% else %}bg-green-50 text-green-600{% endif %}">
+            {{ object.estado }}
+          </span>
           {% endif %}
-          <form method="post" action="{% url 'financeiro:recibo_enviar_email' object.pk %}" class="inline">
-            {% csrf_token %}
-            <button type="button"
-              onclick="confirmarFormPost(this.form, {tipo:'info', titulo:'Reenviar Email', mensagem:'Reenviar recibo por email?', textoBotao:'Sim, Enviar'})"
-              class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
-              <i class="fas fa-envelope"></i>
-              <span>Reenviar Email</span>
-            </button>
-          </form>
-          <a href="{% url 'financeiro:recibo_pdf' object.pk %}" target="_blank"
-            class="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm">
-            <i class="fas fa-file-pdf"></i>
-            <span>Imprimir PDF</span>
-          </a>
+        </div>
+        <p class="text-sm text-gray-500">
+          {{ object.data_pagamento|date:"d/m/Y" }} &bull; {{ object.cliente.nome }}
+        </p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <a href="{% url 'financeiro:recibo_lista' %}"
+          class="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm">
+          <i class="fas fa-arrow-left"></i>Voltar
+        </a>
+        <a href="{% url 'financeiro:recibo_pdf' object.pk %}" target="_blank"
+          class="flex items-center gap-1.5 px-4 py-2 bg-cdoa text-white rounded-xl text-sm font-medium hover:opacity-90 transition-colors shadow-sm">
+          <i class="fas fa-file-pdf"></i>PDF
+        </a>
+        <form method="post" action="{% url 'financeiro:recibo_enviar_email' object.pk %}" class="inline">
+          {% csrf_token %}
+          <button type="button"
+            onclick="confirmarFormPost(this.form, {tipo:'info', titulo:'Reenviar Email', mensagem:'Reenviar recibo por email?', textoBotao:'Sim, Enviar'})"
+            class="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">
+            <i class="fas fa-envelope"></i>Email
+          </button>
+        </form>
+        {% if object.estado != 'Cancelado' and papel == 'Administrador' %}
+        <a href="{% url 'financeiro:recibo_editar' object.pk %}"
+          class="flex items-center gap-1.5 px-4 py-2 bg-secondary text-white rounded-xl text-sm font-medium hover:opacity-90 transition-colors shadow-sm">
+          <i class="fas fa-edit"></i>Editar
+        </a>
+        <form method="post" action="{% url 'financeiro:recibo_cancelar' object.pk %}" class="inline">
+          {% csrf_token %}
+          <button type="button"
+            onclick="confirmarFormPost(this.form, { tipo:'danger', titulo:'Cancelar Recibo', mensagem:'Tem a certeza que pretende CANCELAR este recibo? O valor sera revertido da conta corrente.', textoBotao:'Sim, Cancelar', textoCancelar:'Voltar' })"
+            class="flex items-center gap-1.5 px-4 py-2 bg-white border border-red-200 text-red-500 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors shadow-sm">
+            <i class="fas fa-ban"></i>Cancelar
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Valor Recebido — Destaque -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-5">
+    <div class="bg-primary px-6 py-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-white/60 uppercase tracking-wider mb-1">Valor Recebido</p>
+          <p class="text-3xl font-bold text-white">{{ object.valor_recebido|fmtkz }} <span class="text-lg text-white/50">Kz</span></p>
+        </div>
+        <div class="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center">
+          <i class="fas fa-hand-holding-usd text-secondary text-xl"></i>
         </div>
       </div>
-
-      <!-- ── Mensagens ── -->
-      {% if messages %}
-        {% for message in messages %}
-          <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
-            {% if message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800
-            {% elif message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800
-            {% else %}bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800{% endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endif %}
-
-      <!-- ── Detalhes do Recibo ── -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
-        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-4">
-          <div>
-            <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">Forma de Pagamento</span>
-            <span class="text-sm font-semibold text-gray-900 dark:text-white mt-1 block">{{ object.forma_pagamento }}</span>
-            {% if object.estado %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold mt-1
-              {% if object.estado == 'Cancelado' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
-              {% else %}bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400{% endif %}">
-              {{ object.estado }}
-            </span>
-            {% endif %}
-          </div>
-          <div class="text-right">
-            <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">Valor Recebido</span>
-            <span class="text-2xl font-bold text-green-600 dark:text-green-400">{{ object.valor_recebido|fmtkz }} Kz</span>
-          </div>
+      <div class="flex items-center gap-4 mt-4 pt-4 border-t border-white/10">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-credit-card text-white/50 text-xs"></i>
+          <span class="text-xs text-white/70">{{ object.forma_pagamento }}</span>
         </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div>
-            <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Cliente</h3>
-            <div class="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-2 text-sm text-gray-700 dark:text-gray-300">
-              <p><strong>Nome:</strong> {{ object.cliente.nome }}</p>
-              <p><strong>NIF:</strong> {{ object.cliente.nif }}</p>
-              <p><strong>Email:</strong> {{ object.cliente.email|default:"N/D" }}</p>
-              <p><strong>Saldo Global da Conta Corrente:</strong> <span class="font-bold {% if object.cliente.saldo_conta_corrente >= 0 %}text-green-600 dark:text-green-400{% else %}text-red-500{% endif %}">{% if object.cliente.saldo_conta_corrente < 0 %}{{ object.cliente.saldo_conta_corrente|fmtkz|slice:"1:" }}{% else %}{{ object.cliente.saldo_conta_corrente|fmtkz }}{% endif %} Kz <span class="text-xs">{% if object.cliente.saldo_conta_corrente < 0 %}(em dívida){% else %}(a favor){% endif %}</span></span></p>
-            </div>
-          </div>
-          <div>
-            <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Dados de Liquidação</h3>
-            <div class="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-2 text-sm text-gray-700 dark:text-gray-300">
-              <p><strong>Factura Relacionada:</strong> <a href="{% url 'financeiro:factura_detalhe' object.factura.pk %}" class="text-primary hover:underline font-semibold">{{ object.factura.numero_factura }}</a></p>
-              <p><strong>Data de Pagamento:</strong> {{ object.data_pagamento|date:"d/m/Y" }}</p>
-              <p><strong>Ref. Bancária:</strong> {{ object.referencia_bancaria|default:"N/D" }}</p>
-              <p><strong>Responsável:</strong> {{ object.utilizador_responsavel_nome }}</p>
-            </div>
-          </div>
-        </div>
-
-        {% if historico %}
-        <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
-          <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Histórico de Alterações</h3>
-          <div class="divide-y divide-gray-100 dark:divide-gray-700">
-            {% for h in historico %}
-            <div class="py-2.5 flex items-start gap-3 text-sm">
-              <div class="flex-shrink-0 mt-0.5">
-                {% if h.accao == 'Criado' %}
-                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"><i class="fas fa-plus text-xs"></i></span>
-                {% else %}
-                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"><i class="fas fa-circle text-xs"></i></span>
-                {% endif %}
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-gray-900 dark:text-white font-medium">
-                  {{ h.accao }}
-                  {% if h.estado_anterior and h.estado_novo and h.estado_anterior != h.estado_novo %}
-                    <span class="text-gray-400 font-normal"> — de <span class="font-semibold">{{ h.estado_anterior }}</span> para <span class="font-semibold">{{ h.estado_novo }}</span></span>
-                  {% endif %}
-                </p>
-                <p class="text-xs text-gray-400 mt-0.5">Por {{ h.utilizador_nome|default:"Sistema" }} — {{ h.data|date:"d/m/Y H:i" }}</p>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
+        {% if object.referencia_bancaria %}
+        <div class="flex items-center gap-2">
+          <i class="fas fa-hashtag text-white/50 text-xs"></i>
+          <span class="text-xs text-white/70 font-mono">{{ object.referencia_bancaria }}</span>
         </div>
         {% endif %}
       </div>
-
     </div>
+  </div>
+
+  <!-- Conteudo -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+    <!-- Cliente -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+        <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-user-circle"></i></span>
+          Cliente
+        </h2>
+      </div>
+      <div class="p-5 space-y-3">
+        <div>
+          <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Nome</p>
+          <p class="text-sm font-semibold text-gray-900">{{ object.cliente.nome }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">NIF</p>
+          <p class="text-sm font-mono font-semibold text-gray-900">{{ object.cliente.nif }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Email</p>
+          <p class="text-sm text-gray-700">{{ object.cliente.email|default:"-" }}</p>
+        </div>
+        <div class="pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Saldo Conta Corrente</p>
+          <p class="text-sm font-bold {% if object.cliente.saldo_conta_corrente >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
+            {% if object.cliente.saldo_conta_corrente < 0 %}-{% endif %}{{ object.cliente.saldo_conta_corrente|fmtkz|cut:"-" }} <span class="text-xs font-normal text-gray-400">Kz</span>
+            <span class="text-xs font-normal text-gray-400">{% if object.cliente.saldo_conta_corrente < 0 %}(em divida){% else %}(a favor){% endif %}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dados de Liquidacao -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+        <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-file-invoice"></i></span>
+          Liquidacao
+        </h2>
+      </div>
+      <div class="p-5 space-y-3">
+        <div>
+          <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Factura</p>
+          <a href="{% url 'financeiro:factura_detalhe' object.factura.pk %}" class="text-sm font-semibold text-primary hover:underline">{{ object.factura.numero_factura }}</a>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Data Pagamento</p>
+          <p class="text-sm text-gray-800">{{ object.data_pagamento|date:"d/m/Y" }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Responsavel</p>
+          <p class="text-sm text-gray-800">{{ object.utilizador_responsavel_nome }}</p>
+        </div>
+        {% if object.referencia_bancaria %}
+        <div>
+          <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Referencia Bancaria</p>
+          <p class="text-sm font-mono text-gray-800">{{ object.referencia_bancaria }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Historico -->
+  {% if historico %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-5">
+    <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+      <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+        <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-clock"></i></span>
+        Historico
+      </h2>
+    </div>
+    <div class="p-6 space-y-0">
+      {% for h in historico %}
+      <div class="flex items-start gap-3 {% if not forloop.last %}pb-4{% endif %}">
+        <div class="flex-shrink-0 mt-0.5">
+          {% if h.accao == 'Criado' %}
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary"><i class="fas fa-plus text-xs"></i></span>
+          {% elif h.accao == 'Cancelado' %}
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 text-red-500"><i class="fas fa-ban text-xs"></i></span>
+          {% else %}
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400"><i class="fas fa-circle text-xs"></i></span>
+          {% endif %}
+        </div>
+        <div class="flex-1 min-w-0 pt-1">
+          <p class="text-sm font-semibold text-gray-900">
+            {{ h.accao }}
+            {% if h.estado_anterior and h.estado_novo and h.estado_anterior != h.estado_novo %}
+              <span class="text-gray-400 font-normal"> &mdash; de <span class="font-semibold">{{ h.estado_anterior }}</span> para <span class="font-semibold">{{ h.estado_novo }}</span></span>
+            {% endif %}
+          </p>
+          <p class="text-xs text-gray-400 mt-0.5">
+            {{ h.utilizador_nome|default:"Sistema" }} &bull; {{ h.data|date:"d/m/Y H:i" }}
+          </p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
 {% endblock %}

@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/dados-cliente/', views.api_dados_cliente, name='api_dados_cliente'),
     path('api/processos-cliente/', views.api_processos_cliente, name='api_processos_cliente'),
     path('api/dados-processo/', views.api_dados_processo, name='api_dados_processo'),
+    path('api/facturas-por-cliente/', views.api_facturas_por_cliente, name='api_facturas_por_cliente'),
 
     # Facturas Finais
     path('facturas/', views.FacturaClienteListView.as_view(), name='factura_lista'),
