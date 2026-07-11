@@ -19,7 +19,10 @@ from rh.models import Colaborador, Banca
 from .models import DeclaracaoUnica
 from .acesso import escopo_du
 import logging
+from decimal import Decimal
 from utils.format_kz import fmt_kz
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -693,8 +696,10 @@ def du_download_pdf(request, du_uuid):
 
         s_small = st('small', fontSize=7, textColor=COR_CINZA, leading=9)
         s_bold7 = st('bold7', fontSize=7, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, leading=9)
+        s_bold7_r = st('bold7r', fontSize=7, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, leading=9, alignment=TA_RIGHT)
         s_kv_label = st('kv_label', fontSize=7, fontName='Helvetica', textColor=COR_CINZA, leading=9)
         s_kv_value = st('kv_value', fontSize=7.5, fontName='Helvetica', textColor=COR_PRIMARIO, leading=10)
+        s_kv_value_r = st('kv_value_r', fontSize=7.5, fontName='Helvetica', textColor=COR_PRIMARIO, leading=10, alignment=TA_RIGHT)
 
         story = []
 
@@ -953,15 +958,15 @@ def du_download_pdf(request, du_uuid):
             for i, c in enumerate(contentores, 1):
                 cont_rows.append([
                     Paragraph(str(i), s_kv_value),
-                    Paragraph(c.get('identificacao', 'N/D'), s_kv_value),
-                    Paragraph(c.get('tipo', 'N/D'), s_kv_value),
-                    Paragraph(c.get('peso_bruto', 'N/D'), s_kv_value),
-                    Paragraph(c.get('qtd_volumes', 'N/D'), s_kv_value),
+                    Paragraph(str(c.get('identificacao', 'N/D')), s_kv_value),
+                    Paragraph(str(c.get('tipo', 'N/D')), s_kv_value),
+                    Paragraph(str(c.get('peso_bruto', 'N/D')), s_kv_value),
+                    Paragraph(str(c.get('qtd_volumes', 'N/D')), s_kv_value),
                 ])
             t_cont = Table(cont_rows, colWidths=[0.8*cm, 5*cm, 3*cm, 3*cm, 3*cm])
             t_cont.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), COR_PRIMARIO),
-                ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+                ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+                ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_PRIMARIO),
                 ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
@@ -980,10 +985,10 @@ def du_download_pdf(request, du_uuid):
             ad_header = [
                 Paragraph('<b>Cód. Pautal</b>', s_bold7),
                 Paragraph('<b>Descrição</b>', s_bold7),
-                Paragraph('<b>Qtd</b>', s_bold7, alignment=TA_RIGHT),
-                Paragraph('<b>Peso (kg)</b>', s_bold7, alignment=TA_RIGHT),
-                Paragraph('<b>Valor FOB</b>', s_bold7, alignment=TA_RIGHT),
-                Paragraph('<b>Valor CIF</b>', s_bold7, alignment=TA_RIGHT),
+                Paragraph('<b>Qtd</b>', s_bold7_r),
+                Paragraph('<b>Peso (kg)</b>', s_bold7_r),
+                Paragraph('<b>Valor FOB</b>', s_bold7_r),
+                Paragraph('<b>Valor CIF</b>', s_bold7_r),
             ]
             ad_rows = [ad_header]
             total_fob_ad = Decimal('0')
@@ -996,10 +1001,10 @@ def du_download_pdf(request, du_uuid):
                 ad_rows.append([
                     Paragraph(_safe(ad.get('codigo_pautal', '')), s_kv_value),
                     Paragraph(_safe(ad.get('descricao_mercadoria', ''))[:60], s_kv_value),
-                    Paragraph(str(ad.get('quantidade', '')), s_kv_value, alignment=TA_RIGHT),
-                    Paragraph(str(ad.get('peso_bruto', '')), s_kv_value, alignment=TA_RIGHT),
-                    Paragraph(fmt_kz(fob_val), s_kv_value, alignment=TA_RIGHT),
-                    Paragraph(fmt_kz(cif_val), s_kv_value, alignment=TA_RIGHT),
+                    Paragraph(str(ad.get('quantidade', '')), s_kv_value_r),
+                    Paragraph(str(ad.get('peso_bruto', '')), s_kv_value_r),
+                    Paragraph(fmt_kz(fob_val), s_kv_value_r),
+                    Paragraph(fmt_kz(cif_val), s_kv_value_r),
                 ])
             t_ad = Table(ad_rows, colWidths=[W*0.12, W*0.33, W*0.09, W*0.11, W*0.17, W*0.18])
             t_ad.setStyle(TableStyle([
@@ -1021,26 +1026,26 @@ def du_download_pdf(request, du_uuid):
                 if impostos:
                     imp_rows = [[
                         Paragraph('<b>Imposto</b>', s_bold7),
-                        Paragraph('<b>Base (KZ)</b>', s_bold7, alignment=TA_RIGHT),
-                        Paragraph('<b>Taxa</b>', s_bold7, alignment=TA_RIGHT),
-                        Paragraph('<b>Valor (KZ)</b>', s_bold7, alignment=TA_RIGHT),
+                        Paragraph('<b>Base (KZ)</b>', s_bold7_r),
+                        Paragraph('<b>Taxa</b>', s_bold7_r),
+                        Paragraph('<b>Valor (KZ)</b>', s_bold7_r),
                         Paragraph('<b>Accão</b>', s_bold7),
                     ]]
                     for cod, info in impostos.items():
                         if isinstance(info, dict) and info.get('valor', 0):
                             imp_rows.append([
                                 Paragraph(str(cod), s_kv_value),
-                                Paragraph(fmt_kz(info.get('base', 0)), s_kv_value, alignment=TA_RIGHT),
-                                Paragraph(f"{info.get('taxa', 0)}%", s_kv_value, alignment=TA_RIGHT),
-                                Paragraph(fmt_kz(info.get('valor', 0)), s_kv_value, alignment=TA_RIGHT),
+                                Paragraph(fmt_kz(info.get('base', 0)), s_kv_value_r),
+                                Paragraph(f"{info.get('taxa', 0)}%", s_kv_value_r),
+                                Paragraph(fmt_kz(info.get('valor', 0)), s_kv_value_r),
                                 Paragraph(str(info.get('acao', '')), s_kv_value),
                             ])
                     if len(imp_rows) > 1:
                         story.append(Spacer(1, 0.08*cm))
                         t_imp = Table(imp_rows, colWidths=[W*0.22, W*0.22, W*0.12, W*0.22, W*0.22])
                         t_imp.setStyle(TableStyle([
-                            ('BACKGROUND', (0, 0), (-1, 0), COR_CDOA),
-                            ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+                            ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+                            ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_PRIMARIO),
                             ('LINEBELOW', (0, 1), (-1, -1), 0.3, COR_BORDA),
                             ('TOPPADDING', (0, 0), (-1, -1), 3),
                             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
