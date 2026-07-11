@@ -1218,7 +1218,7 @@ def du_download_pdf(request, du_uuid):
 
         if _assinatura_img:
             from reportlab.platypus import Image as RLImage
-            _assinatura_rl = RLImage(_assinatura_img, width=5*cm, height=1*cm)
+            _assinatura_rl = RLImage(_assinatura_img, width=3*cm, height=0.6*cm)
             ass_data = [
                 [Paragraph('<b>Assinatura do Despachante:</b>', st('ass_lab', fontSize=8)),
                  Paragraph('', st('ass_spc', fontSize=8))],

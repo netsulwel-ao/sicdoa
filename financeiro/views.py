@@ -87,7 +87,7 @@ def _carregar_assinatura(usuario_id):
             from io import BytesIO
             img_data = _b64.b64decode(raw.split(',', 1)[1])
             img_buf = BytesIO(img_data)
-            return RLImage(img_buf, width=5*cm, height=1*cm)
+            return RLImage(img_buf, width=3*cm, height=0.6*cm)
     except Exception:
         pass
     return None
@@ -3273,10 +3273,10 @@ def _construir_pdf_base(buffer, titulo, subtitulo, info_geral, dados_kv, tabela_
     if _ass_img:
         story.append(_ass_img)
         story.append(Spacer(1, 0.1*cm))
-        story.append(Paragraph('Assinatura do Responsável', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
+        story.append(Paragraph('Assinatura do Despachante', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
     else:
         story.append(HRFlowable(width=6*cm, thickness=0.5, color=colors.HexColor('#94a3b8'), hAlign='CENTER'))
-        story.append(Paragraph('Assinatura do Responsável', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
+        story.append(Paragraph('Assinatura do Despachante', ParagraphStyle('ass', fontSize=8, fontName='Helvetica', alignment=1)))
 
     doc.build(story)
 
@@ -3456,8 +3456,8 @@ def _construir_pdf_documento(
             ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
             ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ('LEFTPADDING', (0, 0), (-1, -1), 4),
             ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]))
@@ -3753,16 +3753,16 @@ def factura_pdf(request, pk):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(header_body)
-    story.append(Spacer(1, 0.1 * cm))
+    story.append(Spacer(1, 0.06 * cm))
 
     # HASH e versão do sistema
     story.append(Paragraph(
         f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; Processado por programa válido nº35/AGT/2019</font>',
         st('hash_line', fontSize=6)
     ))
-    story.append(Spacer(1, 0.1 * cm))
+    story.append(Spacer(1, 0.06 * cm))
     story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
-    story.append(Spacer(1, 0.1 * cm))
+    story.append(Spacer(1, 0.06 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 3 — Barra do número da fatura
@@ -3775,14 +3775,14 @@ def factura_pdf(request, pk):
     ]], colWidths=[W * 0.6, W * 0.4])
     t_num.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), COR_HEADER),
-        ('TOPPADDING',    (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 10),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(t_num)
-    story.append(Spacer(1, 0.1 * cm))
+    story.append(Spacer(1, 0.06 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 4 — Dados do Cliente + Referências do Processo Aduaneiro
@@ -4069,8 +4069,8 @@ def factura_pdf(request, pk):
             ])
             total_geral_itens += factura.outros_encargos
 
-    # Linhas em branco para preencher o espaço (mínimo 6 linhas)
-    while len(ITENS) < 7:
+    # Linhas em branco para preencher o espaço (mínimo 5 linhas)
+    while len(ITENS) < 6:
         ITENS.append(['', '', '', ''])
 
     t_itens = Table(ITENS, colWidths=cw, repeatRows=1)
@@ -4081,20 +4081,20 @@ def factura_pdf(request, pk):
         ('FONTSIZE',      (0, 0), (-1, 0), 7),
         ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
         ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
-        ('TOPPADDING',    (0, 0), (-1, 0), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('TOPPADDING',    (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
         ('FONTNAME',      (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE',      (0, 1), (-1, -1), 8),
         ('GRID',          (0, 0), (-1, -1), 0.3, COR_BORDA),
         ('ROWBACKGROUNDS',(0, 1), (-1, -1), [colors.white, COR_CLARO]),
         ('VALIGN',        (0, 1), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING',    (0, 1), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+        ('TOPPADDING',    (0, 1), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
         ('LEFTPADDING',   (0, 0), (-1, -1), 5),
         ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
     ]))
     story.append(t_itens)
-    story.append(Spacer(1, 0.15 * cm))
+    story.append(Spacer(1, 0.08 * cm))
 
     # ── Nota de bens
     nota_box = Table([[
@@ -4110,7 +4110,7 @@ def factura_pdf(request, pk):
         ('BOX', (0, 0), (-1, -1), 0.3, COR_BORDA),
     ]))
     story.append(nota_box)
-    story.append(Spacer(1, 0.2 * cm))
+    story.append(Spacer(1, 0.1 * cm))
 
     # Totais por categoria (para secção de totalizadores)
     taxas_total = Decimal('0')
@@ -4174,10 +4174,10 @@ def factura_pdf(request, pk):
         ('GRID',          (0, 1), (-1, -1), 0.3, COR_BORDA),
         ('BOX',           (0, 0), (-1, -1), 0.5, COR_BORDA),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
-        ('TOPPADDING',    (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
+        ('TOPPADDING',    (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
         ('ALIGN',         (0, 2), (2, -1), 'CENTER'),
         ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
     ]))
@@ -4215,10 +4215,10 @@ def factura_pdf(request, pk):
         ('LINEABOVE',     (0, 7), (-1, 7), 1.5, COR_CINZA),
         ('BACKGROUND',    (0, 7), (-1, 7), COR_CLARO),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
-        ('TOPPADDING',    (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+        ('TOPPADDING',    (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
         ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
     ]))
 
@@ -4232,7 +4232,7 @@ def factura_pdf(request, pk):
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(t_bottom)
-    story.append(Spacer(1, 0.15 * cm))
+    story.append(Spacer(1, 0.08 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 7 — Assinatura + Operador
@@ -4243,26 +4243,26 @@ def factura_pdf(request, pk):
             '',
             Table([
                 [_ass_img_fact],
-                [Paragraph('<font size="8"><b>Assinatura</b></font>',
-                            st('ass', fontSize=8, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
-                [Spacer(1, 0.15*cm)],
-                [Paragraph(f'<font size="8"><b>Operador:</b> {factura.criado_por_nome or "—"}</font>',
-                            st('op', fontSize=8, alignment=TA_CENTER))],
-            ], colWidths=[5*cm]),
-        ]], colWidths=[W - 5*cm, 5*cm])
+                [Paragraph('<font size="7.5"><b>Assinatura do Despachante</b></font>',
+                            st('ass', fontSize=7.5, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+                [Spacer(1, 0.08*cm)],
+                [Paragraph(f'<font size="7.5"><b>Operador:</b> {factura.criado_por_nome or "—"}</font>',
+                            st('op', fontSize=7.5, alignment=TA_CENTER))],
+            ], colWidths=[4.5*cm]),
+        ]], colWidths=[W - 4.5*cm, 4.5*cm])
     else:
         t_ass = Table([[
             '',
             Table([
-                [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
-                [Paragraph('<font size="8"><b>Assinatura</b></font>',
-                            st('ass', fontSize=8, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
-                [Spacer(1, 0.3*cm)],
-                [HRFlowable(width=5*cm, thickness=0.5, color=COR_BORDA)],
-                [Paragraph(f'<font size="8"><b>Operador:</b> {factura.criado_por_nome or "—"}</font>',
-                            st('op', fontSize=8, alignment=TA_CENTER))],
-            ], colWidths=[5*cm]),
-        ]], colWidths=[W - 5*cm, 5*cm])
+                [HRFlowable(width=4.5*cm, thickness=0.5, color=COR_BORDA)],
+                [Paragraph('<font size="7.5"><b>Assinatura do Despachante</b></font>',
+                            st('ass', fontSize=7.5, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+                [Spacer(1, 0.15*cm)],
+                [HRFlowable(width=4.5*cm, thickness=0.5, color=COR_BORDA)],
+                [Paragraph(f'<font size="7.5"><b>Operador:</b> {factura.criado_por_nome or "—"}</font>',
+                            st('op', fontSize=7.5, alignment=TA_CENTER))],
+            ], colWidths=[4.5*cm]),
+        ]], colWidths=[W - 4.5*cm, 4.5*cm])
     t_ass.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
         ('ALIGN',  (1, 0), (1, 0),  'CENTER'),
@@ -4288,51 +4288,49 @@ def factura_pdf(request, pk):
         has_bank_data = bool(banca.banco or banca.numero_conta or banca.iban)
 
     if has_bank_data or (banca and banca.instrucoes_pagamento):
-        story.append(Spacer(1, 0.1 * cm))
+        story.append(Spacer(1, 0.06 * cm))
         story.append(HRFlowable(width=W, thickness=0.3, color=COR_BORDA))
-        story.append(Spacer(1, 0.08 * cm))
+        story.append(Spacer(1, 0.04 * cm))
 
         story.append(Paragraph(
             '<font size="5.5" color="#1e293b"><b>Dados Bancários</b></font>',
             st('bank_title', fontSize=5.5)
         ))
-        story.append(Spacer(1, 0.03 * cm))
 
         if bancos_pdf:
+            bank_lines = []
             for i, b in enumerate(bancos_pdf):
                 if not isinstance(b, dict) or not b.get('banco'):
                     continue
-                num = f'{i + 1}.'
-                banco_txt = b['banco']
-                iban_txt = b.get('iban', '—')
-                story.append(Paragraph(
+                iban = b.get('iban', '—')
+                bank_lines.append(
                     f'<font size="5" color="#475569">'
-                    f'<b>{num}</b> &nbsp;'
-                    f'<b>Banco:</b> {banco_txt} &nbsp;|&nbsp;'
-                    f'<b>IBAN:</b> <font name="Courier">{iban_txt}</font>'
-                    f'</font>',
-                    st(f'bank_line_{i}', fontSize=5, leading=6.5, leftIndent=8)
-                ))
+                    f'<b>{i + 1}.</b> <b>{b["banco"]}</b> IBAN: <font name="Courier">{iban}</font>'
+                    f'</font>'
+                )
+            story.append(Paragraph(
+                ' &nbsp;&nbsp; '.join(bank_lines),
+                st('bank_all', fontSize=5, leading=7, leftIndent=8)
+            ))
         elif banca:
-            lines = []
+            parts = []
             if banca.banco:
-                lines.append(f'<b>Banco:</b> {banca.banco}')
+                parts.append(f'<b>Banco:</b> {banca.banco}')
             if banca.iban:
-                lines.append(f'<b>IBAN:</b> <font name="Courier">{banca.iban}</font>')
+                parts.append(f'<b>IBAN:</b> <font name="Courier">{banca.iban}</font>')
             if banca.numero_conta:
-                lines.append(f'<b>Conta:</b> {banca.numero_conta}')
-            if lines:
+                parts.append(f'<b>Conta:</b> {banca.numero_conta}')
+            if parts:
                 story.append(Paragraph(
-                    f'<font size="5" color="#475569">{" &nbsp;|&nbsp; ".join(lines)}</font>',
+                    f'<font size="5" color="#475569">{" &nbsp;|&nbsp; ".join(parts)}</font>',
                     st('bank_foot', fontSize=5, leading=6.5, leftIndent=8)
                 ))
 
         if banca and banca.instrucoes_pagamento:
             texto_pagamento = banca.instrucoes_pagamento.replace('\n', ' ').replace('\r', '')
-            story.append(Spacer(1, 0.02 * cm))
             story.append(Paragraph(
-                f'<font size="4.5" color="#64748b"><i>{texto_pagamento}</i></font>',
-                st('bank_inst', fontSize=4.5, leading=6, leftIndent=8)
+                f'<font size="5" color="#64748b"><i>{texto_pagamento}</i></font>',
+                st('bank_inst', fontSize=5, leading=6.5, leftIndent=8)
             ))
 
     # ══════════════════════════════════════════════════════════════════════════
