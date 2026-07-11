@@ -75,18 +75,19 @@ def _safe(text):
 
 def _carregar_assinatura(usuario_id):
     """Carrega a assinatura digital de um utilizador e retorna um ReportLab Image ou None."""
+    if not usuario_id:
+        return None
     try:
         from users.models import Usuario
         usuario = Usuario.objects.get(id=usuario_id)
         raw = getattr(usuario, 'assinatura', '') or ''
         if raw.startswith('data:image/png;base64,'):
             import base64 as _b64
-            from reportlab.lib.utils import ImageReader
             from reportlab.platypus import Image as RLImage
             from io import BytesIO
             img_data = _b64.b64decode(raw.split(',', 1)[1])
-            img = ImageReader(BytesIO(img_data))
-            return RLImage(img, width=5*cm, height=2*cm)
+            img_buf = BytesIO(img_data)
+            return RLImage(img_buf, width=5*cm, height=1*cm)
     except Exception:
         pass
     return None

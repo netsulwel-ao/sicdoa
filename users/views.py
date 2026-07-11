@@ -1442,7 +1442,7 @@ def meu_perfil_senha(request):
 
 
 def meu_perfil_assinatura(request):
-    """Guarda a assinatura digital do utilizador (canvas Base64)."""
+    """Guarda a assinatura digital do utilizador (canvas Base64 ou upload de imagem)."""
     usuario, erro = _verificar_sessao_usuario(request)
     if erro:
         return erro
@@ -1455,9 +1455,25 @@ def meu_perfil_assinatura(request):
         return redirect("meu_perfil")
 
     assinatura = request.POST.get("assinatura", "").strip()
+    ficheiro = request.FILES.get("assinatura_upload")
 
-    if not assinatura or not assinatura.startswith("data:image/png;base64,"):
-        messages.error(request, "Assinatura inválida. Desenhe a sua assinatura no quadro.")
+    if ficheiro:
+        import base64 as _b64
+        from django.core.files.uploadedfile import InMemoryUploadedFile
+        tipo = ficheiro.content_type or 'image/png'
+        dados = ficheiro.read()
+        if len(dados) > 2 * 1024 * 1024:
+            messages.error(request, 'A imagem não pode ter mais de 2MB.')
+            return redirect("meu_perfil")
+        if tipo not in ('image/png', 'image/jpeg', 'image/gif', 'image/webp'):
+            messages.error(request, 'Formato inválido. Use PNG, JPG, GIF ou WebP.')
+            return redirect("meu_perfil")
+        b64 = _b64.b64encode(dados).decode('utf-8')
+        assinatura = f'data:{tipo};base64,{b64}'
+    elif assinatura and assinatura.startswith('data:image/'):
+        pass
+    else:
+        messages.error(request, 'Assinatura inválida. Desenhe ou faça upload de uma imagem.')
         return redirect("meu_perfil")
 
     from django.db import connection as _conn

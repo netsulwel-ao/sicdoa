@@ -376,33 +376,63 @@
         <i class="fas fa-times"></i>
       </button>
     </div>
-    <form method="POST" action="{% url 'meu_perfil_assinatura' %}" id="formAssinatura" class="p-6">
+    <form method="POST" action="{% url 'meu_perfil_assinatura' %}" id="formAssinatura" class="p-6" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="assinatura" id="assinaturaInput" />
 
-      <p class="text-sm text-gray-600 mb-3">Desenhe a sua assinatura no quadro abaixo. Esta assinatura será utilizada automaticamente em todos os documentos PDF.</p>
+      <p class="text-sm text-gray-600 mb-3">Crie ou faça upload da sua assinatura. Será utilizada automaticamente nos PDFs.</p>
 
-      <!-- Canvas de Assinatura -->
-      <div class="relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden" style="touch-action:none;">
-        <canvas id="canvasAssinatura" class="w-full cursor-crosshair" style="height:180px;"></canvas>
-        {% if tem_assinatura %}
-        <div id="assinaturaPlaceholder" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <img src="{{ usuario.assinatura }}" alt="" class="max-h-14 opacity-30" />
-        </div>
-        {% else %}
-        <div id="assinaturaPlaceholder" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span class="text-gray-300 text-sm">Assine aqui</span>
-        </div>
-        {% endif %}
+      <!-- Tabs: Desenhar / Upload -->
+      <div class="flex border border-gray-200 rounded-xl overflow-hidden mb-4" role="tablist">
+        <button type="button" id="tabDesenhar" role="tab" aria-selected="true" onclick="ativarTab('desenhar')"
+          class="flex-1 px-4 py-2.5 text-sm font-medium bg-primary text-white transition-colors flex items-center justify-center gap-2">
+          <i class="fas fa-pen-nib"></i>Desenhar
+        </button>
+        <button type="button" id="tabUpload" role="tab" aria-selected="false" onclick="ativarTab('upload')"
+          class="flex-1 px-4 py-2.5 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+          <i class="fas fa-upload"></i>Upload
+        </button>
       </div>
 
-      <!-- Controlos -->
-      <div class="flex items-center justify-between mt-3">
-        <button type="button" onclick="limparCanvas()"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-          <i class="fas fa-eraser"></i>Limpar
+      <!-- Painel: Canvas de Assinatura -->
+      <div id="painelDesenhar">
+        <div class="relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden" style="touch-action:none;">
+          <canvas id="canvasAssinatura" class="w-full cursor-crosshair" style="height:160px;"></canvas>
+          <div id="assinaturaPlaceholder" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            {% if tem_assinatura %}
+            <img src="{{ usuario.assinatura }}" alt="" class="max-h-14 opacity-30" />
+            {% else %}
+            <span class="text-gray-300 text-sm">Assine aqui</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-2.5">
+          <button type="button" onclick="limparCanvas()"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <i class="fas fa-eraser"></i>Limpar
+          </button>
+          <p class="text-xs text-gray-400">Use o rato ou dedo para assinar</p>
+        </div>
+      </div>
+
+      <!-- Painel: Upload de Imagem (hidden por defeito) -->
+      <div id="painelUpload" class="hidden">
+        <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer" id="dropZone">
+          <input type="file" name="assinatura_upload" id="assinaturaFileInput" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" />
+          <div id="uploadPlaceholder">
+            <i class="fas fa-cloud-upload-alt text-3xl text-gray-300 mb-2"></i>
+            <p class="text-sm text-gray-500">Clique para seleccionar ou arraste uma imagem</p>
+            <p class="text-xs text-gray-400 mt-1">PNG, JPG, GIF ou WebP (max. 2MB)</p>
+          </div>
+          <div id="uploadPreview" class="hidden">
+            <img id="assinaturaPreviewImg" class="max-h-20 mx-auto mb-2" alt="Pré-visualização" />
+            <p id="uploadFileName" class="text-sm text-gray-600 font-medium"></p>
+          </div>
+        </div>
+        <button type="button" onclick="removerFicheiro()"
+          class="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+          <i class="fas fa-times"></i>Remover ficheiro
         </button>
-        <p class="text-xs text-gray-400">Use o rato ou dedo para assinar</p>
       </div>
 
       <!-- Botões -->
@@ -421,7 +451,14 @@
 </div>
 
 <script>
-function abrirModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function abrirModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+  // Canvas de assinatura precisa de redimensionar quando o modal abre
+  // (o modal começa hidden, logo getBoundingClientRect dá largura 0)
+  if (id === 'modalAssinatura' && window._resizeCanvasAssinatura) {
+    window._resizeCanvasAssinatura();
+  }
+}
 function fecharModal(id) { document.getElementById(id).classList.add('hidden'); }
 
 // Fechar ao clicar fora
@@ -504,7 +541,6 @@ document.querySelectorAll('[id^="modal"]').forEach(m => {
     }
   });
 })();
-})();
 
 // ── Assinatura Digital (Canvas) ──────────────────────────────────────────────
 (function() {
@@ -519,7 +555,7 @@ document.querySelectorAll('[id^="modal"]').forEach(m => {
 
   function resizeCanvas() {
     var rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width;
+    canvas.width = rect.width || 500;
     canvas.height = 180;
     ctx.strokeStyle = '#1a1a1a';
     ctx.lineWidth = 2.5;
@@ -527,6 +563,7 @@ document.querySelectorAll('[id^="modal"]').forEach(m => {
     ctx.lineJoin = 'round';
   }
   resizeCanvas();
+  window._resizeCanvasAssinatura = resizeCanvas;
   window.addEventListener('resize', resizeCanvas);
 
   function getPos(e) {
@@ -587,6 +624,85 @@ document.querySelectorAll('[id^="modal"]').forEach(m => {
     if (placeholder) { placeholder.style.display = ''; }
   };
 })();
+
+// ── Tabs: Desenhar / Upload ───────────────────────────────────────────
+function ativarTab(tab) {
+  var tabD = document.getElementById('tabDesenhar');
+  var tabU = document.getElementById('tabUpload');
+  var painelD = document.getElementById('painelDesenhar');
+  var painelU = document.getElementById('painelUpload');
+  var btnGuardar = document.getElementById('btnGuardarAssinatura');
+  var input = document.getElementById('assinaturaInput');
+
+  if (tab === 'desenhar') {
+    tabD.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-primary text-white transition-colors flex items-center justify-center gap-2';
+    tabU.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center justify-center gap-2';
+    painelD.classList.remove('hidden');
+    painelU.classList.add('hidden');
+    // Enable/disable guardar based on whether canvas has been drawn
+    if (!input.value) btnGuardar.disabled = true;
+  } else {
+    tabD.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center justify-center gap-2';
+    tabU.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-primary text-white transition-colors flex items-center justify-center gap-2';
+    painelD.classList.add('hidden');
+    painelU.classList.remove('hidden');
+  }
+}
+
+// ── Upload de Imagem ──────────────────────────────────────────────────
+var assinaturaFileInput = document.getElementById('assinaturaFileInput');
+var dropZone = document.getElementById('dropZone');
+
+dropZone.addEventListener('click', function() { assinaturaFileInput.click(); });
+
+assinaturaFileInput.addEventListener('change', function() {
+  if (this.files && this.files[0]) processarFicheiro(this.files[0]);
+});
+
+dropZone.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  this.classList.add('border-primary', 'bg-primary/5');
+});
+
+dropZone.addEventListener('dragleave', function(e) {
+  e.preventDefault();
+  this.classList.remove('border-primary', 'bg-primary/5');
+});
+
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  this.classList.remove('border-primary', 'bg-primary/5');
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) processarFicheiro(e.dataTransfer.files[0]);
+});
+
+function processarFicheiro(file) {
+  if (file.size > 2 * 1024 * 1024) {
+    alert('A imagem não pode ter mais de 2MB.');
+    return;
+  }
+  if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) {
+    alert('Formato inválido. Use PNG, JPG, GIF ou WebP.');
+    return;
+  }
+  document.getElementById('uploadPlaceholder').classList.add('hidden');
+  var preview = document.getElementById('uploadPreview');
+  preview.classList.remove('hidden');
+  document.getElementById('uploadFileName').textContent = file.name;
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('assinaturaPreviewImg').src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+
+  document.getElementById('btnGuardarAssinatura').disabled = false;
+}
+
+window.removerFicheiro = function() {
+  assinaturaFileInput.value = '';
+  document.getElementById('uploadPreview').classList.add('hidden');
+  document.getElementById('uploadPlaceholder').classList.remove('hidden');
+  document.getElementById('btnGuardarAssinatura').disabled = true;
+};
 </script>
-{% endblock %}
 {% endblock %}

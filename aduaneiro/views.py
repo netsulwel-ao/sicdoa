@@ -638,6 +638,7 @@ def du_download_pdf(request, du_uuid):
         import qrcode as _qr
 
         # ── Dados do despachante ──────────────────────────────────────────
+        dono = None
         try:
             dono = Usuario.objects.get(id=du.usuario_id)
             desp_nome     = _safe(dono.nome)
@@ -1209,16 +1210,15 @@ def du_download_pdf(request, du_uuid):
             _assinatura_raw = getattr(dono, 'assinatura', '') or ''
             if _assinatura_raw.startswith('data:image/png;base64,'):
                 import base64 as _b64
-                from reportlab.lib.utils import ImageReader
                 from io import BytesIO
                 _img_data = _b64.b64decode(_assinatura_raw.split(',', 1)[1])
-                _assinatura_img = ImageReader(BytesIO(_img_data))
+                _assinatura_img = BytesIO(_img_data)
         except Exception:
             _assinatura_img = None
 
         if _assinatura_img:
             from reportlab.platypus import Image as RLImage
-            _assinatura_rl = RLImage(_assinatura_img, width=5*cm, height=2*cm)
+            _assinatura_rl = RLImage(_assinatura_img, width=5*cm, height=1*cm)
             ass_data = [
                 [Paragraph('<b>Assinatura do Despachante:</b>', st('ass_lab', fontSize=8)),
                  Paragraph('', st('ass_spc', fontSize=8))],
