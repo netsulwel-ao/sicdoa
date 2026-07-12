@@ -688,9 +688,65 @@ def _dados_receita_despachante(request):
     }
 
 
+def _dados_dashboard(request):
+    clientes = _get_clientes(request)
+
+    qs_fact = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
+    tot_fact = float(qs_fact.aggregate(t=Sum('valor_total'))['t'] or 0)
+    tot_pago = float(qs_fact.aggregate(t=Sum('valor_pago'))['t'] or 0)
+
+    qs_rec = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
+    tot_rec = float(qs_rec.aggregate(t=Sum('valor_recebido'))['t'] or 0)
+
+    qs_fr = FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
+    tot_fr = float(qs_fr.aggregate(t=Sum('valor'))['t'] or 0)
+
+    tot_recebido = tot_rec + tot_fr
+    margem = (tot_recebido / tot_fact * 100) if tot_fact else 0
+    a_receber = tot_fact - tot_pago
+
+    total_clientes = clientes.count()
+    clientes_divida = clientes.filter(saldo_conta_corrente__lt=0).count()
+    pct_inad = (clientes_divida / total_clientes * 100) if total_clientes else 0
+
+    pagas = qs_fact.filter(estado='Paga').count()
+    pendentes = qs_fact.filter(estado__in=['Pendente', 'Parcialmente Paga']).count()
+
+    top_totals = (
+        FacturaCliente.objects
+        .filter(cliente__in=clientes.filter(ativo=True))
+        .exclude(estado='Cancelada')
+        .values('cliente__nome')
+        .annotate(total=Sum('valor_total'))
+        .filter(total__gt=0)
+        .order_by('-total')[:10]
+    )
+    rows = [[t['cliente__nome'][:40], fmt_kz(t['total'])] for t in top_totals]
+
+    return {
+        'report_name': 'Dashboard Financeiro',
+        'report_subtitle': 'Painel executivo com indicadores financeiros',
+        'summary_cards': [
+            {'label': 'Total Facturado', 'value': f'{fmt_kz(tot_fact)} Kz', 'color': 'primary'},
+            {'label': 'Total Recebido', 'value': f'{fmt_kz(tot_recebido)} Kz', 'color': 'success'},
+            {'label': 'A Receber', 'value': f'{fmt_kz(a_receber)} Kz', 'color': 'warning'},
+            {'label': 'Margem Recebimento', 'value': f'{margem:.1f}%', 'color': 'info'},
+            {'label': 'Facturas Pagas', 'value': str(pagas), 'color': 'success'},
+            {'label': 'Facturas Pendentes', 'value': str(pendentes), 'color': 'warning'},
+            {'label': 'Taxa Inadimplencia', 'value': f'{pct_inad:.1f}%', 'color': 'danger'},
+            {'label': 'Total Clientes', 'value': str(total_clientes), 'color': 'primary'},
+        ],
+        'columns': ['Cliente', 'Facturacao Total'],
+        'rows': rows,
+        'extra_tables': [],
+        'filtros': {},
+    }
+
+
 # ── Mapa de relatorios ──────────────────────────────────────────────────────
 
 _RELATORIOS_MAP = {
+    'dashboard': _dados_dashboard,
     'facturacao': _dados_facturacao,
     'recibos': _dados_recibos,
     'requisicao-fundos': _dados_requisicoes_fundos,

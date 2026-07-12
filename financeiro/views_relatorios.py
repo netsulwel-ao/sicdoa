@@ -852,6 +852,7 @@ class RelatorioDashboardFinanceiroView(ReportMixin, TemplateView):
     report_name = 'Dashboard Financeiro'
     report_subtitle = 'Painel executivo com indicadores financeiros'
     active_sub = 'rel_dashboard'
+    pdf_slug = 'dashboard'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
