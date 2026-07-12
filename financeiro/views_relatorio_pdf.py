@@ -574,8 +574,9 @@ def _dados_receita_cliente(request):
         total_geral += receita
         rows.append({
             'cells': [c.nome, c.nif, f'{fmt_kz(tf)}', f'{fmt_kz(tfr)}', f'{fmt_kz(tr)}', f'{fmt_kz(receita)}'],
+            'sort_value': receita,
         })
-    rows.sort(key=lambda r: float(r['cells'][5].replace(',', '')), reverse=True)
+    rows.sort(key=lambda r: r.get('sort_value', 0), reverse=True)
 
     return {
         'report_name': 'Receita por Cliente',
@@ -672,8 +673,9 @@ def _dados_receita_despachante(request):
         rows.append({
             'cells': [d.nome, d.papel, str(clientes_by_usu.get(uid, 0)),
                       f'{fmt_kz(tf)}', f'{fmt_kz(tfr)}', f'{fmt_kz(tr)}', f'{fmt_kz(receita)}'],
+            'sort_value': receita,
         })
-    rows.sort(key=lambda r: float(r['cells'][6].replace(',', '')), reverse=True)
+    rows.sort(key=lambda r: r.get('sort_value', 0), reverse=True)
 
     return {
         'report_name': 'Receita por Despachante',
