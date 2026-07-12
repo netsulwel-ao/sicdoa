@@ -19,7 +19,7 @@ middleware.process_request(request)
 # Configurar dados de sessão válidos
 request.session['usuario_id'] = 2
 request.session['usuario'] = {'papel': 'Administrador', 'nome': 'Admin', 'id': 2}
-request.session['login_time'] = '2026-07-06T12:00:00'
+request.session['login_time'] = 1751803200.0
 request.session.save()
 
 print(f"Session key: {request.session.session_key}")

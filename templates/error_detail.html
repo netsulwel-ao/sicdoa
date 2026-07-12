@@ -142,12 +142,12 @@
 
     <script>
     var ERROR_DATA = {
-        type: {{ error_type|escapejs }},
-        message: {{ error_message|escapejs }},
-        file: {{ error_file|escapejs }},
-        line: {{ error_line|escapejs }},
-        function: {{ error_function|escapejs }},
-        traceback: {{ traceback|escapejs }}
+        type: '{{ error_type|escapejs }}',
+        message: '{{ error_message|escapejs }}',
+        file: '{{ error_file|escapejs }}',
+        line: '{{ error_line|escapejs }}',
+        function: '{{ error_function|escapejs }}',
+        traceback: '{{ traceback|escapejs }}'
     };
 
     function toggleTraceback() {
