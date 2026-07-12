@@ -17,7 +17,7 @@ middleware = SessionMiddleware(lambda x: x)
 middleware.process_request(request)
 request.session['usuario_id'] = 2
 request.session['usuario'] = {'papel': 'Administrador', 'nome': 'Admin'}
-request.session['login_time'] = timezone.now().isoformat()
+request.session['login_time'] = timezone.now().timestamp()
 request.session.save()
 
 # Adicionar user Django

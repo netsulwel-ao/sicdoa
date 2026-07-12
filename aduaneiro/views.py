@@ -33,7 +33,7 @@ def _sessao_ok(request):
     if sessao_expirada(request):
         request.session.flush()
         return False
-    request.session['login_time'] = timezone.now().isoformat()
+    request.session['login_time'] = timezone.now().timestamp()
     request.session.modified = True
     return True
 

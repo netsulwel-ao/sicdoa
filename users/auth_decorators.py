@@ -3,7 +3,6 @@ Decoradores customizados para autenticação com sessão expirável de 1 hora.
 """
 from django.shortcuts import redirect
 from django.utils import timezone
-from datetime import timedelta
 
 
 def sessao_expirada(request):
@@ -13,33 +12,12 @@ def sessao_expirada(request):
     """
     if not request.session.get('usuario_id'):
         return True
-    
-    # Verificar timestamp da sessão
+
     login_time = request.session.get('login_time')
-    if not login_time:
+    if not isinstance(login_time, (int, float)):
         return True
-    
-    # Converter para datetime se necessário
-    from datetime import datetime
-    if isinstance(login_time, (int, float)):
-        # time.time() float timestamp
-        try:
-            login_time = datetime.fromtimestamp(login_time, tz=timezone.utc)
-        except (ValueError, OSError):
-            return True
-    elif isinstance(login_time, str):
-        try:
-            login_time = datetime.fromisoformat(login_time)
-            if login_time.tzinfo is None:
-                login_time = timezone.make_aware(login_time, timezone.utc)
-        except (ValueError, TypeError):
-            return True
-    
-    agora = timezone.now()
-    if agora - login_time > timedelta(hours=1):
-        return True
-    
-    return False
+
+    return (timezone.now().timestamp() - login_time) > 3600
 
 
 def requer_sessao_ativa(view_func):
@@ -48,19 +26,18 @@ def requer_sessao_ativa(view_func):
     Se a sessão expirou, limpa a sessão e redireciona para login.
     """
     def wrapper(request, *args, **kwargs):
-        # Verificar se há sessão
         if not request.session.get('usuario_id'):
             return redirect('login')
-        
+
         if sessao_expirada(request):
             request.session.flush()
             return redirect('login')
-        
-        request.session['login_time'] = timezone.now().isoformat()
+
+        request.session['login_time'] = timezone.now().timestamp()
         request.session.modified = True
-        
+
         return view_func(request, *args, **kwargs)
-    
+
     wrapper.__name__ = view_func.__name__
     wrapper.__doc__ = view_func.__doc__
     return wrapper
@@ -71,29 +48,12 @@ def tempo_restante_sessao(request):
     Retorna o tempo restante da sessão em minutos.
     Se não houver sessão ou estiver expirada, retorna 0.
     """
-    if not request.session.get('login_time'):
+    login_time = request.session.get('login_time')
+    if not isinstance(login_time, (int, float)):
         return 0
-    
-    try:
-        from datetime import datetime
-        lt = request.session['login_time']
-        if isinstance(lt, (int, float)):
-            login_time = datetime.fromtimestamp(lt, tz=timezone.utc)
-        elif isinstance(lt, str):
-            login_time = datetime.fromisoformat(lt)
-            if login_time.tzinfo is None:
-                login_time = timezone.make_aware(login_time, timezone.utc)
-        else:
-            return 0
-        
-        agora = timezone.now()
-        tempo_decorrido = agora - login_time
-        tempo_total = timedelta(hours=1)
-        tempo_restante = tempo_total - tempo_decorrido
-        
-        return max(0, int(tempo_restante.total_seconds() / 60))
-    except (ValueError, TypeError, KeyError, OSError):
-        return 0
+
+    restante = 3600 - (timezone.now().timestamp() - login_time)
+    return max(0, int(restante / 60))
 
 
 def tempo_restante_segundos(request):
@@ -101,39 +61,20 @@ def tempo_restante_segundos(request):
     Retorna o tempo restante da sessão em segundos.
     Usado pelas APIs de status para contagem regressiva precisa.
     """
-    if not request.session.get('login_time'):
+    login_time = request.session.get('login_time')
+    if not isinstance(login_time, (int, float)):
         return 0
-    
-    try:
-        from datetime import datetime
-        lt = request.session['login_time']
-        if isinstance(lt, (int, float)):
-            login_time = datetime.fromtimestamp(lt, tz=timezone.utc)
-        elif isinstance(lt, str):
-            login_time = datetime.fromisoformat(lt)
-            if login_time.tzinfo is None:
-                login_time = timezone.make_aware(login_time, timezone.utc)
-        else:
-            return 0
-        
-        agora = timezone.now()
-        tempo_decorrido = agora - login_time
-        tempo_total = timedelta(hours=1)
-        tempo_restante = tempo_total - tempo_decorrido
-        
-        return max(0, int(tempo_restante.total_seconds()))
-    except (ValueError, TypeError, KeyError, OSError):
-        return 0
+
+    restante = 3600 - (timezone.now().timestamp() - login_time)
+    return max(0, int(restante))
 
 
 def criar_sessao_usuario(request, usuario):
     """
     Cria uma nova sessão para o usuário com timestamp de expiração.
     """
-    # Limpar sessão anterior
     request.session.flush()
-    
-    # Guardar informações do utilizador na sessão
+
     request.session['usuario_id'] = usuario.id
     funcao_nome = usuario.funcao.nome if hasattr(usuario, 'funcao') and usuario.funcao else ''
     papel_sessao = usuario.papel
@@ -156,8 +97,7 @@ def criar_sessao_usuario(request, usuario):
         'cargo_banca_nome': cargo_banca_nome,
         'permissoes': permissoes_lista,
     }
-    
-    # Guardar tipo de usuário (usuario ou colaborador)
+
     if hasattr(usuario, 'tipo'):
         request.session['tipo_usuario'] = usuario.tipo
         if usuario.tipo == 'colaborador' and hasattr(usuario, 'colaborador_id'):
@@ -166,7 +106,6 @@ def criar_sessao_usuario(request, usuario):
             request.session['banca_usuario_id'] = usuario.banca_usuario_id
             if hasattr(usuario, 'banca_id'):
                 request.session['banca_id'] = usuario.banca_id
-            # Filial do colaborador
             if hasattr(usuario, 'colaborador_id'):
                 from rh.models import Colaborador
                 col_filial = Colaborador.objects.filter(pk=usuario.colaborador_id).values_list('filial_id', flat=True).first()
@@ -174,18 +113,16 @@ def criar_sessao_usuario(request, usuario):
                     request.session['colaborador_filial_id'] = col_filial
     else:
         request.session['tipo_usuario'] = 'usuario'
-        # Para usuários normais, buscar banca pelo usuario_id
         if usuario.papel != 'Administrador':
             from rh.models import Banca
             banca = Banca.objects.filter(usuario_id=usuario.id).first()
             if banca:
                 request.session['banca_id'] = banca.id
-    
-    # Guardar timestamp de login
-    request.session['login_time'] = timezone.now().isoformat()
-    
+
+    request.session['login_time'] = timezone.now().timestamp()
+
     request.session.set_expiry(3600)
-    
+
     return request.session
 
 

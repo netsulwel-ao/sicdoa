@@ -14,9 +14,9 @@ def dashboard_colaborador_view(request):
         return redirect('login')
     
     # Verificar se a sessão expirou
-    if request.session.get('login_time'):
-        login_time = timezone.datetime.fromisoformat(request.session['login_time'])
-        tempo_decorrido = (timezone.now() - login_time).total_seconds() / 60
+    login_time = request.session.get('login_time')
+    if isinstance(login_time, (int, float)):
+        tempo_decorrido = (timezone.now().timestamp() - login_time) / 60
         if tempo_decorrido > 60:  # 1 hora
             return redirect('login')
     

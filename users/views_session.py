@@ -19,7 +19,7 @@ def extend_session_view(request):
     
     try:
         # Estender sessão atualizando o timestamp
-        request.session['login_time'] = timezone.now().isoformat()
+        request.session['login_time'] = timezone.now().timestamp()
         request.session.modified = True
         
         request.session.set_expiry(3600)
