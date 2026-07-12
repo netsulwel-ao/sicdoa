@@ -43,6 +43,7 @@ if REDIS_ENABLED:
 
 MIDDLEWARE = [
     'utils.middleware.ErrorCaptureMiddleware',
+    'utils.request_logging.RequestLoggingMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -303,8 +304,14 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '[{asctime}] {levelname} {module} {message}',
+            'format': '[{asctime}] {levelname:8s} {name:25s} {message}',
             'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'request': {
+            'format': '[{asctime}] {levelname:8s} {name:25s} {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
     },
     'handlers': {
@@ -322,6 +329,9 @@ LOGGING = {
         'django.db.backends': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
         'apscheduler': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
         'governanca': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'users': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
+        'utils': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
+        'utils.request_logging': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
     },
 }
 

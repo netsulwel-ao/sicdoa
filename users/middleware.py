@@ -1,10 +1,13 @@
 """
 Middleware para verificar automaticamente a expiração da sessão e registar logs de atividade.
 """
+import logging
 import re
 from django.shortcuts import redirect
 from django.utils import timezone
 from .auth_decorators import sessao_expirada, limpar_sessao
+
+session_logger = logging.getLogger('users.session')
 
 
 class SessionExpirationMiddleware:
@@ -32,8 +35,15 @@ class SessionExpirationMiddleware:
         
         # Verificar se há sessão ativa
         if request.session.get('usuario_id'):
+            usuario_id = request.session.get('usuario_id')
+            tipo_usuario = request.session.get('tipo_usuario', 'desconhecido')
+
             # Verificar se a sessão expirou
             if sessao_expirada(request):
+                session_logger.warning(
+                    'SESSAO_EXPIRADA: usuario_id=%s tipo=%s path=%s — redirecionando para login',
+                    usuario_id, tipo_usuario, request.path
+                )
                 from .models import registrar_log
                 registrar_log(request, 'SESSAO_EXPIRADA', 'users',
                               f"Sessão expirada para o utilizador")
@@ -49,11 +59,15 @@ class SessionExpirationMiddleware:
                 return redirect('login')
 
             # Verificar se o utilizador ainda está ativo
-            if request.session.get('tipo_usuario') == 'usuario':
+            if tipo_usuario == 'usuario':
                 from .models import Usuario
                 try:
-                    u = Usuario.objects.get(pk=request.session['usuario_id'])
+                    u = Usuario.objects.get(pk=usuario_id)
                     if u.status != 'Ativo':
+                        session_logger.warning(
+                            'UTILIZADOR_INATIVO: usuario_id=%s email=%s status=%s path=%s — terminando sessao',
+                            usuario_id, u.email, u.status, request.path
+                        )
                         from .models import registrar_log
                         registrar_log(request, 'LOGOUT', 'users',
                                       f"Sessão terminada — conta {u.status.lower()}: {u.email}")
@@ -72,6 +86,10 @@ class SessionExpirationMiddleware:
                         return redirect('login')
                     # Verificar se Colaborador Institucional perdeu a função
                     if u.papel == 'Colaborador Institucional' and not u.funcao_id:
+                        session_logger.warning(
+                            'FUNCAO_REMOVIDA: usuario_id=%s email=%s path=%s — terminando sessao',
+                            usuario_id, u.email, request.path
+                        )
                         from .models import registrar_log
                         registrar_log(request, 'LOGOUT', 'users',
                                       f"Sessão terminada — colaborador sem função: {u.email}")
@@ -89,14 +107,22 @@ class SessionExpirationMiddleware:
                             }, status=401)
                         return redirect('login')
                 except Usuario.DoesNotExist:
+                    session_logger.error(
+                        'UTILIZADOR_NAO_ENCONTRADO: usuario_id=%s path=%s — sessao invalida',
+                        usuario_id, request.path
+                    )
                     pass
-            elif request.session.get('tipo_usuario') == 'colaborador':
+            elif tipo_usuario == 'colaborador':
                 colaborador_id = request.session.get('colaborador_id')
                 if colaborador_id:
                     from rh.models import Colaborador
                     try:
                         c = Colaborador.objects.get(pk=colaborador_id)
                         if c.estado != 'Ativo':
+                            session_logger.warning(
+                                'COLABORADOR_INATIVO: colaborador_id=%s email=%s estado=%s path=%s — terminando sessao',
+                                colaborador_id, c.email, c.estado, request.path
+                            )
                             from .models import registrar_log
                             registrar_log(request, 'LOGOUT', 'users',
                                           f"Sessão terminada — colaborador {c.estado.lower()}: {c.email}")
@@ -114,6 +140,10 @@ class SessionExpirationMiddleware:
                                 }, status=401)
                             return redirect('login')
                     except Colaborador.DoesNotExist:
+                        session_logger.error(
+                            'COLABORADOR_NAO_ENCONTRADO: colaborador_id=%s path=%s — sessao invalida',
+                            colaborador_id, request.path
+                        )
                         pass
         
         response = self.get_response(request)

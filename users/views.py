@@ -1,6 +1,7 @@
 """Views do módulo users — autenticação, dashboards e portal do colaborador."""
 # pylint: disable=no-member
 import json
+import logging
 import re
 import smtplib
 import ssl as ssl_lib
@@ -45,6 +46,8 @@ from .models import (
     ReciboSalarialInstitucional,
     Usuario,
 )
+
+login_logger = logging.getLogger('users.login')
 
 
 # ─── Helpers de password ──────────────────────────────────────────────────────
@@ -103,9 +106,21 @@ def _get_institucional(request):
 
 def login_view(request):
     """Página de login — autentica utilizadores e colaboradores."""
+    def _get_ip():
+        xff = request.META.get('HTTP_X_FORWARDED_FOR')
+        if xff:
+            return xff.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR', '-')
+
+    ip = _get_ip()
+
     if request.session.get("usuario_id"):
         if not sessao_expirada(request):
+            login_logger.info('Sessao ativa detectada, redirecionando para dashboard: usuario_id=%s ip=%s',
+                              request.session.get("usuario_id"), ip)
             return redirect("dashboard")
+        login_logger.info('Sessao expirada detectada ao verificar login existente: usuario_id=%s ip=%s',
+                          request.session.get("usuario_id"), ip)
         limpar_sessao(request)
 
     if request.method != "POST":
@@ -114,13 +129,17 @@ def login_view(request):
     email = request.POST.get("email", "").strip().lower()
     senha = request.POST.get("password", "").strip()
 
+    login_logger.info('Tentativa de login: email=%s ip=%s method=POST', email, ip)
+
     if not email or not senha:
+        login_logger.warning('Login falhou — campos vazios: email=%s ip=%s', email, ip)
         messages.error(request, "Preencha todos os campos.")
         return render(request, "login.html")
 
     # ── Brute-force protection ──────────────────────────────────────────
     lockout_key = f"login_lockout:{email}"
     if cache.get(lockout_key):
+        login_logger.warning('Login bloqueado (brute-force): email=%s ip=%s', email, ip)
         messages.error(request, "Conta bloqueada temporariamente. Tente novamente em 15 minutos.")
         return render(request, "login.html")
 
@@ -135,10 +154,12 @@ def login_view(request):
     # 1. Tentar na tabela usuarios
     try:
         u = Usuario.objects.get(email=email)
+        login_logger.debug('Usuario encontrado na tabela usuarios: email=%s status=%s', email, u.status)
         
         # Verificar se está bloqueado
         if u.status == 'Suspenso':
             usuario_bloqueado = True
+            login_logger.warning('Login falhou — conta suspensa: email=%s ip=%s', email, ip)
             from .models import registrar_log
             registrar_log(request, 'LOGIN_FALHA', 'users',
                           f"Tentativa de login com conta suspensa: {email}",
@@ -151,6 +172,7 @@ def login_view(request):
         
         # Verificar se está inativo
         if u.status == 'Inativo':
+            login_logger.warning('Login falhou — conta inativa: email=%s ip=%s', email, ip)
             from .models import registrar_log
             registrar_log(request, 'LOGIN_FALHA', 'users',
                           f"Tentativa de login com conta inativa: {email}",
@@ -165,15 +187,20 @@ def login_view(request):
         if u.status == "Ativo" and _verificar_password(senha, u.password):
             usuario = u
             tipo_usuario = "usuario"
+            login_logger.info('Credenciais validadas na tabela usuarios: email=%s', email)
     except Usuario.DoesNotExist:
-        pass
+        login_logger.debug('Usuario NAO encontrado na tabela usuarios: email=%s', email)
+    except Exception as e:
+        login_logger.error('Erro ao consultar tabela usuarios: email=%s erro=%s', email, str(e), exc_info=True)
 
     # 2. Tentar na tabela colaboradores
     if not usuario and not usuario_bloqueado:
         try:
             col = Colaborador.objects.select_related('cargo_banca').prefetch_related('cargo_banca__permissoes').get(email=email, estado="Ativo")
+            login_logger.debug('Colaborador encontrado: email=%s nome=%s', email, col.nome)
             if col.password and _verificar_password(senha, col.password):
                 tipo_usuario = "colaborador"
+                login_logger.info('Credenciais validadas na tabela colaboradores: email=%s', email)
 
                 class _UsuarioColaborador:  # noqa: R0903
                     def __init__(self, c):
@@ -209,9 +236,12 @@ def login_view(request):
 
                 usuario = _UsuarioColaborador(col)
         except Colaborador.DoesNotExist:
-            pass
+            login_logger.debug('Colaborador NAO encontrado: email=%s', email)
+        except Exception as e:
+            login_logger.error('Erro ao consultar tabela colaboradores: email=%s erro=%s', email, str(e), exc_info=True)
 
     if not usuario:
+        login_logger.warning('Login falhou — credenciais invalidas: email=%s ip=%s', email, ip)
         from .models import registrar_log
         registrar_log(request, 'LOGIN_FALHA', 'users',
                       f"Tentativa de login falhada: {email}",
@@ -252,6 +282,8 @@ def login_view(request):
             'permissoes': [],
             'funcao_nome': '',
         }
+        login_logger.info('LOGIN_SUCESSO (institucional limitado): nome=%s email=%s tipo=%s ip=%s',
+                          usuario.nome, usuario.email, tipo_usuario, ip)
         _rl(request, 'LOGIN', 'users',
             f"Login limitado de colaborador institucional sem função: {usuario.nome} ({usuario.email})")
         messages.success(
@@ -269,6 +301,9 @@ def login_view(request):
                 "UPDATE usuarios SET ultimo_acesso = %s WHERE id = %s",
                 [timezone.now(), usuario.id],
             )
+
+    login_logger.info('LOGIN_SUCESSO: nome=%s email=%s tipo=%s usuario_id=%s ip=%s',
+                      usuario.nome, usuario.email, tipo_usuario, usuario.id, ip)
 
     from .models import registrar_log
     registrar_log(request, 'LOGIN', 'users',
