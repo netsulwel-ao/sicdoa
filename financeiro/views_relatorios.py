@@ -1012,11 +1012,12 @@ class RelatorioReceitaPorClienteView(ReportMixin, TemplateView):
             rows.append({
                 'cells': [c.nome, c.nif, f'{fmt_kz(total_f)}', f'{fmt_kz(total_fr)}',
                           f'{fmt_kz(total_r)}', f'{fmt_kz(receita_total)}'],
+                'sort_value': receita_total,
                 'url': 'financeiro:conta_corrente_cliente',
                 'pk': c.pk,
             })
 
-        rows.sort(key=lambda r: float(r['cells'][5].replace(',', '')), reverse=True)
+        rows.sort(key=lambda r: r.get('sort_value', 0), reverse=True)
 
         context.update({
             'summary_cards': [
@@ -1151,10 +1152,11 @@ class RelatorioReceitaPorDespachanteView(ReportMixin, TemplateView):
                 'cells': [d.nome, d.papel, str(clientes_by_usu.get(uid, 0)),
                           f'{fmt_kz(total_f)}', f'{fmt_kz(total_fr)}',
                           f'{fmt_kz(total_r)}', f'{fmt_kz(receita)}'],
+                'sort_value': receita,
                 'url': None, 'pk': None,
             })
 
-        rows.sort(key=lambda r: float(r['cells'][6].replace(',', '')), reverse=True)
+        rows.sort(key=lambda r: r.get('sort_value', 0), reverse=True)
 
         context.update({
             'summary_cards': [
