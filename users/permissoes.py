@@ -2,24 +2,43 @@ from django.db.models import prefetch_related_objects
 
 from .models import Usuario, Permissao
 
-# Permissões exclusivas do sistema institucional (nunca atribuíveis via cargo da banca)
+# ── Permissões exclusivas do sistema institucional ──────────────────
+# (nunca atribuíveis via cargo da banca)
+# Estas permissões são apresentadas no form de criação/edição de Funções.
+
 PERMISSOES_INSTITUCIONAIS = [
-    'gerir_colaboradores_inst', 'gerir_presencas_inst', 'gerir_ferias_inst',
-    'gerir_avaliacoes_inst', 'processar_salarios_inst', 'gerir_recrutamento_inst',
-    'gerir_subsidios_inst', 'gerir_utilizadores', 'admin',
-    'ver_dashboard', 'acesso_auditoria',
-    'ser_membro_mesa', 'aprovar_requisicao', 'ver_rh',
+    # RH Institucional (módulos operacionais)
+    'gerir_colaboradores_inst',
+    'gerir_presencas_inst',
+    'gerir_ferias_inst',
+    'gerir_avaliacoes_inst',
+    'processar_salarios_inst',
+    'gerir_recrutamento_inst',
+    'gerir_subsidios_inst',
+    # Administração
+    'gerir_utilizadores',
+    # Super-Admin (nunca atribuível a Funções — apenas via papel)
+    'admin',
 ]
 
-# Permissões exclusivas da Banca (só o Despachante concede via cargo)
+# ── Permissões que NÃO podem ser atribuídas a Funções ───────────────
+# Estas permissões são demasiado poderosas para delegação via Funcao.
+# O acesso é concedido exclusivamente via papel do Utilizador.
+
+PERMISSOES_NAO_ATRIBUIVEIS_FUNCAO = []
+
+# ── Permissões exclusivas da Banca ─────────────────────────────────
+# (só o Despachante concede via CargoBanca — NÃO alterar)
+
 PERMISSOES_BANCA = [
     # Gestão Aduaneira
     'gerir_aduaneiro', 'criar_declaracao_unica', 'ver_pauta_aduaneira',
     'gerir_clientes', 'gerir_clientes_filial',
+    'gerir_aduaneiro_filial',
     # Filial
     'gerir_filial',
     # RH
-    'gerir_rh',
+    'gerir_rh', 'gerir_rh_filial',
     'ver_minha_banca', 'gerir_colaboradores_banca', 'gerir_cargos_banca',
     'gerir_processamento_salarial', 'gerir_recrutamento_banca',
     'gerir_presencas_banca', 'gerir_avaliacoes_banca',
@@ -27,12 +46,89 @@ PERMISSOES_BANCA = [
     'gerir_financeiro', 'gerir_financeiro_filial',
     'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
     'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros',
+    # Governança
+    'gerir_governanca',
     # Colaborador
     'alterar_perfil',
     # Administração
     'ver_logs_banca',
     # Super
     'admin_banca',
+]
+
+# ── Permissões partilhadas (Institucional + Governance) ────────────
+# Estas permissões estão no sistema de governance e podem ser
+# atribuídas tanto a Despachantes (via CargoBanca) como a
+# Colaboradores Institucionais (via Funcao).
+
+PERMISSOES_GOVERNANCA = [
+    'gerir_assembleia', 'gerir_atas', 'gerir_consultas',
+    'gerir_votacoes', 'ser_membro_mesa', 'gerir_convocatorias',
+    'ver_secretaria', 'gerir_documentos',
+    'gerir_quotas', 'ver_quotas',
+    'acesso_auditoria',
+    'ver_relatorios_operacionais',
+]
+
+# ── Estrutura de menus para o form de Funções ──────────────────────
+# Cada menu espelha a sidebar. O administrador decide qual submenu
+# conceder a cada Colaborador Institucional.
+
+PERMISSOES_POR_MENU_INST = [
+    {
+        'nome': 'Administração do Sistema',
+        'icone': 'fa-shield-alt',
+        'permissoes': [
+            {'nome': 'Administrador do Sistema', 'descricao': 'Acesso total a todos os módulos e funcionalidades. Indicado para Presidente e Vice-Presidente.', 'codigo': 'admin'},
+        ],
+    },
+    {
+        'nome': 'Gestão de Utilizadores',
+        'icone': 'fa-user-cog',
+        'permissoes': [
+            {'nome': 'Utilizadores', 'descricao': 'Criar, editar e gerir todos os utilizadores do sistema', 'codigo': 'gerir_utilizadores'},
+        ],
+    },
+    {
+        'nome': 'RH Institucional',
+        'icone': 'fa-building',
+        'permissoes': [
+            {'nome': 'Colaboradores', 'descricao': 'Gerir colaboradores da equipa administrativa', 'codigo': 'gerir_colaboradores_inst'},
+            {'nome': 'Processamento Salarial', 'descricao': 'Processar salários e gerar recibos', 'codigo': 'processar_salarios_inst'},
+            {'nome': 'Recrutamento', 'descricao': 'Gerir vagas, candidaturas e entrevistas', 'codigo': 'gerir_recrutamento_inst'},
+            {'nome': 'Presenças', 'descricao': 'Registar e aprovar presenças dos colaboradores', 'codigo': 'gerir_presencas_inst'},
+            {'nome': 'Férias', 'descricao': 'Aprovar ou rejeitar pedidos de férias', 'codigo': 'gerir_ferias_inst'},
+            {'nome': 'Avaliação de Desempenho', 'descricao': 'Criar ciclos e avaliar colaboradores', 'codigo': 'gerir_avaliacoes_inst'},
+            {'nome': 'Subsídios', 'descricao': 'Configurar subsídios salariais', 'codigo': 'gerir_subsidios_inst'},
+        ],
+    },
+    {
+        'nome': 'CDOA Governança',
+        'icone': 'fa-vote-yea',
+        'permissoes': [
+            {'nome': 'Assembleias / Votações', 'descricao': 'Gerir assembleias, votações e convocatórias', 'codigo': 'gerir_assembleia'},
+            {'nome': 'Atas & Decretos', 'descricao': 'Assinar e publicar atas e decretos', 'codigo': 'gerir_atas'},
+            {'nome': 'Secretaria - Documentos', 'descricao': 'Acesso à secretaria e gestão de documentos', 'codigo': 'ver_secretaria'},
+            {'nome': 'Gestão de Quotas', 'descricao': 'Atribuir, definir e gerir quotas anuais', 'codigo': 'gerir_quotas'},
+            {'nome': 'Escuta Activa', 'descricao': 'Gerir consultas públicas', 'codigo': 'gerir_consultas'},
+            {'nome': 'Membros da Mesa', 'descricao': 'Pertencer à mesa da assembleia', 'codigo': 'ser_membro_mesa'},
+        ],
+    },
+    {
+        'nome': 'Gestão Financeira',
+        'icone': 'fa-credit-card',
+        'permissoes': [
+            {'nome': 'Relatórios Operacionais', 'descricao': 'Visualizar relatórios com dados de todos os despachantes', 'codigo': 'ver_relatorios_operacionais'},
+            {'nome': 'Acesso de Auditoria', 'descricao': 'Acesso de leitura a todos os módulos do sistema', 'codigo': 'acesso_auditoria'},
+        ],
+    },
+    {
+        'nome': 'Logs de Atividade',
+        'icone': 'fa-history',
+        'permissoes': [
+            {'nome': 'Ver Logs de Atividade', 'descricao': 'Consultar registo de atividades de todos os utilizadores', 'codigo': 'acesso_auditoria'},
+        ],
+    },
 ]
 
 PERMISSOES_AUTO_DESPACHANTE = ['alterar_perfil']

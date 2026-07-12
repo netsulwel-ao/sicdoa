@@ -310,7 +310,7 @@
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'Financeiro' %}rotate-180{% endif %}"></i>
     </button>
     <ul data-submenu="financeiro" class="ml-4 space-y-0.5 {% if active != 'Financeiro' %}hidden{% endif %}">
-      {% if papel == 'Administrador' or papel == 'Despachante Oficial' or 'gerir_financeiro' in user_permissoes or 'ver_requisicoes' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'ver_requisicoes' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:requisicao_lista' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -319,7 +319,7 @@
         </a>
       </li>
       {% endif %}
-      {% if papel == 'Administrador' or papel == 'Despachante Oficial' or 'gerir_financeiro' in user_permissoes or 'ver_recibos' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'ver_recibos' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:recibo_lista' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -328,7 +328,7 @@
         </a>
       </li>
       {% endif %}
-      {% if papel == 'Administrador' or papel == 'Despachante Oficial' or 'gerir_financeiro' in user_permissoes or 'ver_notas_financeiro' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'ver_notas_financeiro' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:notas_home' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -337,7 +337,7 @@
         </a>
       </li>
       {% endif %}
-      {% if papel == 'Administrador' or papel == 'Despachante Oficial' or 'gerir_financeiro' in user_permissoes or 'ver_facturas' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'ver_facturas' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:facturas_home' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm

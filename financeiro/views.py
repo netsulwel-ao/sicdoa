@@ -114,11 +114,14 @@ def _tem_escopo_filial(perm_set, filial_id=None):
 def _pode_escrever(request):
     """True se o user pode escrever no módulo financeiro (não é apenas auditor)."""
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel in ('Administrador', 'Despachante Oficial'):
+    # Administradores são apenas visualizadores no módulo financeiro
+    if papel == 'Administrador':
+        return False
+    if papel == 'Despachante Oficial':
         return True
     from users.permissoes import usuario_tem_permissao, _is_admin_ou_acesso_total
     if _is_admin_ou_acesso_total(request):
-        return True
+        return False
     if usuario_tem_permissao(request, 'acesso_auditoria'):
         return False
     return False
@@ -162,9 +165,6 @@ class BaseContextMixin:
             context['nome'] = self.request.session['usuario'].get('nome', '')
         from users.permissoes import get_usuario_permissoes
         context['user_permissoes'] = get_usuario_permissoes(self.request)
-        context['pode_aprovar_requisicao'] = _user_tem_acesso_total(self.request) or (
-            'aprovar_requisicao' in context['user_permissoes']
-        )
         context['pode_escrever'] = _pode_escrever(self.request)
         return context
 

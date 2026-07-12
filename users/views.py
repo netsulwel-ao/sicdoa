@@ -1597,10 +1597,9 @@ def funcoes_lista_view(request):
 @_requer_admin_ou_perm_funcoes
 def funcao_novo_view(request):
     from .models import Funcao, Permissao
-    from .permissoes import PERMISSOES_BANCA
+    from .permissoes import PERMISSOES_BANCA, PERMISSOES_NAO_ATRIBUIVEIS_FUNCAO, PERMISSOES_POR_MENU_INST
     papel = request.session.get('usuario', {}).get('papel', '')
     erros = {}
-    permissoes = Permissao.objects.exclude(codigo__in=PERMISSOES_BANCA).order_by('grupo', 'nome')
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
         descricao = request.POST.get('descricao', '').strip()
@@ -1623,8 +1622,9 @@ def funcao_novo_view(request):
         'active_sub': 'funcoes',
         'erros': erros,
         'is_edicao': False,
-        'permissoes': permissoes,
-        'funcao_perm_ids': [],
+        'menus': PERMISSOES_POR_MENU_INST,
+        'funcao_perm_codigos': set(),
+        'funcao': None,
     }
     return render(request, 'users/funcao_form.html', ctx)
 
@@ -1632,12 +1632,11 @@ def funcao_novo_view(request):
 @_requer_admin_ou_perm_funcoes
 def funcao_editar_view(request, pk):
     from .models import Funcao, Permissao
-    from .permissoes import PERMISSOES_BANCA
+    from .permissoes import PERMISSOES_BANCA, PERMISSOES_NAO_ATRIBUIVEIS_FUNCAO, PERMISSOES_POR_MENU_INST
     funcao = get_object_or_404(Funcao, pk=pk)
     papel = request.session.get('usuario', {}).get('papel', '')
     erros = {}
-    permissoes = Permissao.objects.exclude(codigo__in=PERMISSOES_BANCA).order_by('grupo', 'nome')
-    funcao_perm_ids = list(funcao.permissoes.values_list('id', flat=True))
+    funcao_perm_codigos = set(funcao.permissoes.values_list('codigo', flat=True))
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
         descricao = request.POST.get('descricao', '').strip()
@@ -1665,8 +1664,8 @@ def funcao_editar_view(request, pk):
         'funcao': funcao,
         'erros': erros,
         'is_edicao': True,
-        'permissoes': permissoes,
-        'funcao_perm_ids': funcao_perm_ids,
+        'menus': PERMISSOES_POR_MENU_INST,
+        'funcao_perm_codigos': funcao_perm_codigos,
     }
     return render(request, 'users/funcao_form.html', ctx)
 
@@ -1674,10 +1673,12 @@ def funcao_editar_view(request, pk):
 @_requer_admin_ou_perm_funcoes
 def funcao_permissoes_view(request, pk):
     from .models import Funcao, Permissao
-    from .permissoes import PERMISSOES_BANCA
+    from .permissoes import PERMISSOES_BANCA, PERMISSOES_NAO_ATRIBUIVEIS_FUNCAO
     funcao = get_object_or_404(Funcao, pk=pk)
     papel = request.session.get('usuario', {}).get('papel', '')
-    permissoes = Permissao.objects.exclude(codigo__in=PERMISSOES_BANCA).order_by('grupo', 'nome')
+    permissoes = Permissao.objects.exclude(
+        codigo__in=PERMISSOES_BANCA + PERMISSOES_NAO_ATRIBUIVEIS_FUNCAO
+    ).order_by('grupo', 'nome')
     funcao_perm_ids = list(funcao.permissoes.values_list('id', flat=True))
     ctx = {
         'usuario': request.session.get('usuario', {}),
@@ -1718,6 +1719,7 @@ def funcao_eliminar_view(request, pk):
 @_requer_admin_ou_perm_funcoes
 def api_funcao_permissoes(request):
     from .models import Funcao, Permissao
+    from .permissoes import PERMISSOES_NAO_ATRIBUIVEIS_FUNCAO
     data = json.loads(request.body)
     funcao_id = data.get('funcao_id')
     permissao_id = data.get('permissao_id')
@@ -1726,6 +1728,10 @@ def api_funcao_permissoes(request):
         return JsonResponse({'erro': 'Parâmetros incompletos.'}, status=400)
     funcao = get_object_or_404(Funcao, pk=funcao_id)
     permissao = get_object_or_404(Permissao, pk=permissao_id)
+    if permissao.codigo in PERMISSOES_NAO_ATRIBUIVEIS_FUNCAO:
+        return JsonResponse({
+            'erro': f'A permissão "{permissao.nome}" não pode ser atribuída a Funções.'
+        }, status=403)
     if ativar:
         funcao.permissoes.add(permissao)
     else:

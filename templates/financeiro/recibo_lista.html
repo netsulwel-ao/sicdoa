@@ -124,11 +124,13 @@
               <i class="fas fa-receipt text-gray-400 dark:text-gray-500 text-2xl"></i>
             </div>
             <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhum recibo emitido</p>
+            {% if pode_escrever %}
             <a href="{% url 'financeiro:recibo_criar' %}"
               class="mt-4 flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
               <i class="fas fa-plus"></i>
               <span>Emitir Primeiro Recibo</span>
             </a>
+            {% endif %}
           </div>
           {% endif %}
         </div>
@@ -191,11 +193,13 @@
                 <i class="fas fa-receipt text-gray-400 dark:text-gray-500 text-2xl"></i>
               </div>
               <p class="font-semibold text-gray-700 dark:text-gray-300">Nenhum recibo emitido</p>
+              {% if pode_escrever %}
               <a href="{% url 'financeiro:recibo_criar' %}"
                 class="mt-4 flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
                 <i class="fas fa-plus"></i>
                 <span>Emitir Primeiro Recibo</span>
               </a>
+              {% endif %}
             </div>
             {% endif %}
           </div>

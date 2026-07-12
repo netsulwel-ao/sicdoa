@@ -170,5 +170,46 @@
       textoBotao: 'Confirmar',
     }, opts || {}));
   };
+
+  /** Promise-based confirm: await showConfirm(titulo, mensagem, textoBotao, tipo) */
+  window.showConfirm = function (titulo, mensagem, textoBotao, tipo) {
+    return new Promise(function (resolve) {
+      var resolved = false;
+      var doResolve = function(val) {
+        if (resolved) return;
+        resolved = true;
+        resolve(val);
+      };
+
+      var btnConf = document.getElementById('confirmModalConfirmar');
+      var btnCan  = document.getElementById('confirmModalCancelar');
+      var modal   = document.getElementById('confirmModal');
+
+      var onConf = function() { doResolve(true); cleanup(); };
+      var onCan  = function() { doResolve(false); cleanup(); };
+      var onKey  = function(e) { if (e.key === 'Escape') { doResolve(false); cleanup(); } };
+
+      function cleanup() {
+        btnConf.removeEventListener('click', onConf);
+        btnCan.removeEventListener('click', onCan);
+        document.removeEventListener('keydown', onKey);
+      }
+
+      btnConf.addEventListener('click', onConf);
+      btnCan.addEventListener('click', onCan);
+      document.addEventListener('keydown', onKey);
+
+      modal.addEventListener('click', function onBackdrop(e) {
+        if (e.target === modal) { doResolve(false); cleanup(); modal.removeEventListener('click', onBackdrop); }
+      });
+
+      abrirConfirm({
+        titulo: titulo || 'Confirmar',
+        mensagem: mensagem || 'Tem a certeza?',
+        textoBotao: textoBotao || 'Confirmar',
+        tipo: tipo || 'danger',
+      });
+    });
+  };
 })();
 </script>

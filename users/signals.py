@@ -22,6 +22,9 @@ def gerar_inscricao_auto(sender, instance, created, **kwargs):
     vencimento = instance.created_at.date() + timedelta(days=30)
     if QuotaGerada.objects.filter(despachante=instance, tipo=tipo).exists():
         return
+    hoje = timezone.now().date()
+    seq = QuotaGerada.objects.filter(tipo=tipo, ano=hoje.year).count() + 1
+    referencia = f'QUOTA-INS-{hoje.month:02d}-{hoje.year}-{seq:05d}'
     QuotaGerada.objects.create(
         despachante=instance,
         tipo=tipo,
@@ -30,5 +33,6 @@ def gerar_inscricao_auto(sender, instance, created, **kwargs):
         data_vencimento=vencimento,
         periodo_inicio=instance.created_at.date(),
         periodo_fim=vencimento,
+        referencia=referencia,
     )
     EstadoFinanceiro.objects.get_or_create(despachante=instance, defaults={'estado': 'Irregular'})

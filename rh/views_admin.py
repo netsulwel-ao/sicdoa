@@ -59,6 +59,8 @@ def _requer_admin_ou_permissoes(*perm_codigos):
 
 def _ctx_admin(request, sub='', extra=None, active_menu='ADMIN_RH'):
     u = request.session.get('usuario', {})
+    from users.permissoes import get_usuario_permissoes
+    user_permissoes = get_usuario_permissoes(request)
     ctx = {
         'usuario': u,
         'nome': u.get('nome', ''),
@@ -66,6 +68,7 @@ def _ctx_admin(request, sub='', extra=None, active_menu='ADMIN_RH'):
         'active_menu': active_menu,
         'active_sub': sub,
         'is_admin_sistema': True,
+        'user_permissoes': user_permissoes,
     }
     if extra:
         ctx.update(extra)

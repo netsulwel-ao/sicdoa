@@ -775,6 +775,13 @@ def relatorio_pdf(request, tipo):
     if not dados_fn:
         return HttpResponse('Tipo de relatorio invalido', status=404)
 
+    if not _user_tem_acesso_total(request):
+        from users.permissoes import usuario_tem_permissao
+        if not usuario_tem_permissao(request, 'ver_relatorios_operacionais'):
+            papel = request.session.get('usuario', {}).get('papel', '')
+            if papel not in ('Administrador', 'Despachante Oficial'):
+                return HttpResponse('Sem permissão para aceder a relatórios.', status=403)
+
     try:
         dados = dados_fn(request)
         banca = _get_banca(request)

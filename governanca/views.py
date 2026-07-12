@@ -4235,35 +4235,37 @@ def utilizador_novo_view(request):
                 from users.models import Funcao
                 funcao_obj = Funcao.objects.filter(pk=int(funcao_id)).first()
 
-        user = Usuario.objects.create(
-            username=username, password=hash_senha, nome=nome, email=email,
-            telefone=telefone, nif=nif, cedula=cedula if tipo == 'despachante' else '',
-            papel=papel, status='Ativo',
-            area_actuacao=area_actuacao if tipo == 'colaborador' else '',
-            cargo_personalizado=nome_tipo if tipo == 'outro' else '',
-            funcao=funcao_obj if funcao_obj else None,
-        )
-
-        if tipo == 'colaborador':
-            from decimal import Decimal
-            salario_dec = Decimal(parse_kz(salario_base)) if salario_base else None
-            ColaboradorInstitucional.objects.create(
-                usuario=user, nome=nome, email=email, telefone=telefone,
-                area_actuacao=area_actuacao, salario_base=salario_dec,
+            user = Usuario.objects.create(
+                username=username, password=hash_senha, nome=nome, email=email,
+                telefone=telefone, nif=nif, cedula=cedula if tipo == 'despachante' else '',
+                papel=papel, status='Ativo',
+                area_actuacao=area_actuacao if tipo == 'colaborador' else '',
+                cargo_personalizado=nome_tipo if tipo == 'outro' else '',
+                funcao=funcao_obj if funcao_obj else None,
             )
 
-        sucesso_email, msg_email = _enviar_credenciais_utilizador(user, senha)
-        if sucesso_email:
-            messages.success(request, f'Utilizador "{nome}" criado com sucesso. Credenciais enviadas para {email}.')
-        else:
-            messages.success(request, f'Utilizador "{nome}" criado com sucesso.')
-            messages.warning(request, f'Não foi possível enviar o email de credenciais: {msg_email}')
-        return redirect('governanca_gerir_utilizadores')
+            if tipo == 'colaborador':
+                from decimal import Decimal
+                salario_dec = Decimal(parse_kz(salario_base)) if salario_base else None
+                ColaboradorInstitucional.objects.create(
+                    usuario=user, nome=nome, email=email, telefone=telefone,
+                    area_actuacao=area_actuacao, salario_base=salario_dec,
+                )
+
+            sucesso_email, msg_email = _enviar_credenciais_utilizador(user, senha)
+            if sucesso_email:
+                messages.success(request, f'Utilizador "{nome}" criado com sucesso. Credenciais enviadas para {email}.')
+            else:
+                messages.success(request, f'Utilizador "{nome}" criado com sucesso.')
+                messages.warning(request, f'Não foi possível enviar o email de credenciais: {msg_email}')
+            return redirect('governanca_gerir_utilizadores')
 
     from users.models import Funcao
+    from users.permissoes import get_usuario_permissoes as _get_perms
     ctx = {
         'usuario': usuario, 'nome': usuario['nome'], 'papel': usuario['papel'],
         'active_menu': 'ADMIN_RH', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
+        'user_permissoes': _get_perms(request),
         'erros': erros, 'funcoes': Funcao.objects.all().order_by('nome'),
     }
     return render(request, 'governanca/utilizador_novo.html', ctx)
@@ -4324,9 +4326,11 @@ def utilizador_editar_view(request, usuario_id):
             return redirect('governanca_gerir_utilizadores')
 
     from users.models import Funcao
+    from users.permissoes import get_usuario_permissoes as _get_perms
     ctx = {
         'usuario': usuario, 'nome': usuario['nome'], 'papel': usuario['papel'],
         'active_menu': 'ADMIN_RH', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
+        'user_permissoes': _get_perms(request),
         'user_obj': user_obj, 'erros': erros, 'funcoes': Funcao.objects.all().order_by('nome'),
     }
     return render(request, 'governanca/utilizador_editar.html', ctx)
@@ -4340,7 +4344,7 @@ def utilizador_permissoes_view(request, usuario_id):
 
 @_requer_login
 def gerir_utilizadores(request):
-    from users.permissoes import usuario_tem_permissao
+    from users.permissoes import usuario_tem_permissao, get_usuario_permissoes
     usuario = _get_usuario(request)
     if not usuario:
         return redirect('login')
@@ -4397,6 +4401,7 @@ def gerir_utilizadores(request):
         'active_menu': 'ADMIN_RH',
         'active_sub': 'gerir_utilizadores',
         'is_admin_sistema': True,
+        'user_permissoes': get_usuario_permissoes(request),
         'utilizadores': utilizadores,
         'bancas_por_usuario': bancas_por_usuario,
         'stats_total': stats_total,
