@@ -4377,14 +4377,21 @@ def recibo_pdf(request, pk):
 
     qr_texto = (
         "=== RECIBO DE PAGAMENTO ===\n"
-        f"Numero: {recibo.numero_recibo}\n"
-        f"Factura: {recibo.factura.numero_factura}\n"
-        f"Cliente: {cliente.nome}\n"
-        f"NIF: {cliente.nif}\n"
-        f"Valor: {fmt_kz(recibo.valor_recebido)} KZ\n"
-        f"Pagamento: {recibo.forma_pagamento}\n"
+        f"No: {recibo.numero_recibo}\n"
         f"Data: {recibo.data_pagamento.strftime('%d/%m/%Y')}\n"
-        f"Referencia: {recibo.referencia_bancaria or 'N/D'}"
+        f"Estado: PAGO\n"
+        f"--- CLIENTE ---\n"
+        f"Nome: {cliente.nome}\n"
+        f"NIF: {cliente.nif}\n"
+        f"--- PAGAMENTO ---\n"
+        f"Factura: {recibo.factura.numero_factura}\n"
+        f"Valor: {fmt_kz(recibo.valor_recebido)} KZ\n"
+        f"Forma: {recibo.forma_pagamento}\n"
+        f"Referencia: {recibo.referencia_bancaria or 'N/D'}\n"
+        f"--- DESPACHANTE ---\n"
+        f"Nome: {banca.nome}\n"
+        f"NIF: {banca.nif}\n"
+        f"Emitido Por: {recibo.utilizador_responsavel_nome}"
     )
 
     _construir_pdf_documento(
@@ -4449,12 +4456,20 @@ def factura_recibo_pdf(request, pk):
 
     qr_texto = (
         "=== FACTURA-RECIBO ===\n"
-        f"Numero: {fr.numero_factura_recibo}\n"
-        f"Cliente: {cliente.nome}\n"
+        f"No: {fr.numero_factura_recibo}\n"
+        f"Data: {fr.data.strftime('%d/%m/%Y')}\n"
+        f"Estado: {fr.estado}\n"
+        f"--- CLIENTE ---\n"
+        f"Nome: {cliente.nome}\n"
         f"NIF: {cliente.nif}\n"
+        f"--- VALORES ---\n"
+        f"Factura: {fr.factura.numero_factura if fr.factura_id else 'N/D'}\n"
         f"Valor: {fmt_kz(fr.valor)} KZ\n"
-        f"Pagamento: {fr.forma_pagamento}\n"
-        f"Data: {fr.data.strftime('%d/%m/%Y')}"
+        f"Forma: {fr.forma_pagamento}\n"
+        f"--- DESPACHANTE ---\n"
+        f"Nome: {banca.nome}\n"
+        f"NIF: {banca.nif}\n"
+        f"Emitido Por: {fr.utilizador_responsavel_nome}"
     )
 
     _construir_pdf_documento(
@@ -4512,14 +4527,21 @@ def nota_credito_pdf(request, pk):
 
     qr_texto = (
         "=== NOTA DE CREDITO ===\n"
-        f"Numero: {nota.numero_nota}\n"
-        f"Factura: {nota.factura_relacionada.numero_factura}\n"
-        f"Cliente: {cliente.nome}\n"
+        f"No: {nota.numero_nota}\n"
+        f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
+        f"Estado: {nota.estado}\n"
+        f"--- CLIENTE ---\n"
+        f"Nome: {cliente.nome}\n"
         f"NIF: {cliente.nif}\n"
+        f"--- DETALHES ---\n"
+        f"Factura: {nota.factura_relacionada.numero_factura}\n"
         f"Valor: {fmt_kz(nota.valor_creditado)} KZ\n"
         f"Motivo: {nota.motivo}\n"
-        f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
-        f"Estado: {nota.estado}"
+        f"--- DESPACHANTE ---\n"
+        f"Nome: {banca.nome}\n"
+        f"NIF: {banca.nif}\n"
+        f"Criado Por: {nota.utilizador_criador_nome}\n"
+        f"Aprovado Por: {nota.utilizador_aprovador_nome or 'N/D'}"
     )
 
     _construir_pdf_documento(
@@ -4576,14 +4598,20 @@ def nota_debito_pdf(request, pk):
 
     qr_texto = (
         "=== NOTA DE DEBITO ===\n"
-        f"Numero: {nota.numero_nota}\n"
-        f"Factura: {nota.factura_relacionada.numero_factura}\n"
-        f"Cliente: {cliente.nome}\n"
+        f"No: {nota.numero_nota}\n"
+        f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
+        f"Estado: {nota.estado}\n"
+        f"--- CLIENTE ---\n"
+        f"Nome: {cliente.nome}\n"
         f"NIF: {cliente.nif}\n"
+        f"--- DETALHES ---\n"
+        f"Factura: {nota.factura_relacionada.numero_factura}\n"
         f"Valor: {fmt_kz(nota.valor)} KZ\n"
         f"Motivo: {nota.motivo}\n"
-        f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
-        f"Estado: {nota.estado}"
+        f"--- DESPACHANTE ---\n"
+        f"Nome: {banca.nome}\n"
+        f"NIF: {banca.nif}\n"
+        f"Criado Por: {nota.utilizador_criador_nome}"
     )
 
     _construir_pdf_documento(
@@ -4638,14 +4666,21 @@ def recibo_enviar_email(request, pk):
         sumario = [('Valor Recebido', f'{fmt_kz(recibo.valor_recebido)} KZ'), ('Estado', 'PAGO'), ('Emitido Por', recibo.utilizador_responsavel_nome)]
         qr_texto = (
             "=== RECIBO DE PAGAMENTO ===\n"
-            f"Numero: {recibo.numero_recibo}\n"
-            f"Factura: {recibo.factura.numero_factura}\n"
-            f"Cliente: {recibo.cliente.nome}\n"
-            f"NIF: {recibo.cliente.nif}\n"
-            f"Valor: {fmt_kz(recibo.valor_recebido)} KZ\n"
-            f"Pagamento: {recibo.forma_pagamento}\n"
+            f"No: {recibo.numero_recibo}\n"
             f"Data: {recibo.data_pagamento.strftime('%d/%m/%Y')}\n"
-            f"Referencia: {recibo.referencia_bancaria or 'N/D'}"
+            f"Estado: PAGO\n"
+            f"--- CLIENTE ---\n"
+            f"Nome: {recibo.cliente.nome}\n"
+            f"NIF: {recibo.cliente.nif}\n"
+            f"--- PAGAMENTO ---\n"
+            f"Factura: {recibo.factura.numero_factura}\n"
+            f"Valor: {fmt_kz(recibo.valor_recebido)} KZ\n"
+            f"Forma: {recibo.forma_pagamento}\n"
+            f"Referencia: {recibo.referencia_bancaria or 'N/D'}\n"
+            f"--- DESPACHANTE ---\n"
+            f"Nome: {banca.nome}\n"
+            f"NIF: {banca.nif}\n"
+            f"Emitido Por: {recibo.utilizador_responsavel_nome}"
         )
         _construir_pdf_documento(
             buffer, f"Recibo de Pagamento {recibo.numero_recibo}",
@@ -4773,12 +4808,20 @@ def factura_recibo_enviar_email(request, pk):
         sumario = [('Valor Pago', f'{fmt_kz(fr.valor)} KZ'), ('Forma de Pagamento', fr.forma_pagamento), ('Estado', fr.estado)]
         qr_texto = (
             "=== FACTURA-RECIBO ===\n"
-            f"Numero: {fr.numero_factura_recibo}\n"
-            f"Cliente: {fr.cliente.nome}\n"
+            f"No: {fr.numero_factura_recibo}\n"
+            f"Data: {fr.data.strftime('%d/%m/%Y')}\n"
+            f"Estado: {fr.estado}\n"
+            f"--- CLIENTE ---\n"
+            f"Nome: {fr.cliente.nome}\n"
             f"NIF: {fr.cliente.nif}\n"
+            f"--- VALORES ---\n"
+            f"Factura: {fr.factura.numero_factura if fr.factura_id else 'N/D'}\n"
             f"Valor: {fmt_kz(fr.valor)} KZ\n"
-            f"Pagamento: {fr.forma_pagamento}\n"
-            f"Data: {fr.data.strftime('%d/%m/%Y')}"
+            f"Forma: {fr.forma_pagamento}\n"
+            f"--- DESPACHANTE ---\n"
+            f"Nome: {banca.nome}\n"
+            f"NIF: {banca.nif}\n"
+            f"Emitido Por: {fr.utilizador_responsavel_nome}"
         )
         _construir_pdf_documento(
             buffer, f"Factura-Recibo {fr.numero_factura_recibo}",
@@ -4885,14 +4928,21 @@ def nota_credito_enviar_email(request, pk):
         sumario = [('Valor Creditado', f'{fmt_kz(nota.valor_creditado)} KZ'), ('Estado', nota.estado), ('Criado Por', nota.utilizador_criador_nome), ('Aprovado Por', nota.utilizador_aprovador_nome or 'N/D')]
         qr_texto = (
             "=== NOTA DE CREDITO ===\n"
-            f"Numero: {nota.numero_nota}\n"
-            f"Factura: {nota.factura_relacionada.numero_factura}\n"
-            f"Cliente: {nota.cliente.nome}\n"
+            f"No: {nota.numero_nota}\n"
+            f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
+            f"Estado: {nota.estado}\n"
+            f"--- CLIENTE ---\n"
+            f"Nome: {nota.cliente.nome}\n"
             f"NIF: {nota.cliente.nif}\n"
+            f"--- DETALHES ---\n"
+            f"Factura: {nota.factura_relacionada.numero_factura}\n"
             f"Valor: {fmt_kz(nota.valor_creditado)} KZ\n"
             f"Motivo: {nota.motivo}\n"
-            f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
-            f"Estado: {nota.estado}"
+            f"--- DESPACHANTE ---\n"
+            f"Nome: {banca.nome}\n"
+            f"NIF: {banca.nif}\n"
+            f"Criado Por: {nota.utilizador_criador_nome}\n"
+            f"Aprovado Por: {nota.utilizador_aprovador_nome or 'N/D'}"
         )
         _construir_pdf_documento(
             buffer, f"Nota de Crédito {nota.numero_nota}",
@@ -5000,14 +5050,20 @@ def nota_debito_enviar_email(request, pk):
         sumario = [('Valor Debitado', f'{fmt_kz(nota.valor)} KZ'), ('Estado', nota.estado), ('Criado Por', nota.utilizador_criador_nome)]
         qr_texto = (
             "=== NOTA DE DEBITO ===\n"
-            f"Numero: {nota.numero_nota}\n"
-            f"Factura: {nota.factura_relacionada.numero_factura}\n"
-            f"Cliente: {nota.cliente.nome}\n"
+            f"No: {nota.numero_nota}\n"
+            f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
+            f"Estado: {nota.estado}\n"
+            f"--- CLIENTE ---\n"
+            f"Nome: {nota.cliente.nome}\n"
             f"NIF: {nota.cliente.nif}\n"
+            f"--- DETALHES ---\n"
+            f"Factura: {nota.factura_relacionada.numero_factura}\n"
             f"Valor: {fmt_kz(nota.valor)} KZ\n"
             f"Motivo: {nota.motivo}\n"
-            f"Data: {nota.data.strftime('%d/%m/%Y')}\n"
-            f"Estado: {nota.estado}"
+            f"--- DESPACHANTE ---\n"
+            f"Nome: {banca.nome}\n"
+            f"NIF: {banca.nif}\n"
+            f"Criado Por: {nota.utilizador_criador_nome}"
         )
         _construir_pdf_documento(
             buffer, f"Nota de Débito {nota.numero_nota}",
