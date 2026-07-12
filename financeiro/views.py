@@ -202,7 +202,7 @@ class BaseContextMixin:
             usuario_id = self._resolve_usuario_id()
             if not usuario_id:
                 return {}
-            return {'usuario_id': usuario_id}
+            return {'banca__usuario_id': usuario_id}
         filtro = {'banca_id': banca_id}
         filial_id = self.request.session.get('colaborador_filial_id')
         if _tem_escopo_filial(perm_set, filial_id) and filial_id:

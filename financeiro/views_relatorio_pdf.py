@@ -47,6 +47,14 @@ def _get_user_filter(request):
     return {}
 
 
+def _get_clientes(request):
+    from clientes.models import Cliente
+    filtro = _get_user_filter(request)
+    if filtro:
+        return Cliente.objects.filter(**filtro)
+    return Cliente.objects.all()
+
+
 def _get_banca(request):
     from rh.models import Banca
     banca_id = request.session.get('banca_id')
