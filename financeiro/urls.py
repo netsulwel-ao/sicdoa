@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import views_contacorrente as cc
 from . import views_relatorios as rel
+from . import views_relatorio_pdf as rel_pdf
 
 
 app_name = 'financeiro'
@@ -130,5 +131,8 @@ urlpatterns = [
     path('relatorios/receita-cliente/', rel.RelatorioReceitaPorClienteView.as_view(), name='relatorio_receita_cliente'),
     path('relatorios/receita-localizacao/', rel.RelatorioReceitaPorLocalizacaoView.as_view(), name='relatorio_receita_localizacao'),
     path('relatorios/receita-despachante/', rel.RelatorioReceitaPorDespachanteView.as_view(), name='relatorio_receita_despachante'),
+
+    # PDF dos Relatórios
+    path('relatorios/<slug:tipo>/pdf/', rel_pdf.relatorio_pdf, name='relatorio_pdf'),
 
 ]

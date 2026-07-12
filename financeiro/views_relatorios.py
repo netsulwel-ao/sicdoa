@@ -1,5 +1,6 @@
 import json
-from collections import OrderedDict
+import logging
+from collections import OrderedDict, defaultdict
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 
@@ -18,8 +19,10 @@ from clientes.models import Cliente
 from .models import (
     RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo, HistoricoFinanceiro
 )
-from .views import BaseContextMixin, _tem_escopo_filial
+from .views import BaseContextMixin, _tem_escopo_filial, _user_tem_acesso_total
 from utils.format_kz import fmt_kz
+
+logger = logging.getLogger(__name__)
 
 
 class ReportPermissionMixin:
@@ -42,6 +45,7 @@ class ReportMixin(ReportPermissionMixin, BaseContextMixin):
     report_name = ''
     report_subtitle = ''
     active_sub = ''
+    pdf_slug = ''
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -49,21 +53,7 @@ class ReportMixin(ReportPermissionMixin, BaseContextMixin):
         context['report_subtitle'] = self.report_subtitle
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = self.active_sub
-
-        # Dados da banca para impressão
-        banca_id = self.request.session.get('banca_id')
-        if banca_id:
-            try:
-                from rh.models import Banca
-                banca = Banca.objects.filter(pk=banca_id).first()
-                if banca:
-                    context['banca_logo_url'] = banca.logo.url if banca.logo else ''
-                    context['banca_nome'] = banca.nome or ''
-                    context['banca_nif'] = banca.nif or ''
-                    context['banca_endereco'] = banca.endereco or ''
-            except Exception:
-                pass
-
+        context['pdf_slug'] = self.pdf_slug
         return context
 
     def parse_dates(self):
@@ -104,6 +94,7 @@ class RelatorioRequisicaoFundosView(OperacionalMixin, ReportMixin, TemplateView)
     report_name = 'Relatório de Requisição de Fundos'
     report_subtitle = 'Listagem de todas as requisições de fundos'
     active_sub = 'rel_requisicoes'
+    pdf_slug = 'requisicao-fundos'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -153,6 +144,7 @@ class RelatorioFacturacaoView(OperacionalMixin, ReportMixin, TemplateView):
     report_name = 'Relatório de Facturação'
     report_subtitle = 'Resumo de todas as facturas emitidas'
     active_sub = 'rel_facturacao'
+    pdf_slug = 'facturacao'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -199,6 +191,7 @@ class RelatorioRecibosView(OperacionalMixin, ReportMixin, TemplateView):
     report_name = 'Relatório de Recibos'
     report_subtitle = 'Resumo de todos os recebimentos'
     active_sub = 'rel_recibos'
+    pdf_slug = 'recibos'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -280,6 +273,7 @@ class RelatorioNotasCreditoView(OperacionalMixin, ReportMixin, TemplateView):
     report_name = 'Relatório de Notas de Crédito'
     report_subtitle = 'Resumo de todas as notas de crédito emitidas'
     active_sub = 'rel_notas_credito'
+    pdf_slug = 'notas-credito'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -330,6 +324,7 @@ class RelatorioNotasDebitoView(OperacionalMixin, ReportMixin, TemplateView):
     report_name = 'Relatório de Notas de Débito'
     report_subtitle = 'Resumo de todas as notas de débito emitidas'
     active_sub = 'rel_notas_debito'
+    pdf_slug = 'notas-debito'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -381,6 +376,7 @@ class RelatorioContasAReceberView(ReportMixin, TemplateView):
     report_name = 'Contas a Receber'
     report_subtitle = 'Facturas pendentes e parcialmente pagas'
     active_sub = 'rel_contas_receber'
+    pdf_slug = 'contas-receber'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -422,6 +418,7 @@ class RelatorioClientesDevedoresView(ReportMixin, TemplateView):
     report_name = 'Clientes Devedores'
     report_subtitle = 'Clientes com saldo negativo em conta corrente'
     active_sub = 'rel_clientes_devedores'
+    pdf_slug = 'clientes-devedores'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -465,6 +462,7 @@ class RelatorioFluxoCaixaView(ReportMixin, TemplateView):
     report_name = 'Fluxo de Caixa'
     report_subtitle = 'Movimentação financeira por período'
     active_sub = 'rel_fluxo_caixa'
+    pdf_slug = 'fluxo-caixa'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -644,6 +642,7 @@ class RelatorioDemonstrativoReceitasView(ReportMixin, TemplateView):
     report_name = 'Demonstrativo de Receitas'
     report_subtitle = 'Receitas por tipo de documento'
     active_sub = 'rel_demonstrativo'
+    pdf_slug = 'demonstrativo-receitas'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -709,6 +708,7 @@ class RelatorioBalanceteFinanceiroView(ReportMixin, TemplateView):
     report_name = 'Balancete Financeiro'
     report_subtitle = 'Saldo consolidado de todas as contas'
     active_sub = 'rel_balancete'
+    pdf_slug = 'balancete'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -901,6 +901,7 @@ class RelatorioIndicadoresCobrancaView(ReportMixin, TemplateView):
     report_name = 'Indicadores de Cobrança'
     report_subtitle = 'Eficiência na cobrança e recebimento'
     active_sub = 'rel_indicadores'
+    pdf_slug = 'indicadores-cobranca'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -966,6 +967,7 @@ class RelatorioReceitaPorClienteView(ReportMixin, TemplateView):
     report_name = 'Receita por Cliente'
     report_subtitle = 'Facturação e recebimentos agrupados por cliente'
     active_sub = 'rel_receita_cliente'
+    pdf_slug = 'receita-cliente'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1035,6 +1037,7 @@ class RelatorioReceitaPorLocalizacaoView(ReportMixin, TemplateView):
     report_name = 'Receita por Localização'
     report_subtitle = 'Facturação agrupada por localização do cliente'
     active_sub = 'rel_receita_localizacao'
+    pdf_slug = 'receita-localizacao'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1098,6 +1101,7 @@ class RelatorioReceitaPorDespachanteView(ReportMixin, TemplateView):
     report_name = 'Receita por Despachante'
     report_subtitle = 'Facturação e recebimentos agrupados por despachante'
     active_sub = 'rel_receita_despachante'
+    pdf_slug = 'receita-despachante'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

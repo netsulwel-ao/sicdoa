@@ -1,30 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
-
-    <!-- ══════════════════════════════════════════════════════════════ -->
-    <!-- CABEÇALHO DE IMPRESSÃO (só aparece ao imprimir)              -->
-    <!-- ══════════════════════════════════════════════════════════════ -->
-    <div id="print-report-header" class="print-only">
-      <div class="print-header-top">
-        {% if banca_logo_url %}
-        <img src="{{ banca_logo_url }}" alt="Logo" class="print-logo" />
-        {% endif %}
-        <div class="print-header-info">
-          <h1>{{ report_name }}</h1>
-          <p>{{ report_subtitle }}</p>
-        </div>
-      </div>
-      <div class="print-header-meta">
-        {% if filtro_data_ini is not None %}<span>Período: {{ filtro_data_ini }} a {{ filtro_data_fim }}</span>{% endif %}
-        {% if filtro_ano is not None %}<span>Ano: {{ filtro_ano }}</span>{% endif %}
-        {% if banca_nome %}<span>{{ banca_nome }}</span>{% endif %}
-        <span>Gerado em {% now "d/m/Y H:i" %}</span>
-      </div>
-    </div>
-
-    <!-- Header (ecrã) -->
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 print-hidden">
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">{{ report_name }}</h1>
@@ -34,6 +12,12 @@
                 </p>
             </div>
             <div class="flex items-center gap-3 print-hidden">
+                {% if pdf_slug %}
+                <a href="{% url 'financeiro:relatorio_pdf' tipo=pdf_slug %}?{{ request.GET.urlencode }}"
+                   class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm">
+                    <i class="fas fa-file-pdf"></i> Exportar PDF
+                </a>
+                {% endif %}
                 <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium shadow-sm">
                     <i class="fas fa-print"></i> Imprimir
                 </button>
@@ -186,19 +170,6 @@
       </div>
     </div>
     {% endfor %}
-
-    <!-- ══════════════════════════════════════════════════════════════ -->
-    <!-- RODAPÉ DE IMPRESSÃO (só aparece ao imprimir)                 -->
-    <!-- ══════════════════════════════════════════════════════════════ -->
-    <div id="print-report-footer" class="print-only">
-      <div class="print-footer-line"></div>
-      <div class="print-footer-content">
-        <span>SICDOA — Sistema de Informação da CDOA</span>
-        <span>Documento gerado automaticamente</span>
-        <span>{% now "d/m/Y H:i" %}</span>
-      </div>
-    </div>
-
   </div>
 
 {% if report_name == 'Fluxo de Caixa' and rows %}
@@ -272,210 +243,26 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% endif %}
 
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!-- CSS DE IMPRESSÃO — Layout Profissional estilo Requisição Fundos  -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
 <style media="print">
-  /* ── Página ── */
-  @page {
-    size: portrait;
-    margin: 1.2cm 1.5cm;
-  }
-
-  /* ── Esconder toda a UI ── */
+  @page { size: landscape; margin: 1.2cm; }
   body * { visibility: hidden; }
-  #sidebar, #main-header, footer, #page-loader,
-  .print-hidden, #chartFluxoCaixa,
-  .chart-js-container { display: none !important; }
-
-  /* ── Mostrar apenas o conteúdo principal ── */
+  #sidebar, #main-header, footer, #page-loader, .print-hidden { display: none !important; }
+  .flex-1.ml-0 { margin-left: 0 !important; padding-top: 0 !important; }
   .flex-1.ml-0, .flex-1.ml-0 * { visibility: visible; }
-  .flex-1.ml-0 {
-    position: absolute;
-    top: 0; left: 0; width: 100%;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  .flex-1.ml-0 .max-w-7xl {
-    max-width: 100%;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* ── Elementos de impressão ── */
-  .print-only { display: block !important; visibility: visible !important; }
-  .print-hidden { display: none !important; }
-
-  /* ── Cabeçalho de impressão ── */
-  #print-report-header {
-    margin-bottom: 10pt;
-  }
-  .print-header-top {
-    display: flex;
-    align-items: center;
-    gap: 12pt;
-    padding-bottom: 8pt;
-    border-bottom: 2pt solid #0f172a;
-    margin-bottom: 5pt;
-  }
-  .print-logo {
-    width: 2.5cm;
-    height: 2cm;
-    object-fit: contain;
-    flex-shrink: 0;
-  }
-  .print-header-info h1 {
-    font-size: 16pt;
-    font-weight: 800;
-    color: #0f172a;
-    margin: 0;
-    line-height: 1.2;
-  }
-  .print-header-info p {
-    font-size: 9pt;
-    color: #64748b;
-    margin: 2pt 0 0 0;
-  }
-  .print-header-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6pt 16pt;
-    font-size: 7.5pt;
-    color: #64748b;
-    padding: 4pt 0;
-    border-bottom: 0.5pt solid #cbd5e1;
-    margin-bottom: 8pt;
-  }
-  .print-header-meta span::after {
-    content: '';
-  }
-
-  /* ── Esconder o header original do ecrã ── */
-  .flex-1.ml-0 > .space-y-6 > div:first-child.print-hidden,
-  .flex-1.ml-0 > div:first-child:not(.print-only) {
-    display: none !important;
-  }
-
-  /* ── Summary Cards ── */
-  .flex-1.ml-0 .grid {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6pt;
-    margin-bottom: 8pt;
-  }
-  .flex-1.ml-0 .grid > div {
-    background: #f8fafc !important;
-    border: 0.5pt solid #cbd5e1;
-    border-radius: 4pt;
-    padding: 6pt 8pt;
-    box-shadow: none !important;
-  }
-  .flex-1.ml-0 .grid p.text-xs {
-    font-size: 6.5pt;
-    color: #64748b !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5pt;
-    margin-bottom: 2pt;
-  }
-  .flex-1.ml-0 .grid p.text-2xl {
-    font-size: 12pt;
-    font-weight: 700;
-    color: #0f172a !important;
-    margin: 0;
-  }
-  .flex-1.ml-0 .grid p.text-primary { color: #137fec !important; }
-  .flex-1.ml-0 .grid p.text-emerald-600 { color: #059669 !important; }
-  .flex-1.ml-0 .grid p.text-red-600 { color: #dc2626 !important; }
-  .flex-1.ml-0 .grid p.text-amber-600 { color: #d97706 !important; }
-
-  /* ── Tabelas principais ── */
-  .flex-1.ml-0 table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 7.5pt;
-    margin-bottom: 6pt;
-  }
-  .flex-1.ml-0 th {
-    background: #0f172a !important;
-    color: white !important;
-    font-weight: 600;
-    font-size: 7pt;
-    text-transform: uppercase;
-    letter-spacing: 0.3pt;
-    padding: 5pt 6pt;
-    text-align: left;
-    border-bottom: 1pt solid #0f172a;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .flex-1.ml-0 td {
-    padding: 3.5pt 6pt;
-    border-bottom: 0.3pt solid #e2e8f0;
-    color: #334155 !important;
-  }
-  .flex-1.ml-0 tbody tr:nth-child(even) td {
-    background: #f8fafc;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  /* ── Container das tabelas (cards) ── */
-  .flex-1.ml-0 .bg-white,
-  .flex-1.ml-0 .bg-gray-900 {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-  }
-  .flex-1.ml-0 .rounded-2xl {
-    border: 0.5pt solid #cbd5e1 !important;
-    border-radius: 4pt !important;
-    box-shadow: none !important;
-    break-inside: avoid;
-    margin-bottom: 6pt;
-    background: white !important;
-  }
-
-  /* ── Extra Tables — título da secção ── */
-  .flex-1.ml-0 .rounded-2xl h3 {
-    font-size: 8pt;
-    font-weight: 600;
-    color: #0f172a !important;
-    padding: 4pt 8pt;
-    border-bottom: 0.5pt solid #cbd5e1;
-    background: #f1f5f9 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  /* ── Borda dos cards de summary ── */
-  .flex-1.ml-0 .grid > div.rounded-2xl {
-    border: 0.5pt solid #cbd5e1 !important;
-    border-radius: 4pt !important;
-  }
-
-  /* ── Links e hover ── */
-  .flex-1.ml-0 a { text-decoration: none; color: inherit !important; }
+  .flex-1.ml-0 { position: absolute; top: 0; left: 0; width: 100%; }
+  .flex-1.ml-0 .max-w-7xl { max-width: 100%; margin: 0 !important; padding: 0 !important; }
+  .flex-1.ml-0 .space-y-6 > * { margin-bottom: 10pt; }
+  .flex-1.ml-0 h1 { font-size: 16pt; margin-bottom: 2pt; }
+  .flex-1.ml-0 .text-sm.text-gray-500 { font-size: 9pt; margin-bottom: 6pt; }
+  .flex-1.ml-0 .grid { gap: 8pt; }
+  .flex-1.ml-0 .grid > div { padding: 8pt 12pt; }
+  .flex-1.ml-0 .grid p.text-2xl { font-size: 14pt; }
+  .flex-1.ml-0 table { font-size: 8pt; width: 100%; border-collapse: collapse; }
+  .flex-1.ml-0 th { background: #137fec !important; color: white !important; padding: 5pt 6pt; font-size: 7.5pt; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .flex-1.ml-0 td { padding: 3pt 6pt; border-bottom: 0.5pt solid #ccc; }
+  .flex-1.ml-0 .rounded-2xl { box-shadow: none !important; border: 0.5pt solid #ccc; break-inside: avoid; }
+  .flex-1.ml-0 a { text-decoration: none; }
   .flex-1.ml-0 .hover\:bg-gray-50:hover { background: transparent !important; }
-
-  /* ── Ícone de visualizar (esconder na impressão) ── */
-  .flex-1.ml-0 .fa-eye { display: none !important; }
-  .flex-1.ml-0 td:has(.fa-eye) { display: none !important; }
-
-  /* ── Rodapé de impressão ── */
-  #print-report-footer {
-    margin-top: 10pt;
-  }
-  .print-footer-line {
-    border-top: 1pt solid #cbd5e1;
-    padding-top: 4pt;
-  }
-  .print-footer-content {
-    display: flex;
-    justify-content: space-between;
-    font-size: 6.5pt;
-    color: #94a3b8;
-  }
 </style>
 
 {% endblock %}
