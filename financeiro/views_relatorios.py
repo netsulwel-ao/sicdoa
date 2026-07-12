@@ -49,6 +49,21 @@ class ReportMixin(ReportPermissionMixin, BaseContextMixin):
         context['report_subtitle'] = self.report_subtitle
         context['active_menu'] = 'Financeiro'
         context['active_sub'] = self.active_sub
+
+        # Dados da banca para impressão
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            try:
+                from rh.models import Banca
+                banca = Banca.objects.filter(pk=banca_id).first()
+                if banca:
+                    context['banca_logo_url'] = banca.logo.url if banca.logo else ''
+                    context['banca_nome'] = banca.nome or ''
+                    context['banca_nif'] = banca.nif or ''
+                    context['banca_endereco'] = banca.endereco or ''
+            except Exception:
+                pass
+
         return context
 
     def parse_dates(self):
