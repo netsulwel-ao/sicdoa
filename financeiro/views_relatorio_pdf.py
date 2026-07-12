@@ -3,7 +3,7 @@ Views de PDF para relatórios financeiros.
 Gera PDFs profissionais seguindo o padrão da Requisição de Fundos (CDOA).
 """
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from datetime import datetime
 from decimal import Decimal
 
