@@ -5,6 +5,14 @@ register = template.Library()
 
 
 @register.filter
+def abs_value(value):
+    """Retorna o valor absoluto."""
+    if value is None:
+        return 0
+    return abs(value)
+
+
+@register.filter
 def fmtkz(value, default=''):
     """Formata um Decimal para o formato angolano: 1.234,56
 
