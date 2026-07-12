@@ -18,9 +18,6 @@ def escopo_du(request, queryset):
     papel = request.session.get('usuario', {}).get('papel', '')
     if papel == 'Administrador':
         return queryset
-    perm_set = get_usuario_permissoes(request)
-    if 'admin' in perm_set:
-        return queryset
     tipo = request.session.get('tipo_usuario')
     if tipo == 'colaborador':
         from rh.models import Colaborador

@@ -29,14 +29,11 @@ logger = logging.getLogger(__name__)
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 def _get_user_filter(request):
-    if _user_tem_acesso_total(request):
+    papel = request.session.get('usuario', {}).get('papel', '')
+    if papel == 'Administrador':
         return {}
     banca_id = request.session.get('banca_id')
-    if not banca_id:
-        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-        if usuario_id:
-            return {'usuario_id': usuario_id}
-    else:
+    if banca_id:
         filtro = {'banca_id': banca_id}
         filial_id = request.session.get('colaborador_filial_id')
         if filial_id:
@@ -44,6 +41,9 @@ def _get_user_filter(request):
             if _tem_escopo_filial(perm_set, filial_id):
                 filtro['filial_id'] = filial_id
         return filtro
+    usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+    if usuario_id:
+        return {'banca__usuario_id': usuario_id}
     return {}
 
 

@@ -12,30 +12,6 @@ from .models import (
 )
 
 
-class FlexibleModelChoiceField(forms.ModelChoiceField):
-    """
-    Custom ModelChoiceField that allows any valid model instance ID on POST,
-    even if not in the current queryset. This fixes the issue where the field
-    renders with limited choices but user can select from ANY valid option.
-    """
-    def to_python(self, value):
-        if value in self.empty_values:
-            return None
-        try:
-            key = self.to_field_name or 'pk'
-            obj = self.queryset.model.objects.get(**{key: value})
-        except (ValueError, TypeError, self.queryset.model.DoesNotExist):
-            raise forms.ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
-        return obj
-
-    def validate(self, value):
-        if value and value != '':
-            try:
-                self.queryset.model.objects.get(pk=value.pk if hasattr(value, 'pk') else value)
-            except self.queryset.model.DoesNotExist:
-                raise forms.ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
-
-
 class ClienteNIFChoiceField(forms.ModelChoiceField):
     """Campo que mostra apenas o NIF do cliente no select."""
     def label_from_instance(self, obj):
@@ -43,7 +19,7 @@ class ClienteNIFChoiceField(forms.ModelChoiceField):
 
 
 class RequisicaoFundoForm(forms.ModelForm):
-    processo_aduaneiro = FlexibleModelChoiceField(
+    processo_aduaneiro = forms.ModelChoiceField(
         queryset=DeclaracaoUnica.objects.filter(status='Submetida'),
         widget=forms.Select(attrs={
             'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
@@ -145,44 +121,46 @@ class RequisicaoFundoForm(forms.ModelForm):
         request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
         
-        # Always populate processo_aduaneiro with submitted DUs
-        self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
-            status='Submetida'
-        ).order_by('-created_at')
+        banca_id = request.session.get('banca_id') if request else None
         
-        # On POST, refine processo_aduaneiro by client if provided
+        # Scope processo_aduaneiro to user's banca DUs
+        du_qs = DeclaracaoUnica.objects.filter(status='Submetida')
+        if banca_id:
+            du_qs = du_qs.filter(banca_id=banca_id)
+        self.fields['processo_aduaneiro'].queryset = du_qs.order_by('-created_at')
+        
+        # On POST, refine by client if provided
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
-                nif = Cliente.objects.filter(id=cliente_id).values_list('nif', flat=True).first()
+                nif = Cliente.objects.filter(id=cliente_id, banca_id=banca_id).values_list('nif', flat=True).first()
                 if nif:
                     self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
-                        nif_declarante=nif, status='Submetida'
+                        nif_declarante=nif, status='Submetida', banca_id=banca_id
                     ).order_by('-created_at')
             except (ValueError, TypeError):
                 pass
         
-        # Populate banca field
-        if request:
-            banca_id = request.session.get('banca_id')
-            if banca_id:
-                self.fields['banca'].queryset = Banca.objects.filter(id=banca_id)
-            else:
-                self.fields['banca'].queryset = Banca.objects.all()
+        # Populate banca field scoped to user
+        if banca_id:
+            self.fields['banca'].queryset = Banca.objects.filter(id=banca_id)
         else:
-            # Fallback: provide all bancas when request not available
-            self.fields['banca'].queryset = Banca.objects.all()
+            self.fields['banca'].queryset = Banca.objects.none()
         
         # On POST, ensure processo_aduaneiro queryset includes the submitted value
-        if self.is_bound:
-            self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
-                status='Submetida'
-            ).order_by('-created_at')
+        if self.is_bound and self.data.get('processo_aduaneiro'):
+            submitted_du = DeclaracaoUnica.objects.filter(
+                pk=self.data.get('processo_aduaneiro'), status='Submetida'
+            )
+            if banca_id:
+                submitted_du = submitted_du.filter(banca_id=banca_id)
+            if submitted_du.exists():
+                self.fields['processo_aduaneiro'].queryset = submitted_du
 
     def clean(self):
         cleaned_data = super().clean()
         
-        # Validate processo_aduaneiro: ensure it's a submitted DU that exists
+        # Validate processo_aduaneiro: ensure it belongs to the same banca
         processo_id = cleaned_data.get('processo_aduaneiro')
         if processo_id:
             try:
@@ -195,6 +173,14 @@ class RequisicaoFundoForm(forms.ModelForm):
                 raise forms.ValidationError(
                     'O processo aduaneiro selecionado não existe.'
                 )
+        
+        # Validate cliente belongs to same banca
+        cliente = cleaned_data.get('cliente')
+        banca = cleaned_data.get('banca')
+        if cliente and banca and cliente.banca_id != banca.pk:
+            raise forms.ValidationError(
+                'O cliente seleccionado não pertence à banca selecionada.'
+            )
         
         return cleaned_data
 

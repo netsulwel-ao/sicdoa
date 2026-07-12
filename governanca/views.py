@@ -205,7 +205,7 @@ def index(request):
     hoje = timezone.now()
 
     from users.permissoes import _is_admin_ou_acesso_total
-    if _is_admin_ou_acesso_total(request):
+    if papel == 'Administrador':
         qs_quotas = QuotaGerada.objects.all()
         quotas_pendentes = qs_quotas.filter(status='Pendente').count()
         quotas_pagas = qs_quotas.filter(status='Paga').count()
@@ -2153,7 +2153,7 @@ def quotas_faturas(request):
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = request.session['usuario']['papel']
     from users.permissoes import _is_admin_ou_acesso_total
-    if _is_admin_ou_acesso_total(request):
+    if papel == 'Administrador':
         quotas = QuotaGerada.objects.all().select_related('despachante').order_by('-ano','-mes')
     else:
         quotas = QuotaGerada.objects.filter(despachante_id=usuario_id).order_by('-ano','-mes')
@@ -2163,7 +2163,7 @@ def quotas_faturas(request):
     context = {
         'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
         'papel': papel, 'active_menu': 'Governanca', 'active_sub': 'quotas',
-        'quotas': page_obj, 'page_obj': page_obj, 'is_admin': _is_admin_ou_acesso_total(request),
+        'quotas': page_obj, 'page_obj': page_obj, 'is_admin': papel == 'Administrador',
     }
     return render(request, 'governanca/quotas/faturas.html', context)
 
@@ -2173,7 +2173,7 @@ def quotas_fatura_detalhe(request, fatura_uuid):
     from users.permissoes import _is_admin_ou_acesso_total
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
     uid = request.session.get('banca_usuario_id') or request.session['usuario_id']
-    if quota.despachante_id != uid and not _is_admin_ou_acesso_total(request):
+    if quota.despachante_id != uid and papel != 'Administrador':
         return redirect('governanca_quotas_dashboard')
     pagamentos_qs = PagamentoQuota.objects.filter(quota=quota).order_by('-data_pagamento')
     paginator = Paginator(pagamentos_qs, 8)
@@ -2587,7 +2587,7 @@ def api_quotas_listar(request):
     papel = request.session['usuario']['papel']
     ano = request.GET.get('ano')
     from users.permissoes import _is_admin_ou_acesso_total
-    e_admin = _is_admin_ou_acesso_total(request)
+    e_admin = papel == 'Administrador'
     if e_admin:
         quotas = QuotaGerada.objects.select_related('despachante').order_by('-ano','-mes')
         if ano:

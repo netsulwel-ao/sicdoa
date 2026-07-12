@@ -560,7 +560,7 @@ def _dashboard_inner(request):
     _me = _ms.replace(year=_ms.year + 1, month=1) if _ms.month == 12 else _ms.replace(month=_ms.month + 1)
 
     # ── Filtro base por papel ──────────────────────────────────────────────
-    e_admin = _is_admin_ou_acesso_total(request)
+    e_admin = papel == 'Administrador'
     e_gestor = e_admin or papel in ("Gestor Financeiro",)
 
     # ── 1. Processos Aduaneiros ─────────────────────────────────────────────

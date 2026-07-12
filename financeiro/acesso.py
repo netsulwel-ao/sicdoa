@@ -15,8 +15,6 @@ def _get_banca_filial(request):
     if papel == 'Administrador':
         return None, None, None, True
     perm_set = get_usuario_permissoes(request)
-    if 'admin' in perm_set:
-        return None, None, None, True
     tipo = request.session.get('tipo_usuario')
     if tipo == 'colaborador':
         from rh.models import Colaborador

@@ -94,14 +94,9 @@ def _carregar_assinatura(usuario_id):
 
 
 def _user_tem_acesso_total(request):
-    """True se user tem bypass de scoping (Admin ou permissão admin)."""
-    from users.permissoes import _is_admin_ou_acesso_total
+    """True APENAS para papel=Administrador. Despachantes NUNCA têm acesso total cross-tenant."""
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
-        return True
-    if _is_admin_ou_acesso_total(request):
-        return True
-    return False
+    return papel == 'Administrador'
 
 
 def _tem_escopo_filial(perm_set, filial_id=None):
@@ -2062,6 +2057,9 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
             clientes_qs = clientes_qs.filter(**filtro_cliente)
         context['clientes_json'] = json.dumps(list(clientes_qs.values('id', 'nif', 'nome')))
         processos_qs = DeclaracaoUnica.objects.all()
+        filtro_du = self._get_user_filter_direct()
+        if filtro_du:
+            processos_qs = processos_qs.filter(**filtro_du)
         context['processos_json'] = json.dumps(list(processos_qs.values('id', 'nif_declarante', 'numero_du')))
         return context
 
