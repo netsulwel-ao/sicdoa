@@ -17,6 +17,7 @@ from django.core.paginator import Paginator
 from django.db import connection
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template import loader
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -473,11 +474,38 @@ def logout_view(request):
 
 def dashboard_view(request):
     """Dashboard principal para utilizadores do sistema."""
+    import sys, traceback, logging
+    _log = logging.getLogger(__name__)
     if not request.session.get("usuario_id"):
         return redirect("login")
     if sessao_expirada(request):
         limpar_sessao(request)
         return redirect("login")
+    try:
+        return _dashboard_inner(request)
+    except Exception:
+        _log.exception("ERRO NO DASHBOARD")
+        if not settings.DEBUG:
+            exc_type, exc_value, exc_tb = sys.exc_info()
+            tb_text = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+            frames = traceback.extract_tb(exc_tb)
+            last = frames[-1] if frames else ('', 0, '', '')
+            error_data = {
+                'error_type': exc_type.__name__,
+                'error_message': str(exc_value),
+                'error_file': last[0],
+                'error_line': last[1],
+                'error_function': last[2],
+                'traceback': tb_text,
+            }
+            template = loader.get_template('error_detail.html')
+            content = template.render(error_data)
+            from django.http import HttpResponseServerError
+            return HttpResponseServerError(content)
+        raise
+
+
+def _dashboard_inner(request):
 
     usuario = request.session["usuario"]
     uid     = request.session["usuario_id"]
