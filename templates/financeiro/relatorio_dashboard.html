@@ -11,10 +11,13 @@
                     Gerado em {% now "d/m/Y H:i" %}
                 </p>
             </div>
-            <div class="flex items-center gap-3 print-hidden">
-                <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium shadow-sm">
-                    <i class="fas fa-print"></i> Imprimir
-                </button>
+            <div class="flex items-center gap-3">
+                {% if pdf_slug %}
+                <a href="{% url 'financeiro:relatorio_pdf' tipo=pdf_slug %}?{{ request.GET.urlencode }}"
+                   class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm">
+                    <i class="fas fa-file-pdf"></i> Exportar PDF
+                </a>
+                {% endif %}
             </div>
         </div>
     </div>

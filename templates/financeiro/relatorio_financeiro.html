@@ -11,23 +11,20 @@
                     Gerado em {% now "d/m/Y H:i" %}
                 </p>
             </div>
-            <div class="flex items-center gap-3 print-hidden">
+            <div class="flex items-center gap-3">
                 {% if pdf_slug %}
                 <a href="{% url 'financeiro:relatorio_pdf' tipo=pdf_slug %}?{{ request.GET.urlencode }}"
                    class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm">
                     <i class="fas fa-file-pdf"></i> Exportar PDF
                 </a>
                 {% endif %}
-                <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium shadow-sm">
-                    <i class="fas fa-print"></i> Imprimir
-                </button>
             </div>
         </div>
     </div>
 
     <!-- Filtros -->
     {% if filtro_data_ini is not None or filtro_estado is not None or filtro_forma_pagamento is not None or filtro_ano is not None %}
-    <form method="GET" class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 sm:p-6 print-hidden">
+    <form method="GET" class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 sm:p-6">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {% if filtro_data_ini is not None %}
         <div>
@@ -242,27 +239,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endif %}
-
-<style media="print">
-  @page { size: landscape; margin: 1.2cm; }
-  body * { visibility: hidden; }
-  #sidebar, #main-header, footer, #page-loader, .print-hidden { display: none !important; }
-  .flex-1.ml-0 { margin-left: 0 !important; padding-top: 0 !important; }
-  .flex-1.ml-0, .flex-1.ml-0 * { visibility: visible; }
-  .flex-1.ml-0 { position: absolute; top: 0; left: 0; width: 100%; }
-  .flex-1.ml-0 .max-w-7xl { max-width: 100%; margin: 0 !important; padding: 0 !important; }
-  .flex-1.ml-0 .space-y-6 > * { margin-bottom: 10pt; }
-  .flex-1.ml-0 h1 { font-size: 16pt; margin-bottom: 2pt; }
-  .flex-1.ml-0 .text-sm.text-gray-500 { font-size: 9pt; margin-bottom: 6pt; }
-  .flex-1.ml-0 .grid { gap: 8pt; }
-  .flex-1.ml-0 .grid > div { padding: 8pt 12pt; }
-  .flex-1.ml-0 .grid p.text-2xl { font-size: 14pt; }
-  .flex-1.ml-0 table { font-size: 8pt; width: 100%; border-collapse: collapse; }
-  .flex-1.ml-0 th { background: #137fec !important; color: white !important; padding: 5pt 6pt; font-size: 7.5pt; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .flex-1.ml-0 td { padding: 3pt 6pt; border-bottom: 0.5pt solid #ccc; }
-  .flex-1.ml-0 .rounded-2xl { box-shadow: none !important; border: 0.5pt solid #ccc; break-inside: avoid; }
-  .flex-1.ml-0 a { text-decoration: none; }
-  .flex-1.ml-0 .hover\:bg-gray-50:hover { background: transparent !important; }
-</style>
 
 {% endblock %}
