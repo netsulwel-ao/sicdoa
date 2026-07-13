@@ -1,7 +1,7 @@
 from decimal import Decimal
 import json
 
-from django.db import models, transaction
+from django.db import models, transaction, IntegrityError
 from django.db.models import Sum
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -105,7 +105,7 @@ class RequisicaoFundo(models.Model):
         ano = timezone.now().year
         ultimo = (
             RequisicaoFundo.objects
-            .filter(banca=self.banca, numero_requisicao__startswith=f'RF-{ano}/')
+            .filter(numero_requisicao__startswith=f'RF-{ano}/')
             .order_by('-numero_requisicao')
             .first()
         )
@@ -119,11 +119,15 @@ class RequisicaoFundo(models.Model):
         return f'RF-{ano}/{seq:03d}'
 
     def save(self, *args, **kwargs):
-        if not self.numero_requisicao:
-            self.numero_requisicao = self._gerar_numero_requisicao()
-        
-        # Salvar primeiro para ter ID (necessário para acessar relacionamentos)
-        super().save(*args, **kwargs)
+        for _attempt in range(5):
+            if not self.numero_requisicao:
+                self.numero_requisicao = self._gerar_numero_requisicao()
+            try:
+                super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                self.numero_requisicao = None
+                continue
         
         # Recalcular totais APÓS salvar (agora tem ID)
         self._recalcular_totais()
@@ -463,7 +467,7 @@ class FacturaCliente(models.Model):
         ano = timezone.now().year
         ultimo = (
             FacturaCliente.objects
-            .filter(banca=self.banca, numero_factura__startswith=f'FT-{ano}-')
+            .filter(numero_factura__startswith=f'FT-{ano}-')
             .order_by('-numero_factura')
             .first()
         )
@@ -499,10 +503,15 @@ class FacturaCliente(models.Model):
                 self.ajuste_nota_debito
             )
 
-        if not self.numero_factura:
-            self.numero_factura = self._gerar_numero_factura()
-
-        super().save(*args, **kwargs)
+        for _attempt in range(5):
+            if not self.numero_factura:
+                self.numero_factura = self._gerar_numero_factura()
+            try:
+                super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                self.numero_factura = None
+                continue
 
         with transaction.atomic():
             cliente = Cliente.objects.select_for_update().get(pk=self.cliente.pk)
@@ -578,7 +587,7 @@ class ReciboCliente(models.Model):
         ano = timezone.now().year
         ultimo = (
             ReciboCliente.objects
-            .filter(banca=self.banca, numero_recibo__startswith=f'REC-{ano}-')
+            .filter(numero_recibo__startswith=f'REC-{ano}-')
             .order_by('-numero_recibo')
             .first()
         )
@@ -601,10 +610,15 @@ class ReciboCliente(models.Model):
             old_valor = old_self.valor_recebido
             old_estado = old_self.estado
 
-        if not self.numero_recibo:
-            self.numero_recibo = self._gerar_numero_recibo()
-
-        super().save(*args, **kwargs)
+        for _attempt in range(5):
+            if not self.numero_recibo:
+                self.numero_recibo = self._gerar_numero_recibo()
+            try:
+                super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                self.numero_recibo = None
+                continue
 
         # Atualiza o valor pago na fatura associada (exclui recibos cancelados)
         # Usa select_for_update para evitar race conditions com saves concorrentes
@@ -707,7 +721,7 @@ class NotaCredito(models.Model):
         ano = timezone.now().year
         ultimo = (
             NotaCredito.objects
-            .filter(banca=self.banca, numero_nota__startswith=f'NC-{ano}-')
+            .filter(numero_nota__startswith=f'NC-{ano}-')
             .order_by('-numero_nota')
             .first()
         )
@@ -730,10 +744,15 @@ class NotaCredito(models.Model):
             old_valor = old_self.valor_creditado
             old_estado = old_self.estado
 
-        if not self.numero_nota:
-            self.numero_nota = self._gerar_numero_nota()
-
-        super().save(*args, **kwargs)
+        for _attempt in range(5):
+            if not self.numero_nota:
+                self.numero_nota = self._gerar_numero_nota()
+            try:
+                super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                self.numero_nota = None
+                continue
 
         with transaction.atomic():
             novo_credito = self.valor_creditado if self.estado == 'Aprovada' else Decimal('0')
@@ -812,7 +831,7 @@ class NotaDebito(models.Model):
         ano = timezone.now().year
         ultimo = (
             NotaDebito.objects
-            .filter(banca=self.banca, numero_nota__startswith=f'ND-{ano}-')
+            .filter(numero_nota__startswith=f'ND-{ano}-')
             .order_by('-numero_nota')
             .first()
         )
@@ -835,10 +854,15 @@ class NotaDebito(models.Model):
             old_valor = old_self.valor
             old_estado = old_self.estado
 
-        if not self.numero_nota:
-            self.numero_nota = self._gerar_numero_nota()
-
-        super().save(*args, **kwargs)
+        for _attempt in range(5):
+            if not self.numero_nota:
+                self.numero_nota = self._gerar_numero_nota()
+            try:
+                super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                self.numero_nota = None
+                continue
 
         with transaction.atomic():
             novo_debito = self.valor if self.estado == 'Aprovada' else Decimal('0')
@@ -921,7 +945,7 @@ class FacturaRecibo(models.Model):
         ano = timezone.now().year
         ultimo = (
             FacturaRecibo.objects
-            .filter(banca=self.banca, numero_factura_recibo__startswith=f'FR-{ano}-')
+            .filter(numero_factura_recibo__startswith=f'FR-{ano}-')
             .order_by('-numero_factura_recibo')
             .first()
         )
@@ -946,11 +970,16 @@ class FacturaRecibo(models.Model):
             old_estado = old_self.estado
             old_factura_pk = old_self.factura_id
 
-        if not self.numero_factura_recibo:
-            self.numero_factura_recibo = self._gerar_numero_factura_recibo()
-
         factura_pk_changed = old_factura_pk != self.factura_id
-        super().save(*args, **kwargs)
+        for _attempt in range(5):
+            if not self.numero_factura_recibo:
+                self.numero_factura_recibo = self._gerar_numero_factura_recibo()
+            try:
+                super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                self.numero_factura_recibo = None
+                continue
 
         # Factura-Recibo tem impacto líquido ZERO na conta corrente quando está Paga
         # porque debita e credita o mesmo valor ao mesmo tempo.
