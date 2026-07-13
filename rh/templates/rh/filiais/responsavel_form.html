@@ -263,7 +263,13 @@ function limparCamposResponsavel() {
 
 function fmtKZ(n) {
   if (n == null || n === '') return '';
-  var s = parseFloat(n.replace ? n.replace(/\./g,'').replace(',','.') : n);
+  var raw = typeof n === 'string' ? n : String(n);
+  var s;
+  if (raw.indexOf(',') !== -1) {
+    s = parseFloat(raw.replace(/\./g,'').replace(',','.'));
+  } else {
+    s = parseFloat(raw);
+  }
   if (isNaN(s)) return n;
   var p = s.toFixed(2).split('.');
   var i = p[0], d = p[1];
