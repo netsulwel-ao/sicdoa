@@ -1,5 +1,5 @@
 from datetime import timedelta
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -25,14 +25,21 @@ def gerar_inscricao_auto(sender, instance, created, **kwargs):
     hoje = timezone.now().date()
     seq = QuotaGerada.objects.filter(tipo=tipo, ano=hoje.year).count() + 1
     referencia = f'QUOTA-INS-{hoje.month:02d}-{hoje.year}-{seq:05d}'
-    QuotaGerada.objects.create(
-        despachante=instance,
-        tipo=tipo,
-        descricao=f'{tipo.nome} — {instance.nome}',
-        valor=valor,
-        data_vencimento=vencimento,
-        periodo_inicio=instance.created_at.date(),
-        periodo_fim=vencimento,
-        referencia=referencia,
-    )
+    for _attempt in range(5):
+        try:
+            QuotaGerada.objects.create(
+                despachante=instance,
+                tipo=tipo,
+                descricao=f'{tipo.nome} — {instance.nome}',
+                valor=valor,
+                data_vencimento=vencimento,
+                periodo_inicio=instance.created_at.date(),
+                periodo_fim=vencimento,
+                referencia=referencia,
+            )
+            break
+        except IntegrityError:
+            seq += 1
+            referencia = f'QUOTA-INS-{hoje.month:02d}-{hoje.year}-{seq:05d}'
+            continue
     EstadoFinanceiro.objects.get_or_create(despachante=instance, defaults={'estado': 'Irregular'})

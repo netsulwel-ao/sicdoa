@@ -5,6 +5,7 @@ import uuid
 
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -476,7 +477,15 @@ def _du_guardar_impl(request):
         if not du.numero_du:
             du.numero_du = None
 
-    du.save()
+    for _attempt in range(5):
+        try:
+            du.save()
+            break
+        except IntegrityError:
+            if submeter and du.numero_du:
+                du.numero_du = du.gerar_numero()
+                continue
+            raise
 
     # Registar versão no histórico
     if du.pk and campos_alterados:
@@ -623,7 +632,15 @@ def du_alterar_status(request, du_uuid):
         du.data_submissao = timezone.now()
 
     du.status = novo_status
-    du.save(update_fields=['status', 'data_aprovacao', 'data_submissao', 'numero_du', 'updated_at'])
+    for _attempt in range(5):
+        try:
+            du.save(update_fields=['status', 'data_aprovacao', 'data_submissao', 'numero_du', 'updated_at'])
+            break
+        except IntegrityError:
+            if du.numero_du:
+                du.numero_du = du.gerar_numero()
+                continue
+            raise
     return JsonResponse({'sucesso': True, 'status': du.status})
 
 

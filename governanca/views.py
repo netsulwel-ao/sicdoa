@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 from django.conf import settings
 from django.contrib import messages
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
@@ -2843,15 +2843,22 @@ def api_quotas_publicar(request):
             pf = pi + relativedelta(months=(tipo.dias_intervalo // 30)) - _dt.timedelta(days=1)
         referencia = f'QUOTA-{slug_tipo}-{mes:02d}-{ano}-{seq:05d}' if mes else f'QUOTA-{slug_tipo}-{ano}-{seq:05d}'
         seq += 1
-        q = QuotaGerada.objects.create(
-            despachante=d, tipo=tipo, ano=ano, mes=mes,
-            periodo_inicio=pi, periodo_fim=pf,
-            descricao=descricao,
-            valor=config.valor, valor_original=config.valor, valor_total=config.valor,
-            data_vencimento=config.data_vencimento,
-            data_envio=hoje,
-            referencia=referencia,
-        )
+        for _attempt in range(5):
+            try:
+                q = QuotaGerada.objects.create(
+                    despachante=d, tipo=tipo, ano=ano, mes=mes,
+                    periodo_inicio=pi, periodo_fim=pf,
+                    descricao=descricao,
+                    valor=config.valor, valor_original=config.valor, valor_total=config.valor,
+                    data_vencimento=config.data_vencimento,
+                    data_envio=hoje,
+                    referencia=referencia,
+                )
+                break
+            except IntegrityError:
+                referencia = f'QUOTA-{slug_tipo}-{mes:02d}-{ano}-{seq:05d}' if mes else f'QUOTA-{slug_tipo}-{ano}-{seq:05d}'
+                seq += 1
+                continue
         _registrar_historico(
             membro=d, quota=q, pagamento=None,
             acao='QUOTA_GERADA',
@@ -2967,14 +2974,21 @@ def api_quotas_gerar_retroativo(request):
             descricao = f'{tipo.nome} {mm:02d}/{aa}'
             referencia = f'QUOTA-{slug_tipo}-{mm:02d}-{aa}-{seq:05d}'
             seq += 1
-            q = QuotaGerada.objects.create(
-                despachante=d, tipo=tipo, ano=aa, mes=mm,
-                descricao=descricao,
-                valor=config.valor, valor_original=config.valor, valor_total=config.valor,
-                data_vencimento=config.data_vencimento,
-                data_envio=hoje,
-                referencia=referencia,
-            )
+            for _attempt in range(5):
+                try:
+                    q = QuotaGerada.objects.create(
+                        despachante=d, tipo=tipo, ano=aa, mes=mm,
+                        descricao=descricao,
+                        valor=config.valor, valor_original=config.valor, valor_total=config.valor,
+                        data_vencimento=config.data_vencimento,
+                        data_envio=hoje,
+                        referencia=referencia,
+                    )
+                    break
+                except IntegrityError:
+                    referencia = f'QUOTA-{slug_tipo}-{mm:02d}-{aa}-{seq:05d}'
+                    seq += 1
+                    continue
             _registrar_historico(
                 membro=d, quota=q, pagamento=None,
                 acao='QUOTA_GERADA',

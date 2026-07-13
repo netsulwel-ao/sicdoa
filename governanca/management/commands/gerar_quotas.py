@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
+from django.db import IntegrityError
 from django.utils import timezone
 from users.models import Usuario
 from governanca.models import TipoQuota, QuotaConfig, QuotaGerada, HistoricoQuota, Notificacao
@@ -104,7 +105,15 @@ class Command(BaseCommand):
             }
             if slug == 'mensal':
                 kwargs['mes'] = mes
-            q = QuotaGerada.objects.create(**kwargs)
+            for _attempt in range(5):
+                try:
+                    kwargs['referencia'] = referencia
+                    q = QuotaGerada.objects.create(**kwargs)
+                    break
+                except IntegrityError:
+                    referencia = f'QUOTA-{slug_tipo}-{mes:02d}-{ano}-{seq:05d}'
+                    seq += 1
+                    continue
             HistoricoQuota.objects.create(
                 membro=d, quota=q, pagamento=None,
                 acao='QUOTA_GERADA',
