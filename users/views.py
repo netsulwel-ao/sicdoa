@@ -1857,4 +1857,10 @@ def manual_utilizador_view(request):
     """Renderiza o Manual do Utilizador SICDOA."""
     if not request.session.get('usuario_id'):
         return redirect('login')
-    return render(request, 'manual_sicdoa_web/index.html')
+    context = {
+        'active_menu': 'Manual',
+        'usuario': request.session.get('usuario', {}),
+        'papel': request.session.get('usuario', {}).get('papel', ''),
+        'nome': request.session.get('usuario', {}).get('nome', ''),
+    }
+    return render(request, 'manual_sicdoa_web/index.html', context)
