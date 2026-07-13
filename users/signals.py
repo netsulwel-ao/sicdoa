@@ -1,4 +1,5 @@
 from datetime import timedelta
+from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -38,7 +39,7 @@ def gerar_inscricao_auto(sender, instance, created, **kwargs):
                 referencia=referencia,
             )
             break
-        except IntegrityError:
+        except (IntegrityError, ValidationError):
             seq += 1
             referencia = f'QUOTA-INS-{hoje.month:02d}-{hoje.year}-{seq:05d}'
             continue

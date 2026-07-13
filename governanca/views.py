@@ -2855,7 +2855,7 @@ def api_quotas_publicar(request):
                     referencia=referencia,
                 )
                 break
-            except IntegrityError:
+            except (IntegrityError, ValidationError):
                 referencia = f'QUOTA-{slug_tipo}-{mes:02d}-{ano}-{seq:05d}' if mes else f'QUOTA-{slug_tipo}-{ano}-{seq:05d}'
                 seq += 1
                 continue
@@ -2985,7 +2985,7 @@ def api_quotas_gerar_retroativo(request):
                         referencia=referencia,
                     )
                     break
-                except IntegrityError:
+                except (IntegrityError, ValidationError):
                     referencia = f'QUOTA-{slug_tipo}-{mm:02d}-{aa}-{seq:05d}'
                     seq += 1
                     continue

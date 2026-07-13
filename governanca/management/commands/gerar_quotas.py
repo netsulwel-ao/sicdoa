@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.utils import timezone
 from users.models import Usuario
@@ -110,7 +111,7 @@ class Command(BaseCommand):
                     kwargs['referencia'] = referencia
                     q = QuotaGerada.objects.create(**kwargs)
                     break
-                except IntegrityError:
+                except (IntegrityError, ValidationError):
                     referencia = f'QUOTA-{slug_tipo}-{mes:02d}-{ano}-{seq:05d}'
                     seq += 1
                     continue
