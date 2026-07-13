@@ -289,14 +289,21 @@ def _e_despachante_principal(request):
 
 
 def _colaboradores_elegiveis_gestor(banca, filial=None):
-    """Colaboradores que podem ser designados gestor (sem gestão ativa noutra filial)."""
+    """Colaboradores que podem ser designados gestor:
+    - sem gestão ativa noutra filial
+    - com email registado (acesso ao sistema para gerir a filial)."""
     qs_ocupados = GestorFilial.objects.filter(ativo=True, filial__banca=banca)
     if filial:
         gestor_atual = filial.gestores.filter(ativo=True).first()
         if gestor_atual:
             qs_ocupados = qs_ocupados.exclude(colaborador_id=gestor_atual.colaborador_id)
     ids_ocupados = qs_ocupados.values_list('colaborador_id', flat=True)
-    return banca.colaboradores.exclude(pk__in=ids_ocupados).order_by('nome')
+    return (
+        banca.colaboradores
+        .exclude(pk__in=ids_ocupados)
+        .exclude(email='')
+        .order_by('nome')
+    )
 
 
 def _colaborador_para_json(col):
