@@ -1854,5 +1854,7 @@ def logs_atividade_view(request):
 
 
 def manual_utilizador_view(request):
-    """Página do Manual do Utilizador SICDOA."""
+    """Renderiza o Manual do Utilizador SICDOA."""
+    if not request.session.get('usuario_id'):
+        return redirect('login')
     return render(request, 'manual_sicdoa_web/index.html')
