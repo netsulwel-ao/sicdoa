@@ -4,18 +4,18 @@
 {% block main_classes %}p-0{% endblock %}
 
 {% block content %}
-<div style="background:#f6f7f8 !important;min-height:100vh;color:#111418;">
+<div class="manual-wrap" style="min-height:100vh;">
 
-  <div style="position:sticky;top:64px;z-index:50;background:rgba(246,247,248,0.95);backdrop-filter:blur(8px);border-bottom:1px solid #e5e7eb;padding:14px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+  <div class="manual-topbar" style="position:sticky;top:64px;z-index:50;backdrop-filter:blur(8px);border-bottom:1px solid #e5e7eb;padding:14px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
     <div style="display:flex;align-items:center;gap:12px;">
-      <h1 style="font-size:1rem;margin:0;font-weight:600;color:#111418;">Manual SICDOA — Manual do Utilizador</h1>
+      <h1 class="manual-title" style="font-size:1rem;margin:0;font-weight:600;">Manual SICDOA — Manual do Utilizador</h1>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
-      <span style="font-size:0.72rem;background:rgba(19,127,236,0.1);color:#137fec;border:1px solid rgba(19,127,236,0.3);padding:4px 10px;border-radius:20px;">versão 2.0</span>
-      <span id="pageIndicator" style="font-size:0.8rem;color:#6b7280;">Página 1 de 20</span>
+      <span class="manual-badge" style="font-size:0.72rem;padding:4px 10px;border-radius:20px;">versão 2.0</span>
+      <span id="pageIndicator" class="manual-subtitle" style="font-size:0.8rem;">Página 1 de 20</span>
       <div style="display:flex;gap:8px;">
-        <button id="prevBtn" style="background:#fff;border:1px solid #d1d5db;color:#374151;border-radius:8px;padding:7px 14px;font-size:0.8rem;cursor:pointer;transition:background .15s ease;">‹ Anterior</button>
-        <button id="nextBtn" style="background:#fff;border:1px solid #d1d5db;color:#374151;border-radius:8px;padding:7px 14px;font-size:0.8rem;cursor:pointer;transition:background .15s ease;">Seguinte ›</button>
+        <button id="prevBtn" class="manual-btn" style="border-radius:8px;padding:7px 14px;font-size:0.8rem;cursor:pointer;transition:background .15s ease;">‹ Anterior</button>
+        <button id="nextBtn" class="manual-btn" style="border-radius:8px;padding:7px 14px;font-size:0.8rem;cursor:pointer;transition:background .15s ease;">Seguinte ›</button>
       </div>
     </div>
   </div>
@@ -26,10 +26,25 @@
 </div>
 
 <style>
-  html, html.dark, html.light, body, body.dark, body.light {
-    background-color: #f6f7f8 !important;
-  }
-  #sidebar { background-color: #fff !important; }
+  /* Light mode (default) */
+  .manual-wrap { background: #f6f7f8; color: #111418; }
+  .manual-topbar { background: rgba(246,247,248,0.95); }
+  .manual-title { color: #111418; }
+  .manual-badge { background: rgba(19,127,236,0.1); color: #137fec; border: 1px solid rgba(19,127,236,0.3); }
+  .manual-subtitle { color: #6b7280; }
+  .manual-btn { background: #fff; border: 1px solid #d1d5db; color: #374151; }
+  .manual-btn:hover { background: #f3f4f6; }
+  .manual-page-label { color: #9ca3af; }
+
+  /* Dark mode */
+  html.dark .manual-wrap { background: #101922; color: #e5e7eb; }
+  html.dark .manual-topbar { background: rgba(16,25,34,0.95); border-color: #1f2937; }
+  html.dark .manual-title { color: #f3f4f6; }
+  html.dark .manual-badge { background: rgba(96,165,250,0.15); color: #60a5fa; border-color: rgba(96,165,250,0.3); }
+  html.dark .manual-subtitle { color: #9ca3af; }
+  html.dark .manual-btn { background: #1f2937; border-color: #374151; color: #d1d5db; }
+  html.dark .manual-btn:hover { background: #374151; }
+  html.dark .manual-page-label { color: #6b7280; }
 </style>
 
 <script>
@@ -38,22 +53,37 @@
   const wrap = document.getElementById('pagesWrap');
   const indicator = document.getElementById('pageIndicator');
 
+  function isDark(){ return document.documentElement.classList.contains('dark'); }
+
   for(let i=1;i<=totalPages;i++){
     const num = String(i).padStart(2,'0');
     const block = document.createElement('div');
     block.style.cssText='width:100%;max-width:760px;scroll-margin-top:140px;';
     block.id='p'+i;
     block.innerHTML = `
-      <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.1), 0 0 0 1px #e5e7eb;">
+      <div class="manual-card" style="border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.1), 0 0 0 1px #e5e7eb;">
         <img src="/static/manual_sicdoa_web/page-${num}.png" alt="Página ${i} do Manual SICDOA" loading="lazy" style="display:block;width:100%;height:auto;">
       </div>
-      <div style="text-align:center;font-size:0.75rem;color:#9ca3af;margin-top:10px;letter-spacing:1px;text-transform:uppercase;">Página ${i} de ${totalPages}</div>
+      <div class="manual-page-label" style="text-align:center;font-size:0.75rem;margin-top:10px;letter-spacing:1px;text-transform:uppercase;">Página ${i} de ${totalPages}</div>
     `;
     wrap.appendChild(block);
   }
 
-  const blocks = document.querySelectorAll('[id^="p"]');
+  function applyTheme(){
+    const dark = isDark();
+    document.querySelectorAll('.manual-card').forEach(c=>{
+      c.style.background = dark ? '#1f2937' : '#fff';
+      c.style.boxShadow = dark
+        ? '0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px #374151'
+        : '0 4px 24px rgba(0,0,0,0.1), 0 0 0 1px #e5e7eb';
+    });
+  }
+  applyTheme();
 
+  const obs = new MutationObserver(applyTheme);
+  obs.observe(document.documentElement, {attributes:true, attributeFilter:['class']});
+
+  const blocks = document.querySelectorAll('[id^="p"]');
   const observer = new IntersectionObserver((entries)=>{
     entries.forEach(entry=>{
       if(entry.isIntersecting){
@@ -62,17 +92,13 @@
       }
     });
   }, {rootMargin:'-40% 0px -50% 0px', threshold:0});
-
   blocks.forEach(b=>observer.observe(b));
 
   document.getElementById('prevBtn').addEventListener('click', ()=>{
-    const idx = Math.max(1, currentPage - 1);
-    document.getElementById('p'+idx).scrollIntoView({behavior:'smooth'});
+    document.getElementById('p'+Math.max(1, currentPage-1)).scrollIntoView({behavior:'smooth'});
   });
-
   document.getElementById('nextBtn').addEventListener('click', ()=>{
-    const idx = Math.min(totalPages, currentPage + 1);
-    document.getElementById('p'+idx).scrollIntoView({behavior:'smooth'});
+    document.getElementById('p'+Math.min(totalPages, currentPage+1)).scrollIntoView({behavior:'smooth'});
   });
 </script>
 {% endblock %}
