@@ -114,11 +114,11 @@ def criar_sessao_usuario(request, usuario):
     else:
         request.session['tipo_usuario'] = 'usuario'
         if usuario.papel != 'Administrador':
+            request.session['banca_usuario_id'] = usuario.id
             from rh.models import Banca
             banca = Banca.objects.filter(usuario_id=usuario.id).first()
             if banca:
                 request.session['banca_id'] = banca.id
-                request.session['banca_usuario_id'] = usuario.id
 
     request.session['login_time'] = timezone.now().timestamp()
 

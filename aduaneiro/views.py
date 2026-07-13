@@ -271,9 +271,14 @@ def _du_guardar_impl(request):
         if not ref:
             erros.append('Referência Interna é obrigatória.')
 
-        if not (dados.get('exportador_nome', '') or '').strip() and \
-           not (dados.get('exportador_codigo', '') or '').strip():
-            erros.append('Dados do Exportador (nome ou NIF) são obrigatórios.')
+        if not (dados.get('exportador_nome', '') or '').strip():
+            erros.append('Nome do Exportador é obrigatório.')
+        if not (dados.get('exportador_codigo', '') or '').strip():
+            erros.append('NIF do Exportador é obrigatório.')
+        if not (dados.get('destinatario_nome', '') or '').strip():
+            erros.append('Nome do Destinatário é obrigatório.')
+        if not (dados.get('destinatario_nif', '') or '').strip():
+            erros.append('NIF do Destinatário é obrigatório.')
 
         adicoes = dados.get('adicoes', [])
         if not adicoes:
@@ -352,12 +357,18 @@ def _du_guardar_impl(request):
         du = DeclaracaoUnica(usuario_id=uid, processo_id=None, banca_id=banca_id, filial_id=filial_id)
 
     # Preencher campos desnormalizados
-    du.regime_aduaneiro   = (dados.get('regime_aduaneiro', '') or '')[:100]
+    regime_val = (dados.get('regime_aduaneiro', '') or '').strip()
+    du.regime_aduaneiro   = regime_val[:100]
     du.ref_despachante    = (dados.get('ref_despachante',  '') or '')[:100]
     du.exportador_nome    = (dados.get('exportador_nome',  '') or '')[:200]
     du.destinatario_nome  = (dados.get('destinatario_nome','') or '')[:200]
-    du.nome_declarante    = (dados.get('exportador_nome',  '') or '')[:200]
-    du.nif_declarante     = (dados.get('exportador_codigo','') or '')[:50]
+    # nome_declarante/nif_declarante: importação → destinatário, exportação → exportador
+    if regime_val.startswith('IM'):
+        du.nome_declarante = (dados.get('destinatario_nome', '') or '')[:200]
+        du.nif_declarante  = (dados.get('destinatario_nif',  '') or '')[:50]
+    else:
+        du.nome_declarante = (dados.get('exportador_nome',  '') or '')[:200]
+        du.nif_declarante  = (dados.get('exportador_codigo','') or '')[:50]
     du.nome_banco         = (dados.get('nome_banco',      '') or '')[:50]
     du.termo_pagamento    = (dados.get('termo_pagamento', '') or '')[:5]
     du.codigo_pautal      = ''   # campo obrigatório na tabela — deixar vazio
@@ -563,11 +574,13 @@ def du_apagar(request, du_uuid):
     if not _sessao_ok(request):
         return JsonResponse({'erro': 'Não autorizado'}, status=401)
 
-    from users.permissoes import _is_admin_ou_acesso_total
-    if not _is_admin_ou_acesso_total(request):
-        return JsonResponse({'erro': 'Apenas administradores podem eliminar DUs.'}, status=403)
-
     du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
+
+    e_admin = _is_admin_ou_acesso_total(request)
+    _, uid = _banca_owner(request)
+
+    if du.usuario_id != uid and not e_admin:
+        return JsonResponse({'erro': 'Sem permissão para apagar esta DU.'}, status=403)
 
     if du.status != 'Rascunho':
         return JsonResponse({'erro': 'Apenas DUs em rascunho podem ser apagadas.'}, status=403)
@@ -878,6 +891,7 @@ def du_download_pdf(request, du_uuid):
 
         # 1. IDENTIFICAÇÃO
         sec_titulo('1. Identificação da Declaração')
+        regime_val = (du.regime_aduaneiro or '').strip()
         t = tabela_kvCompacta([
             ('Regime Aduaneiro',     dados.get('regime_aduaneiro', du.regime_aduaneiro)),
             ('Ref. Interna',          dados.get('ref_despachante', du.ref_despachante)),
@@ -890,24 +904,41 @@ def du_download_pdf(request, du_uuid):
         ])
         if t: story.append(t)
 
-        # 2. EXPORTADOR
-        sec_titulo('2. Exportador / Remetente')
-        t = tabela_kvCompacta([
-            ('Nome / Razão Social', dados.get('exportador_nome', du.exportador_nome)),
-            ('NIF',                 dados.get('exportador_codigo', du.nif_declarante)),
-            ('Endereço',            dados.get('exportador_endereco', '')),
-        ])
-        if t: story.append(t)
+        # 2. PARTE PRINCIPAL (regime-dependent)
+        if regime_val.startswith('IM'):
+            sec_titulo('2. Destinatário / Importador')
+            t = tabela_kvCompacta([
+                ('Nome / Razão Social', dados.get('destinatario_nome', du.destinatario_nome)),
+                ('NIF',                 dados.get('destinatario_nif', '')),
+                ('Telefone',            dados.get('destinatario_telefone', '')),
+                ('Endereço',            dados.get('destinatario_endereco', '')),
+            ])
+            if t: story.append(t)
 
-        # 3. DESTINATÁRIO
-        sec_titulo('3. Destinatário / Consignatário')
-        t = tabela_kvCompacta([
-            ('Nome / Razão Social', dados.get('destinatario_nome', du.destinatario_nome)),
-            ('NIF',                 dados.get('destinatario_nif', '')),
-            ('Telefone',            dados.get('destinatario_telefone', '')),
-            ('Endereço',            dados.get('destinatario_endereco', '')),
-        ])
-        if t: story.append(t)
+            sec_titulo('3. Exportador / Remetente')
+            t = tabela_kvCompacta([
+                ('Nome / Razão Social', dados.get('exportador_nome', du.exportador_nome)),
+                ('NIF',                 dados.get('exportador_codigo', du.nif_declarante)),
+                ('Endereço',            dados.get('exportador_endereco', '')),
+            ])
+            if t: story.append(t)
+        else:
+            sec_titulo('2. Exportador / Remetente')
+            t = tabela_kvCompacta([
+                ('Nome / Razão Social', dados.get('exportador_nome', du.exportador_nome)),
+                ('NIF',                 dados.get('exportador_codigo', du.nif_declarante)),
+                ('Endereço',            dados.get('exportador_endereco', '')),
+            ])
+            if t: story.append(t)
+
+            sec_titulo('3. Destinatário / Consignatário')
+            t = tabela_kvCompacta([
+                ('Nome / Razão Social', dados.get('destinatario_nome', du.destinatario_nome)),
+                ('NIF',                 dados.get('destinatario_nif', '')),
+                ('Telefone',            dados.get('destinatario_telefone', '')),
+                ('Endereço',            dados.get('destinatario_endereco', '')),
+            ])
+            if t: story.append(t)
 
         # 4. DESPACHANTE
         sec_titulo('4. Despachante / Declarante')

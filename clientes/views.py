@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404, reverse
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -140,8 +140,13 @@ def criar_cliente(request):
             banca_id = request.session.get('banca_id')
             if not banca_id:
                 from rh.models import Banca
-                banca_obj = Banca.objects.filter(usuario_id=_usuario_dono(request)).first()
-                banca_id = banca_obj.id if banca_obj else None
+                uid_dono = _usuario_dono(request)
+                banca_obj = Banca.objects.filter(usuario_id=uid_dono).first()
+                if not banca_obj:
+                    next_url = request.build_absolute_uri()
+                    messages.warning(request, 'Precisa primeiro configurar os dados da sua instituição antes de cadastrar clientes.')
+                    return redirect(f'{reverse("rh_banca_criar")}?next={next_url}')
+                banca_id = banca_obj.id
             filial_id = request.session.get('colaborador_filial_id') if request.session.get('tipo_usuario') == 'colaborador' else None
             cliente = Cliente.objects.create(
                 nome=nome,

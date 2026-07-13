@@ -436,7 +436,7 @@
               <div class="form-card-content collapse-content">
                 <div class="form-field">
                   <label class="form-label" id="exportador_codigo_label">
-                    Código do Exportador (NIF)
+                    Código do Exportador (NIF) <span class="text-red-500">*</span>
                     <span class="field-code">Campo 2</span>
                   </label>
                   <div class="input-group">
@@ -451,7 +451,7 @@
                 
                 <div class="form-field mt-4">
                   <label class="form-label" id="exportador_nome_label">
-                    Nome do Exportador
+                    Nome do Exportador <span class="text-red-500">*</span>
                     <span class="field-code">Campo 2</span>
                   </label>
                   <input type="text" name="exportador_nome" id="exportador_nome" class="form-input" />
@@ -476,7 +476,7 @@
               <div class="form-card-content collapse-content">
                 <div class="form-field">
                   <label class="form-label" id="destinatario_nif_label">
-                    NIF
+                    NIF <span class="text-red-500">*</span>
                     <span class="field-code">Campo 8</span>
                   </label>
                   <div class="input-group">
@@ -491,7 +491,7 @@
                 
                 <div class="form-field mt-4">
                   <label class="form-label" id="destinatario_nome_label">
-                    Nome do Destinatário
+                    Nome do Destinatário <span class="text-red-500">*</span>
                     <span class="field-code">Campo 8</span>
                   </label>
                   <input type="text" name="destinatario_nome" id="destinatario_nome" class="form-input" />
@@ -2363,10 +2363,10 @@ function gerarHTMLAdicao(n, dados) {
                 <label class="form-label required">Moeda</label>
                 <select name="adicao[${n}][moeda_fob]" id="moeda_fob_${n}" class="form-input" required
                   onchange="calcularAdicaoFinanceiro(${n})">
-                  <option value="AOA" selected>AOA - Kwanza</option>
-                  <option value="USD">USD - Dólar</option>
-                  <option value="EUR">EUR - Euro</option>
-                  <option value="CNY">CNY - Yuan</option>
+                  <option value="AOA" ${dados.moeda_fob === 'AOA' ? 'selected' : ''}>AOA - Kwanza</option>
+                  <option value="USD" ${dados.moeda_fob === 'USD' ? 'selected' : ''}>USD - Dólar</option>
+                  <option value="EUR" ${dados.moeda_fob === 'EUR' ? 'selected' : ''}>EUR - Euro</option>
+                  <option value="CNY" ${dados.moeda_fob === 'CNY' ? 'selected' : ''}>CNY - Yuan</option>
                 </select>
               </div>
               <div class="form-field">
@@ -2399,10 +2399,10 @@ function gerarHTMLAdicao(n, dados) {
                 <label class="form-label">Moeda</label>
                 <select name="adicao[${n}][moeda_seguro]" id="moeda_seguro_${n}" class="form-input"
                   onchange="calcularAdicaoFinanceiro(${n})">
-                  <option value="AOA" selected>AOA - Kwanza</option>
-                  <option value="USD">USD - Dólar</option>
-                  <option value="EUR">EUR - Euro</option>
-                  <option value="CNY">CNY - Yuan</option>
+                  <option value="AOA" ${dados.moeda_seguro === 'AOA' ? 'selected' : ''}>AOA - Kwanza</option>
+                  <option value="USD" ${dados.moeda_seguro === 'USD' ? 'selected' : ''}>USD - Dólar</option>
+                  <option value="EUR" ${dados.moeda_seguro === 'EUR' ? 'selected' : ''}>EUR - Euro</option>
+                  <option value="CNY" ${dados.moeda_seguro === 'CNY' ? 'selected' : ''}>CNY - Yuan</option>
                 </select>
               </div>
               <div class="form-field">
@@ -2435,10 +2435,10 @@ function gerarHTMLAdicao(n, dados) {
                 <label class="form-label">Moeda</label>
                 <select name="adicao[${n}][moeda_frete]" id="moeda_frete_${n}" class="form-input"
                   onchange="calcularAdicaoFinanceiro(${n})">
-                  <option value="AOA" selected>AOA - Kwanza</option>
-                  <option value="USD">USD - Dólar</option>
-                  <option value="EUR">EUR - Euro</option>
-                  <option value="CNY">CNY - Yuan</option>
+                  <option value="AOA" ${dados.moeda_frete === 'AOA' ? 'selected' : ''}>AOA - Kwanza</option>
+                  <option value="USD" ${dados.moeda_frete === 'USD' ? 'selected' : ''}>USD - Dólar</option>
+                  <option value="EUR" ${dados.moeda_frete === 'EUR' ? 'selected' : ''}>EUR - Euro</option>
+                  <option value="CNY" ${dados.moeda_frete === 'CNY' ? 'selected' : ''}>CNY - Yuan</option>
                 </select>
               </div>
               <div class="form-field">
@@ -3475,20 +3475,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function preencherSelect2(nome, valor) {
     if (!valor) return;
-    // Tentar autocomplete primeiro
     var el = document.querySelector('[name="' + nome + '"]');
-    if (el && el.nextElementSibling && el.nextElementSibling._ac) {
+    if (!el) return;
+
+    // Tentar autocomplete primeiro
+    if (el.nextElementSibling && el.nextElementSibling._ac) {
       el.nextElementSibling._ac.setValue(valor, valor);
       return;
     }
+    // Tentar jQuery Select2
     if (typeof $ !== 'undefined') {
-      var $el = $('[name="' + nome + '"]');
-      if ($el.length && $el.data('select2')) {
+      var $el = $(el);
+      if ($el.data('select2')) {
         $el.val(valor).trigger('change');
         return;
       }
     }
-    preencherCampoSimples(nome, valor);
+    // Fallback direto no select
+    el.value = valor;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   function preencherFormulario() {
@@ -3498,7 +3503,15 @@ document.addEventListener('DOMContentLoaded', function() {
     preencherSelect2('regime_aduaneiro',   d.regime_aduaneiro);
     preencherSelect2('estancia',           d.estancia);
     preencherCampoSimples('ref_despachante', d.ref_despachante);
-    preencherCampoSimples('vinheta',         d.vinheta);
+
+    // Vinheta: hidden input + campo visível
+    preencherCampoSimples('vinheta', d.vinheta);
+    if (d.vinheta) {
+      var vinSufixo = document.getElementById('vinheta_sufixo');
+      if (vinSufixo) vinSufixo.value = d.vinheta;
+      var vinHint = document.getElementById('vinheta_hint');
+      if (vinHint) vinHint.textContent = d.vinheta;
+    }
 
     // Exportador
     preencherCampoSimples('exportador_codigo',   d.exportador_codigo);

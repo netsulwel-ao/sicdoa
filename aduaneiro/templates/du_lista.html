@@ -61,7 +61,9 @@
                   <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Nº DU</th>
                   <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Regime</th>
                   <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Referência</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Exportador</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Parte
+                  </th>
                   <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-36">Total (KZ)</th>
                   <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Status</th>
                   <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Data</th>
@@ -81,8 +83,9 @@
                   </td>
                   <td class="px-4 py-3 text-gray-700 dark:text-gray-300 truncate">{{ du.ref_despachante|default:"—" }}</td>
                   <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
-                    <div class="truncate" title="{{ du.exportador_nome|default:"—" }}">
-                      {{ du.exportador_nome|default:"—"|truncatechars:30 }}
+                    <div title="{{ du.partido_principal.nome|default:"—" }}">
+                      <span class="text-[10px] font-medium {% if du.regime_aduaneiro|slice:':2' == 'IM' %}text-orange-600 dark:text-orange-400{% else %}text-blue-600 dark:text-blue-400{% endif %}">{{ du.partido_principal.tipo }}</span>
+                      <div class="truncate">{{ du.partido_principal.nome|default:"—"|truncatechars:30 }}</div>
                     </div>
                   </td>
                   <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white font-mono text-xs">
@@ -187,8 +190,8 @@
                 </div>
                 
                 <div class="text-sm">
-                  <div class="font-medium text-gray-500 dark:text-gray-400 mb-1">Exportador:</div>
-                  <div class="text-gray-900 dark:text-gray-100">{{ du.exportador_nome|default:"—" }}</div>
+                  <div class="font-medium text-gray-500 dark:text-gray-400 mb-1">{{ du.partido_principal.tipo }}:</div>
+                  <div class="text-gray-900 dark:text-gray-100">{{ du.partido_principal.nome|default:"—" }}</div>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-2 text-sm">

@@ -27,13 +27,40 @@ class DeclaracaoUnica(models.Model):
         ('Finalizada', 'Finalizada'),
     ]
 
+    REGIME_CHOICES = [
+        ('IM4', 'IM4 - Importação definitiva'),
+        ('IM5', 'IM5 - Importação temporária'),
+        ('IM6', 'IM6 - Reimportação'),
+        ('IM7', 'IM7 - Armazenagem'),
+        ('IM8', 'IM8 - Trânsito e Transbordo'),
+        ('IMS4', 'IMS4 - Importação definitiva simplificada'),
+        ('IMS5', 'IMS5 - Importação temporária simplificada'),
+        ('IMS6', 'IMS6 - Reimportação simplificada'),
+        ('IMS7', 'IMS7 - Armazenagem simplificada'),
+        ('IMS8', 'IMS8 - Trânsito e Transbordo simplificado'),
+        ('IMV4', 'IMV4 - Importação definitiva verbal'),
+        ('IMV5', 'IMV5 - Importação temporária verbal'),
+        ('IMV6', 'IMV6 - Reimportação verbal'),
+        ('IMV7', 'IMV7 - Armazenagem verbal'),
+        ('IMV8', 'IMV8 - Trânsito e Transbordo verbal'),
+        ('EX1', 'EX1 - Exportação definitiva'),
+        ('EX2', 'EX2 - Exportação temporária'),
+        ('EX3', 'EX3 - Reexportação'),
+        ('EXS1', 'EXS1 - Exportação definitiva simplificada'),
+        ('EXS2', 'EXS2 - Exportação temporária simplificada'),
+        ('EXS3', 'EXS3 - Reexportação simplificada'),
+        ('EXV1', 'EXV1 - Exportação definitiva verbal'),
+        ('EXV2', 'EXV2 - Exportação temporária verbal'),
+        ('EXV3', 'EXV3 - Reexportação verbal'),
+    ]
+
     # ── Campos originais da tabela ────────────────────────────────────────────
     numero_du            = models.CharField(max_length=50, blank=True, default='', null=True, unique=True)
     processo_id          = models.IntegerField(null=True, blank=True, db_index=True)   # FK removida — DU pode existir sem processo
     nif_declarante       = models.CharField(max_length=50, blank=True, default='', db_index=True)
     nome_declarante      = models.CharField(max_length=200, blank=True, default='', db_index=True)
     endereco_declarante  = models.TextField(blank=True, null=True)
-    regime_aduaneiro     = models.CharField(max_length=100, blank=True, default='', db_index=True)
+    regime_aduaneiro     = models.CharField(max_length=100, blank=True, default='', db_index=True, choices=REGIME_CHOICES)
     codigo_pautal        = models.CharField(max_length=20, blank=True, default='', db_index=True)
     descricao_mercadoria = models.TextField(blank=True, null=True)
     quantidade           = models.IntegerField(default=0)
@@ -90,6 +117,35 @@ class DeclaracaoUnica(models.Model):
         return self.numero_du or f'DU-{self.id}'
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    @property
+    def partido_principal(self):
+        """Retorna o partido principal da DU baseado no regime aduaneiro.
+        Importação → Destinatário (quem recebe a mercadoria).
+        Exportação → Exportador (quem envia a mercadoria).
+        """
+        regime = (self.regime_aduaneiro or '').strip()
+        if regime.startswith('IM'):
+            return {
+                'tipo': 'Destinatário',
+                'nome': self.destinatario_nome or '',
+                'nif': (self.get_dados() or {}).get('destinatario_nif', ''),
+            }
+        return {
+            'tipo': 'Exportador',
+            'nome': self.exportador_nome or '',
+            'nif': self.nif_declarante or '',
+        }
+
+    @property
+    def label_regime(self):
+        """Retorna o rótulo do regime para exibição."""
+        regime = (self.regime_aduaneiro or '').strip()
+        if regime.startswith('IM'):
+            return 'Importação'
+        elif regime.startswith('EX'):
+            return 'Exportação'
+        return regime
 
     def get_dados(self):
         try:

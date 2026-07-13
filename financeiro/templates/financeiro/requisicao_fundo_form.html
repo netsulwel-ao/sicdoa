@@ -751,17 +751,39 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           console.warn('❌ Erro na resposta da API:', data.error);
           if (bancaDisplay) {
-            bancaDisplay.textContent = '❌ Erro ao carregar';
+            bancaDisplay.textContent = 'Nenhuma banca encontrada';
+            bancaDisplay.classList.add('text-red-600', 'dark:text-red-400');
+            bancaDisplay.classList.remove('text-gray-900', 'dark:text-white');
           }
-          showToast('⚠️ Não foi possível carregar a instituição', 'error');
+          const bancaContainer = bancaDisplay?.closest('.p-3');
+          if (bancaContainer) {
+            bancaContainer.classList.add('border-red-300', 'dark:border-red-700', 'bg-red-50', 'dark:bg-red-900/20');
+            bancaContainer.classList.remove('bg-gray-100', 'dark:bg-gray-700', 'border-gray-300', 'dark:border-gray-600');
+          }
+          const bancaInfo = document.getElementById('banca-info');
+          if (bancaInfo) {
+            bancaInfo.classList.remove('hidden');
+            document.getElementById('banca-nif').textContent = '—';
+            document.getElementById('banca-licenca').textContent = '—';
+            document.getElementById('banca-telefone').textContent = '—';
+            document.getElementById('banca-email').textContent = '—';
+          }
+          showToast('Nenhuma banca associada ao seu perfil. Contacte o administrador.', 'error');
         }
       })
       .catch(err => {
         console.error('❌ Erro ao carregar dados da banca:', err);
         if (bancaDisplay) {
-          bancaDisplay.textContent = '❌ Erro de conexão';
+          bancaDisplay.textContent = 'Erro de conexão ao carregar banca';
+          bancaDisplay.classList.add('text-red-600', 'dark:text-red-400');
+          bancaDisplay.classList.remove('text-gray-900', 'dark:text-white');
         }
-        showToast('⚠️ Erro ao carregar instituição', 'error');
+        const bancaContainer = bancaDisplay?.closest('.p-3');
+        if (bancaContainer) {
+          bancaContainer.classList.add('border-red-300', 'dark:border-red-700', 'bg-red-50', 'dark:bg-red-900/20');
+          bancaContainer.classList.remove('bg-gray-100', 'dark:bg-gray-700', 'border-gray-300', 'dark:border-gray-600');
+        }
+        showToast('Erro de conexão ao carregar dados da instituição.', 'error');
       });
   }
   

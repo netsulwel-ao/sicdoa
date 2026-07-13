@@ -908,11 +908,20 @@ def banca_criar_view(request):
 
     # Verificar se já existe banca (activa ou inactiva)
     if Banca.objects.filter(usuario_id=uid).exists():
+        banca = Banca.objects.filter(usuario_id=uid).first()
+        if banca:
+            request.session['banca_id'] = banca.id
+        next_url = request.GET.get('next')
+        if next_url:
+            return redirect(next_url)
         return redirect('rh_banca')
+
+    next_url = request.GET.get('next') or ''
 
     def _render(extra=None):
         return render(request, 'rh/banca/criar.html', _ctx(request, 'banca', {
             'banca_tipos': BANCA_TIPOS, 'provincias': PROVINCIAS,
+            'next_url': next_url,
             **(extra or {}),
         }))
 
@@ -956,6 +965,9 @@ def banca_criar_view(request):
 
         from django.contrib import messages
         messages.success(request, 'Banca criada com sucesso.')
+        next_url = request.GET.get('next') or request.POST.get('next')
+        if next_url:
+            return redirect(next_url)
         return redirect('rh_banca')
 
     return _render()

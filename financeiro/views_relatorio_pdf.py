@@ -14,7 +14,9 @@ from django.utils import timezone
 
 from users.auth_decorators import requer_sessao_ativa
 from users.permissoes import get_usuario_permissoes
+from users.models import Usuario
 from clientes.models import Cliente
+from rh.models import Banca
 from .models import (
     FacturaCliente, ReciboCliente, NotaCredito, NotaDebito,
     FacturaRecibo, RequisicaoFundo,
@@ -48,7 +50,6 @@ def _get_user_filter(request):
 
 
 def _get_clientes(request):
-    from clientes.models import Cliente
     filtro = _get_user_filter(request)
     if filtro:
         return Cliente.objects.filter(**filtro)
@@ -647,39 +648,52 @@ def _dados_receita_localizacao(request):
 def _dados_receita_despachante(request):
     filtro = _get_user_filter(request)
     clientes = Cliente.objects.filter(**filtro) if filtro else Cliente.objects.all()
-    despachantes = Usuario.objects.filter(status='Ativo', papel__in=['Despachante Oficial', 'Administrador'])
 
     qs_f = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
     qs_r = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
     qs_fr = FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
 
-    facturas_by = {r['cliente__usuario_id']: float(r['total'])
-                   for r in qs_f.values('cliente__usuario_id').annotate(total=Sum('valor_total'))
-                   if r['cliente__usuario_id'] is not None}
-    recibos_by = {r['cliente__usuario_id']: float(r['total'])
-                  for r in qs_r.values('cliente__usuario_id').annotate(total=Sum('valor_recebido'))
-                  if r['cliente__usuario_id'] is not None}
-    fr_by = {r['cliente__usuario_id']: float(r['total'])
-             for r in qs_fr.values('cliente__usuario_id').annotate(total=Sum('valor'))
-             if r['cliente__usuario_id'] is not None}
+    facturas_by = {r['cliente__banca__usuario_id']: float(r['total'])
+                   for r in qs_f.values('cliente__banca__usuario_id').annotate(total=Sum('valor_total'))
+                   if r['cliente__banca__usuario_id'] is not None}
+    recibos_by = {r['cliente__banca__usuario_id']: float(r['total'])
+                  for r in qs_r.values('cliente__banca__usuario_id').annotate(total=Sum('valor_recebido'))
+                  if r['cliente__banca__usuario_id'] is not None}
+    fr_by = {r['cliente__banca__usuario_id']: float(r['total'])
+             for r in qs_fr.values('cliente__banca__usuario_id').annotate(total=Sum('valor'))
+             if r['cliente__banca__usuario_id'] is not None}
 
-    clientes_by_usu = {}
-    for c in clientes.filter(usuario_id__isnull=False):
-        clientes_by_usu[c.usuario_id] = clientes_by_usu.get(c.usuario_id, 0) + 1
+    clientes_by_banca_uid = {}
+    for c in clientes.filter(banca__usuario_id__isnull=False):
+        uid = c.banca.usuario_id
+        clientes_by_banca_uid[uid] = clientes_by_banca_uid.get(uid, 0) + 1
+
+    all_uids = set(facturas_by.keys()) | set(recibos_by.keys()) | set(fr_by.keys()) | set(clientes_by_banca_uid.keys())
+
+    # Map usuario_id → name for known users
+    usuarios_map = {}
+    for u in Usuario.objects.filter(pk__in=all_uids):
+        usuarios_map[u.pk] = u
 
     rows = []
     total_geral = 0
-    for d in despachantes:
-        uid = d.pk
-        if uid not in facturas_by and uid not in fr_by and uid not in recibos_by and uid not in clientes_by_usu:
-            continue
+    for uid in sorted(all_uids):
         tf = facturas_by.get(uid, 0)
         tr = recibos_by.get(uid, 0)
         tfr = fr_by.get(uid, 0)
         receita = tf + tfr
         total_geral += receita
+
+        u = usuarios_map.get(uid)
+        if u:
+            nome = u.nome
+            perfil = u.papel
+        else:
+            nome = f'Despachante (ID: {uid})'
+            perfil = 'Desconhecido'
+
         rows.append({
-            'cells': [d.nome, d.papel, str(clientes_by_usu.get(uid, 0)),
+            'cells': [nome, perfil, str(clientes_by_banca_uid.get(uid, 0)),
                       f'{fmt_kz(tf)}', f'{fmt_kz(tfr)}', f'{fmt_kz(tr)}', f'{fmt_kz(receita)}'],
             'sort_value': receita,
         })

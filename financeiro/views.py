@@ -5303,33 +5303,43 @@ def api_dados_cliente(request):
             return JsonResponse({'success': False, 'error': 'ID do cliente é obrigatório'})
         
         # Verificar permissões
-        filtro = {}
+        cliente = None
         if not _user_tem_acesso_total(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
-                filtro['banca_id'] = banca_id
+                try:
+                    cliente = Cliente.objects.get(id=cliente_id, banca_id=banca_id)
+                except Cliente.DoesNotExist:
+                    return JsonResponse({'success': False, 'error': 'Cliente não encontrado'})
             else:
                 usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
                 if usuario_id:
-                    filtro['banca__usuario_id'] = usuario_id
+                    try:
+                        cliente = Cliente.objects.get(id=cliente_id, banca__usuario_id=usuario_id)
+                    except Cliente.DoesNotExist:
+                        try:
+                            cliente = Cliente.objects.get(id=cliente_id, usuario_id=usuario_id)
+                        except Cliente.DoesNotExist:
+                            return JsonResponse({'success': False, 'error': 'Cliente não encontrado'})
+                else:
+                    return JsonResponse({'success': False, 'error': 'Cliente não encontrado'})
+        else:
+            try:
+                cliente = Cliente.objects.get(id=cliente_id)
+            except Cliente.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Cliente não encontrado'})
         
-        try:
-            cliente = Cliente.objects.get(id=cliente_id, **filtro)
-            
-            return JsonResponse({
-                'success': True,
-                'cliente': {
-                    'id': cliente.id,
-                    'nome': cliente.nome,
-                    'nif': cliente.nif,
-                    'email': cliente.email,
-                    'telefone': cliente.telefone,
-                    'localizacao': cliente.localizacao,
-                }
-            })
-            
-        except Cliente.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Cliente não encontrado'})
+        return JsonResponse({
+            'success': True,
+            'cliente': {
+                'id': cliente.id,
+                'nome': cliente.nome,
+                'nif': cliente.nif,
+                'email': cliente.email,
+                'telefone': cliente.telefone,
+                'localizacao': cliente.localizacao,
+            }
+        })
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': 'Erro interno. Tente novamente.'})
@@ -5349,7 +5359,10 @@ def api_buscar_cliente(request):
             else:
                 usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
                 if usuario_id:
-                    qs = qs.filter(banca__usuario_id=usuario_id)
+                    qs_banca = qs.filter(banca__usuario_id=usuario_id)
+                    if not qs_banca.exists():
+                        qs_banca = qs.filter(usuario_id=usuario_id)
+                    qs = qs_banca
 
         if len(q) < 1:
             qs = qs.order_by('nome')[:20]
@@ -5390,18 +5403,22 @@ def api_processos_cliente(request):
         
         if not _user_tem_acesso_total(request):
             banca_id = request.session.get('banca_id')
-            if banca_id and cliente.banca_id != banca_id:
-                return JsonResponse({
-                    'success': False, 
-                    'error': 'Você não tem permissão para ver processos deste cliente'
-                })
-            elif not banca_id:
-                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-                if usuario_id and cliente.banca and cliente.banca.usuario_id != usuario_id:
+            if banca_id:
+                if cliente.banca_id and cliente.banca_id != banca_id:
                     return JsonResponse({
                         'success': False, 
                         'error': 'Você não tem permissão para ver processos deste cliente'
                     })
+            else:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                if usuario_id:
+                    owns_via_banca = cliente.banca and cliente.banca.usuario_id == usuario_id
+                    owns_via_usuario = cliente.usuario_id == usuario_id
+                    if not owns_via_banca and not owns_via_usuario:
+                        return JsonResponse({
+                            'success': False, 
+                            'error': 'Você não tem permissão para ver processos deste cliente'
+                        })
         
         filtro = {}
         if cliente.nif:
@@ -5410,6 +5427,7 @@ def api_processos_cliente(request):
             filtro['exportador_nome__iexact'] = cliente.nome
         filtro['status'] = 'Submetida'
         
+        filtro_du = None
         if not _user_tem_acesso_total(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
@@ -5417,10 +5435,13 @@ def api_processos_cliente(request):
             else:
                 usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
                 if usuario_id:
-                    filtro['banca__usuario_id'] = usuario_id
+                    filtro_du = Q(banca__usuario_id=usuario_id) | Q(usuario_id=usuario_id)
         
         # ┌─ Buscar processos com os filtros ─────────────────────────────────┐
-        processos_qs = DeclaracaoUnica.objects.filter(**filtro).values(
+        processos_qs = DeclaracaoUnica.objects.filter(**filtro)
+        if filtro_du is not None:
+            processos_qs = processos_qs.filter(filtro_du)
+        processos_qs = processos_qs.values(
             'id', 'numero_du', 'ref_despachante', 'exportador_nome', 
             'status', 'created_at'
         ).order_by('-created_at')[:50]  # Últimos 50 processos
@@ -5452,6 +5473,7 @@ def api_dados_processo(request):
             return JsonResponse({'success': False, 'error': 'ID do processo é obrigatório'})
         
         filtro = {'id': processo_id}
+        filtro_du = None
         if not _user_tem_acesso_total(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
@@ -5459,10 +5481,13 @@ def api_dados_processo(request):
             else:
                 usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
                 if usuario_id:
-                    filtro['banca__usuario_id'] = usuario_id
+                    filtro_du = Q(banca__usuario_id=usuario_id) | Q(usuario_id=usuario_id)
         
         try:
-            processo = DeclaracaoUnica.objects.get(**filtro)
+            processo_qs = DeclaracaoUnica.objects.filter(**filtro)
+            if filtro_du is not None:
+                processo_qs = processo_qs.filter(filtro_du)
+            processo = processo_qs.get()
             
             # Extrair dados_json
             dados_dict = {}
@@ -5614,7 +5639,9 @@ def api_facturas_por_cliente(request):
                 cliente_existe = Cliente.objects.filter(id=cliente_id, banca_id=banca_id).exists()
             else:
                 usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-                cliente_existe = Cliente.objects.filter(id=cliente_id, banca__usuario_id=usuario_id).exists() if usuario_id else False
+                cliente_existe = Cliente.objects.filter(
+                    id=cliente_id
+                ).filter(Q(banca__usuario_id=usuario_id) | Q(usuario_id=usuario_id)).exists() if usuario_id else False
             if not cliente_existe:
                 return JsonResponse({'success': True, 'facturas': []})
 

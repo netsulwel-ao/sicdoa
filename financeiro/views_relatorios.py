@@ -572,7 +572,7 @@ def fluxo_caixa_json(request):
         if not banca_id:
             usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
             if usuario_id:
-                filtro = {'usuario_id': usuario_id}
+                filtro = {'banca__usuario_id': usuario_id}
         else:
             filtro = {'banca_id': banca_id}
             filial_id = request.session.get('colaborador_filial_id')
@@ -779,7 +779,7 @@ def dashboard_financeiro_json(request):
         if not banca_id:
             usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
             if usuario_id:
-                filtro = {'usuario_id': usuario_id}
+                filtro = {'banca__usuario_id': usuario_id}
         else:
             filtro = {'banca_id': banca_id}
             filial_id = request.session.get('colaborador_filial_id')
@@ -1107,49 +1107,58 @@ class RelatorioReceitaPorDespachanteView(ReportMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        despachantes = Usuario.objects.filter(status='Ativo', papel__in=['Despachante Oficial', 'Administrador'])
         clientes = self.clientes_scope()
 
-        # 3 queries agregadas por usuario_id em vez de 3N
         qs_f_agg = FacturaCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
         qs_r_agg = ReciboCliente.objects.filter(cliente__in=clientes).exclude(estado='Cancelado')
         qs_fr_agg = FacturaRecibo.objects.filter(cliente__in=clientes).exclude(estado='Cancelada')
 
-        facturas_by_usu = {
-            r['cliente__usuario_id']: float(r['total'])
-            for r in qs_f_agg.values('cliente__usuario_id').annotate(total=Sum('valor_total'))
-            if r['cliente__usuario_id'] is not None
+        facturas_by = {
+            r['cliente__banca__usuario_id']: float(r['total'])
+            for r in qs_f_agg.values('cliente__banca__usuario_id').annotate(total=Sum('valor_total'))
+            if r['cliente__banca__usuario_id'] is not None
         }
-        recibos_by_usu = {
-            r['cliente__usuario_id']: float(r['total'])
-            for r in qs_r_agg.values('cliente__usuario_id').annotate(total=Sum('valor_recebido'))
-            if r['cliente__usuario_id'] is not None
+        recibos_by = {
+            r['cliente__banca__usuario_id']: float(r['total'])
+            for r in qs_r_agg.values('cliente__banca__usuario_id').annotate(total=Sum('valor_recebido'))
+            if r['cliente__banca__usuario_id'] is not None
         }
-        fr_by_usu = {
-            r['cliente__usuario_id']: float(r['total'])
-            for r in qs_fr_agg.values('cliente__usuario_id').annotate(total=Sum('valor'))
-            if r['cliente__usuario_id'] is not None
+        fr_by = {
+            r['cliente__banca__usuario_id']: float(r['total'])
+            for r in qs_fr_agg.values('cliente__banca__usuario_id').annotate(total=Sum('valor'))
+            if r['cliente__banca__usuario_id'] is not None
         }
 
-        # Contagem de clientes por usuário
-        clientes_by_usu = {}
-        for c in clientes.filter(usuario_id__isnull=False):
-            clientes_by_usu[c.usuario_id] = clientes_by_usu.get(c.usuario_id, 0) + 1
+        clientes_by_banca_uid = {}
+        for c in clientes.filter(banca__usuario_id__isnull=False):
+            uid = c.banca.usuario_id
+            clientes_by_banca_uid[uid] = clientes_by_banca_uid.get(uid, 0) + 1
+
+        all_uids = set(facturas_by.keys()) | set(recibos_by.keys()) | set(fr_by.keys()) | set(clientes_by_banca_uid.keys())
+
+        usuarios_map = {}
+        for u in Usuario.objects.filter(pk__in=all_uids):
+            usuarios_map[u.pk] = u
 
         rows = []
         total_geral = 0
-        for d in despachantes:
-            uid = d.pk
-            if uid not in facturas_by_usu and uid not in fr_by_usu and uid not in recibos_by_usu:
-                if uid not in clientes_by_usu:
-                    continue
-            total_f = facturas_by_usu.get(uid, 0)
-            total_r = recibos_by_usu.get(uid, 0)
-            total_fr = fr_by_usu.get(uid, 0)
+        for uid in sorted(all_uids):
+            total_f = facturas_by.get(uid, 0)
+            total_r = recibos_by.get(uid, 0)
+            total_fr = fr_by.get(uid, 0)
             receita = total_f + total_fr
             total_geral += receita
+
+            u = usuarios_map.get(uid)
+            if u:
+                nome = u.nome
+                perfil = u.papel
+            else:
+                nome = f'Despachante (ID: {uid})'
+                perfil = 'Desconhecido'
+
             rows.append({
-                'cells': [d.nome, d.papel, str(clientes_by_usu.get(uid, 0)),
+                'cells': [nome, perfil, str(clientes_by_banca_uid.get(uid, 0)),
                           f'{fmt_kz(total_f)}', f'{fmt_kz(total_fr)}',
                           f'{fmt_kz(total_r)}', f'{fmt_kz(receita)}'],
                 'sort_value': receita,

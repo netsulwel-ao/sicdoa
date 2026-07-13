@@ -1265,6 +1265,7 @@ function atualizarCamposRegime() {
   const nifExportador = document.getElementById('exportador_codigo');
   const nomeExportador = document.getElementById('exportador_nome');
   const enderecoExportador = document.getElementById('exportador_endereco');
+  const nomeDestinatario = document.getElementById('destinatario_nome');
   const paisDestinoAuto = document.getElementById('pais_destino_auto');
   const estanciaDestino = document.getElementById('estancia_destino');
   const localCampo54 = document.getElementById('local_campo54');
@@ -1279,11 +1280,13 @@ function atualizarCamposRegime() {
     dataCampo54.value = new Date().toISOString().split('T')[0];
   }
 
-  // Regras para campos do exportador
+  // Regras para campos do exportador/destinatário — NIF e Nome sempre obrigatórios
+  if (nomeDestinatario) nomeDestinatario.setAttribute('required', 'true');
+  if (nifExportador) nifExportador.setAttribute('required', 'true');
+  if (nomeExportador) nomeExportador.setAttribute('required', 'true');
+
   if (regime.startsWith('IM')) {
-    if (nifExportador) nifExportador.removeAttribute('required');
-    if (nomeExportador) nomeExportador.setAttribute('required', 'true');
-    if (enderecoExportador) enderecoExportador.setAttribute('required', 'true');
+    if (enderecoExportador) enderecoExportador.removeAttribute('required');
     if (paisDestinoAuto) {
       paisDestinoAuto.value = 'AO - Angola';
       paisDestinoAuto.readOnly = true;
@@ -1296,8 +1299,6 @@ function atualizarCamposRegime() {
       localCampo54.classList.add('calc-field');
     }
   } else if (regime.startsWith('EX')) {
-    if (nifExportador) nifExportador.setAttribute('required', 'true');
-    if (nomeExportador) nomeExportador.removeAttribute('required');
     if (enderecoExportador) enderecoExportador.removeAttribute('required');
     if (paisDestinoAuto) {
       paisDestinoAuto.value = '';
@@ -2020,6 +2021,9 @@ function _submeterDU(submeter) {
   const form = document.getElementById('formDU');
   if (!form) return;
 
+  // Bloquear auto-save durante submissão
+  isSubmitting = true;
+
   // ── Validação client-side antes de enviar ────────────────────────────────
   const errosClient = [];
 
@@ -2059,9 +2063,20 @@ function _submeterDU(submeter) {
 
     const formaPag = form.querySelector('[name="forma_pagamento"]')?.value?.trim();
     if (!formaPag) errosClient.push('Forma de Pagamento é obrigatória (Step 4).');
+
+    // Validação: nome e NIF do Exportador e Destinatário sempre obrigatórios
+    const expNome = form.querySelector('[name="exportador_nome"]')?.value?.trim();
+    if (!expNome) errosClient.push('Nome do Exportador é obrigatório (Step 3).');
+    const expNif = form.querySelector('[name="exportador_codigo"]')?.value?.trim();
+    if (!expNif) errosClient.push('NIF do Exportador é obrigatório (Step 3).');
+    const destNome = form.querySelector('[name="destinatario_nome"]')?.value?.trim();
+    if (!destNome) errosClient.push('Nome do Destinatário é obrigatório (Step 3).');
+    const destNif = form.querySelector('[name="destinatario_nif"]')?.value?.trim();
+    if (!destNif) errosClient.push('NIF do Destinatário é obrigatório (Step 3).');
   }
 
   if (errosClient.length > 0) {
+    isSubmitting = false;
     showError(errosClient[0]);
     errosClient.forEach(e => console.warn('[Validação DU]', e));
     return;
@@ -2200,9 +2215,11 @@ function _submeterDU(submeter) {
         showSuccess(`DU ${d.numero_du} submetida e aprovada!`);
         setTimeout(() => { window.location.href = '/du/lista/'; }, 1800);
       } else {
+        isSubmitting = false;
         showSuccess('Rascunho guardado! Código: ' + (d.codigo_processo || ''));
       }
     } else {
+      isSubmitting = false;
       showError(d.erro || 'Erro ao guardar');
       // Mostrar erros de validação server-side se disponíveis
       if (d.erros && Array.isArray(d.erros)) {
@@ -2211,6 +2228,7 @@ function _submeterDU(submeter) {
     }
   })
   .catch(err => {
+    isSubmitting = false;
     if (err !== 'Sessão expirada' && err !== 'Sem permissão') {
       showError('Erro de ligação ao servidor');
     }
@@ -2235,6 +2253,7 @@ window._submeterDU = _submeterDU;
 // ── Auto-save de rascunho a cada 2 minutos ──────────────────────────────────
 let autoSaveTimer = null;
 let formChanged = false;
+let isSubmitting = false;
 
 function iniciarAutoSave() {
   // Marcar formulário como alterado quando qualquer campo muda
@@ -2251,7 +2270,7 @@ function iniciarAutoSave() {
   
   // Auto-save a cada 2 minutos se houver alterações
   autoSaveTimer = setInterval(function() {
-    if (formChanged) {
+    if (formChanged && !isSubmitting) {
       console.log('🔄 Auto-save: Guardando rascunho automaticamente...');
       guardarRascunho();
       formChanged = false;
