@@ -340,7 +340,9 @@ def _du_guardar_impl(request):
     if not banca_id:
         # Fallback: lookup banca by usuario_id
         banca_obj = Banca.objects.filter(usuario_id=uid).first()
-        banca_id = banca_obj.id if banca_obj else None
+        if not banca_obj:
+            return JsonResponse({'erro': 'Não é possível criar uma DU sem uma Banca registada. Configure a sua instituição primeiro.'}, status=400)
+        banca_id = banca_obj.id
 
     filial_id = request.session.get('colaborador_filial_id') if request.session.get('tipo_usuario') == 'colaborador' else None
 
@@ -351,6 +353,8 @@ def _du_guardar_impl(request):
                 return JsonResponse({'erro': 'Sem permissão'}, status=403)
             if not escopo_du(request, DeclaracaoUnica.objects.filter(pk=du.pk)).exists():
                 return JsonResponse({'erro': 'Sem permissão'}, status=403)
+            if not du.banca_id and banca_id:
+                du.banca_id = banca_id
         except DeclaracaoUnica.DoesNotExist:
             du = DeclaracaoUnica(usuario_id=uid, processo_id=None, banca_id=banca_id, filial_id=filial_id)
     else:
@@ -1480,7 +1484,9 @@ def criar_cliente_rapido(request):
         if not banca_id:
             from rh.models import Banca
             banca_obj = Banca.objects.filter(usuario_id=uid).first()
-            banca_id = banca_obj.id if banca_obj else None
+            if not banca_obj:
+                return JsonResponse({'error': 'Não é possível criar clientes sem uma Banca registada. Configure a sua instituição primeiro.'}, status=400)
+            banca_id = banca_obj.id
         filial_id = request.session.get('colaborador_filial_id') if request.session.get('tipo_usuario') == 'colaborador' else None
         nome       = request.POST.get('nome', '').strip()
         nif        = request.POST.get('nif', '').strip()

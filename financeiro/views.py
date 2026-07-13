@@ -253,6 +253,12 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
         usuario_data = self.request.session.get('usuario', {})
         form.instance.criado_por_nome = usuario_data.get('nome', '')
         banca_id = self.request.session.get('banca_id')
+        if not banca_id:
+            from rh.models import Banca
+            uid = self.request.session.get('usuario_id')
+            if not Banca.objects.filter(usuario_id=uid).exists():
+                from django.core.exceptions import PermissionDenied
+                raise PermissionDenied('Não é possível criar requisições sem uma Banca registada.')
         form.instance.banca_id = banca_id or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         if banca_id and form.instance.cliente and form.instance.cliente.banca_id != banca_id:

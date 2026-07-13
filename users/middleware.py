@@ -9,6 +9,13 @@ from .auth_decorators import sessao_expirada, limpar_sessao
 
 session_logger = logging.getLogger('users.session')
 
+# Módulos de negócio bloqueados quando a Banca está suspensa
+_MODULOS_NEGOCIO_BLOQUEADOS = ('/rh/', '/financeiro/', '/aduaneiro/', '/clientes/')
+
+# Módulos permitidos para despachante com Banca suspensa
+_MODULOS_PERMITIDOS_BANCA_SUSPENSA = ('/dashboard/', '/governanca/', '/users/',
+                                       '/login/', '/logout/', '/static/', '/media/')
+
 
 class SessionExpirationMiddleware:
     """
@@ -58,7 +65,7 @@ class SessionExpirationMiddleware:
                 # Se for requisição normal, redirecionar
                 return redirect('login')
 
-            # Verificar se o utilizador ainda está ativo
+            # ── DESPACHANTE (tipo_usuario == 'usuario') ──
             if tipo_usuario == 'usuario':
                 from .models import Usuario
                 try:
@@ -84,6 +91,35 @@ class SessionExpirationMiddleware:
                                 'redirect': '/login/'
                             }, status=401)
                         return redirect('login')
+
+                    # Verificar se a Banca está ativa (apenas para não-admin)
+                    if u.papel != 'Administrador':
+                        from rh.models import Banca
+                        banca = Banca.objects.filter(usuario_id=usuario_id).first()
+                        if banca and not banca.ativa:
+                            path = request.path
+                            # Permitir acesso a perfil, governança, dashboard
+                            if any(path.startswith(p) for p in _MODULOS_PERMITIDOS_BANCA_SUSPENSA):
+                                pass  # permitir
+                            elif any(path.startswith(p) for p in _MODULOS_NEGOCIO_BLOQUEADOS):
+                                session_logger.warning(
+                                    'BANCA_SUSPENSA_BLOQUEIO: usuario_id=%s banca=%s path=%s',
+                                    usuario_id, banca.id, path
+                                )
+                                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                    from django.http import JsonResponse
+                                    return JsonResponse({
+                                        'error': 'A sua instituição está suspensa. Acesso ao negócio bloqueado.',
+                                        'redirect': '/dashboard/'
+                                    }, status=403)
+                                from django.contrib import messages
+                                messages.error(
+                                    request,
+                                    "A sua instituição está suspensa. Acesso ao módulo de negócio bloqueado. "
+                                    "Contacte o administrador para regularizar a situação."
+                                )
+                                return redirect('dashboard')
+
                     # Verificar se Colaborador Institucional perdeu a função
                     if u.papel == 'Colaborador Institucional' and not u.funcao_id:
                         session_logger.warning(
@@ -112,6 +148,8 @@ class SessionExpirationMiddleware:
                         usuario_id, request.path
                     )
                     pass
+
+            # ── COLABORADOR (tipo_usuario == 'colaborador') ──
             elif tipo_usuario == 'colaborador':
                 colaborador_id = request.session.get('colaborador_id')
                 if colaborador_id:
@@ -139,6 +177,31 @@ class SessionExpirationMiddleware:
                                     'redirect': '/login/'
                                 }, status=401)
                             return redirect('login')
+
+                        # Verificar se a Banca do colaborador está ativa
+                        if c.banca and not c.banca.ativa:
+                            session_logger.warning(
+                                'BANCA_SUSPENSA_COLAB: colaborador_id=%s banca=%s path=%s — terminando sessao',
+                                colaborador_id, c.banca.id, request.path
+                            )
+                            from .models import registrar_log
+                            registrar_log(request, 'LOGOUT', 'users',
+                                          f"Sessão terminada — banca suspensa: {c.banca.nome}")
+                            limpar_sessao(request)
+                            from django.contrib import messages
+                            messages.error(
+                                request,
+                                "A instituição à qual pertence está suspensa. "
+                                "Contacte o responsável da instituição."
+                            )
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                from django.http import JsonResponse
+                                return JsonResponse({
+                                    'error': 'Instituição suspensa',
+                                    'redirect': '/login/'
+                                }, status=401)
+                            return redirect('login')
+
                     except Colaborador.DoesNotExist:
                         session_logger.error(
                             'COLABORADOR_NAO_ENCONTRADO: colaborador_id=%s path=%s — sessao invalida',

@@ -28,7 +28,6 @@
 
   <form method="POST" enctype="multipart/form-data" class="space-y-5">
     {% csrf_token %}
-    {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
 
     <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
       <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
