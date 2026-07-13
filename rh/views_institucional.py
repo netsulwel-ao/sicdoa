@@ -98,134 +98,428 @@ def marcar_ferias_no_registo_inst(pedido):
 
 
 def _gerar_pdf_processamento_inst(processamento, request):
+    """Gera PDF do processamento salarial institucional no layout profissional (padrao Requisicao de Fundos).
+    Retorna um BytesIO com o PDF gerado em memoria."""
     import logging as _log
     _logger = _log.getLogger(__name__)
+    import io
+    import qrcode as _qr
+    from datetime import datetime
+    from decimal import Decimal
+    from django.utils import timezone as _tz
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    )
+    from reportlab.platypus.flowables import HRFlowable
     try:
-        from django.conf import settings
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import cm
-        from reportlab.lib.colors import HexColor, white, black
-        import os
+        from reportlab.platypus import Image as RLImage
+    except ImportError:
+        RLImage = None
+    from users.models import Usuario
 
-        recibos = processamento.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
-        pdf_dir = os.path.join(settings.MEDIA_ROOT, 'processamentos_salariais_institucionais')
-        os.makedirs(pdf_dir, exist_ok=True)
-        filename = f"processamento_inst_{processamento.mes:02d}_{processamento.ano}_{processamento.pk}.pdf"
-        filepath = os.path.join(pdf_dir, filename)
-
-        c = canvas.Canvas(filepath, pagesize=A4)
-        width, height = A4
-        margin_left, margin_right = 2 * cm, 2 * cm
-        margin_top, margin_bottom = 2 * cm, 2 * cm
-
-        # Cabeçalho CDOA
-        cor_cdoa = HexColor('#1a3a5c')
-        cor_cdoa_gold = HexColor('#c9a84c')
+    try:
+        recibos = processamento.recibos.select_related('colaborador').prefetch_related(
+            'subsidios_vinculados__subsidio'
+        ).all()
         estado_display = processamento.get_estado_display()
-        c.setFillColor(cor_cdoa)
-        c.rect(0, height - 50, width, 50, fill=1, stroke=0)
-        c.setFillColor(white)
-        c.setFont('Helvetica-Bold', 12)
-        c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
-        c.setFont('Helvetica', 9)
-        c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-        c.setFillColor(cor_cdoa_gold)
-        c.setFont('Helvetica-Bold', 11)
-        c.drawRightString(width - 30, height - 30, estado_display)
 
-        y_position = height - 70
+        PAGE_W, PAGE_H = A4
+        MARGIN = 0.7 * cm
+        W = PAGE_W - 2 * MARGIN
 
-        c.setFont("Helvetica-Bold", 18)
-        c.setFillColor(cor_cdoa)
-        title = "PROCESSAMENTO SALARIAL INSTITUCIONAL"
-        tw = c.stringWidth(title, "Helvetica-Bold", 18)
-        c.drawCentredString(width / 2, y_position, title)
-        y_position -= 25
-        c.setFont("Helvetica", 10)
-        c.setFillColor(black)
-        periodo = f"Período: {processamento.mes:02d}/{processamento.ano} | Estado: {estado_display}"
-        tw = c.stringWidth(periodo, "Helvetica", 10)
-        c.drawCentredString(width / 2, y_position, periodo)
-        y_position -= 25
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, pagesize=A4,
+            leftMargin=MARGIN, rightMargin=MARGIN,
+            topMargin=0.5 * cm, bottomMargin=1.0 * cm,
+            title=f"Processamento Salarial Institucional {processamento.mes:02d}/{processamento.ano}",
+        )
 
-        c.line(margin_left, y_position, width - margin_right, y_position)
-        y_position -= 25
+        COR_PRIMARIO = colors.HexColor('#0f172a')
+        COR_SECUNDARIO = colors.white
+        COR_CINZA = colors.HexColor('#64748b')
+        COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
+        COR_BORDA = colors.HexColor('#cbd5e1')
+        COR_BRANCO = colors.white
+        COR_HEADER = colors.white
+        COR_VERDE = colors.HexColor('#059669')
+        COR_VERMELHO = colors.HexColor('#dc2626')
 
-        headers = ["Colaborador", "Salário Base", "Subsídios", "Bruto", "Faltas", "IRT", "INSS 3%", "Líquido"]
-        col_widths = [6, 2, 2, 2, 1.5, 1.5, 1.5, 2]
-        total_width = width - margin_left - margin_right
+        def st(name, **kw):
+            defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRIMARIO, leading=11)
+            defaults.update(kw)
+            return ParagraphStyle(name, **defaults)
 
-        c.setFont("Helvetica-Bold", 8)
-        x = margin_left
-        for i, h in enumerate(headers):
-            cw = total_width * col_widths[i] / sum(col_widths)
-            c.drawString(x, y_position, h)
-            x += cw
-        y_position -= 18
-        c.setFont("Helvetica", 8)
+        def _safe(text):
+            if not text:
+                return ''
+            from django.utils.html import escape as _esc
+            return _esc(str(text))
+
+        # Dados do utilizador da sessao (administrador da instituicao)
+        usuario = request.session.get('usuario', {})
+        nome_txt = _safe(usuario.get('nome', 'ADMINISTRACAO INSTITUCIONAL'))
+        nif_txt = usuario.get('nif', 'N/D') or 'N/D'
+        telefone = usuario.get('telefone', '—') or '—'
+        email_b = usuario.get('email', '—') or '—'
+        responsavel_nome = nome_txt.upper()
+        responsavel_nif = nif_txt
+        responsavel_cedula = '—'
+        responsavel_telefone = telefone
+        responsavel_email = email_b
+
+        agora = datetime.now()
+
+        # Totais
+        total_bruto = Decimal('0')
+        total_subsidios = Decimal('0')
+        total_faltas = Decimal('0')
+        total_irt = Decimal('0')
+        total_inss = Decimal('0')
+        total_liquido = Decimal('0')
+        for recibo in recibos:
+            total_bruto += recibo.bruto
+            total_faltas += recibo.outros_descontos
+            total_irt += recibo.irt
+            total_inss += recibo.inss_trabalhador
+            total_liquido += recibo.liquido
+            for vinculo in recibo.subsidios_vinculados.all():
+                total_subsidios += vinculo.valor
+
+        story = []
+
+        # LOGO (esquerda) + QR CODE (direita)
+        col_logo = Paragraph('', st('empty', fontSize=1))
+
+        qr_data = (
+            f"=== PROCESSAMENTO SALARIAL INSTITUCIONAL ===\n"
+            f"Periodo: {processamento.mes:02d}/{processamento.ano}\n"
+            f"Estado: {estado_display}\n"
+            f"Nr Colaboradores: {len(recibos)}\n"
+            f"\n--- TOTAIS ---\n"
+            f"Total Bruto: {fmt_kz(total_bruto)} KZ\n"
+            f"Total Subsidios: {fmt_kz(total_subsidios)} KZ\n"
+            f"Total Descontos: {fmt_kz(total_irt + total_inss + total_faltas)} KZ\n"
+            f"Total Liquido: {fmt_kz(total_liquido)} KZ\n"
+            f"\n--- RESPONSAVEL ---\n"
+            f"Nome: {responsavel_nome}\n"
+            f"NIF: {responsavel_nif}\n"
+        )
+        _qr_buf = io.BytesIO()
+        _qr_obj = _qr.QRCode(version=1, box_size=10, border=2)
+        _qr_obj.add_data(qr_data)
+        _qr_obj.make(fit=True)
+        _qr_obj.make_image(fill_color="black", back_color="white").save(_qr_buf, format='PNG')
+        _qr_buf.seek(0)
+        qr_flowable = RLImage(_qr_buf, width=1.9 * cm, height=1.9 * cm) if RLImage else Paragraph('', st('empty', fontSize=1))
+
+        top_line = Table([[col_logo, qr_flowable]], colWidths=[W - 1.9 * cm, 1.9 * cm])
+        top_line.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(top_line)
+        story.append(Spacer(1, 0.15 * cm))
+
+        # BLOCO EMPRESA (esquerda) + INFO DOCUMENTO (direita)
+        empresa_info = (
+            f'<font size="9"><b>{nome_txt}</b></font><br/>'
+            f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
+            f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
+            f'<font size="7.5" color="#334155">NIF: {nif_txt}</font>'
+        )
+        doc_info = (
+            f'<font size="7.5">Processamento Salarial Institucional</font><br/>'
+            f'<font size="9"><b>{processamento.mes:02d}/{processamento.ano}</b></font><br/>'
+            f'<font size="7.5" color="#334155">Estado: {estado_display}</font><br/>'
+            f'<font size="7.5" color="#334155">Nr Colaboradores: {len(recibos)}</font>'
+        )
+        header_body = Table([[
+            Paragraph(empresa_info, st('empresa_info', fontSize=7.5, leading=10)),
+            Paragraph(doc_info, st('doc_info', fontSize=7.5, leading=10, alignment=TA_RIGHT)),
+        ]], colWidths=[W * 0.55, W * 0.45])
+        header_body.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        story.append(header_body)
+        story.append(Spacer(1, 0.35 * cm))
+
+        # TITULO DO DOCUMENTO
+        story.append(Paragraph('<font size="7.5">Original</font>', st('original', fontSize=7.5)))
+        story.append(Paragraph(
+            f'<font size="12"><b>Processamento Salarial Institucional ({processamento.mes:02d}/{processamento.ano})</b></font>',
+            st('titulo', fontSize=12)
+        ))
+        story.append(Spacer(1, 0.2 * cm))
+
+        # DADOS DO DOCUMENTO (linha)
+        from .tax_utils import MESES as _MESES
+        mes_nome = _MESES[processamento.mes - 1] if 1 <= processamento.mes <= 12 else str(processamento.mes)
+        dados_doc_header = [
+            Paragraph('<b>Periodo</b>', st('ddh', fontSize=7.5)),
+            Paragraph('<b>Data Processamento</b>', st('ddh', fontSize=7.5)),
+            Paragraph('<b>Data Pagamento</b>', st('ddh', fontSize=7.5)),
+            Paragraph('<b>Nr Colaboradores</b>', st('ddh', fontSize=7.5)),
+            Paragraph('<b>Estado</b>', st('ddh', fontSize=7.5)),
+        ]
+        dados_doc_valores = [
+            Paragraph(f'{mes_nome} {processamento.ano}', st('ddv', fontSize=7.5)),
+            Paragraph(_tz.now().strftime('%d/%m/%Y'), st('ddv', fontSize=7.5)),
+            Paragraph(_tz.now().strftime('%d/%m/%Y'), st('ddv', fontSize=7.5)),
+            Paragraph(str(len(recibos)), st('ddv', fontSize=7.5)),
+            Paragraph(estado_display, st('ddv', fontSize=7.5)),
+        ]
+        t_dados_doc = Table([dados_doc_header, dados_doc_valores], colWidths=[W / 5] * 5)
+        t_dados_doc.setStyle(TableStyle([
+            ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_CINZA),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(t_dados_doc)
+        story.append(Paragraph(
+            f'<font size="7" color="#64748b">Observacoes: Comprovante de pagamento referente ao periodo {processamento.mes:02d}/{processamento.ano}</font>',
+            st('obs', fontSize=7)
+        ))
+        story.append(Spacer(1, 0.3 * cm))
+
+        # TABELA DE ITENS
+        itens_header = [
+            Paragraph('<b>Colaborador</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO)),
+            Paragraph('<b>Salario Base</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+            Paragraph('<b>Subsidios</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+            Paragraph('<b>Bruto</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+            Paragraph('<b>Faltas</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+            Paragraph('<b>IRT</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+            Paragraph('<b>INSS 3%</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+            Paragraph('<b>Liquido</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+        ]
+        itens_rows = [itens_header]
 
         for recibo in recibos:
-            if y_position < margin_bottom + 80:
-                c.showPage()
-                # Cabeçalho CDOA na nova página
-                c.setFillColor(cor_cdoa)
-                c.rect(0, height - 50, width, 50, fill=1, stroke=0)
-                c.setFillColor(white)
-                c.setFont('Helvetica-Bold', 12)
-                c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
-                c.setFont('Helvetica', 9)
-                c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-                c.setFillColor(cor_cdoa_gold)
-                c.setFont('Helvetica-Bold', 11)
-                c.drawRightString(width - 30, height - 30, estado_display)
+            total_sub = Decimal('0')
+            for vinculo in recibo.subsidios_vinculados.all():
+                total_sub += vinculo.valor
+            itens_rows.append([
+                Paragraph(_safe(recibo.colaborador.nome[:35]), st('ic', fontSize=7)),
+                Paragraph(fmt_kz(recibo.salario_base), st('ic', fontSize=7, alignment=TA_RIGHT)),
+                Paragraph(fmt_kz(total_sub), st('ic', fontSize=7, alignment=TA_RIGHT)),
+                Paragraph(fmt_kz(recibo.bruto), st('ic', fontSize=7, alignment=TA_RIGHT)),
+                Paragraph(fmt_kz(recibo.outros_descontos), st('ic', fontSize=7, alignment=TA_RIGHT, textColor=COR_VERMELHO if recibo.outros_descontos else COR_PRIMARIO)),
+                Paragraph(fmt_kz(recibo.irt), st('ic', fontSize=7, alignment=TA_RIGHT)),
+                Paragraph(fmt_kz(recibo.inss_trabalhador), st('ic', fontSize=7, alignment=TA_RIGHT)),
+                Paragraph(fmt_kz(recibo.liquido), st('ic', fontSize=7, alignment=TA_RIGHT, textColor=COR_VERDE)),
+            ])
 
-                y_position = height - 70
-                # Repetir cabeçalho da tabela
-                c.setFont("Helvetica-Bold", 8)
-                x = margin_left
-                for i, h in enumerate(headers):
-                    cw = total_width * col_widths[i] / sum(col_widths)
-                    c.drawString(x, y_position, h)
-                    x += cw
-                y_position -= 18
-                c.setFont("Helvetica", 8)
-            total_subs = sum(v.valor for v in recibo.subsidios_vinculados.all())
-            dados = [
-                recibo.colaborador.nome[:30],
-                fmt_kz(recibo.salario_base),
-                fmt_kz(total_subs),
-                fmt_kz(recibo.bruto),
-                fmt_kz(recibo.outros_descontos),
-                fmt_kz(recibo.irt),
-                fmt_kz(recibo.inss_trabalhador),
-                fmt_kz(recibo.liquido),
-            ]
-            x = margin_left
-            for i, d in enumerate(dados):
-                cw = total_width * col_widths[i] / sum(col_widths)
-                if i == 0:
-                    c.drawString(x, y_position, d)
-                else:
-                    c.drawRightString(x + cw, y_position, d)
-                x += cw
-            y_position -= 15
+        t_itens = Table(itens_rows, colWidths=[W*0.22, W*0.11, W*0.11, W*0.11, W*0.11, W*0.11, W*0.11, W*0.12])
+        t_itens.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+            ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
+        ]))
+        story.append(t_itens)
+        story.append(Spacer(1, 0.2 * cm))
 
-        y_position -= 10
-        c.line(margin_left, y_position, width - margin_right, y_position)
-        y_position -= 15
-        total_liquido = sum(r.liquido for r in recibos)
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(margin_left, y_position, "Total Líquido Pago:")
-        c.drawRightString(width - margin_right, y_position, f"{fmt_kz(total_liquido)} KZ")
-        y_position -= 60
-        c.setFont("Helvetica", 8)
-        footer = "Documento gerado automaticamente pelo Sistema de Gestão de Recursos Humanos"
-        tw = c.stringWidth(footer, "Helvetica", 8)
-        c.drawString((width - tw) / 2, y_position, footer)
-        c.save()
+        # TOTAIS + SUMARIO
+        from financeiro.views import valor_por_extenso as _valor_ext
+
+        totais_rows = [
+            [Paragraph('<b>Totais</b>', st('toh', fontSize=7, textColor=COR_PRIMARIO)),
+             Paragraph('<b>Valor</b>', st('toh', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_RIGHT))],
+            [Paragraph('Total Bruto', st('toc', fontSize=7)),
+             Paragraph(f'{fmt_kz(total_bruto)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+            [Paragraph('Total Subsidios', st('toc', fontSize=7)),
+             Paragraph(f'{fmt_kz(total_subsidios)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+            [Paragraph('Total Faltas/Descontos', st('toc', fontSize=7)),
+             Paragraph(f'{fmt_kz(total_faltas)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+            [Paragraph('Total IRT', st('toc', fontSize=7)),
+             Paragraph(f'{fmt_kz(total_irt)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+            [Paragraph('Total INSS (3%)', st('toc', fontSize=7)),
+             Paragraph(f'{fmt_kz(total_inss)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+        ]
+        t_totais = Table(totais_rows, colWidths=[W * 0.55 * 0.55, W * 0.55 * 0.45])
+        t_totais.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+            ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+            ('LINEBELOW', (0, 0), (-1, 0), 1.0, COR_CINZA),
+            ('LINEBELOW', (0, 1), (-1, -1), 0.3, COR_BORDA),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
+        ]))
+
+        ref_texto = (
+            f'<font size="7.5"><b>Referencia do Processamento</b></font><br/>'
+            f'<font size="7" color="#334155">Periodo: {processamento.mes:02d}/{processamento.ano}</font><br/>'
+            f'<font size="7" color="#334155">Nr Colaboradores: {len(recibos)}</font><br/>'
+            f'<font size="7" color="#334155">Codigo: PROC-INST-{processamento.pk:04d}</font>'
+        )
+        bloco_esquerdo = [
+            [t_totais],
+            [Spacer(1, 0.25 * cm)],
+            [Paragraph(ref_texto, st('ref_proc', fontSize=7, leading=10))],
+        ]
+        t_bloco_esquerdo = Table(bloco_esquerdo, colWidths=[W * 0.55])
+        t_bloco_esquerdo.setStyle(TableStyle([
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+
+        sumario_rows = [
+            [Paragraph('<b>Sumario</b>', st('sum_h', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO))],
+            [Spacer(1, 0.15 * cm)],
+            [Paragraph(f'<font size="7">Total Bruto: <b>{fmt_kz(total_bruto)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Paragraph(f'<font size="7">Total Subsidios: <b>{fmt_kz(total_subsidios)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Paragraph(f'<font size="7">Total Descontos: <b>{fmt_kz(total_faltas + total_irt + total_inss)} KZ</b></font>',
+                       st('sum_l', fontSize=7, leading=10))],
+            [Spacer(1, 0.15 * cm)],
+            [Paragraph(f'<font size="10" color="#0f172a"><b>Total Liquido: {fmt_kz(total_liquido)} KZ</b></font>',
+                       st('sum_total', fontSize=10, leading=12))],
+            [Spacer(1, 0.1 * cm)],
+            [Paragraph(f'<font size="6.5" color="#64748b"><i>{_valor_ext(total_liquido)}</i></font>',
+                       st('sum_ext', fontSize=6.5, leading=8))],
+        ]
+        t_sumario = Table(sumario_rows, colWidths=[W * 0.35])
+        t_sumario.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, 0), COR_HEADER),
+            ('TOPPADDING', (0, 0), (0, 0), 5),
+            ('BOTTOMPADDING', (0, 0), (0, 0), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
+        ]))
+        bloco_direito = t_sumario
+
+        t_resumo = Table([[t_bloco_esquerdo, '', '', bloco_direito]], colWidths=[W * 0.60, W * 0.02, W * 0.03, W * 0.35])
+        t_resumo.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        story.append(t_resumo)
+        story.append(Spacer(1, 0.2 * cm))
+
+        # NOTA
+        nota_box = Table([[
+            Paragraph('<b>Nota</b>', st('nota_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+        ]], colWidths=[W])
+        nota_box.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), COR_SECUNDARIO),
+            ('TOPPADDING', (0, 0), (-1, 0), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+            ('LEFTPADDING', (0, 0), (-1, 0), 6),
+        ]))
+        story.append(nota_box)
+        story.append(Paragraph(
+            'Os valores referidos neste documento sao os valores liquidos a transferir para as contas dos colaboradores.',
+            st('nota_txt', fontSize=7, textColor=COR_CINZA)
+        ))
+        story.append(Spacer(1, 0.15 * cm))
+
+        # RESPONSAVEL
+        story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+        story.append(Spacer(1, 0.15 * cm))
+        desp_box = Table([[
+            Paragraph('<b>Responsavel</b>', st('desp_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+        ]], colWidths=[W])
+        desp_box.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+            ('TOPPADDING', (0, 0), (-1, 0), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+            ('LEFTPADDING', (0, 0), (-1, 0), 6),
+        ]))
+        story.append(desp_box)
+        story.append(Spacer(1, 0.1 * cm))
+        story.append(Paragraph(
+            f'{responsavel_nome} &nbsp;|&nbsp; NIF: {responsavel_nif}',
+            st('desp_l1', fontSize=7.5, textColor=COR_PRIMARIO)
+        ))
+        story.append(Paragraph(
+            f'Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}',
+            st('desp_l2', fontSize=7, textColor=COR_CINZA)
+        ))
+        story.append(Spacer(1, 0.15 * cm))
+
+        # ASSINATURA
+        story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+        story.append(Spacer(1, 0.1 * cm))
+        ass_data = [
+            [Paragraph('<b>Assinatura:</b>', st('ass_lab', fontSize=8)),
+             Paragraph('', st('ass_spc', fontSize=8))],
+            [Spacer(1, 0.2 * cm), Spacer(1, 0.2 * cm)],
+            [HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA),
+             HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA)],
+            [Paragraph('<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
+             Paragraph(f'<font size="7.5"><b>{nome_txt}</b></font>', st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
+        ]
+        assinatura = Table(ass_data, colWidths=[W / 2, W / 2])
+        assinatura.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        story.append(assinatura)
+        story.append(Spacer(1, 0.15 * cm))
+
+        # RODAPE: HASH
+        story.append(HRFlowable(width=W, thickness=0.5, color=colors.HexColor('#e2e2e2')))
+        story.append(Spacer(1, 0.1 * cm))
+        from financeiro.pdf_utils import _hash_documento
+        dados_hash = {
+            'tipo': 'Processamento Salarial Institucional',
+            'periodo': f'{processamento.mes:02d}/{processamento.ano}',
+            'total_liquido': str(total_liquido),
+            'pk': processamento.pk,
+        }
+        hsh = _hash_documento(dados_hash)[:16]
+        story.append(Paragraph(
+            f'<font size="6" color="#94a3b8"><b>{nome_txt} - {hsh}</b> &nbsp;|&nbsp; '
+            f'Processado por programa valido n35/AGT/2019<br/>'
+            f'Pag. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
+            st('footer', fontSize=6)
+        ))
+
+        doc.build(story)
+        buffer.seek(0)
+
         processamento.pdf_gerado = True
-        processamento.save()
+        processamento.save(update_fields=['pdf_gerado'])
+
+        return buffer
     except Exception:
         _logger.exception("Erro ao gerar PDF institucional do processamento %s", processamento.pk)
 
@@ -591,11 +885,10 @@ def inst_salario_detalhe_view(request, pk):
 
         elif action == 'pagar':
             if proc.total_liquido == 0:
-                messages.error(request, 'Total líquido é 0,00 KZ.')
+                messages.error(request, 'Total liquido e 0,00 KZ.')
                 return redirect('rh_inst_salario_detalhe', pk=proc.pk)
             proc.estado = 'Pago'
             proc.save()
-            _gerar_pdf_processamento_inst(proc, request)
             messages.success(request, f'Processamento {proc.mes:02d}/{proc.ano} pago.')
 
         elif action == 'reabrir':
@@ -663,25 +956,20 @@ def inst_salario_download_view(request, pk):
         return render(request, 'rh/institucional/salario_erro_download.html',
                       _ctx_inst(request, 'salarios_inst', {
                           'proc': proc,
-                          'erro': 'PDF disponível apenas para processamentos "Pago".',
+                          'erro': 'PDF disponivel apenas para processamentos "Pago".',
                       }))
-    if not proc.pdf_gerado:
-        _gerar_pdf_processamento_inst(proc, request)
-
-    from django.conf import settings
-    import os
-    pdf_dir = os.path.join(settings.MEDIA_ROOT, 'processamentos_salariais_institucionais')
-    pdf_filename = f"processamento_inst_{proc.mes:02d}_{proc.ano}_{proc.pk}.pdf"
-    pdf_filepath = os.path.join(pdf_dir, pdf_filename)
-    if os.path.exists(pdf_filepath):
-        with open(pdf_filepath, 'rb') as f:
-            response = HttpResponse(f.read(), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="comprovante_pagamento_{proc.mes:02d}_{proc.ano}.pdf"'
-            return response
-    return render(request, 'rh/institucional/salario_erro_download.html',
-                  _ctx_inst(request, 'salarios_inst', {
-                      'proc': proc, 'erro': 'PDF não encontrado.',
-                  }))
+    try:
+        buffer = _gerar_pdf_processamento_inst(proc, request)
+        if buffer is None:
+            raise RuntimeError("PDF generation returned None")
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="comprovante_pagamento_inst_{proc.mes:02d}_{proc.ano}.pdf"'
+        return response
+    except Exception as e:
+        return render(request, 'rh/institucional/salario_erro_download.html',
+                      _ctx_inst(request, 'salarios_inst', {
+                          'proc': proc, 'erro': f'Erro ao gerar PDF: {str(e)}',
+                      }))
 
 
 # ══════════════════════════════════════════════════════════════════════════

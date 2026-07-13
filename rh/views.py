@@ -498,223 +498,476 @@ def _processar_responsavel_filial_post(request, banca, filial):
 
 
 def _gerar_pdf_processamento(processamento, request):
-    """Gera um PDF do processamento salarial usando ReportLab e salva no sistema de arquivos"""
+    """Gera PDF do processamento salarial no layout profissional (padrão Requisição de Fundos).
+    Retorna um BytesIO com o PDF gerado em memória."""
     import logging as _log
     _logger = _log.getLogger(__name__)
+    import io
+    import qrcode as _qr
+    from datetime import datetime
+    from decimal import Decimal
+    from django.utils import timezone as _tz
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    )
+    from reportlab.platypus.flowables import HRFlowable
     try:
-        from django.conf import settings
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import cm
-        from reportlab.lib.colors import black, gray, green, HexColor, white
-        from decimal import Decimal
-        import os
+        from reportlab.platypus import Image as RLImage
+    except ImportError:
+        RLImage = None
+    from users.models import Usuario
 
-        recibos = processamento.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
-        banca = processamento.banca
-        estado_display = processamento.get_estado_display()
+    recibos = processamento.recibos.select_related('colaborador').prefetch_related(
+        'subsidios_vinculados__subsidio'
+    ).all()
+    banca = processamento.banca
+    estado_display = processamento.get_estado_display()
 
-        # Criar diretório se não existir
-        pdf_dir = os.path.join(settings.MEDIA_ROOT, 'processamentos_salariais')
-        os.makedirs(pdf_dir, exist_ok=True)
+    PAGE_W, PAGE_H = A4
+    MARGIN = 0.7 * cm
+    W = PAGE_W - 2 * MARGIN
 
-        # Gerar PDF usando ReportLab
-        filename = f"processamento_{processamento.mes:02d}_{processamento.ano}_{processamento.pk}.pdf"
-        filepath = os.path.join(pdf_dir, filename)
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=MARGIN, rightMargin=MARGIN,
+        topMargin=0.5 * cm, bottomMargin=1.0 * cm,
+        title=f"Processamento Salarial {processamento.mes:02d}/{processamento.ano}",
+    )
 
-        # Criar o canvas do PDF
-        c = canvas.Canvas(filepath, pagesize=A4)
-        width, height = A4
+    COR_PRIMARIO = colors.HexColor('#0f172a')
+    COR_SECUNDARIO = colors.white
+    COR_CINZA = colors.HexColor('#64748b')
+    COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
+    COR_BORDA = colors.HexColor('#cbd5e1')
+    COR_BRANCO = colors.white
+    COR_HEADER = colors.white
+    COR_VERDE = colors.HexColor('#059669')
+    COR_VERMELHO = colors.HexColor('#dc2626')
 
-        # Configurar margens
-        margin_left = 2 * cm
-        margin_right = 2 * cm
-        margin_top = 2 * cm
-        margin_bottom = 2 * cm
+    def st(name, **kw):
+        defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRIMARIO, leading=11)
+        defaults.update(kw)
+        return ParagraphStyle(name, **defaults)
 
-        # Cabeçalho CDOA
-        cor_cdoa = HexColor('#1a3a5c')
-        cor_cdoa_gold = HexColor('#c9a84c')
-        c.setFillColor(cor_cdoa)
-        c.rect(0, height - 50, width, 50, fill=1, stroke=0)
-        c.setFillColor(white)
-        c.setFont('Helvetica-Bold', 12)
-        c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
-        c.setFont('Helvetica', 9)
-        c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-        c.setFillColor(cor_cdoa_gold)
-        c.setFont('Helvetica-Bold', 11)
-        c.drawRightString(width - 30, height - 30, estado_display)
+    def _safe(text):
+        if not text:
+            return ''
+        from django.utils.html import escape as _esc
+        return _esc(str(text))
 
-        y_position = height - 70
+    # ── Dados da empresa (banca / despachante) ──
+    nif_txt = banca.nif if banca else 'N/D'
+    nome_txt = _safe(banca.nome) if banca else 'Despachante Oficial'
+    cdoa_lic = _safe(banca.licenca_cdoa) if banca else '—'
+    endereco = _safe(banca.endereco) if banca else '—'
+    telefone = _safe(banca.telefone) if banca else '—'
+    email_b = _safe(banca.email) if banca else '—'
 
-        # Título
-        c.setFont("Helvetica-Bold", 18)
-        c.setFillColor(cor_cdoa)
-        title_text = "PROCESSAMENTO SALARIAL - COMPROVANTE DE PAGAMENTO"
-        text_width = c.stringWidth(title_text, "Helvetica-Bold", 18)
-        c.drawCentredString(width / 2, y_position, title_text)
-        y_position -= 25
+    responsavel_nome = 'DESPACHANTE OFICIAL'
+    responsavel_nif = '—'
+    responsavel_cedula = '—'
+    responsavel_telefone = '—'
+    responsavel_email = '—'
+    if banca:
+        try:
+            usuario_banca = Usuario.objects.get(id=banca.usuario_id)
+            responsavel_nome = _safe((usuario_banca.nome or 'DESPACHANTE OFICIAL')).upper()
+            responsavel_nif = _safe(usuario_banca.nif) or '—'
+            responsavel_cedula = _safe(usuario_banca.cedula) or '—'
+            responsavel_telefone = _safe(usuario_banca.telefone) or '—'
+            responsavel_email = _safe(usuario_banca.email) or '—'
+        except Exception:
+            pass
 
-        c.setFont("Helvetica-Bold", 12)
-        c.setFillColor(black)
-        banca_text = banca.nome
-        text_width = c.stringWidth(banca_text, "Helvetica-Bold", 12)
-        c.drawCentredString(width / 2, y_position, banca_text)
-        y_position -= 20
+    agora = datetime.now()
 
-        c.setFont("Helvetica", 10)
-        periodo_text = f"Período: {processamento.mes:02d}/{processamento.ano} | Status: {estado_display}"
-        text_width = c.stringWidth(periodo_text, "Helvetica", 10)
-        c.drawCentredString(width / 2, y_position, periodo_text)
-        y_position -= 15
+    # ── Totais ──
+    total_bruto = Decimal('0')
+    total_subsidios = Decimal('0')
+    total_faltas = Decimal('0')
+    total_irt = Decimal('0')
+    total_inss = Decimal('0')
+    total_liquido = Decimal('0')
+    for recibo in recibos:
+        total_bruto += recibo.bruto
+        total_faltas += recibo.outros_descontos
+        total_irt += recibo.irt
+        total_inss += recibo.inss_trabalhador
+        total_liquido += recibo.liquido
+        for vinculo in recibo.subsidios_vinculados.all():
+            total_subsidios += vinculo.valor
 
-        from django.utils import timezone
-        data_text = f"Data de pagamento: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
-        text_width = c.stringWidth(data_text, "Helvetica", 10)
-        c.drawCentredString(width / 2, y_position, data_text)
-        y_position -= 30
+    story = []
 
-        # Linha separadora
-        c.line(margin_left, y_position, width - margin_right, y_position)
-        y_position -= 30
+    # ══════════════════════════════════════════════════════════════════
+    # LOGO (esquerda) + QR CODE (direita)
+    # ══════════════════════════════════════════════════════════════════
+    logo_path = None
+    if banca and hasattr(banca, 'logo') and banca.logo:
+        try:
+            logo_path = banca.logo.path
+        except Exception:
+            logo_path = None
 
-        # Cabeçalho da tabela
-        c.setFont("Helvetica-Bold", 8)
-        headers = [
-            "Colaborador", "Salário Base", "Subsídios",
-            "Bruto", "Faltas", "IRT", "INSS 3%", "Líquido",
-        ]
-        col_widths = [6, 2, 2, 2, 1.5, 1.5, 1.5, 2]  # proporções
-        total_width = width - margin_left - margin_right
+    col_logo = Paragraph('', st('empty', fontSize=1))
+    if logo_path and RLImage:
+        try:
+            col_logo = RLImage(logo_path, width=2.4 * cm, height=1.7 * cm)
+        except Exception:
+            col_logo = Paragraph('', st('empty', fontSize=1))
 
-        x_position = margin_left
-        for i, header in enumerate(headers):
-            col_width = total_width * col_widths[i] / sum(col_widths)
-            c.drawString(x_position, y_position, header)
-            x_position += col_width
+    qr_data = (
+        f"=== PROCESSAMENTO SALARIAL ===\n"
+        f"Periodo: {processamento.mes:02d}/{processamento.ano}\n"
+        f"Estado: {estado_display}\n"
+        f"Banco: {banca.nome if banca else 'N/D'}\n"
+        f"Nr Colaboradores: {len(recibos)}\n"
+        f"\n--- TOTAIS ---\n"
+        f"Total Bruto: {fmt_kz(total_bruto)} KZ\n"
+        f"Total Subsidios: {fmt_kz(total_subsidios)} KZ\n"
+        f"Total Descontos (IRT+INSS+Faltas): {fmt_kz(total_irt + total_inss + total_faltas)} KZ\n"
+        f"Total Liquido: {fmt_kz(total_liquido)} KZ\n"
+        f"\n--- DESPACHANTE ---\n"
+        f"Nome: {responsavel_nome}\n"
+        f"NIF: {responsavel_nif}\n"
+        f"Cedula: {responsavel_cedula}\n"
+    )
+    _qr_buf = io.BytesIO()
+    _qr_obj = _qr.QRCode(version=1, box_size=10, border=2)
+    _qr_obj.add_data(qr_data)
+    _qr_obj.make(fit=True)
+    _qr_obj.make_image(fill_color="black", back_color="white").save(_qr_buf, format='PNG')
+    _qr_buf.seek(0)
+    qr_flowable = RLImage(_qr_buf, width=1.9 * cm, height=1.9 * cm) if RLImage else Paragraph('', st('empty', fontSize=1))
 
-        y_position -= 20
+    top_line = Table([[col_logo, qr_flowable]], colWidths=[W - 1.9 * cm, 1.9 * cm])
+    top_line.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(top_line)
+    story.append(Spacer(1, 0.15 * cm))
 
-        # Dados dos recibos
-        c.setFont("Helvetica", 8)
-        total_liquido = Decimal('0')
+    # ══════════════════════════════════════════════════════════════════
+    # BLOCO EMPRESA (esquerda) + INFO DOCUMENTO (direita)
+    # ══════════════════════════════════════════════════════════════════
+    empresa_info = (
+        f'<font size="9"><b>{nome_txt}</b></font><br/>'
+        f'<font size="7.5" color="#334155">Residencia: {endereco}</font><br/>'
+        f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
+        f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
+        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Licenca CDOA: {cdoa_lic}</font>'
+    )
+    doc_info = (
+        f'<font size="7.5">Processamento Salarial</font><br/>'
+        f'<font size="9"><b>{processamento.mes:02d}/{processamento.ano}</b></font><br/>'
+        f'<font size="7.5" color="#334155">Estado: {estado_display}</font><br/>'
+        f'<font size="7.5" color="#334155">Nr Colaboradores: {len(recibos)}</font>'
+    )
+    header_body = Table([[
+        Paragraph(empresa_info, st('empresa_info', fontSize=7.5, leading=10)),
+        Paragraph(doc_info, st('doc_info', fontSize=7.5, leading=10, alignment=TA_RIGHT)),
+    ]], colWidths=[W * 0.55, W * 0.45])
+    header_body.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_body)
+    story.append(Spacer(1, 0.35 * cm))
 
-        for recibo in recibos:
-            # Verificar se há espaço suficiente
-            if y_position < margin_bottom + 100:
-                c.showPage()
-                # Cabeçalho CDOA na nova página
-                c.setFillColor(cor_cdoa)
-                c.rect(0, height - 50, width, 50, fill=1, stroke=0)
-                c.setFillColor(white)
-                c.setFont('Helvetica-Bold', 12)
-                c.drawString(30, height - 35, 'REPÚBLICA DE ANGOLA')
-                c.setFont('Helvetica', 9)
-                c.drawString(30, height - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-                c.setFillColor(cor_cdoa_gold)
-                c.setFont('Helvetica-Bold', 11)
-                c.drawRightString(width - 30, height - 30, estado_display)
+    # ══════════════════════════════════════════════════════════════════
+    # TITULO DO DOCUMENTO
+    # ══════════════════════════════════════════════════════════════════
+    story.append(Paragraph('<font size="7.5">Original</font>', st('original', fontSize=7.5)))
+    story.append(Paragraph(
+        f'<font size="12"><b>Processamento Salarial - {banca.nome if banca else ""} ({processamento.mes:02d}/{processamento.ano})</b></font>',
+        st('titulo', fontSize=12)
+    ))
+    story.append(Spacer(1, 0.2 * cm))
 
-                y_position = height - 70
+    # ══════════════════════════════════════════════════════════════════
+    # DADOS DO DOCUMENTO (linha)
+    # ══════════════════════════════════════════════════════════════════
+    mes_nome = MESES[processamento.mes - 1] if 1 <= processamento.mes <= 12 else str(processamento.mes)
+    dados_doc_header = [
+        Paragraph('<b>Periodo</b>', st('ddh', fontSize=7.5)),
+        Paragraph('<b>Data Processamento</b>', st('ddh', fontSize=7.5)),
+        Paragraph('<b>Data Pagamento</b>', st('ddh', fontSize=7.5)),
+        Paragraph('<b>Nr Colaboradores</b>', st('ddh', fontSize=7.5)),
+        Paragraph('<b>Estado</b>', st('ddh', fontSize=7.5)),
+    ]
+    dados_doc_valores = [
+        Paragraph(f'{mes_nome} {processamento.ano}', st('ddv', fontSize=7.5)),
+        Paragraph(_tz.now().strftime('%d/%m/%Y'), st('ddv', fontSize=7.5)),
+        Paragraph(_tz.now().strftime('%d/%m/%Y'), st('ddv', fontSize=7.5)),
+        Paragraph(str(len(recibos)), st('ddv', fontSize=7.5)),
+        Paragraph(estado_display, st('ddv', fontSize=7.5)),
+    ]
+    t_dados_doc = Table([dados_doc_header, dados_doc_valores], colWidths=[W / 5] * 5)
+    t_dados_doc.setStyle(TableStyle([
+        ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_CINZA),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(t_dados_doc)
+    story.append(Paragraph(
+        f'<font size="7" color="#64748b">Observacoes: Comprovante de pagamento referente ao periodo {processamento.mes:02d}/{processamento.ano}</font>',
+        st('obs', fontSize=7)
+    ))
+    story.append(Spacer(1, 0.3 * cm))
 
-                # Repetir cabeçalho da tabela
-                c.setFont("Helvetica-Bold", 8)
-                x_position = margin_left
-                for i, header in enumerate(headers):
-                    col_width = total_width * col_widths[i] / sum(col_widths)
-                    c.drawString(x_position, y_position, header)
-                    x_position += col_width
-                y_position -= 20
-                c.setFont("Helvetica", 8)
+    # ══════════════════════════════════════════════════════════════════
+    # TABELA DE ITENS (Colaborador | Salario Base | Subsidios | Bruto | Faltas | IRT | INSS 3% | Liquido)
+    # ══════════════════════════════════════════════════════════════════
+    itens_header = [
+        Paragraph('<b>Colaborador</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO)),
+        Paragraph('<b>Salario Base</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+        Paragraph('<b>Subsidios</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+        Paragraph('<b>Bruto</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+        Paragraph('<b>Faltas</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+        Paragraph('<b>IRT</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+        Paragraph('<b>INSS 3%</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+        Paragraph('<b>Liquido</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
+    ]
+    itens_rows = [itens_header]
 
-            # Calcular total de subsídios
-            total_subsidios = Decimal('0')
-            for vinculo in recibo.subsidios_vinculados.all():
-                total_subsidios += vinculo.valor
+    for recibo in recibos:
+        total_sub = Decimal('0')
+        for vinculo in recibo.subsidios_vinculados.all():
+            total_sub += vinculo.valor
+        itens_rows.append([
+            Paragraph(_safe(recibo.colaborador.nome[:35]), st('ic', fontSize=7)),
+            Paragraph(fmt_kz(recibo.salario_base), st('ic', fontSize=7, alignment=TA_RIGHT)),
+            Paragraph(fmt_kz(total_sub), st('ic', fontSize=7, alignment=TA_RIGHT)),
+            Paragraph(fmt_kz(recibo.bruto), st('ic', fontSize=7, alignment=TA_RIGHT)),
+            Paragraph(fmt_kz(recibo.outros_descontos), st('ic', fontSize=7, alignment=TA_RIGHT, textColor=COR_VERMELHO if recibo.outros_descontos else COR_PRIMARIO)),
+            Paragraph(fmt_kz(recibo.irt), st('ic', fontSize=7, alignment=TA_RIGHT)),
+            Paragraph(fmt_kz(recibo.inss_trabalhador), st('ic', fontSize=7, alignment=TA_RIGHT)),
+            Paragraph(fmt_kz(recibo.liquido), st('ic', fontSize=7, alignment=TA_RIGHT, textColor=COR_VERDE)),
+        ])
 
-            # Dados do recibo
-            dados = [
-                recibo.colaborador.nome[:30],  # Limitar nome
-                fmt_kz(recibo.salario_base),
-                fmt_kz(total_subsidios),
-                fmt_kz(recibo.bruto),
-                fmt_kz(recibo.outros_descontos),
-                fmt_kz(recibo.irt),
-                fmt_kz(recibo.inss_trabalhador),
-                fmt_kz(recibo.liquido)
-            ]
+    t_itens = Table(itens_rows, colWidths=[W*0.22, W*0.11, W*0.11, W*0.11, W*0.11, W*0.11, W*0.11, W*0.12])
+    t_itens.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
+    ]))
+    story.append(t_itens)
+    story.append(Spacer(1, 0.2 * cm))
 
-            x_position = margin_left
-            for i, dado in enumerate(dados):
-                col_width = total_width * col_widths[i] / sum(col_widths)
-                if i == 0:  # Nome do colaborador - alinhado à esquerda
-                    c.drawString(x_position, y_position, dado)
-                else:  # Valores - alinhados à direita
-                    c.drawRightString(x_position + col_width, y_position, dado)
-                x_position += col_width
+    # ══════════════════════════════════════════════════════════════════
+    # TOTAIS (esquerda) + SUMARIO (direita)
+    # ══════════════════════════════════════════════════════════════════
+    from financeiro.views import valor_por_extenso as _valor_ext
 
-            total_liquido += recibo.liquido
-            y_position -= 15
+    totais_rows = [
+        [Paragraph('<b>Totais</b>', st('toh', fontSize=7, textColor=COR_PRIMARIO)),
+         Paragraph('<b>Valor</b>', st('toh', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_RIGHT))],
+        [Paragraph('Total Bruto', st('toc', fontSize=7)),
+         Paragraph(f'{fmt_kz(total_bruto)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+        [Paragraph('Total Subsidios', st('toc', fontSize=7)),
+         Paragraph(f'{fmt_kz(total_subsidios)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+        [Paragraph('Total Faltas/Descontos', st('toc', fontSize=7)),
+         Paragraph(f'{fmt_kz(total_faltas)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+        [Paragraph('Total IRT', st('toc', fontSize=7)),
+         Paragraph(f'{fmt_kz(total_irt)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+        [Paragraph('Total INSS (3%)', st('toc', fontSize=7)),
+         Paragraph(f'{fmt_kz(total_inss)} KZ', st('toc', fontSize=7, alignment=TA_RIGHT))],
+    ]
+    t_totais = Table(totais_rows, colWidths=[W * 0.55 * 0.55, W * 0.55 * 0.45])
+    t_totais.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.0, COR_CINZA),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.3, COR_BORDA),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
+    ]))
 
-        # Linha separadora antes do total
-        y_position -= 10
-        c.line(margin_left, y_position, width - margin_right, y_position)
-        y_position -= 15
+    ref_texto = (
+        f'<font size="7.5"><b>Referencia do Processamento</b></font><br/>'
+        f'<font size="7" color="#334155">Periodo: {processamento.mes:02d}/{processamento.ano}</font><br/>'
+        f'<font size="7" color="#334155">Nr Colaboradores: {len(recibos)}</font><br/>'
+        f'<font size="7" color="#334155">Codigo: PROC-{processamento.pk:04d}</font>'
+    )
+    bloco_esquerdo = [
+        [t_totais],
+        [Spacer(1, 0.25 * cm)],
+        [Paragraph(ref_texto, st('ref_proc', fontSize=7, leading=10))],
+    ]
+    t_bloco_esquerdo = Table(bloco_esquerdo, colWidths=[W * 0.55])
+    t_bloco_esquerdo.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
 
-        # Total
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(margin_left, y_position, "Total Líquido Pago:")
-        c.drawRightString(width - margin_right, y_position, f"{fmt_kz(total_liquido)} KZ")
-        y_position -= 40
+    sumario_rows = [
+        [Paragraph('<b>Sumario</b>', st('sum_h', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO))],
+        [Spacer(1, 0.15 * cm)],
+        [Paragraph(f'<font size="7">Total Bruto: <b>{fmt_kz(total_bruto)} KZ</b></font>',
+                   st('sum_l', fontSize=7, leading=10))],
+        [Paragraph(f'<font size="7">Total Subsidios: <b>{fmt_kz(total_subsidios)} KZ</b></font>',
+                   st('sum_l', fontSize=7, leading=10))],
+        [Paragraph(f'<font size="7">Total Descontos: <b>{fmt_kz(total_faltas + total_irt + total_inss)} KZ</b></font>',
+                   st('sum_l', fontSize=7, leading=10))],
+        [Spacer(1, 0.15 * cm)],
+        [Paragraph(f'<font size="10" color="#0f172a"><b>Total Liquido: {fmt_kz(total_liquido)} KZ</b></font>',
+                   st('sum_total', fontSize=10, leading=12))],
+        [Spacer(1, 0.1 * cm)],
+        [Paragraph(f'<font size="6.5" color="#64748b"><i>{_valor_ext(total_liquido)}</i></font>',
+                   st('sum_ext', fontSize=6.5, leading=8))],
+    ]
+    t_sumario = Table(sumario_rows, colWidths=[W * 0.35])
+    t_sumario.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, 0), COR_HEADER),
+        ('TOPPADDING', (0, 0), (0, 0), 5),
+        ('BOTTOMPADDING', (0, 0), (0, 0), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 1), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
+    ]))
+    bloco_direito = t_sumario
 
-        # Assinatura do Despachante (centrada)
-        y_position -= 30
-        c.setFont("Helvetica", 9)
-        sig_line_width = 200
-        sig_x = (width - sig_line_width) / 2
-        c.line(sig_x, y_position, sig_x + sig_line_width, y_position)
-        y_position -= 14
-        label = f"Despachante — {banca.nome}"
-        label_width = c.stringWidth(label, "Helvetica", 9)
-        c.drawString((width - label_width) / 2, y_position, label)
-        y_position -= 11
-        sub_label = "Assinatura e Carimbo"
-        sub_width = c.stringWidth(sub_label, "Helvetica", 9)
-        c.drawString((width - sub_width) / 2, y_position, sub_label)
+    t_resumo = Table([[t_bloco_esquerdo, '', '', bloco_direito]], colWidths=[W * 0.60, W * 0.02, W * 0.03, W * 0.35])
+    t_resumo.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(t_resumo)
+    story.append(Spacer(1, 0.2 * cm))
 
-        y_position -= 40
+    # ══════════════════════════════════════════════════════════════════
+    # NOTA
+    # ══════════════════════════════════════════════════════════════════
+    nota_box = Table([[
+        Paragraph('<b>Nota</b>', st('nota_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+    ]], colWidths=[W])
+    nota_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_SECUNDARIO),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+        ('LEFTPADDING', (0, 0), (-1, 0), 6),
+    ]))
+    story.append(nota_box)
+    story.append(Paragraph(
+        'Os valores referidos neste documento sao os valores liquidos a transferir para as contas dos colaboradores.',
+        st('nota_txt', fontSize=7, textColor=COR_CINZA)
+    ))
+    story.append(Spacer(1, 0.15 * cm))
 
-        # Rodapé
-        c.setFont("Helvetica-Bold", 8)
-        footer_text = "DOCUMENTO FISCAL - COMPROVANTE DE PAGAMENTO"
-        text_width = c.stringWidth(footer_text, "Helvetica-Bold", 8)
-        c.drawString((width - text_width) / 2, y_position, footer_text)
-        y_position -= 12
+    # ══════════════════════════════════════════════════════════════════
+    # DESPACHANTE RESPONSAVEL
+    # ══════════════════════════════════════════════════════════════════
+    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.15 * cm))
+    desp_box = Table([[
+        Paragraph('<b>Despachante Responsavel</b>', st('desp_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+    ]], colWidths=[W])
+    desp_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+        ('LEFTPADDING', (0, 0), (-1, 0), 6),
+    ]))
+    story.append(desp_box)
+    story.append(Spacer(1, 0.1 * cm))
+    story.append(Paragraph(
+        f'{responsavel_nome} &nbsp;|&nbsp; NIF: {responsavel_nif} &nbsp;|&nbsp; '
+        f'Cedula CDOA: {responsavel_cedula}',
+        st('desp_l1', fontSize=7.5, textColor=COR_PRIMARIO)
+    ))
+    story.append(Paragraph(
+        f'Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}',
+        st('desp_l2', fontSize=7, textColor=COR_CINZA)
+    ))
+    story.append(Spacer(1, 0.15 * cm))
 
-        c.setFont("Helvetica", 7)
-        footer_text2 = "Este documento foi gerado automaticamente pelo Sistema de Gestão de Recursos Humanos"
-        text_width = c.stringWidth(footer_text2, "Helvetica", 7)
-        c.drawString((width - text_width) / 2, y_position, footer_text2)
-        y_position -= 10
+    # ══════════════════════════════════════════════════════════════════
+    # ASSINATURA
+    # ══════════════════════════════════════════════════════════════════
+    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.1 * cm))
+    ass_data = [
+        [Paragraph('<b>Assinatura:</b>', st('ass_lab', fontSize=8)),
+         Paragraph('', st('ass_spc', fontSize=8))],
+        [Spacer(1, 0.2 * cm), Spacer(1, 0.2 * cm)],
+        [HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA),
+         HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA)],
+        [Paragraph('<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
+         Paragraph(f'<font size="7.5"><b>{_safe(banca.nome) if banca else "Despachante"}</b></font>', st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
+    ]
+    assinatura = Table(ass_data, colWidths=[W / 2, W / 2])
+    assinatura.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(assinatura)
+    story.append(Spacer(1, 0.15 * cm))
 
-        footer_text3 = f"Válido para fins fiscais e de auditoria - Código: PROC-{processamento.pk:04d}"
-        text_width = c.stringWidth(footer_text3, "Helvetica", 7)
-        c.drawString((width - text_width) / 2, y_position, footer_text3)
-        y_position -= 10
+    # ══════════════════════════════════════════════════════════════════
+    # RODAPE: HASH + PAGINA/DATA
+    # ══════════════════════════════════════════════════════════════════
+    story.append(HRFlowable(width=W, thickness=0.5, color=colors.HexColor('#e2e2e2')))
+    story.append(Spacer(1, 0.1 * cm))
+    from financeiro.pdf_utils import _hash_documento
+    dados_hash = {
+        'tipo': 'Processamento Salarial',
+        'periodo': f'{processamento.mes:02d}/{processamento.ano}',
+        'banca': banca.nome if banca else '',
+        'total_liquido': str(total_liquido),
+        'pk': processamento.pk,
+    }
+    hsh = _hash_documento(dados_hash)[:16]
+    story.append(Paragraph(
+        f'<font size="6" color="#94a3b8"><b>{nome_txt} - {hsh}</b> &nbsp;|&nbsp; '
+        f'Processado por programa valido n35/AGT/2019<br/>'
+        f'Pag. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
+        st('footer', fontSize=6)
+    ))
 
-        footer_text4 = f"Data de geração: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}"
-        text_width = c.stringWidth(footer_text4, "Helvetica", 7)
-        c.drawString((width - text_width) / 2, y_position, footer_text4)
+    doc.build(story)
+    buffer.seek(0)
 
-        # Salvar o PDF
-        c.save()
+    processamento.pdf_gerado = True
+    processamento.save(update_fields=['pdf_gerado'])
 
-        # Salvar referência no processamento
-        processamento.pdf_gerado = True
-        processamento.save()
-    except Exception:
-        _logger.exception("Erro ao gerar PDF do processamento %s", processamento.pk)
+    return buffer
 
 
 def _gerar_faturas_processamento(processamento, request):
@@ -2487,7 +2740,7 @@ def salario_apagar_view(request, pk):
 
 @_requer_sessao
 def salario_download_view(request, pk):
-    """Faz download do PDF gerado automaticamente do processamento salarial"""
+    """Faz download do PDF do processamento salarial — gera em memória e retorna direto"""
     acc = obter_acesso_rh(request)
     if not acc:
         return redirect_sem_acesso_rh(request)
@@ -2498,44 +2751,23 @@ def salario_download_view(request, pk):
 
     proc = get_object_or_404(ProcessamentoSalarial, pk=pk, banca=banca)
 
-    # Verificar se o processamento está pago
     if proc.estado != 'Pago':
         return render(request, 'rh/salarios/erro_download.html',
                       _ctx(request, 'salarios', {
                           'banca': banca, 'proc': proc,
-                          'erro': 'O PDF só está disponível para processamentos marcados como "Pago".'
+                          'erro': 'O PDF so esta disponivel para processamentos marcados como "Pago".'
                       }))
 
-    from django.conf import settings
-    import os
-
-    # Caminho do arquivo PDF
-    pdf_dir = os.path.join(settings.MEDIA_ROOT, 'processamentos_salariais')
-    pdf_filename = f"processamento_{proc.mes:02d}_{proc.ano}_{proc.pk}.pdf"
-    pdf_filepath = os.path.join(pdf_dir, pdf_filename)
-
-    # Sempre gerar o PDF (ou regenerar se não existir)
     try:
-        _gerar_pdf_processamento(proc, request)
-
-        # Verificar se o PDF foi criado com sucesso
-        if os.path.exists(pdf_filepath):
-            with open(pdf_filepath, 'rb') as f:
-                pdf_content = f.read()
-
-            response = HttpResponse(pdf_content, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="comprovante_pagamento_{proc.mes:02d}_{proc.ano}.pdf"'
-            response['Content-Length'] = len(pdf_content)
-
-            return response
-        else:
-            raise FileNotFoundError("PDF não foi gerado")
-
+        buffer = _gerar_pdf_processamento(proc, request)
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="comprovante_pagamento_{proc.mes:02d}_{proc.ano}.pdf"'
+        return response
     except Exception as e:
         return render(request, 'rh/salarios/erro_download.html',
                       _ctx(request, 'salarios', {
                           'banca': banca, 'proc': proc,
-                          'erro': f'Erro ao gerar o PDF: {str(e)}. Verifique se todos os dados estão corretos.'
+                          'erro': f'Erro ao gerar o PDF: {str(e)}. Verifique se todos os dados estao corretos.'
                       }))
 
 
@@ -2629,8 +2861,6 @@ def salario_detalhe_view(request, pk):
                 return redirect('rh_salario_detalhe', pk=proc.pk)
             # Gerar faturas para o despachante e colaboradores
             _gerar_faturas_processamento(proc, request)
-            # Gerar PDF automaticamente quando marcado como pago
-            _gerar_pdf_processamento(proc, request)
             proc.estado = 'Pago'
             proc.save()
             messages.success(request, f'Processamento {proc.mes:02d}/{proc.ano} marcado como Pago.')

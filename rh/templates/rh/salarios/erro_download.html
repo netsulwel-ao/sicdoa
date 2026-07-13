@@ -32,7 +32,7 @@
       <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <dt class="text-xs text-gray-500">Período</dt>
-          <dd class="font-semibold text-gray-900 dark:text-white">{{ proc.mes:02d }}/{{ proc.ano }}</dd>
+          <dd class="font-semibold text-gray-900 dark:text-white">{{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}</dd>
         </div>
         <div>
           <dt class="text-xs text-gray-500">Estado Atual</dt>
