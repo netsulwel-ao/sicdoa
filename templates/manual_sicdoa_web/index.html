@@ -4,9 +4,9 @@
 {% block main_classes %}p-0{% endblock %}
 
 {% block content %}
-<div style="background:#f6f7f8;min-height:100vh;color:#111418;">
+<div style="background:#f6f7f8 !important;min-height:100vh;color:#111418;">
 
-  <div style="position:sticky;top:64px;z-index:50;background:rgba(246,247,248,0.92);backdrop-filter:blur(8px);border-bottom:1px solid #e5e7eb;padding:14px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+  <div style="position:sticky;top:64px;z-index:50;background:rgba(246,247,248,0.95);backdrop-filter:blur(8px);border-bottom:1px solid #e5e7eb;padding:14px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
     <div style="display:flex;align-items:center;gap:12px;">
       <h1 style="font-size:1rem;margin:0;font-weight:600;color:#111418;">Manual SICDOA — Manual do Utilizador</h1>
     </div>
@@ -24,6 +24,13 @@
   </div>
 
 </div>
+
+<style>
+  html, html.dark, html.light, body, body.dark, body.light {
+    background-color: #f6f7f8 !important;
+  }
+  #sidebar { background-color: #fff !important; }
+</style>
 
 <script>
   const totalPages = 20;
