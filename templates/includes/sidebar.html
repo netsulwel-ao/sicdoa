@@ -382,6 +382,17 @@
     </a>
     {% endif %}
 
+    {# ── Manual do Utilizador ───────────────────────────────────────────── #}
+    {% if papel == 'Administrador' or papel == 'Despachante Oficial' %}
+    <a href="{% url 'manual_utilizador' %}" target="_blank"
+       class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+              {% if active == 'Manual' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-book"></i>
+      <span class="text-sm font-medium">Manual do Utilizador</span>
+      <i class="fas fa-external-link-alt text-xs ml-auto opacity-60"></i>
+    </a>
+    {% endif %}
+
   </nav>
 
   <!-- Sair -->

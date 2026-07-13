@@ -1851,3 +1851,8 @@ def logs_atividade_view(request):
         'nome': request.session.get('usuario', {}).get('nome', ''),
     })
     return render(request, 'users/logs_atividade.html', context)
+
+
+def manual_utilizador_view(request):
+    """Página do Manual do Utilizador SICDOA."""
+    return render(request, 'manual_sicdoa_web/index.html')

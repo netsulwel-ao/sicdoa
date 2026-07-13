@@ -63,6 +63,9 @@ urlpatterns = [
     # Logs de Atividade
     path('logs/', user_views.logs_atividade_view, name='logs_atividade'),
 
+    # Manual do Utilizador
+    path('manual/', user_views.manual_utilizador_view, name='manual_utilizador'),
+
     # Gestão de Sessão
     path('extend-session/', session_views.extend_session_view, name='extend_session'),
     path('session-status/', session_views.session_status_view, name='session_status'),
