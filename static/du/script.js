@@ -1281,6 +1281,8 @@ function atualizarCamposRegime() {
   }
 
   // Regras para campos do exportador/destinatário — NIF e Nome sempre obrigatórios
+  const destinatarioNif = document.getElementById('destinatario_nif');
+  if (destinatarioNif) destinatarioNif.setAttribute('required', 'true');
   if (nomeDestinatario) nomeDestinatario.setAttribute('required', 'true');
   if (nifExportador) nifExportador.setAttribute('required', 'true');
   if (nomeExportador) nomeExportador.setAttribute('required', 'true');
