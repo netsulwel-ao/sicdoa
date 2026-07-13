@@ -252,8 +252,15 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
         form.instance.criado_por_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.criado_por_nome = usuario_data.get('nome', '')
-        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        banca_id = self.request.session.get('banca_id')
+        form.instance.banca_id = banca_id or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+        if banca_id and form.instance.cliente and form.instance.cliente.banca_id != banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('O cliente seleccionado não pertence à sua banca.')
+        if banca_id and form.instance.processo_aduaneiro and getattr(form.instance.processo_aduaneiro, 'banca_id', None) and form.instance.processo_aduaneiro.banca_id != banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('O processo aduaneiro seleccionado não pertence à sua banca.')
         response = super().form_valid(form)
         self._salvar_custos(self.object)
         self.object._recalcular_totais()
@@ -1855,8 +1862,12 @@ def du_custos_json(request, pk):
     if _user_tem_acesso_total(request):
         du = get_object_or_404(DeclaracaoUnica, pk=pk, status='Aprovada')
     else:
-        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-        du = get_object_or_404(DeclaracaoUnica, pk=pk, status='Aprovada', despachante_id=usuario_id)
+        banca_id = request.session.get('banca_id')
+        if banca_id:
+            du = get_object_or_404(DeclaracaoUnica, pk=pk, status='Aprovada', banca_id=banca_id)
+        else:
+            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+            du = get_object_or_404(DeclaracaoUnica, pk=pk, status='Aprovada', despachante_id=usuario_id)
     taxas = Decimal(str(du.total_impostos or 0))
     emolumentos = Decimal(str(du.total_emgead or 0))
     iva_val = Decimal(str(du.iva or 0))
@@ -1881,6 +1892,12 @@ def _get_object_or_404_com_scope(request, model, pk, scope_field='cliente__usuar
     banca_id = request.session.get('banca_id')
     if banca_id:
         base['banca_id'] = banca_id
+        filial_id = request.session.get('colaborador_filial_id')
+        if filial_id and hasattr(model, 'filial_id'):
+            from users.permissoes import get_usuario_permissoes
+            perm_set = get_usuario_permissoes(request)
+            if _tem_escopo_filial(perm_set, filial_id):
+                base['filial_id'] = filial_id
     if _user_tem_acesso_total(request):
         return get_object_or_404(model, **base)
     usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
@@ -2036,6 +2053,13 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
     template_name = 'financeiro/factura_form.html'
     success_message = "Factura Final actualizada com sucesso!"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            kwargs['banca_id'] = banca_id
+        return kwargs
+
     def get_success_url(self):
         return reverse('financeiro:factura_detalhe', kwargs={'pk': self.object.pk})
 
@@ -2064,7 +2088,16 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
         return context
 
     def form_valid(self, form):
-        # Não sobrescrever criador em edição
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            if form.instance.cliente and form.instance.cliente.banca_id != banca_id:
+                from django.core.exceptions import PermissionDenied
+                raise PermissionDenied('O cliente seleccionado não pertence à sua banca.')
+            if form.instance.processo_aduaneiro and getattr(form.instance.processo_aduaneiro, 'banca_id', None) and form.instance.processo_aduaneiro.banca_id != banca_id:
+                from django.core.exceptions import PermissionDenied
+                raise PermissionDenied('O processo aduaneiro seleccionado não pertence à sua banca.')
+        form.instance.banca_id = banca_id or getattr(form.instance.cliente, 'banca_id', None)
+        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
         registrar_historico(
             'Factura', self.object.pk, self.object.numero_factura, 'Editada',
@@ -2240,12 +2273,26 @@ class ReciboClienteCreateView(BaseContextMixin, SuccessMessageMixin, CreateView)
     success_url = reverse_lazy('financeiro:recibo_lista')
     success_message = "Recibo emitido com sucesso!"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            kwargs['banca_id'] = banca_id
+        return kwargs
+
     def form_valid(self, form):
         form.instance.utilizador_responsavel_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.utilizador_responsavel_nome = usuario_data.get('nome', '')
-        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        banca_id = self.request.session.get('banca_id')
+        form.instance.banca_id = banca_id or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+        if banca_id and form.instance.cliente and form.instance.cliente.banca_id != banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('O cliente seleccionado não pertence à sua banca.')
+        if banca_id and form.instance.factura and getattr(form.instance.factura, 'banca_id', None) and form.instance.factura.banca_id != banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('A factura selecionada não pertence à sua banca.')
         response = super().form_valid(form)
         registrar_historico(
             'Recibo', self.object.pk, self.object.numero_recibo, 'Criado',
@@ -2305,8 +2352,7 @@ def cancelar_recibo(request, pk):
         messages.error(request, 'Este recibo já está cancelado.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
-    pode_cancelar = _user_tem_acesso_total(request)
-    if not pode_cancelar:
+    if not _pode_escrever(request):
         messages.error(request, 'Não tem permissão para cancelar recibos.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
@@ -2338,8 +2384,7 @@ def editar_recibo(request, pk):
         messages.error(request, 'Este recibo não pode ser editado.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
-    pode_editar = _user_tem_acesso_total(request)
-    if not pode_editar:
+    if not _pode_escrever(request):
         messages.error(request, 'Não tem permissão para editar recibos.')
         return redirect('financeiro:recibo_detalhe', pk=pk)
 
@@ -2401,13 +2446,27 @@ class NotaCreditoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     success_url = reverse_lazy('financeiro:nota_credito_lista')
     success_message = "Nota de Crédito emitida com sucesso!"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            kwargs['banca_id'] = banca_id
+        return kwargs
+
     def form_valid(self, form):
         usuario_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.utilizador_criador_id = usuario_id
         form.instance.utilizador_criador_nome = usuario_data.get('nome', '')
-        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        banca_id = self.request.session.get('banca_id')
+        form.instance.banca_id = banca_id or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+        if banca_id and form.instance.cliente and form.instance.cliente.banca_id != banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('O cliente seleccionado não pertence à sua banca.')
+        if banca_id and form.instance.factura_relacionada and getattr(form.instance.factura_relacionada, 'banca_id', None) and form.instance.factura_relacionada.banca_id != banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('A factura selecionada não pertence à sua banca.')
         form.instance.estado = 'Aprovada'
         form.instance.utilizador_aprovador_id = usuario_id
         form.instance.utilizador_aprovador_nome = usuario_data.get('nome', '')
@@ -2484,6 +2543,13 @@ class NotaCreditoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
     form_class = NotaCreditoForm
     template_name = 'financeiro/nota_credito_form.html'
     success_message = "Nota de Crédito actualizada com sucesso!"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            kwargs['banca_id'] = banca_id
+        return kwargs
 
     def get_success_url(self):
         return reverse('financeiro:nota_credito_detalhe', kwargs={'pk': self.object.pk})
@@ -2673,13 +2739,27 @@ class NotaDebitoCreateView(BaseContextMixin, SuccessMessageMixin, CreateView):
     success_url = reverse_lazy('financeiro:nota_debito_lista')
     success_message = "Nota de Débito emitida com sucesso!"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            kwargs['banca_id'] = banca_id
+        return kwargs
+
     def form_valid(self, form):
         usuario_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.utilizador_criador_id = usuario_id
         form.instance.utilizador_criador_nome = usuario_data.get('nome', '')
-        form.instance.banca_id = self.request.session.get('banca_id') or getattr(form.instance.cliente, 'banca_id', None)
+        banca_id = self.request.session.get('banca_id')
+        form.instance.banca_id = banca_id or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+        if banca_id and form.instance.cliente and form.instance.cliente.banca_id != banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('O cliente seleccionado não pertence à sua banca.')
+        if banca_id and form.instance.factura_relacionada and getattr(form.instance.factura_relacionada, 'banca_id', None) and form.instance.factura_relacionada.banca_id != banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('A factura selecionada não pertence à sua banca.')
         form.instance.estado = 'Aprovada'
         form.instance.utilizador_aprovador_id = usuario_id
         form.instance.utilizador_aprovador_nome = usuario_data.get('nome', '')
@@ -2757,6 +2837,13 @@ class NotaDebitoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
     form_class = NotaDebitoForm
     template_name = 'financeiro/nota_debito_form.html'
     success_message = "Nota de Débito actualizada com sucesso!"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            kwargs['banca_id'] = banca_id
+        return kwargs
 
     def get_success_url(self):
         return reverse('financeiro:nota_debito_detalhe', kwargs={'pk': self.object.pk})
@@ -3049,6 +3136,13 @@ class FacturaReciboUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView)
             qs = qs.filter(**filtro)
         return qs.exclude(estado='Cancelada')
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            kwargs['banca_id'] = banca_id
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['titulo'] = "Editar Factura-Recibo"
@@ -3067,6 +3161,14 @@ class FacturaReciboUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView)
         return context
 
     def form_valid(self, form):
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            if form.instance.cliente and form.instance.cliente.banca_id != banca_id:
+                from django.core.exceptions import PermissionDenied
+                raise PermissionDenied('O cliente seleccionado não pertence à sua banca.')
+            if form.instance.factura and getattr(form.instance.factura, 'banca_id', None) and form.instance.factura.banca_id != banca_id:
+                from django.core.exceptions import PermissionDenied
+                raise PermissionDenied('A factura selecionada não pertence à sua banca.')
         form.instance.utilizador_responsavel_id = self.request.session.get('usuario_id')
         usuario_data = self.request.session.get('usuario', {})
         form.instance.utilizador_responsavel_nome = usuario_data.get('nome', '')
@@ -5203,9 +5305,13 @@ def api_dados_cliente(request):
         # Verificar permissões
         filtro = {}
         if not _user_tem_acesso_total(request):
-            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-            if usuario_id:
-                filtro['usuario_id'] = usuario_id
+            banca_id = request.session.get('banca_id')
+            if banca_id:
+                filtro['banca_id'] = banca_id
+            else:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                if usuario_id:
+                    filtro['banca__usuario_id'] = usuario_id
         
         try:
             cliente = Cliente.objects.get(id=cliente_id, **filtro)
@@ -5235,22 +5341,23 @@ def api_buscar_cliente(request):
     """API: Busca clientes por NIF ou nome para autocomplete"""
     try:
         q = request.GET.get('q', '').strip()
+        qs = Cliente.objects.filter(ativo=True)
+        if not _user_tem_acesso_total(request):
+            banca_id = request.session.get('banca_id')
+            if banca_id:
+                qs = qs.filter(banca_id=banca_id)
+            else:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                if usuario_id:
+                    qs = qs.filter(banca__usuario_id=usuario_id)
+
         if len(q) < 1:
-            qs = Cliente.objects.filter(ativo=True)
-            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-            if usuario_id and not _user_tem_acesso_total(request):
-                qs = qs.filter(usuario_id=usuario_id)
             qs = qs.order_by('nome')[:20]
             clientes = [
                 {'value': c.id, 'label': f'{c.nif} - {c.nome}', 'nome': c.nome, 'nif': c.nif}
                 for c in qs
             ]
             return JsonResponse({'success': True, 'clientes': clientes})
-
-        qs = Cliente.objects.filter(ativo=True)
-        usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-        if usuario_id and not _user_tem_acesso_total(request):
-            qs = qs.filter(usuario_id=usuario_id)
 
         from django.db.models import Q
         qs = qs.filter(
@@ -5276,22 +5383,26 @@ def api_processos_cliente(request):
         if not cliente_id:
             return JsonResponse({'success': False, 'error': 'ID do cliente é obrigatório'})
         
-        # ┌─ Validar que cliente existe e pertence ao utilizador ─────────────┐
         try:
             cliente = Cliente.objects.get(id=cliente_id)
         except Cliente.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Cliente não encontrado'})
         
-        # ┌─ Verificar permissão de acesso ao cliente ─────────────────────────┐
         if not _user_tem_acesso_total(request):
-            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-            if usuario_id and cliente.usuario_id != usuario_id:
+            banca_id = request.session.get('banca_id')
+            if banca_id and cliente.banca_id != banca_id:
                 return JsonResponse({
                     'success': False, 
                     'error': 'Você não tem permissão para ver processos deste cliente'
                 })
+            elif not banca_id:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                if usuario_id and cliente.banca and cliente.banca.usuario_id != usuario_id:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'Você não tem permissão para ver processos deste cliente'
+                    })
         
-        # ┌─ Construir filtro base ───────────────────────────────────────────┐
         filtro = {}
         if cliente.nif:
             filtro['nif_declarante__iexact'] = cliente.nif
@@ -5299,11 +5410,14 @@ def api_processos_cliente(request):
             filtro['exportador_nome__iexact'] = cliente.nome
         filtro['status'] = 'Submetida'
         
-        # ┌─ Adicionar filtro por utilizador/despachante ──────────────────────┐
         if not _user_tem_acesso_total(request):
-            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-            if usuario_id:
-                filtro['usuario_id'] = usuario_id
+            banca_id = request.session.get('banca_id')
+            if banca_id:
+                filtro['banca_id'] = banca_id
+            else:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                if usuario_id:
+                    filtro['banca__usuario_id'] = usuario_id
         
         # ┌─ Buscar processos com os filtros ─────────────────────────────────┐
         processos_qs = DeclaracaoUnica.objects.filter(**filtro).values(
@@ -5339,9 +5453,13 @@ def api_dados_processo(request):
         
         filtro = {'id': processo_id}
         if not _user_tem_acesso_total(request):
-            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-            if usuario_id:
-                filtro['usuario_id'] = usuario_id
+            banca_id = request.session.get('banca_id')
+            if banca_id:
+                filtro['banca_id'] = banca_id
+            else:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                if usuario_id:
+                    filtro['banca__usuario_id'] = usuario_id
         
         try:
             processo = DeclaracaoUnica.objects.get(**filtro)
@@ -5489,6 +5607,16 @@ def api_facturas_por_cliente(request):
             cliente_id = int(cliente_id)
         except (ValueError, TypeError):
             return JsonResponse({'success': True, 'facturas': []})
+
+        if not _user_tem_acesso_total(request):
+            banca_id = request.session.get('banca_id')
+            if banca_id:
+                cliente_existe = Cliente.objects.filter(id=cliente_id, banca_id=banca_id).exists()
+            else:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                cliente_existe = Cliente.objects.filter(id=cliente_id, banca__usuario_id=usuario_id).exists() if usuario_id else False
+            if not cliente_existe:
+                return JsonResponse({'success': True, 'facturas': []})
 
         facturas = (
             FacturaCliente.objects

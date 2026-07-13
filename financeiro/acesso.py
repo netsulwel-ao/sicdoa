@@ -31,7 +31,7 @@ def _get_banca_filial(request):
     if banca_id:
         return banca_id, None, perm_set, False
     uid = request.session.get('usuario_id')
-    return None, None, None, uid is None
+    return None, None, perm_set, False
 
 
 def _tem_escopo_filial(perm_set, filial_id):

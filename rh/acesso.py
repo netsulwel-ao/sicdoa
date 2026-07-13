@@ -423,10 +423,14 @@ def pode_aprovar_presenca(request, banca, aprovador_col, is_desp, target_col):
     return False
 
 
-def filial_id_obrigatoria_gestor(gestor, is_despachante, filial_id_post, col_log=None):
+def filial_id_obrigatoria_gestor(gestor, is_despachante, filial_id_post, col_log=None, banca=None):
     """Em criações, gestor só pode associar à sua filial.
-    RH Filial (não gestor) fica escopo à sua própria filial."""
+    RH Filial (não gestor) fica escopo à sua própria filial.
+    Despachante: valida que filial pertence à banca."""
     if is_despachante:
+        if filial_id_post and banca:
+            if not banca.filiais.filter(pk=filial_id_post, ativa=True).exists():
+                return None
         return filial_id_post or None
     if gestor:
         return gestor.filial_id

@@ -1,252 +1,302 @@
 {% extends 'governanca/base_governanca.html' %}
+{% block title %}Gestão de Utilizadores — CDOA{% endblock %}
 {% block content %}
   {% csrf_token %}
 
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <div>
-        <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black flex items-center gap-3">
-          <span class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <i class="fas fa-users-cog text-primary"></i>
-          </span>
-          Gestão de Utilizadores
-        </h1>
-        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1 ml-[52px]">
-          Gerir contas de acesso ao sistema
-        </p>
-      </div>
-      <a href="{% url 'governanca_utilizador_novo' %}"
-         class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm hover:shadow-md flex items-center gap-2">
-        <i class="fas fa-user-plus"></i> Novo Utilizador
-      </a>
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="status-stats">
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <i class="fas fa-users text-primary text-xl"></i>
-          </div>
-          <div>
-            <p class="text-3xl font-black text-[#111418] dark:text-white">{{ stats_total }}</p>
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</p>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-            <i class="fas fa-user-check text-green-600 dark:text-green-400 text-xl"></i>
-          </div>
-          <div>
-            <p class="text-3xl font-black text-[#111418] dark:text-white">{{ stats_ativos }}</p>
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Activos</p>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-            <i class="fas fa-user-times text-red-500 dark:text-red-400 text-xl"></i>
-          </div>
-          <div>
-            <p class="text-3xl font-black text-[#111418] dark:text-white">{{ stats_inativos }}</p>
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Inactivos/Suspensos</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {% include 'includes/view-toggle.html' %}
-
-    <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
-      <div class="relative flex-1 max-w-md">
-        <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nome..."
-               class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
-        {% if q %}
-        <a href="?{% if tipo %}tipo={{ tipo }}{% endif %}" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-          <i class="fas fa-times"></i>
-        </a>
-        {% endif %}
-      </div>
-      <select name="tipo" class="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
-        <option value="Colaborador Institucional" {% if tipo == 'Colaborador Institucional' %}selected{% endif %}>Colaborador Institucional</option>
-        <option value="Despachante Oficial" {% if tipo == 'Despachante Oficial' %}selected{% endif %}>Despachante Oficial</option>
-      </select>
-      <button type="submit" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
-        <i class="fas fa-search text-xs"></i> Filtrar
-      </button>
-      {% if q or tipo %}
-      <a href="?" class="px-5 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all flex items-center gap-2">
-        <i class="fas fa-undo text-xs"></i> Limpar
-      </a>
-      {% endif %}
-    </form>
-
-    <div class="flex items-center justify-between">
-      <p class="text-xs text-gray-400 dark:text-gray-500">
-        <i class="fas fa-list-ul mr-1"></i>
-        {% if page_obj.paginator.num_pages > 1 %}
-          Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
-          <span class="mx-1.5">·</span>
-        {% endif %}
-        {{ page_obj.paginator.count }} utilizador{{ page_obj.paginator.count|pluralize:'es' }}
+  <!-- ═══════ HEADER ═══════ -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+        Gestão de Utilizadores
+      </h1>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">
+        Gerir contas de acesso ao sistema
       </p>
     </div>
+    <a href="{% url 'governanca_utilizador_novo' %}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 shadow-sm hover:shadow-md transition-all active:scale-[0.97]">
+      <i class="fas fa-user-plus text-sm"></i> Novo Utilizador
+    </a>
+  </div>
 
-    <div data-view-container>
+  <!-- ═══════ STATS ═══════ -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+      <div class="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+        <i class="fas fa-users text-primary text-lg"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_total }}</p>
+        <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">Total</p>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+      <div class="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
+        <i class="fas fa-user-check text-emerald-500 text-lg"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_ativos }}</p>
+        <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">Activos</p>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+      <div class="w-11 h-11 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0">
+        <i class="fas fa-user-slash text-red-400 text-lg"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_inativos }}</p>
+        <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">Inactivos</p>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+      <div class="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
+        <i class="fas fa-user-clock text-amber-500 text-lg"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ page_obj.paginator.count }}</p>
+        <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">Nesta lista</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ TOOLBAR ═══════ -->
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+    <!-- Tabs de tipo -->
+    <div class="flex border-b border-gray-100 dark:border-gray-800">
+      <a href="?tipo=Despachante+Oficial{% if q %}&q={{ q }}{% endif %}"
+         class="flex-1 sm:flex-none px-5 py-3 text-sm font-semibold text-center transition-all border-b-2
+                {% if tipo == 'Despachante Oficial' %}
+                  border-primary text-primary bg-primary/5
+                {% else %}
+                  border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50
+                {% endif %}">
+        <i class="fas fa-briefcase mr-1.5 text-xs"></i>Despachantes
+      </a>
+      <a href="?tipo=Colaborador+Institucional{% if q %}&q={{ q }}{% endif %}"
+         class="flex-1 sm:flex-none px-5 py-3 text-sm font-semibold text-center transition-all border-b-2
+                {% if tipo == 'Colaborador Institucional' %}
+                  border-primary text-primary bg-primary/5
+                {% else %}
+                  border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50
+                {% endif %}">
+        <i class="fas fa-building mr-1.5 text-xs"></i>Colaboradores
+      </a>
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-1 px-3">
+        {% include 'includes/view-toggle.html' %}
+      </div>
+    </div>
+
+    <!-- Barra de pesquisa -->
+    <div class="p-4">
+      <form method="GET" class="flex flex-col sm:flex-row gap-3">
+        <input type="hidden" name="tipo" value="{{ tipo }}">
+        <div class="relative flex-1">
+          <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+          <input type="text" name="q" value="{{ q }}" placeholder="Pesquisar por nome, email..."
+                 class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all">
+          {% if q %}
+          <a href="?tipo={{ tipo }}" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            <i class="fas fa-times text-xs"></i>
+          </a>
+          {% endif %}
+        </div>
+        <button type="submit"
+                class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 shadow-sm transition-all active:scale-[0.97]">
+          <i class="fas fa-search text-xs"></i> Filtrar
+        </button>
+        {% if q %}
+        <a href="?tipo={{ tipo }}"
+           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+          <i class="fas fa-times text-xs"></i> Limpar
+        </a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════ RESULTADOS ═══════ -->
+  <div class="flex items-center justify-between">
+    <p class="text-xs text-gray-400 dark:text-gray-500">
+      <i class="fas fa-list-ul mr-1"></i>
+      {% if page_obj.paginator.num_pages > 1 %}
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        <span class="mx-1.5">·</span>
+      {% endif %}
+      {{ page_obj.paginator.count }} utilizador{{ page_obj.paginator.count|pluralize:'es' }}
+    </p>
+  </div>
+
+  <div data-view-container>
+
+    <!-- ═══════ GRID VIEW ═══════ -->
     <div id="utilizadores-grid" data-grid-view class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {% for u in utilizadores %}
-      <div class="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 p-5">
-        <div class="flex items-start gap-4 mb-4">
-          <div class="w-12 h-12 rounded-xl shrink-0 flex items-center justify-center transition-transform group-hover:scale-110 duration-200
-            {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20
-            {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20
-            {% elif u.papel == 'Administrador' %}text-purple-600
-            {% else %}bg-indigo-50 dark:bg-indigo-900/20{% endif %}">
-            {% if u.papel == 'Despachante Oficial' %}
-              <i class="fas fa-briefcase text-blue-600 dark:text-blue-400 text-xl"></i>
-            {% elif u.papel == 'Colaborador Institucional' %}
-              <i class="fas fa-building text-green-600 dark:text-green-400 text-xl"></i>
-            {% elif u.papel == 'Administrador' %}
-              <i class="fas fa-crown text-purple-600 dark:text-purple-400 text-xl"></i>
-            {% else %}
-              <i class="fas fa-eye text-indigo-600 dark:text-indigo-400 text-xl"></i>
-            {% endif %}
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 mb-0.5">
-              <h3 class="text-sm font-bold text-[#111418] dark:text-white truncate">{{ u.nome }}</h3>
-              {% if u.status == 'Ativo' %}
-              <span class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Activo"></span>
-              {% else %}
-              <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" title="{{ u.status }}"></span>
-              {% endif %}
+      <div class="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg hover:border-primary/30 transition-all duration-300 overflow-hidden">
+
+        <!-- Card header com gradiente -->
+        <div class="relative px-5 pt-5 pb-4">
+          <div class="flex items-start gap-3.5">
+            <!-- Avatar -->
+            <div class="relative shrink-0">
+              <div class="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 duration-300
+                {% if u.papel == 'Despachante Oficial' %}bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/10
+                {% elif u.papel == 'Colaborador Institucional' %}bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-900/10
+                {% elif u.papel == 'Administrador' %}bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-900/10
+                {% else %}bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700{% endif %}">
+                {% if u.papel == 'Despachante Oficial' %}
+                  <i class="fas fa-briefcase text-blue-500 dark:text-blue-400 text-xl"></i>
+                {% elif u.papel == 'Colaborador Institucional' %}
+                  <i class="fas fa-building text-emerald-500 dark:text-emerald-400 text-xl"></i>
+                {% elif u.papel == 'Administrador' %}
+                  <i class="fas fa-crown text-purple-500 dark:text-purple-400 text-xl"></i>
+                {% else %}
+                  <i class="fas fa-eye text-gray-500 dark:text-gray-400 text-xl"></i>
+                {% endif %}
+              </div>
+              <!-- Status dot -->
+              <div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center
+                {% if u.status == 'Ativo' %}bg-emerald-400{% else %}bg-red-400{% endif %}">
+              </div>
             </div>
-            <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full
-              {% if u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300
-              {% elif u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300
-              {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300
-              {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300
-              {% else %}bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400{% endif %}">
-              {% if u.papel == 'Visualizador' and u.cargo_personalizado %}
-                {{ u.cargo_personalizado }}
-              {% else %}
-                {{ u.papel }}
-              {% endif %}
-            </span>
-            {% if u.papel == 'Despachante Oficial' and u.cedula %}
-            <span class="text-xs text-gray-400 dark:text-gray-500 ml-1">· Cédula {{ u.cedula }}</span>
-            {% endif %}
+
+            <!-- Nome + papel -->
+            <div class="min-w-0 flex-1">
+              <h3 class="text-sm font-bold text-gray-900 dark:text-white truncate leading-snug">{{ u.nome }}</h3>
+              <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{{ u.email }}</p>
+              <div class="flex items-center gap-1.5 mt-2">
+                <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full
+                  {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400
+                  {% elif u.papel == 'Colaborador Institucional' %}bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400
+                  {% elif u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400
+                  {% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400{% endif %}">
+                  {% if u.papel == 'Despachante Oficial' %}<i class="fas fa-briefcase text-[9px]"></i>
+                  {% elif u.papel == 'Colaborador Institucional' %}<i class="fas fa-building text-[9px]"></i>
+                  {% elif u.papel == 'Administrador' %}<i class="fas fa-crown text-[9px]"></i>
+                  {% else %}<i class="fas fa-eye text-[9px]"></i>
+                  {% endif %}
+                  {% if u.papel == 'Visualizador' and u.cargo_personalizado %}{{ u.cargo_personalizado }}{% else %}{{ u.papel }}{% endif %}
+                </span>
+                {% if u.status != 'Ativo' %}
+                <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                  {{ u.status }}
+                </span>
+                {% endif %}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-y-1.5 text-xs text-gray-500 dark:text-gray-400 mb-4">
-          <div class="flex items-center gap-2 col-span-2 min-w-0">
-            <i class="fas fa-envelope w-3.5 text-center text-gray-400 shrink-0"></i>
-            <span class="truncate">{{ u.email }}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <i class="fas fa-phone w-3.5 text-center text-gray-400 shrink-0"></i>
-            <span>{{ u.telefone|default:'—' }}</span>
+        <!-- Info section -->
+        <div class="px-5 pb-3 space-y-2">
+          <!-- Contacto -->
+          <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <i class="fas fa-phone w-3.5 text-center text-gray-400 dark:text-gray-500 shrink-0"></i>
+            <span>{{ u.telefone|default:'Sem telefone' }}</span>
           </div>
           {% if u.nif %}
-          <div class="flex items-center gap-2">
-            <i class="fas fa-id-card w-3.5 text-center text-gray-400 shrink-0"></i>
+          <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <i class="fas fa-id-card w-3.5 text-center text-gray-400 dark:text-gray-500 shrink-0"></i>
             <span>NIF {{ u.nif }}</span>
           </div>
           {% endif %}
-        </div>
 
-        {% if u.papel == 'Despachante Oficial' %}
-        <div class="mb-4">
-          {% if u.bancas_total > 0 %}
-            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1.5">
-              <i class="fas fa-store text-primary/60 shrink-0"></i>
-              <span>{{ u.bancas_total }} banca{{ u.bancas_total|pluralize:"s" }}</span>
+          <!-- Banca (Despachante) -->
+          {% if u.papel == 'Despachante Oficial' %}
+          <div class="pt-1">
+            {% if u.bancas_total > 0 %}
+              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">
+                <i class="fas fa-store text-[10px]"></i>
+                {{ u.bancas_total }} banca{{ u.bancas_total|pluralize:"s" }}
+              </div>
+              <div class="flex flex-wrap gap-1">
+                {% for b in u.bancas_list|slice:":3" %}
+                <a href="{% url 'admin_banca_detalhe' b.id %}"
+                   class="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                  {{ b.nome|truncatechars:22 }}
+                </a>
+                {% endfor %}
+                {% if u.bancas_total > 3 %}
+                <span class="text-[11px] text-gray-400 dark:text-gray-500 self-center">+{{ u.bancas_total|add:"-3" }}</span>
+                {% endif %}
+              </div>
+            {% else %}
+              <span class="text-[11px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1">
+                <i class="fas fa-store text-gray-300 dark:text-gray-600"></i> Sem banca associada
+              </span>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <!-- Função (Colaborador) -->
+          {% if u.papel == 'Colaborador Institucional' %}
+          <div class="pt-1">
+            <div class="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+              <i class="fas fa-user-tag text-[10px]"></i> Função
             </div>
-            <div class="flex flex-wrap gap-1.5">
-              {% for b in u.bancas_list|slice:":3" %}
-              <a href="{% url 'admin_banca_detalhe' b.id %}"
-                 class="text-xs px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-                {{ b.nome|truncatechars:20 }}
-              </a>
+            <select class="select-atribuir-funcao w-full px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer
+                      {% if u.funcao %}
+                        bg-primary/5 border-primary/20 text-primary hover:border-primary/40
+                      {% else %}
+                        bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:border-red-300
+                      {% endif %}"
+                    data-usuario-id="{{ u.id }}"
+                    data-usuario-nome="{{ u.nome }}"
+                    data-funcao-atual="{{ u.funcao_id|default:'' }}">
+              <option value="" {% if not u.funcao %}selected{% endif %}>Sem função</option>
+              {% for f in funcoes %}
+              <option value="{{ f.id }}" {% if u.funcao_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
               {% endfor %}
-              {% if u.bancas_total > 3 %}
-              <span class="text-xs text-gray-400 self-center">+{{ u.bancas_total|add:"-3" }}</span>
-              {% endif %}
-            </div>
-          {% else %}
-            <span class="text-xs text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5">
-              <i class="fas fa-store text-gray-300 dark:text-gray-600"></i>Sem banca associada
-            </span>
+            </select>
+          </div>
           {% endif %}
         </div>
-        {% endif %}
 
-        {% if u.papel == 'Colaborador Institucional' %}
-        <div class="mb-4">
-          <select class="select-atribuir-funcao w-full px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer
-                    {% if u.funcao %}
-                      bg-primary/5 border-primary/20 text-primary
-                    {% else %}
-                      bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400
-                    {% endif %}"
-                  data-usuario-id="{{ u.id }}"
-                  data-usuario-nome="{{ u.nome }}"
-                  data-funcao-atual="{{ u.funcao_id|default:'' }}">
-            <option value="" {% if not u.funcao %}selected{% endif %}>Sem função</option>
-            {% for f in funcoes %}
-            <option value="{{ f.id }}" {% if u.funcao_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        {% endif %}
-
-        <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
-          <span class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+        <!-- Footer actions -->
+        <div class="flex items-center justify-between px-5 py-3 mt-1 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
+          <span class="text-[11px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
             <i class="far fa-clock"></i>
-            {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y" }}{% else %}<span class="text-gray-300 dark:text-gray-600">Nunca acedeu</span>{% endif %}
+            {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y" }}{% else %}<span class="italic">Nunca</span>{% endif %}
           </span>
           <div class="flex items-center gap-1">
             <a href="{% url 'governanca_utilizador_editar' u.id %}"
-               class="w-8 h-8 flex items-center justify-center rounded-lg text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all hover:scale-110"
+               class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
                title="Editar">
               <i class="fas fa-pen text-xs"></i>
             </a>
-            <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent border-none hover:scale-110"
+            <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent border-none"
                     data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
               <i class="fas fa-paper-plane text-xs"></i>
             </button>
-            <button class="btn-toggle-status w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer border-none hover:scale-110
-                    {% if u.status == 'Ativo' %}text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30
-                    {% else %}text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30{% endif %}"
+            <button class="btn-toggle-status w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer border-none
+                    {% if u.status == 'Ativo' %}text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20
+                    {% else %}text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20{% endif %}"
                     data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}"
                     title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
-              <i class="fas {% if u.status == 'Ativo' %}fa-user-lock{% else %}fa-unlock{% endif %} text-xs"></i>
-            </button>
-            <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer bg-transparent border-none hover:scale-110"
-                    data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" title="Eliminar">
-              <i class="fas fa-trash-alt text-xs"></i>
+              {% if u.status == 'Ativo' %}
+                <i class="fas fa-circle-pause text-sm"></i>
+              {% else %}
+                <i class="fas fa-circle-play text-sm"></i>
+              {% endif %}
             </button>
           </div>
         </div>
       </div>
       {% empty %}
-      <div class="col-span-full text-center py-16">
-        <div class="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-          <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600"></i>
+      <div class="col-span-full text-center py-20">
+        <div class="w-24 h-24 rounded-3xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-5">
+          <i class="fas fa-users-slash text-4xl text-gray-300 dark:text-gray-600"></i>
         </div>
-        <h3 class="text-gray-700 dark:text-gray-300 font-semibold text-lg mb-1">Nenhum utilizador encontrado</h3>
-        <p class="text-gray-400 dark:text-gray-500 text-sm">
+        <h3 class="text-gray-700 dark:text-gray-300 font-bold text-lg mb-1.5">Nenhum utilizador encontrado</h3>
+        <p class="text-gray-400 dark:text-gray-500 text-sm max-w-sm mx-auto">
           {% if q or tipo %}
-            Nenhum resultado para a sua pesquisa.
+            Nenhum resultado para os filtros aplicados.
           {% else %}
-            Ainda não existem utilizadores registados.
+            Ainda não existem utilizadores deste tipo registados.
           {% endif %}
         </p>
         {% if q or tipo %}
-        <a href="?" class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary text-sm font-semibold rounded-xl hover:bg-primary/20 transition-all">
+        <a href="?tipo={{ tipo }}" class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-primary/10 text-primary text-sm font-bold rounded-xl hover:bg-primary/20 transition-all">
           <i class="fas fa-undo"></i> Limpar filtros
         </a>
         {% endif %}
@@ -254,84 +304,86 @@
       {% endfor %}
     </div>
 
+    <!-- ═══════ TABLE VIEW ═══════ -->
     <div id="view-table" data-list-view class="hidden overflow-x-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
       <table class="w-full text-sm">
         <thead>
           <tr class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-            <th class="text-left px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Utilizador</th>
-            <th class="text-left px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Perfil</th>
-            <th class="text-left px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">{% if tipo == 'Despachante Oficial' %}Banca{% else %}Função{% endif %}</th>
-            <th class="text-left px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Contacto</th>
-            <th class="text-center px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Estado</th>
-            <th class="text-center px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Último Acesso</th>
-            <th class="text-right px-4 py-3.5 font-semibold text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide">Acções</th>
+            <th class="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Utilizador</th>
+            <th class="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Perfil</th>
+            <th class="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">{% if tipo == 'Despachante Oficial' %}Banca{% else %}Função{% endif %}</th>
+            <th class="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Contacto</th>
+            <th class="text-center px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Estado</th>
+            <th class="text-center px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Último Acesso</th>
+            <th class="text-right px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Acções</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
           {% for u in utilizadores %}
-          <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-            <td class="px-4 py-3">
+          <tr class="hover:bg-gray-50/80 dark:hover:bg-gray-800/30 transition-colors">
+            <td class="px-5 py-3.5">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg {% if u.status == 'Ativo' %}
-                  {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20
-                  {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20
-                  {% elif u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20
-                  {% else %}bg-indigo-50 dark:bg-indigo-900/20{% endif %}
-                {% else %}bg-gray-100 dark:bg-gray-800{% endif %} flex items-center justify-center shrink-0">
-                  {% if u.papel == 'Despachante Oficial' %}
-                    <i class="fas fa-briefcase {% if u.status == 'Ativo' %}text-blue-600 dark:text-blue-400{% else %}text-gray-400{% endif %} text-sm"></i>
-                  {% elif u.papel == 'Colaborador Institucional' %}
-                    <i class="fas fa-building {% if u.status == 'Ativo' %}text-green-600 dark:text-green-400{% else %}text-gray-400{% endif %} text-sm"></i>
-                  {% elif u.papel == 'Administrador' %}
-                    <i class="fas fa-crown {% if u.status == 'Ativo' %}text-purple-600 dark:text-purple-400{% else %}text-gray-400{% endif %} text-sm"></i>
-                  {% else %}
-                    <i class="fas fa-eye {% if u.status == 'Ativo' %}text-indigo-600 dark:text-indigo-400{% else %}text-gray-400{% endif %} text-sm"></i>
-                  {% endif %}
+                <div class="relative shrink-0">
+                  <div class="w-10 h-10 rounded-xl flex items-center justify-center
+                    {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20
+                    {% elif u.papel == 'Colaborador Institucional' %}bg-emerald-50 dark:bg-emerald-900/20
+                    {% elif u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20
+                    {% else %}bg-gray-100 dark:bg-gray-800{% endif %}">
+                    {% if u.papel == 'Despachante Oficial' %}
+                      <i class="fas fa-briefcase {% if u.status == 'Ativo' %}text-blue-500 dark:text-blue-400{% else %}text-gray-400{% endif %} text-sm"></i>
+                    {% elif u.papel == 'Colaborador Institucional' %}
+                      <i class="fas fa-building {% if u.status == 'Ativo' %}text-emerald-500 dark:text-emerald-400{% else %}text-gray-400{% endif %} text-sm"></i>
+                    {% elif u.papel == 'Administrador' %}
+                      <i class="fas fa-crown {% if u.status == 'Ativo' %}text-purple-500 dark:text-purple-400{% else %}text-gray-400{% endif %} text-sm"></i>
+                    {% else %}
+                      <i class="fas fa-eye {% if u.status == 'Ativo' %}text-gray-500 dark:text-gray-400{% else %}text-gray-400{% endif %} text-sm"></i>
+                    {% endif %}
+                  </div>
                 </div>
                 <div>
-                  <span class="font-medium text-[#111418] dark:text-white text-sm">{{ u.nome }}</span>
+                  <span class="font-bold text-gray-900 dark:text-white text-sm">{{ u.nome }}</span>
                   <p class="text-xs text-gray-500 dark:text-gray-400">{{ u.email }}</p>
                 </div>
               </div>
             </td>
-            <td class="px-4 py-3">
-              <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full
-                {% if u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300
-                {% elif u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300
-                {% elif u.papel == 'Colaborador Institucional' %}bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300
-                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300
-                {% else %}bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400{% endif %}">
-                {% if u.papel == 'Administrador' %}<i class="fas fa-crown text-[10px]"></i>
-                {% elif u.papel == 'Despachante Oficial' %}<i class="fas fa-briefcase text-[10px]"></i>
-                {% elif u.papel == 'Colaborador Institucional' %}<i class="fas fa-building text-[10px]"></i>
-                {% elif u.papel == 'Visualizador' %}<i class="fas fa-eye text-[10px]"></i>
+            <td class="px-5 py-3.5">
+              <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full
+                {% if u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400
+                {% elif u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400
+                {% elif u.papel == 'Colaborador Institucional' %}bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400
+                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400
+                {% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400{% endif %}">
+                {% if u.papel == 'Administrador' %}<i class="fas fa-crown text-[9px]"></i>
+                {% elif u.papel == 'Despachante Oficial' %}<i class="fas fa-briefcase text-[9px]"></i>
+                {% elif u.papel == 'Colaborador Institucional' %}<i class="fas fa-building text-[9px]"></i>
+                {% elif u.papel == 'Visualizador' %}<i class="fas fa-eye text-[9px]"></i>
                 {% endif %}
                 {% if u.papel == 'Visualizador' and u.cargo_personalizado %}{{ u.cargo_personalizado }}{% else %}{{ u.papel }}{% endif %}
               </span>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-5 py-3.5">
               {% if u.papel == 'Despachante Oficial' %}
                 {% if u.bancas_total > 0 %}
                 <div class="flex flex-wrap gap-1">
                   {% for b in u.bancas_list|slice:":2" %}
                   <a href="{% url 'admin_banca_detalhe' b.id %}"
-                     class="text-xs px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors whitespace-nowrap">
-                    {{ b.nome|truncatechars:15 }}
+                     class="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors whitespace-nowrap">
+                    {{ b.nome|truncatechars:18 }}
                   </a>
                   {% endfor %}
                   {% if u.bancas_total > 2 %}
-                  <span class="text-xs text-gray-400 self-center">+{{ u.bancas_total|add:"-2" }}</span>
+                  <span class="text-[11px] text-gray-400 self-center">+{{ u.bancas_total|add:"-2" }}</span>
                   {% endif %}
                 </div>
                 {% else %}
                 <span class="text-gray-300 dark:text-gray-600 text-xs italic">Sem banca</span>
                 {% endif %}
               {% elif u.papel == 'Colaborador Institucional' %}
-              <select class="select-atribuir-funcao px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer max-w-[140px]
+              <select class="select-atribuir-funcao px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer max-w-[150px]
                         {% if u.funcao %}
-                          bg-primary/5 border-primary/20 text-primary
+                          bg-primary/5 border-primary/20 text-primary hover:border-primary/40
                         {% else %}
-                          bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400
+                          bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:border-red-300
                         {% endif %}"
                       data-usuario-id="{{ u.id }}"
                       data-usuario-nome="{{ u.nome }}"
@@ -345,65 +397,69 @@
               <span class="text-gray-300 dark:text-gray-600 text-xs">—</span>
               {% endif %}
             </td>
-            <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{{ u.telefone|default:'—' }}</td>
-            <td class="px-4 py-3 text-center">
+            <td class="px-5 py-3.5 text-gray-600 dark:text-gray-400 text-xs">{{ u.telefone|default:'—' }}</td>
+            <td class="px-5 py-3.5 text-center">
               {% if u.status == 'Ativo' %}
-              <span class="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
-                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Activo
+              <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-full">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Activo
               </span>
               {% else %}
-              <span class="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-2.5 py-1 rounded-full">
+              <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2.5 py-1 rounded-full">
                 <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> {{ u.status }}
               </span>
               {% endif %}
             </td>
-            <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">
-              {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y H:i" }}{% else %}<span class="text-gray-300 dark:text-gray-600">Nunca</span>{% endif %}
+            <td class="px-5 py-3.5 text-center text-xs text-gray-500 dark:text-gray-400">
+              {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y H:i" }}{% else %}<span class="text-gray-300 dark:text-gray-600 italic">Nunca</span>{% endif %}
             </td>
-            <td class="px-4 py-3 text-right">
+            <td class="px-5 py-3.5 text-right">
               <div class="flex items-center justify-end gap-1">
                 <a href="{% url 'governanca_utilizador_editar' u.id %}"
-                   class="w-8 h-8 flex items-center justify-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-all hover:scale-110"
+                   class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
                    title="Editar">
                   <i class="fas fa-pen text-xs"></i>
                 </a>
-                <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:scale-110"
+                <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-all cursor-pointer bg-transparent border-none"
                         data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
                   <i class="fas fa-paper-plane text-xs"></i>
                 </button>
-                <button class="btn-toggle-status w-8 h-8 flex items-center justify-center {% if u.status == 'Ativo' %}text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30{% else %}text-green-600 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30{% endif %} rounded-lg transition-all cursor-pointer border-none hover:scale-110"
-                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}" title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
-                  <i class="fas {% if u.status == 'Ativo' %}fa-user-lock{% else %}fa-unlock{% endif %} text-xs"></i>
-                </button>
-                <button class="btn-eliminar-usuario w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:scale-110"
-                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" title="Eliminar">
-                  <i class="fas fa-trash-alt text-xs"></i>
+                <button class="btn-toggle-status w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer border-none
+                        {% if u.status == 'Ativo' %}text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20
+                        {% else %}text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20{% endif %}"
+                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}"
+                        title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
+                  {% if u.status == 'Ativo' %}
+                    <i class="fas fa-circle-pause text-sm"></i>
+                  {% else %}
+                    <i class="fas fa-circle-play text-sm"></i>
+                  {% endif %}
                 </button>
               </div>
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="7" class="text-center py-16 text-gray-400">
-              <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600 block mb-2"></i>
-              <p class="text-gray-500 dark:text-gray-400 font-medium">Nenhum utilizador encontrado</p>
+            <td colspan="7" class="text-center py-16">
+              <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-users-slash text-2xl text-gray-300 dark:text-gray-600"></i>
+              </div>
+              <p class="text-gray-500 dark:text-gray-400 font-semibold text-sm">Nenhum utilizador encontrado</p>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    </div>
 
-    {% if page_obj.has_other_pages %}
-    <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
-      {% include 'includes/pagination.html' with extra_params=extra_params %}
-    </div>
-    {% endif %}
+  </div>
 
+  {% if page_obj.has_other_pages %}
+  <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+    {% include 'includes/pagination.html' with extra_params=extra_params %}
+  </div>
+  {% endif %}
 
-
-{% include 'includes/confirm-modal.html' %}
+  {% include 'includes/confirm-modal.html' %}
 
 <script>
 (function() {
@@ -411,7 +467,6 @@
   const apiToggle = '{% url "governanca_api_utilizador_toggle" %}';
   const apiCredenciais = '{% url "governanca_api_utilizador_credenciais" %}';
   const apiAtribuirFuncao = '{% url "governanca_api_utilizador_atribuir_funcao" %}';
-  const apiEliminar = '{% url "governanca_api_utilizador_eliminar" %}';
 
   var funcoesData = {};
   {% for f in funcoes %}
@@ -449,11 +504,11 @@
             s.dataset.funcaoAtual = funcaoId || '';
             s.value = funcaoId || '';
             if (funcaoId) {
-              s.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
+              s.classList.remove('bg-red-50', 'dark:bg-red-900/30', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
               s.classList.add('bg-primary/5', 'border-primary/20', 'text-primary');
             } else {
               s.classList.remove('bg-primary/5', 'border-primary/20', 'text-primary');
-              s.classList.add('bg-red-50', 'dark:bg-red-900/20', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
+              s.classList.add('bg-red-50', 'dark:bg-red-900/30', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
             }
           });
           if (window.toast) window.toast.success(data.message || 'Função atribuída com sucesso!');
@@ -486,31 +541,6 @@
         if (data.status === 'ok') { location.reload(); }
         else { if (window.toast) window.toast.error(data.erro || 'Erro.'); }
       } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
-    });
-  });
-
-  document.querySelectorAll('.btn-eliminar-usuario').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      const nome = this.dataset.usuarioNome;
-      const ok = await showConfirm('Eliminar Utilizador', 'Tem certeza que deseja eliminar permanentemente o utilizador "' + nome + '"? Esta acção não pode ser desfeita.', 'Eliminar');
-      if (!ok) return;
-      try {
-        const res = await fetch(apiEliminar, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-          body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
-        });
-        const data = await res.json();
-        if (data.status === 'ok') {
-          if (window.toast) window.toast.success(data.message);
-          else location.reload();
-          setTimeout(function() { location.reload(); }, 1200);
-        } else {
-          if (window.toast) window.toast.error(data.erro || 'Erro ao eliminar.');
-        }
-      } catch(e) {
-        if (window.toast) window.toast.error('Erro de conexão.');
-      }
     });
   });
 

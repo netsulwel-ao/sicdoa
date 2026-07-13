@@ -1464,10 +1464,10 @@ def colaboradores_view(request):
     banca, col_log, gestor, is_desp = acc
     papel = request.session.get('usuario', {}).get('papel', '')
     from users.permissoes import _is_admin_ou_acesso_total
-    # Apenas Administrador vê todos os colaboradores
+    # Administrador vê todos os colaboradores da banca
     if papel == 'Administrador':
-        cols = Colaborador.objects.all().select_related('filial', 'cargo_banca').prefetch_related('documentos')
-        filiais = []
+        cols = banca.colaboradores.all().select_related('filial', 'cargo_banca').prefetch_related('documentos')
+        filiais = list(banca.filiais.all())
     else:
         cols = escopo_colaboradores(
             banca, col_log, gestor, is_desp, request=request,
@@ -1567,7 +1567,7 @@ def colaborador_novo_view(request):
             senha_hash = _hash_password(senha_gerada)
         
         filial_id = filial_id_obrigatoria_gestor(
-            gestor, is_desp, request.POST.get('filial') or None, col_log=col_log,
+            gestor, is_desp, request.POST.get('filial') or None, col_log=col_log, banca=banca,
         )
         col = Colaborador(
             banca=banca,
@@ -1777,7 +1777,7 @@ def colaborador_editar_view(request, pk):
 
     if request.method == 'POST':
         col.filial_id = filial_id_obrigatoria_gestor(
-            gestor, is_desp, request.POST.get('filial') or None, col_log=col_log,
+            gestor, is_desp, request.POST.get('filial') or None, col_log=col_log, banca=banca,
         ) if is_desp or col.pk != col_log.pk else col_log.filial_id
         col.nome = request.POST.get('nome', '').strip()
         col.bi = request.POST.get('bi', '').strip()
@@ -2856,7 +2856,7 @@ def vaga_nova_view(request):
             Vaga.objects.create(
                 banca=banca,
                 filial_id=filial_id_obrigatoria_gestor(
-                    gestor, is_desp, request.POST.get('filial') or None,
+                    gestor, is_desp, request.POST.get('filial') or None, banca=banca,
                 ),
                 titulo=titulo,
                 departamento=request.POST.get('departamento', '').strip(),
@@ -2898,7 +2898,7 @@ def vaga_editar_view(request, pk):
     if request.method == 'POST':
         try:
             vaga.filial_id = filial_id_obrigatoria_gestor(
-                gestor, is_desp, request.POST.get('filial') or None,
+                gestor, is_desp, request.POST.get('filial') or None, banca=banca,
             )
             vaga.titulo = request.POST.get('titulo', '').strip()
             vaga.departamento = request.POST.get('departamento', '').strip()
@@ -3172,9 +3172,12 @@ def integracao_nova_view(request, candidatura_pk):
             if email_col:
                 senha_gerada = gerar_senha_aleatoria()
                 senha_hash = _hash_password(senha_gerada)
+            filial_id = filial_id_obrigatoria_gestor(
+                gestor, is_desp, request.POST.get('filial') or None, col_log=col_log, banca=banca,
+            )
             col = Colaborador.objects.create(
                 banca=banca,
-                filial_id=request.POST.get('filial') or None,
+                filial_id=filial_id,
                 nome=cand.nome,
                 email=email_col,
                 telefone=cand.telefone,

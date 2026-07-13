@@ -117,8 +117,12 @@ def criar_cliente(request):
                 })
                 return render(request, 'clientes/form.html', context)
 
-            # Verificar se NIF já existe
-            if Cliente.objects.filter(nif=nif).exists():
+            # Verificar se NIF já existe (na mesma banca)
+            banca_id_check = request.session.get('banca_id')
+            nif_qs = Cliente.objects.filter(nif=nif)
+            if banca_id_check:
+                nif_qs = nif_qs.filter(banca_id=banca_id_check)
+            if nif_qs.exists():
                 messages.error(request, 'Já existe um cliente cadastrado com este NIF.')
                 context = _ctx(request, 'criar', {
                     'form_data': request.POST
@@ -190,8 +194,12 @@ def editar_cliente(request, pk):
                 })
                 return render(request, 'clientes/form.html', context)
 
-            # Verificar se NIF já existe (exceto para este cliente)
-            if Cliente.objects.filter(nif=nif).exclude(pk=pk).exists():
+            # Verificar se NIF já existe (na mesma banca, exceto para este cliente)
+            banca_id_check = cliente.banca_id
+            nif_qs = Cliente.objects.filter(nif=nif).exclude(pk=pk)
+            if banca_id_check:
+                nif_qs = nif_qs.filter(banca_id=banca_id_check)
+            if nif_qs.exists():
                 messages.error(request, 'Já existe um cliente cadastrado com este NIF.')
                 context = _ctx(request, 'editar', {
                     'cliente': cliente,

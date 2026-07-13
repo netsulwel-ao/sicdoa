@@ -563,6 +563,10 @@ def du_apagar(request, du_uuid):
     if not _sessao_ok(request):
         return JsonResponse({'erro': 'Não autorizado'}, status=401)
 
+    from users.permissoes import _is_admin_ou_acesso_total
+    if not _is_admin_ou_acesso_total(request):
+        return JsonResponse({'erro': 'Apenas administradores podem eliminar DUs.'}, status=403)
+
     du = get_object_or_404(escopo_du(request, DeclaracaoUnica.objects.all()), du_uuid=du_uuid)
 
     if du.status != 'Rascunho':
@@ -1389,11 +1393,15 @@ def consultar_nif_cliente(request):
                     'email': cliente.email or '',
                 }})
 
-        # 2. Procura exacta em todos os clientes (qualquer utilizador)
+        # 2. Procura exacta na mesma banca
         if len(nif) >= 4:
-            cliente = Cliente.objects.filter(
-                Q(nif__iexact=nif) & Q(ativo=True)
-            ).first()
+            banca_id = request.session.get('banca_id')
+            filtro_todos = Q(nif__iexact=nif) & Q(ativo=True)
+            if banca_id:
+                filtro_todos = filtro_todos & Q(banca_id=banca_id)
+            else:
+                filtro_todos = filtro_todos & Q(usuario_id=uid)
+            cliente = Cliente.objects.filter(filtro_todos).first()
             if cliente:
                 return JsonResponse({'encontrado': True, 'dados': {
                     'nome': cliente.nome, 'nif': cliente.nif,
@@ -1894,10 +1902,11 @@ def api_vinhetas(request):
 
 @requer_sessao_ativa
 def du_historico(request, du_uuid):
+    from .acesso import escopo_du
     try:
-        du = DeclaracaoUnica.objects.get(du_uuid=du_uuid)
+        du = escopo_du(request, DeclaracaoUnica.objects.all()).get(du_uuid=du_uuid)
     except DeclaracaoUnica.DoesNotExist:
-        messages.error(request, 'Declaração Única não encontrada.')
+        messages.error(request, 'Declaração Única não encontrada ou sem permissão de acesso.')
         return redirect('aduaneiro:du_lista')
 
     historicos = du.historico_versoes.all().order_by('-criado_em')

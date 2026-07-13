@@ -205,6 +205,7 @@ def index(request):
     hoje = timezone.now()
 
     from users.permissoes import _is_admin_ou_acesso_total
+    papel = request.session.get('usuario', {}).get('papel', '')
     if papel == 'Administrador':
         qs_quotas = QuotaGerada.objects.all()
         quotas_pendentes = qs_quotas.filter(status='Pendente').count()
@@ -2173,6 +2174,7 @@ def quotas_fatura_detalhe(request, fatura_uuid):
     from users.permissoes import _is_admin_ou_acesso_total
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
     uid = request.session.get('banca_usuario_id') or request.session['usuario_id']
+    papel = request.session.get('usuario', {}).get('papel', '')
     if quota.despachante_id != uid and papel != 'Administrador':
         return redirect('governanca_quotas_dashboard')
     pagamentos_qs = PagamentoQuota.objects.filter(quota=quota).order_by('-data_pagamento')
@@ -2254,6 +2256,7 @@ def quotas_admin_dashboard(request):
 
 @_requer_login
 def quotas_admin_pagamentos(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     pagamentos_qs = PagamentoQuota.objects.all().select_related('despachante','quota').order_by('-data_pagamento')
@@ -2531,10 +2534,15 @@ def api_quotas_emitir_certidao(request):
 def api_quotas_definir_estado(request, pk):
     """Admin define estado financeiro de um despachante."""
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    papel = request.session['usuario']['papel']
+    if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido'}, status=405)
+    if papel != 'Administrador':
+        uid = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+        if int(pk) != uid:
+            return JsonResponse({'erro': 'Sem permissão para alterar estado de outro despachante'}, status=403)
     estado = request.POST.get('estado', '').strip()
     if estado not in dict(EstadoFinanceiro.ESTADOS):
         return JsonResponse({'erro': 'Estado inválido'}, status=400)
@@ -3001,9 +3009,14 @@ def api_quotas_gerar_retroativo(request):
 @_requer_login
 def api_quotas_marcar_paga(request, fatura_uuid):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    papel = request.session['usuario']['papel']
+    if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
+    if papel != 'Administrador':
+        uid = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+        if quota.despachante_id != uid:
+            return JsonResponse({'erro': 'Sem permissão para alterar quotas de outro despachante'}, status=403)
     if quota.status == 'Paga':
         return JsonResponse({'erro': 'Esta quota já está paga'}, status=400)
     quota.status = 'Paga'
@@ -3035,9 +3048,14 @@ def api_quotas_marcar_paga(request, fatura_uuid):
 def api_quotas_cancelar(request, fatura_uuid):
     """Admin cancela uma quota. NUNCA apaga o registo."""
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    papel = request.session['usuario']['papel']
+    if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
+    if papel != 'Administrador':
+        uid = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+        if quota.despachante_id != uid:
+            return JsonResponse({'erro': 'Sem permissão para cancelar quotas de outro despachante'}, status=403)
     if quota.status == 'Paga':
         return JsonResponse({'erro': 'Não é possível cancelar uma quota já paga'}, status=400)
     if quota.status == 'Cancelada':
@@ -4589,9 +4607,8 @@ Administração SICDOA — CDOA Angola
 @_requer_login
 def api_utilizador_toggle_status(request):
     from users.models import Usuario
-    from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    if request.session['usuario']['papel'] != 'Administrador':
+        return JsonResponse({'erro': 'Apenas administradores podem alterar estado de utilizadores'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
     if not usuario_id:
@@ -4611,9 +4628,8 @@ def api_utilizador_enviar_credenciais(request):
     from users.models import Usuario
     from utils.email_utils import gerar_senha_aleatoria
     import bcrypt
-    from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    if request.session['usuario']['papel'] != 'Administrador':
+        return JsonResponse({'erro': 'Apenas administradores podem reenviar credenciais'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
     usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
@@ -4656,9 +4672,8 @@ def api_permissoes_usuario(request):
 def api_utilizador_eliminar(request):
     """Elimina um utilizador."""
     from users.models import Usuario
-    from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    if request.session['usuario']['papel'] != 'Administrador':
+        return JsonResponse({'erro': 'Apenas administradores podem eliminar utilizadores'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
     if not usuario_id:
@@ -4674,9 +4689,8 @@ def api_utilizador_eliminar(request):
 def api_utilizador_atribuir_funcao(request):
     """Atribui ou remove a função de um utilizador."""
     from users.models import Funcao, Usuario
-    from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
-        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    if request.session['usuario']['papel'] != 'Administrador':
+        return JsonResponse({'erro': 'Apenas administradores podem atribuir funções'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
     funcao_id = data.get('funcao_id')

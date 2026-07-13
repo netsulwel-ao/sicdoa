@@ -2,7 +2,7 @@ from django import forms
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 from clientes.models import Cliente
-from rh.models import Banca
+from rh.models import Banca, FilialBanca
 from aduaneiro.models import DeclaracaoUnica
 from utils.format_kz import fmt_kz, parse_kz
 from .models import (
@@ -144,8 +144,10 @@ class RequisicaoFundoForm(forms.ModelForm):
         # Populate banca field scoped to user
         if banca_id:
             self.fields['banca'].queryset = Banca.objects.filter(id=banca_id)
+            self.fields['filial'].queryset = FilialBanca.objects.filter(banca_id=banca_id)
         else:
             self.fields['banca'].queryset = Banca.objects.none()
+            self.fields['filial'].queryset = FilialBanca.objects.none()
         
         # On POST, ensure processo_aduaneiro queryset includes the submitted value
         if self.is_bound and self.data.get('processo_aduaneiro'):
@@ -180,6 +182,13 @@ class RequisicaoFundoForm(forms.ModelForm):
         if cliente and banca and cliente.banca_id != banca.pk:
             raise forms.ValidationError(
                 'O cliente seleccionado não pertence à banca selecionada.'
+            )
+        
+        # Validate filial belongs to same banca
+        filial = cleaned_data.get('filial')
+        if filial and banca and filial.banca_id != banca.pk:
+            raise forms.ValidationError(
+                'A filial selecionada não pertence à banca selecionada.'
             )
         
         return cleaned_data
@@ -279,6 +288,7 @@ class FacturaClienteForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        banca_id = kwargs.pop('banca_id', None)
         super().__init__(*args, **kwargs)
         # Desabilitar cliente e processo em edição (não devem ser alterados)
         if self.instance and self.instance.pk:
@@ -289,19 +299,24 @@ class FacturaClienteForm(forms.ModelForm):
                 if 'bg-gray-100' not in classes:
                     attrs['class'] = classes + ' bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
         else:
+            if banca_id:
+                self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True, banca_id=banca_id).order_by('nome')
+            else:
+                self.fields['cliente'].queryset = Cliente.objects.none()
             # Filtrar processos por cliente tanto em GET como POST
             cliente = None
             if self.is_bound and self.data.get('cliente'):
                 try:
-                    cliente = Cliente.objects.get(pk=int(self.data.get('cliente')))
+                    cliente = Cliente.objects.get(pk=int(self.data.get('cliente')), banca_id=banca_id) if banca_id else Cliente.objects.get(pk=int(self.data.get('cliente')))
                 except (Cliente.DoesNotExist, ValueError, TypeError):
                     pass
             if cliente:
                 nif = (cliente.nif or '').strip()
                 if nif:
-                    self.fields['processo_aduaneiro'].queryset = DeclaracaoUnica.objects.filter(
-                        nif_declarante=nif
-                    ).order_by('-data_submissao')
+                    du_qs = DeclaracaoUnica.objects.filter(nif_declarante=nif)
+                    if banca_id:
+                        du_qs = du_qs.filter(banca_id=banca_id)
+                    self.fields['processo_aduaneiro'].queryset = du_qs.order_by('-data_submissao')
 
     def clean_data_vencimento(self):
         data = self.cleaned_data.get('data_vencimento')
@@ -371,13 +386,23 @@ class ReciboClienteForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        banca_id = kwargs.pop('banca_id', None)
         super().__init__(*args, **kwargs)
+        if banca_id:
+            self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True, banca_id=banca_id).order_by('nome')
+        else:
+            self.fields['cliente'].queryset = Cliente.objects.none()
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
-                self.fields['factura'].queryset = FacturaCliente.objects.filter(cliente_id=cliente_id)
+                qs_factura = FacturaCliente.objects.filter(cliente_id=cliente_id)
+                if banca_id:
+                    qs_factura = qs_factura.filter(banca_id=banca_id)
+                self.fields['factura'].queryset = qs_factura
             except (ValueError, TypeError):
                 pass
+        elif not self.is_bound:
+            self.fields['factura'].queryset = FacturaCliente.objects.none()
         if self.instance and self.instance.pk and self.instance.valor_recebido:
             self.initial['valor_recebido'] = fmt_kz(self.instance.valor_recebido)
 
@@ -474,17 +499,24 @@ class NotaCreditoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        banca_id = kwargs.pop('banca_id', None)
         super().__init__(*args, **kwargs)
-        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('nome')
+        if banca_id:
+            self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True, banca_id=banca_id).order_by('nome')
+            self.fields['factura_relacionada'].queryset = FacturaCliente.objects.select_related('cliente').filter(banca_id=banca_id)
+        else:
+            self.fields['cliente'].queryset = Cliente.objects.none()
+            self.fields['factura_relacionada'].queryset = FacturaCliente.objects.none()
         self.fields['factura_relacionada'].required = True
-        qs = FacturaCliente.objects.select_related('cliente').all()
-        self.fields['factura_relacionada'].queryset = qs
         self.fields['factura_relacionada'].label_from_instance = lambda obj: (
             f"Factura {obj.numero_factura} - {obj.cliente.nome} - {fmt_kz(obj.valor_total)} KZ"
         )
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
+                qs = self.fields['factura_relacionada'].queryset or FacturaCliente.objects.all()
+                if banca_id:
+                    qs = qs.filter(banca_id=banca_id)
                 self.fields['factura_relacionada'].queryset = qs.filter(cliente_id=cliente_id)
             except (ValueError, TypeError):
                 pass
@@ -494,25 +526,6 @@ class NotaCreditoForm(forms.ModelForm):
             if self.instance.motivo not in dict(self.base_fields['motivo'].widget.choices).values():
                 self.initial['motivo'] = '__outro__'
                 self.initial['motivo_outro'] = self.instance.motivo
-
-    def clean(self):
-        cleaned_data = super().clean()
-        motivo = cleaned_data.get('motivo')
-        if motivo == '__outro__':
-            motivo_outro = (cleaned_data.get('motivo_outro') or '').strip()
-            if not motivo_outro:
-                self.add_error('motivo_outro', 'Indique o motivo personalizado.')
-            else:
-                cleaned_data['motivo'] = motivo_outro
-        return cleaned_data
-
-    def save(self, commit=True):
-        motivo = self.cleaned_data.get('motivo')
-        if motivo == '__outro__':
-            motivo_outro = (self.cleaned_data.get('motivo_outro') or '').strip()
-            if motivo_outro:
-                self.instance.motivo = motivo_outro
-        return super().save(commit)
 
     def clean_valor_creditado(self):
         raw = self.cleaned_data.get('valor_creditado')
@@ -529,6 +542,13 @@ class NotaCreditoForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        motivo = cleaned_data.get('motivo')
+        if motivo == '__outro__':
+            motivo_outro = (cleaned_data.get('motivo_outro') or '').strip()
+            if not motivo_outro:
+                self.add_error('motivo_outro', 'Indique o motivo personalizado.')
+            else:
+                cleaned_data['motivo'] = motivo_outro
         cliente = cleaned_data.get('cliente')
         factura_relacionada = cleaned_data.get('factura_relacionada')
         valor_creditado = cleaned_data.get('valor_creditado')
@@ -543,6 +563,14 @@ class NotaCreditoForm(forms.ModelForm):
                 self.add_error('valor_creditado', f'O valor a creditar não pode exceder o valor total da factura ({fmt_kz(factura_relacionada.valor_total)} Kz).')
 
         return cleaned_data
+
+    def save(self, commit=True):
+        motivo = self.cleaned_data.get('motivo')
+        if motivo == '__outro__':
+            motivo_outro = (self.cleaned_data.get('motivo_outro') or '').strip()
+            if motivo_outro:
+                self.instance.motivo = motivo_outro
+        return super().save(commit)
 
 
 class NotaDebitoForm(forms.ModelForm):
@@ -572,17 +600,24 @@ class NotaDebitoForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        banca_id = kwargs.pop('banca_id', None)
         super().__init__(*args, **kwargs)
-        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('nome')
+        if banca_id:
+            self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True, banca_id=banca_id).order_by('nome')
+            self.fields['factura_relacionada'].queryset = FacturaCliente.objects.select_related('cliente').filter(banca_id=banca_id)
+        else:
+            self.fields['cliente'].queryset = Cliente.objects.none()
+            self.fields['factura_relacionada'].queryset = FacturaCliente.objects.none()
         self.fields['factura_relacionada'].required = True
-        qs = FacturaCliente.objects.select_related('cliente').all()
-        self.fields['factura_relacionada'].queryset = qs
         self.fields['factura_relacionada'].label_from_instance = lambda obj: (
             f"Factura {obj.numero_factura} - {obj.cliente.nome} - {fmt_kz(obj.valor_total)} KZ"
         )
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
+                qs = self.fields['factura_relacionada'].queryset or FacturaCliente.objects.all()
+                if banca_id:
+                    qs = qs.filter(banca_id=banca_id)
                 self.fields['factura_relacionada'].queryset = qs.filter(cliente_id=cliente_id)
             except (ValueError, TypeError):
                 pass
@@ -653,14 +688,23 @@ class FacturaReciboForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        banca_id = kwargs.pop('banca_id', None)
         super().__init__(*args, **kwargs)
-        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('nome')
+        if banca_id:
+            self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True, banca_id=banca_id).order_by('nome')
+        else:
+            self.fields['cliente'].queryset = Cliente.objects.none()
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
-                self.fields['factura'].queryset = FacturaCliente.objects.filter(cliente_id=cliente_id, estado__in=['Pendente', 'Parcialmente Paga'])
+                qs_factura = FacturaCliente.objects.filter(cliente_id=cliente_id, estado__in=['Pendente', 'Parcialmente Paga'])
+                if banca_id:
+                    qs_factura = qs_factura.filter(banca_id=banca_id)
+                self.fields['factura'].queryset = qs_factura
             except (ValueError, TypeError):
                 pass
+        elif not self.is_bound:
+            self.fields['factura'].queryset = FacturaCliente.objects.none()
         if self.instance and self.instance.pk and self.instance.valor:
             self.initial['valor'] = fmt_kz(self.instance.valor)
 
