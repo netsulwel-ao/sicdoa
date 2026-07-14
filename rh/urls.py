@@ -107,6 +107,9 @@ urlpatterns = [
     path('cargos/<int:pk>/editar/',           views.cargo_editar_view,   name='rh_cargo_editar'),
     path('cargos/<int:pk>/eliminar/',         views.cargo_eliminar_view, name='rh_cargo_eliminar'),
 
+    # Gestor de Filial: Permissões
+    path('gestor/permissoes/',                views.gestor_permissoes_view, name='gestor_permissoes'),
+
     # Avaliações
     path('avaliacoes/',                                         views.avaliacoes_view,      name='rh_avaliacoes'),
     path('avaliacoes/ciclo/novo/',                              views.ciclo_novo_view,      name='rh_ciclo_novo'),

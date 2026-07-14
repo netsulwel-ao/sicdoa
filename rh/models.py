@@ -16,6 +16,9 @@ from governanca.utils import (
 
 class CargoBanca(models.Model):
     banca = models.ForeignKey('Banca', on_delete=models.CASCADE, related_name='cargos')
+    filial = models.ForeignKey('FilialBanca', null=True, blank=True, on_delete=models.SET_NULL,
+                               related_name='cargos', verbose_name='Filial',
+                               help_text='Se definido, este cargo é específico desta filial.')
     nome = models.CharField(max_length=100, db_index=True)
     descricao = models.TextField(blank=True, default='')
     permissoes = models.ManyToManyField('users.Permissao', blank=True, related_name='cargos_banca')
@@ -26,13 +29,18 @@ class CargoBanca(models.Model):
 
     class Meta:
         db_table = 'rh_cargos_banca'
-        unique_together = ['banca', 'nome']
+        unique_together = ['banca', 'filial', 'nome']
         verbose_name = 'Cargo da Banca'
         verbose_name_plural = 'Cargos da Banca'
         ordering = ['nome']
 
     def __str__(self):
-        return f"{self.nome} ({self.banca.nome})"
+        filial_label = f" — {self.filial.provincia}" if self.filial_id else ""
+        return f"{self.nome}{filial_label} ({self.banca.nome})"
+
+    @property
+    def e_filial(self):
+        return self.filial_id is not None
 
 
 # ─── Banca ────────────────────────────────────────────────────────────────────
@@ -309,6 +317,9 @@ class Colaborador(models.Model):
     foto        = models.ImageField(upload_to='colaboradores/fotos/', null=True, blank=True)
     observacoes = models.TextField(blank=True, default='')
     password    = models.CharField(max_length=255, null=True, blank=True, help_text='Senha para acesso ao sistema')  # senha com hash bcrypt (ver _hash_password)
+    permissoes_filiais = models.ManyToManyField('users.Permissao', blank=True,
+                                                 related_name='colaboradores_filiais',
+                                                 verbose_name='Permissões de Filial (atribuídas pelo gestor)')
     banco       = models.CharField(max_length=100, blank=True, default='', verbose_name='Banco')
     num_conta   = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº de Conta')
     iban        = models.CharField(max_length=50, blank=True, default='', verbose_name='IBAN')

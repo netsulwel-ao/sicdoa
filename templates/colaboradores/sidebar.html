@@ -143,7 +143,7 @@
     {% endif %}
 
     {# ── Gestão Financeira ─────────────────────────────────────────── #}
-    {% if 'gerir_financeiro' in permissoes or 'acesso_auditoria' in permissoes or 'ver_requisicoes' in permissoes or 'ver_recibos' in permissoes or 'ver_notas_financeiro' in permissoes or 'ver_facturas' in permissoes or 'ver_conta_corrente' in permissoes or 'ver_relatorios_financeiros' in permissoes %}
+    {% if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes or 'acesso_auditoria' in permissoes or 'ver_requisicoes' in permissoes or 'ver_recibos' in permissoes or 'ver_notas_financeiro' in permissoes or 'ver_facturas' in permissoes or 'ver_conta_corrente' in permissoes or 'ver_relatorios_financeiros' in permissoes %}
     <div class="my-2 border-t border-gray-100 dark:border-gray-800"></div>
     <button type="button" data-collapse="financeiro"
       class="group w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150
@@ -153,7 +153,7 @@
        <i class="fas fa-chevron-down text-xs sidebar-arrow transition-transform duration-200 {% if active == 'requisicoes' or active == 'recibos' or active == 'facturas' or sub == 'requisicoes' or sub == 'recibos' or sub == 'facturas' or sub == 'facturas_finais' or sub == 'notas' or sub == 'notas_credito' or sub == 'notas_debito' or sub == 'facturas_recibo' or sub == 'conta_corrente' or sub == 'conta_corrente_cliente' or sub == 'conta_corrente_geral' or sub == 'conta_corrente_mensal' or sub == 'conta_corrente_periodica' or sub == 'fluxos_aprovacao' %}rotate-180{% endif %}"></i>
      </button>
      <ul data-submenu="financeiro" class="ml-4 space-y-0.5 {% if active != 'requisicoes' and active != 'recibos' and active != 'facturas' and sub != 'requisicoes' and sub != 'recibos' and sub != 'facturas' and sub != 'facturas_finais' and sub != 'notas' and sub != 'notas_credito' and sub != 'notas_debito' and sub != 'facturas_recibo' and sub != 'conta_corrente' and sub != 'conta_corrente_cliente' and sub != 'conta_corrente_geral' and sub != 'conta_corrente_mensal' and sub != 'conta_corrente_periodica' and sub != 'fluxos_aprovacao' %}hidden{% endif %}">
-      {% if 'gerir_financeiro' in permissoes or 'ver_requisicoes' in permissoes %}
+      {% if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes or 'ver_requisicoes' in permissoes %}
       <li>
         <a href="{% url 'financeiro:requisicao_lista' %}"
           class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
@@ -163,18 +163,7 @@
         </a>
       </li>
       {% endif %}
-      {# FluxoAprovacao feature removed in migration 0024 - feature disabled #}
-      {# {% if 'admin' in permissoes %}
-      <li>
-        <a href="{% url 'financeiro:fluxo_aprovacao_lista' %}"
-          class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
-                 {% if sub == 'fluxos_aprovacao' %}bg-primary/5 text-primary font-semibold{% else %}text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
-          <i class="fas fa-layer-group w-4 text-center {% if sub == 'fluxos_aprovacao' %}text-primary{% else %}text-gray-400 dark:text-gray-500{% endif %}"></i>
-          Fluxos de Aprovação
-        </a>
-      </li>
-      {% endif %} #}
-      {% if 'gerir_financeiro' in permissoes or 'ver_recibos' in permissoes %}
+      {% if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes or 'ver_recibos' in permissoes %}
       <li>
         <a href="{% url 'financeiro:recibo_lista' %}"
           class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
@@ -184,7 +173,7 @@
         </a>
       </li>
       {% endif %}
-      {% if 'gerir_financeiro' in permissoes or 'ver_notas_financeiro' in permissoes %}
+      {% if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes or 'ver_notas_financeiro' in permissoes %}
       <li>
         <a href="{% url 'financeiro:notas_home' %}"
           class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
@@ -194,7 +183,7 @@
         </a>
       </li>
       {% endif %}
-      {% if 'gerir_financeiro' in permissoes or 'ver_facturas' in permissoes %}
+      {% if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes or 'ver_facturas' in permissoes %}
       <li>
         <a href="{% url 'financeiro:facturas_home' %}"
           class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
@@ -204,7 +193,7 @@
         </a>
       </li>
       {% endif %}
-      {% if 'gerir_financeiro' in permissoes or 'ver_conta_corrente' in permissoes %}
+      {% if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes or 'ver_conta_corrente' in permissoes %}
       <li>
         <a href="{% url 'financeiro:conta_corrente_home' %}"
           class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
@@ -214,7 +203,7 @@
         </a>
       </li>
       {% endif %}
-      {% if 'ver_relatorios_operacionais' in permissoes or 'ver_relatorios_financeiros' in permissoes %}
+      {% if 'ver_relatorios_operacionais' in permissoes or 'ver_relatorios_financeiros' in permissoes or 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes %}
       <li>
         <a href="{% url 'financeiro:relatorio_home' %}"
           class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
@@ -227,35 +216,7 @@
     </ul>
     {% endif %}
 
-    {# ── CDOA Governança ──────────────────────────────────────────── #}
-    {% if 'gerir_governanca' in permissoes or 'gerir_assembleia' in permissoes or 'gerir_consultas' in permissoes or 'gerir_quotas' in permissoes or 'ver_quotas' in permissoes or 'ver_secretaria' in permissoes %}
-    <div class="my-2 border-t border-gray-100 dark:border-gray-800"></div>
-    <button type="button" data-collapse="governanca"
-      class="group w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150
-             {% if active == 'Assembleias' or active == 'Consultas' or sub == 'assembleias' or sub == 'atas' or sub == 'secretario_docs' or sub == 'consulta' or sub == 'quotas' or sub == 'quotas_admin' %}bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/10{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200{% endif %}">
-      <i class="fas fa-landmark w-4 text-center {% if active == 'Assembleias' or active == 'Consultas' or sub == 'assembleias' or sub == 'atas' or sub == 'secretario_docs' or sub == 'consulta' or sub == 'quotas' or sub == 'quotas_admin' %}text-primary{% else %}text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300{% endif %}"></i>
-      <span class="text-sm font-medium flex-1 truncate">CDOA Governança</span>
-      <i class="fas fa-chevron-down text-xs sidebar-arrow transition-transform duration-200 {% if active == 'Assembleias' or active == 'Consultas' or sub == 'assembleias' or sub == 'atas' or sub == 'secretario_docs' or sub == 'consulta' or sub == 'quotas' or sub == 'quotas_admin' %}rotate-180{% endif %}"></i>
-    </button>
-    <ul data-submenu="governanca" class="ml-4 space-y-0.5 {% if active != 'Assembleias' and active != 'Consultas' and sub != 'assembleias' and sub != 'atas' and sub != 'secretario_docs' and sub != 'consulta' and sub != 'quotas' and sub != 'quotas_admin' %}hidden{% endif %}">
-      <li>
-        <a href="{% url 'governanca_assembleias' %}"
-          class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
-                 {% if active == 'Assembleias' or sub == 'assembleias' %}bg-primary/5 text-primary font-semibold{% else %}text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
-          <i class="fas fa-landmark w-4 text-center {% if active == 'Assembleias' or sub == 'assembleias' %}text-primary{% else %}text-gray-400 dark:text-gray-500{% endif %}"></i>
-          Assembleias
-        </a>
-      </li>
-      <li>
-        <a href="{% url 'governanca_consultas' %}"
-          class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
-                 {% if active == 'Consultas' or sub == 'consulta' %}bg-primary/5 text-primary font-semibold{% else %}text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
-          <i class="fas fa-search w-4 text-center {% if active == 'Consultas' or sub == 'consulta' %}text-primary{% else %}text-gray-400 dark:text-gray-500{% endif %}"></i>
-          Consultas
-        </a>
-      </li>
-    </ul>
-    {% endif %}
+
 
     {# ── Logs de Atividade ─────────────────────────────────────────── #}
     {% if 'ver_logs_banca' in permissoes %}
@@ -272,12 +233,12 @@
     <div class="my-2 border-t border-gray-100 dark:border-gray-800"></div>
     <button type="button" data-collapse="gestao-rh"
       class="group w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150
-             {% if active == 'RH' or active == 'Banca' or active == 'Colaboradores' or active == 'Presencas' or active == 'Vagas' or active == 'Avaliacoes' or active == 'Salarios' or sub == 'banca' or sub == 'colaboradores' or sub == 'presencas' or sub == 'recrutamento' or sub == 'avaliacoes' or sub == 'salarios' or sub == 'filiais' or sub == 'subsidios' or sub == 'gerir_utilizadores' or sub == 'funcoes' or sub == 'cargos' %}bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/10{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200{% endif %}">
-      <i class="fas fa-users-cog w-4 text-center {% if active == 'RH' or active == 'Banca' or active == 'Colaboradores' or active == 'Presencas' or active == 'Vagas' or active == 'Avaliacoes' or active == 'Salarios' or sub == 'banca' or sub == 'colaboradores' or sub == 'presencas' or sub == 'recrutamento' or sub == 'avaliacoes' or sub == 'salarios' or sub == 'filiais' or sub == 'subsidios' or sub == 'gerir_utilizadores' or sub == 'funcoes' or sub == 'cargos' %}text-primary{% else %}text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300{% endif %}"></i>
+             {% if active == 'RH' or active == 'Banca' or active == 'Colaboradores' or active == 'Presencas' or active == 'Vagas' or active == 'Avaliacoes' or active == 'Salarios' or sub == 'banca' or sub == 'colaboradores' or sub == 'presencas' or sub == 'recrutamento' or sub == 'avaliacoes' or sub == 'salarios' or sub == 'filiais' or sub == 'subsidios' or sub == 'gerir_utilizadores' or sub == 'funcoes' or sub == 'cargos' or sub == 'permissoes_filial' %}bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/10{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200{% endif %}">
+      <i class="fas fa-users-cog w-4 text-center {% if active == 'RH' or active == 'Banca' or active == 'Colaboradores' or active == 'Presencas' or active == 'Vagas' or active == 'Avaliacoes' or active == 'Salarios' or sub == 'banca' or sub == 'colaboradores' or sub == 'presencas' or sub == 'recrutamento' or sub == 'avaliacoes' or sub == 'salarios' or sub == 'filiais' or sub == 'subsidios' or sub == 'gerir_utilizadores' or sub == 'funcoes' or sub == 'cargos' or sub == 'permissoes_filial' %}text-primary{% else %}text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300{% endif %}"></i>
       <span class="text-sm font-medium flex-1 truncate">Gestão RH</span>
-      <i class="fas fa-chevron-down text-xs sidebar-arrow transition-transform duration-200 {% if active == 'RH' or active == 'Banca' or active == 'Colaboradores' or active == 'Presencas' or active == 'Vagas' or active == 'Avaliacoes' or active == 'Salarios' or sub == 'banca' or sub == 'colaboradores' or sub == 'presencas' or sub == 'recrutamento' or sub == 'avaliacoes' or sub == 'salarios' or sub == 'filiais' or sub == 'subsidios' or sub == 'gerir_utilizadores' or sub == 'funcoes' or sub == 'cargos' %}rotate-180{% endif %}"></i>
+      <i class="fas fa-chevron-down text-xs sidebar-arrow transition-transform duration-200 {% if active == 'RH' or active == 'Banca' or active == 'Colaboradores' or active == 'Presencas' or active == 'Vagas' or active == 'Avaliacoes' or active == 'Salarios' or sub == 'banca' or sub == 'colaboradores' or sub == 'presencas' or sub == 'recrutamento' or sub == 'avaliacoes' or sub == 'salarios' or sub == 'filiais' or sub == 'subsidios' or sub == 'gerir_utilizadores' or sub == 'funcoes' or sub == 'cargos' or sub == 'permissoes_filial' %}rotate-180{% endif %}"></i>
     </button>
-    <ul data-submenu="gestao-rh" class="ml-4 space-y-0.5 {% if active != 'RH' and active != 'Banca' and active != 'Colaboradores' and active != 'Presencas' and active != 'Vagas' and active != 'Avaliacoes' and active != 'Salarios' and sub != 'banca' and sub != 'colaboradores' and sub != 'presencas' and sub != 'recrutamento' and sub != 'avaliacoes' and sub != 'salarios' and sub != 'filiais' and sub != 'subsidios' and sub != 'gerir_utilizadores' and sub != 'funcoes' and sub != 'cargos' %}hidden{% endif %}">
+    <ul data-submenu="gestao-rh" class="ml-4 space-y-0.5 {% if active != 'RH' and active != 'Banca' and active != 'Colaboradores' and active != 'Presencas' and active != 'Vagas' and active != 'Avaliacoes' and active != 'Salarios' and sub != 'banca' and sub != 'colaboradores' and sub != 'presencas' and sub != 'recrutamento' and sub != 'avaliacoes' and sub != 'salarios' and sub != 'filiais' and sub != 'subsidios' and sub != 'gerir_utilizadores' and sub != 'funcoes' and sub != 'cargos' and sub != 'permissoes_filial' %}hidden{% endif %}">
       {% if 'admin_banca' in permissoes %}
       <li>
         <a href="{% url 'rh_banca' %}"
@@ -298,7 +259,17 @@
         </a>
       </li>
       {% endif %}
-      {% if 'gerir_rh' in permissoes or 'gerir_filial' in permissoes %}
+      {% if e_gestor_filial %}
+      <li>
+        <a href="{% url 'rh_cargos_lista' %}"
+          class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm
+                 {% if sub == 'permissoes_filial' or sub == 'cargos' %}bg-primary/5 text-primary font-semibold{% else %}text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-700 dark:hover:text-gray-200{% endif %}">
+          <i class="fas fa-user-tag w-4 text-center {% if sub == 'permissoes_filial' or sub == 'cargos' %}text-primary{% else %}text-gray-400 dark:text-gray-500{% endif %}"></i>
+          Cargos & Permissões
+        </a>
+      </li>
+      {% endif %}
+      {% if 'gerir_rh' in permissoes and not e_gestor_filial %}
       <li>
         <a href="{% url 'rh_cargos_lista' %}"
           class="group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm

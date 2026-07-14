@@ -56,6 +56,33 @@ PERMISSOES_BANCA = [
     'admin_banca',
 ]
 
+# ── Permissões que o Gestor de Filial pode atribuir ─────────────────
+# Estas são as permissões que o gestor pode conceder aos
+# colaboradores da sua filial para aceder a recursos do negócio.
+
+PERMISSOES_FILIAL_GESTOR = [
+    # Financeiro
+    {'grupo': 'Financeiro', 'icone': 'fa-file-invoice-dollar', 'permissoes': [
+        {'codigo': 'ver_requisicoes',           'nome': 'Ver Requisições de Fundos'},
+        {'codigo': 'ver_recibos',               'nome': 'Ver Recibos'},
+        {'codigo': 'ver_notas_financeiro',      'nome': 'Ver Notas (Crédito/Débito)'},
+        {'codigo': 'ver_facturas',              'nome': 'Ver Facturas'},
+        {'codigo': 'ver_conta_corrente',        'nome': 'Ver Conta Corrente'},
+        {'codigo': 'ver_relatorios_financeiros','nome': 'Ver Relatórios Financeiros'},
+    ]},
+    # Aduaneiro
+    {'grupo': 'Aduaneiro', 'icone': 'fa-file-alt', 'permissoes': [
+        {'codigo': 'criar_declaracao_unica',    'nome': 'Criar Declaração Única'},
+        {'codigo': 'ver_pauta_aduaneira',       'nome': 'Ver Pauta Aduaneira'},
+        {'codigo': 'gerir_clientes',            'nome': 'Gerir Clientes'},
+    ]},
+    # RH
+    {'grupo': 'Recursos Humanos', 'icone': 'fa-users-cog', 'permissoes': [
+        {'codigo': 'gerir_presencas_banca',     'nome': 'Gerir Presenças'},
+        {'codigo': 'gerir_avaliacoes_banca',    'nome': 'Gerir Avaliações'},
+    ]},
+]
+
 # ── Permissões partilhadas (Institucional + Governance) ────────────
 # Estas permissões estão no sistema de governance e podem ser
 # atribuídas tanto a Despachantes (via CargoBanca) como a
@@ -182,20 +209,23 @@ def get_usuario_permissoes(request):
             from rh.models import Colaborador
             try:
                 col = Colaborador.objects.select_related('cargo_banca').prefetch_related(
-                    'cargo_banca__permissoes'
+                    'cargo_banca__permissoes', 'permissoes_filiais'
                 ).get(pk=colaborador_id, estado='Ativo')
+                permissoes = set()
                 if col.cargo_banca_id:
                     permissoes = set(col.cargo_banca.permissoes.values_list('codigo', flat=True))
-                    if 'admin' in permissoes:
-                        return set(Permissao.objects.values_list('codigo', flat=True))
-                    if 'admin_banca' in permissoes:
-                        return set(Permissao.objects.filter(
-                            codigo__in=PERMISSOES_BANCA
-                        ).values_list('codigo', flat=True))
-                    if 'acesso_auditoria' in permissoes:
-                        ver_codigos = set(Permissao.objects.filter(codigo__startswith='ver_').values_list('codigo', flat=True))
-                        permissoes.update(ver_codigos)
-                    return permissoes
+                # Permissões adicionais atribuídas pelo gestor de filial
+                permissoes.update(col.permissoes_filiais.values_list('codigo', flat=True))
+                if 'admin' in permissoes:
+                    return set(Permissao.objects.values_list('codigo', flat=True))
+                if 'admin_banca' in permissoes:
+                    return set(Permissao.objects.filter(
+                        codigo__in=PERMISSOES_BANCA
+                    ).values_list('codigo', flat=True))
+                if 'acesso_auditoria' in permissoes:
+                    ver_codigos = set(Permissao.objects.filter(codigo__startswith='ver_').values_list('codigo', flat=True))
+                    permissoes.update(ver_codigos)
+                return permissoes
             except Colaborador.DoesNotExist:
                 pass
         return set()

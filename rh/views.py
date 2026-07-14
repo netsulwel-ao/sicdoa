@@ -27,8 +27,8 @@ from .acesso import (
     filial_id_obrigatoria_gestor,
     redirect_sem_acesso_rh,
 )
-from users.permissoes import get_usuario_permissoes
-from users.auth_decorators import sessao_expirada, limpar_sessao
+from users.permissoes import get_usuario_permissoes, PERMISSOES_FILIAL_GESTOR
+from users.auth_decorators import sessao_expirada, limpar_sessao, tempo_restante_sessao
 import time
 from .models import (
     Banca, FilialBanca, Colaborador, GestorFilial, CargoBanca, DocumentoColaborador,
@@ -359,6 +359,7 @@ def _atribuir_gestor_filial(col, filial):
     ]
     cargo_gf, _criado = CargoBanca.objects.get_or_create(
         banca=col.banca,
+        filial=filial,
         nome='Gestor de Filial',
         defaults={
             'descricao': 'Cargo auto-atribuído pelo sistema para gestores de filial',
@@ -4186,12 +4187,11 @@ def avaliacao_detalhe_view(request, ciclo_pk, col_pk):
 
 @_requer_sessao
 def cargos_lista_view(request):
-    """Lista todos os cargos da banca. Gestor só vê cargos com permissões de filial."""
+    """Lista todos os cargos da banca. Gestor vê apenas cargos da sua filial."""
     acc = obter_acesso_rh(request)
     if not acc:
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
-    from users.permissoes import get_usuario_permissoes
     _perm_set = get_usuario_permissoes(request)
     pode_gerir_cargos = (
         is_desp or gestor or
@@ -4207,13 +4207,19 @@ def cargos_lista_view(request):
         tem_perm_fora=Exists(perm_fora),
         total_colab=models.Count('colaboradores'),
     )
-    from users.permissoes import get_usuario_permissoes
-    _perm_set = get_usuario_permissoes(request)
-    if not is_desp and not ('gerir_rh' in _perm_set and col_log and not col_log.filial_id):
-        cargos = cargos.filter(tem_perm_fora=False)
+    if is_desp and gestor is None:
+        pass
+    elif gestor and gestor.filial_id:
+        cargos = cargos.filter(filial_id=gestor.filial_id)
+    else:
+        if not is_desp and not ('gerir_rh' in _perm_set and col_log and not col_log.filial_id):
+            cargos = cargos.filter(tem_perm_fora=False)
+    filial_gestor = gestor.filial if gestor and gestor.filial_id else None
     return render(request, 'rh/cargos_lista.html',
                   _ctx(request, 'cargos', {
                       'banca': banca, 'cargos': cargos,
+                      'filial_gestor': filial_gestor,
+                      'e_gestor_filial': bool(gestor),
                   }))
 
 
@@ -4225,7 +4231,6 @@ def _grupos_permissoes_banca(request, para_gestor=False):
     com permissões de âmbito filial.
     """
     if para_gestor:
-        from users.permissoes import get_usuario_permissoes
         user_perm = get_usuario_permissoes(request)
         todas = Permissao.objects.filter(codigo__in=list(PERMISSOES_GESTOR_CARGO))
         perm_map = {p.codigo: p for p in todas}
@@ -4305,13 +4310,13 @@ def _grupos_permissoes_banca(request, para_gestor=False):
     return grupos
 
 
+@_requer_sessao
 def cargo_novo_view(request):
-    """Cria um novo cargo na banca. Gestor só pode atribuir permissões de filial."""
+    """Cria um novo cargo na banca. Gestor cria cargos filiais."""
     acc = obter_acesso_rh(request)
     if not acc:
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
-    from users.permissoes import get_usuario_permissoes
     _perm_set = get_usuario_permissoes(request)
     pode_gerir_cargos = (
         is_desp or gestor or
@@ -4320,6 +4325,7 @@ def cargo_novo_view(request):
     if not pode_gerir_cargos:
         return redirect_sem_acesso_rh(request)
     para_gestor = bool(gestor and not is_desp)
+    filial_obj = gestor.filial if gestor and gestor.filial_id else None
     grupos = _grupos_permissoes_banca(request, para_gestor=para_gestor)
 
     if request.method == 'POST':
@@ -4331,13 +4337,14 @@ def cargo_novo_view(request):
             messages.error(request, 'O nome do cargo é obrigatório.')
         elif erro_mistura:
             messages.error(request, erro_mistura)
-        elif banca.cargos.filter(nome__iexact=nome).exists():
-            messages.error(request, f'Já existe um cargo com o nome "{nome}" nesta banca.')
+        elif banca.cargos.filter(nome__iexact=nome, filial=filial_obj).exists():
+            label = f' na filial {filial_obj.provincia}' if filial_obj else ' nesta banca'
+            messages.error(request, f'Já existe um cargo com o nome "{nome}"{label}.')
         else:
             if para_gestor:
                 codigos_perm &= PERMISSOES_GESTOR_CARGO
             cargo = CargoBanca.objects.create(
-                banca=banca, nome=nome, descricao=descricao,
+                banca=banca, nome=nome, descricao=descricao, filial=filial_obj,
             )
             if codigos_perm:
                 cargo.permissoes.set(Permissao.objects.filter(codigo__in=codigos_perm))
@@ -4347,17 +4354,18 @@ def cargo_novo_view(request):
     return render(request, 'rh/cargo_form.html',
                   _ctx(request, 'cargos', {
                       'banca': banca, 'grupos': grupos, 'cargo': None,
+                      'filial_gestor': filial_obj,
+                      'e_gestor_filial': bool(gestor),
                   }))
 
 
 @_requer_sessao
 def cargo_editar_view(request, pk):
-    """Edita um cargo existente da banca. Gestor só pode atribuir permissões de filial."""
+    """Edita um cargo existente da banca. Gestor edita apenas cargos da sua filial."""
     acc = obter_acesso_rh(request)
     if not acc:
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
-    from users.permissoes import get_usuario_permissoes
     _perm_set = get_usuario_permissoes(request)
     pode_gerir_cargos = (
         is_desp or gestor or
@@ -4368,10 +4376,10 @@ def cargo_editar_view(request, pk):
     para_gestor = bool(gestor and not is_desp)
     cargo = get_object_or_404(CargoBanca, pk=pk, banca=banca)
 
-    # Gestor não pode editar cargos com permissões de banca (criados pelo despachante)
+    if gestor and gestor.filial_id and cargo.filial_id != gestor.filial_id:
+        messages.error(request, 'Não pode editar cargos de outra filial.')
+        return redirect('rh_cargos_lista')
     tem_perm_banca = cargo.permissoes.exclude(codigo__in=PERMISSOES_GESTOR_CARGO).exists()
-    from users.permissoes import get_usuario_permissoes
-    _perm_set = get_usuario_permissoes(request)
     if not is_desp and not ('gerir_rh' in _perm_set and col_log and not col_log.filial_id) and tem_perm_banca:
         messages.error(request, 'Não pode editar cargos criados pelo despachante.')
         return redirect('rh_cargos_lista')
@@ -4380,6 +4388,7 @@ def cargo_editar_view(request, pk):
         return redirect('rh_cargos_lista')
     grupos = _grupos_permissoes_banca(request, para_gestor=para_gestor)
     permissoes_ids = set(cargo.permissoes.values_list('pk', flat=True))
+    filial_obj = gestor.filial if gestor and gestor.filial_id else cargo.filial
 
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
@@ -4390,8 +4399,9 @@ def cargo_editar_view(request, pk):
             messages.error(request, 'O nome do cargo é obrigatório.')
         elif erro_mistura:
             messages.error(request, erro_mistura)
-        elif banca.cargos.filter(nome__iexact=nome).exclude(pk=cargo.pk).exists():
-            messages.error(request, f'Já existe um cargo com o nome "{nome}" nesta banca.')
+        elif banca.cargos.filter(nome__iexact=nome, filial=filial_obj).exclude(pk=cargo.pk).exists():
+            label = f' na filial {filial_obj.provincia}' if filial_obj else ' nesta banca'
+            messages.error(request, f'Já existe um cargo com o nome "{nome}"{label}.')
         else:
             cargo.nome = nome
             cargo.descricao = descricao
@@ -4407,6 +4417,8 @@ def cargo_editar_view(request, pk):
                   _ctx(request, 'cargos', {
                       'banca': banca, 'grupos': grupos,
                       'cargo': cargo, 'permissoes_ids': permissoes_ids,
+                      'filial_gestor': filial_obj,
+                      'e_gestor_filial': bool(gestor),
                   }))
 
 
@@ -4417,7 +4429,6 @@ def cargo_eliminar_view(request, pk):
     if not acc:
         return redirect_sem_acesso_rh(request)
     banca, col_log, gestor, is_desp = acc
-    from users.permissoes import get_usuario_permissoes
     _perm_set = get_usuario_permissoes(request)
     pode_gerir_cargos = (
         is_desp or gestor or
@@ -4426,25 +4437,22 @@ def cargo_eliminar_view(request, pk):
     if not pode_gerir_cargos:
         return redirect_sem_acesso_rh(request)
     cargo = get_object_or_404(CargoBanca, pk=pk, banca=banca)
-
-    # Impedir que despachante elimine cargos do gestor e vice-versa
+    if gestor and gestor.filial_id and cargo.filial_id != gestor.filial_id:
+        messages.error(request, 'Não pode eliminar cargos de outra filial.')
+        return redirect('rh_cargos_lista')
     tem_perm_banca = cargo.permissoes.exclude(codigo__in=PERMISSOES_GESTOR_CARGO).exists()
-    if is_desp and not tem_perm_banca:
+    if is_desp and not tem_perm_banca and gestor is None:
         messages.error(request, 'Não pode eliminar cargos criados pelo gestor de filial.')
         return redirect('rh_cargos_lista')
-    from users.permissoes import get_usuario_permissoes
-    _perm_set = get_usuario_permissoes(request)
     if not is_desp and not ('gerir_rh' in _perm_set and col_log and not col_log.filial_id) and tem_perm_banca:
         messages.error(request, 'Não pode eliminar cargos criados pelo despachante.')
         return redirect('rh_cargos_lista')
     if cargo.locked:
         messages.error(request, 'Este cargo é padrão do sistema e não pode ser eliminado.')
         return redirect('rh_cargos_lista')
-
     if cargo.colaboradores.exists():
         messages.error(request, f'Não é possível eliminar o cargo "{cargo.nome}" porque está atribuído a {cargo.colaboradores.count()} colaborador(es).')
         return redirect('rh_cargos_lista')
-
     nome = cargo.nome
     cargo.delete()
     messages.success(request, f'Cargo "{nome}" eliminado com sucesso.')
@@ -4527,3 +4535,11 @@ def colaborador_cargo_view(request, pk):
             messages.success(request, f'Cargo removido de {col.nome}.')
 
     return redirect('rh_colaboradores')
+
+
+# ── Gestor de Filial: Permissões dos Colaboradores ─────────────────────────────
+
+@_requer_sessao
+def gestor_permissoes_view(request):
+    """Redireciona para a gestão de cargos (fluxo unificado)."""
+    return redirect('rh_cargos_lista')

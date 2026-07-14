@@ -3,19 +3,28 @@
 {% block conteudo %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
-      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <a href="{% if e_gestor_filial %}{% url 'dashboard_colaborador' %}{% else %}{% url 'dashboard' %}{% endif %}" class="hover:text-primary">Dashboard</a>
       <i class="fas fa-chevron-right text-xs"></i>
       <a href="{% url 'rh_cargos_lista' %}" class="hover:text-primary">Cargos</a>
       <i class="fas fa-chevron-right text-xs"></i>
       <span class="text-gray-700 dark:text-gray-300">{% if cargo %}Editar{% else %}Novo{% endif %} Cargo</span>
     </div>
 
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+          <span class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <i class="fas fa-user-tag text-primary text-lg"></i>
+          </span>
           {% if cargo %}Editar Cargo{% else %}Novo Cargo{% endif %}
         </h1>
-        <p class="text-gray-500 mt-1 text-sm">{{ banca.nome }}</p>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm ml-[52px]">
+          {% if filial_gestor %}
+            {{ filial_gestor.provincia }} &mdash; {% if cargo %}A alterar "{{ cargo.nome }}"{% else %}Criar cargo para a filial{% endif %}
+          {% else %}
+            {{ banca.nome }} &mdash; {% if cargo %}A alterar "{{ cargo.nome }}"{% else %}Criar novo cargo{% endif %}
+          {% endif %}
+        </p>
       </div>
       <a href="{% url 'rh_cargos_lista' %}"
          class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
@@ -45,6 +54,12 @@
                       class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                       {% if cargo.locked %}readonly disabled{% endif %}>{{ cargo.descricao|default:'' }}</textarea>
           </div>
+          {% if filial_gestor %}
+          <div class="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800">
+            <i class="fas fa-store text-amber-600"></i>
+            <span class="text-sm text-amber-700 dark:text-amber-300">Este cargo será criado para a filial <strong>{{ filial_gestor.provincia }}</strong>.</span>
+          </div>
+          {% endif %}
           {% if cargo and cargo.locked %}
           <div class="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800">
             <i class="fas fa-lock text-blue-600"></i>
@@ -63,7 +78,13 @@
         <div class="p-4 px-6 bg-blue-50 dark:bg-blue-900/10 border-b border-blue-200 dark:border-blue-800">
           <p class="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
             <i class="fas fa-info-circle mt-0.5"></i>
-            <span>O âmbito de cada permissão é determinado pela filial onde o colaborador estiver alocado: se tiver filial definida, aplica-se apenas à filial; caso contrário (Sede), aplica-se à banca toda. <strong>Não pode misturar permissões de Sede e Filial no mesmo cargo.</strong></span>
+            <span>
+              {% if e_gestor_filial %}
+                Selecione as permissões que os colaboradores com este cargo terão. Apenas permissões disponíveis para a filial são apresentadas.
+              {% else %}
+                O âmbito de cada permissão é determinado pela filial onde o colaborador estiver alocado: se tiver filial definida, aplica-se apenas à filial; caso contrário (Sede), aplica-se à banca toda. <strong>Não pode misturar permissões de Sede e Filial no mesmo cargo.</strong>
+              {% endif %}
+            </span>
           </p>
         </div>
         <div class="p-6">
@@ -72,7 +93,6 @@
             {% for grupo in grupos %}
 
               {% if grupo.header.codigo == 'admin_banca' %}
-              <!-- Administrador da Banca - select all -->
               <div class="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800 col-span-1 md:col-span-2">
                 <label class="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-amber-100/50 dark:hover:bg-amber-800/20 transition-colors">
                   <input type="checkbox" name="permissoes" value="admin_banca"
@@ -88,7 +108,6 @@
               </div>
 
               {% elif grupo.items|length == 1 and grupo.header.codigo == grupo.items.0.codigo %}
-              <!-- Single permission group (Colaborador, Administração) -->
               <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
                 <label class="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors">
                    <input type="checkbox" name="permissoes" value="{{ grupo.header.codigo }}"
@@ -103,7 +122,6 @@
                </div>
 
                {% else %}
-               <!-- Group with sub-items (Gestão Aduaneira, RH, Financeiro) -->
               <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
                 <label class="flex items-start gap-3 p-2 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-700/50 transition-colors mb-1 border-b border-gray-200 dark:border-gray-700 pb-2">
                   <input type="checkbox" name="permissoes" value="{{ grupo.header.codigo }}"
@@ -127,6 +145,7 @@
                             {% if cargo and cargo.locked %}disabled{% endif %}
                             {% if cargo and perm.pk in permissoes_ids %}checked{% endif %}>
                      <span class="text-sm text-gray-700 dark:text-gray-300">{{ perm.nome }}</span>
+                     {% if not e_gestor_filial %}
                      {% if perm.codigo|slice:'-7:' == '_filial' %}
                      <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50 flex-shrink-0">
                        <i class="fas fa-store text-[10px]"></i> Filial
@@ -135,6 +154,7 @@
                      <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-700/50 flex-shrink-0">
                        <i class="fas fa-building text-[10px]"></i> Sede
                      </span>
+                     {% endif %}
                      {% endif %}
                    </label>
                    {% endfor %}
@@ -166,11 +186,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Skip toggling if cargo is locked
   var chkAdmin = document.getElementById('chk-admin-banca');
   if (chkAdmin && chkAdmin.disabled) return;
 
-  // Toggle sub-items when header checkbox changes
   document.querySelectorAll('input[data-header]').forEach(function(chk) {
     chk.addEventListener('change', function() {
       var subs = document.querySelectorAll('input[data-sub="' + chk.value + '"]');
@@ -178,7 +196,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // When any sub-item is unchecked, uncheck the header
   document.querySelectorAll('input[data-sub]').forEach(function(cb) {
     cb.addEventListener('change', function() {
       var header = document.querySelector('input[data-header="' + cb.dataset.sub + '"]');
@@ -189,7 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // admin_banca = select all
   if (chkAdmin) {
     chkAdmin.addEventListener('change', function() {
       document.querySelectorAll('input[name="permissoes"]').forEach(function(cb) {
@@ -198,7 +214,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Prevent mixing sede + filial permissions
   var SEDE_FILIAL_PAIRS = {
     'gerir_clientes': 'gerir_clientes_filial',
     'gerir_financeiro': 'gerir_financeiro_filial',
@@ -215,7 +230,6 @@ document.addEventListener('DOMContentLoaded', function() {
       var oppositeCb = document.querySelector('input[name="permissoes"][value="' + opposite + '"]');
       if (oppositeCb && oppositeCb.checked) {
         oppositeCb.checked = false;
-        // Notify header checkbox that a sub-item changed
         var evt = new Event('change', { bubbles: true });
         oppositeCb.dispatchEvent(evt);
       }

@@ -3,7 +3,7 @@
 {% block conteudo %}
 
     <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
-      <a href="{% url 'dashboard' %}" class="hover:text-primary">Dashboard</a>
+      <a href="{% if e_gestor_filial %}{% url 'dashboard_colaborador' %}{% else %}{% url 'dashboard' %}{% endif %}" class="hover:text-primary">Dashboard</a>
       <i class="fas fa-chevron-right text-xs"></i>
       <a href="{% url 'rh_banca' %}" class="hover:text-primary">RH</a>
       <i class="fas fa-chevron-right text-xs"></i>
@@ -12,8 +12,19 @@
 
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Cargos & Permissões</h1>
-        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm">{{ banca.nome }}</p>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3">
+          <span class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <i class="fas fa-user-tag text-primary text-lg"></i>
+          </span>
+          Cargos & Permissões
+        </h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-sm ml-[52px]">
+          {% if filial_gestor %}
+            {{ filial_gestor.provincia }} &mdash; Cargos desta filial
+          {% else %}
+            {{ banca.nome }} &mdash; Todos os cargos da banca
+          {% endif %}
+        </p>
       </div>
       <a href="{% url 'rh_cargo_novo' %}"
          class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm">
@@ -23,9 +34,17 @@
 
     {% if not cargos %}
     <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center">
-      <i class="fas fa-id-card text-gray-400 text-5xl mb-4 block"></i>
+      <div class="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-5">
+        <i class="fas fa-id-card text-3xl text-gray-400 dark:text-gray-500"></i>
+      </div>
       <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Nenhum cargo criado</h3>
-      <p class="text-gray-500 dark:text-gray-400 text-sm mb-5">Crie cargos para definir permissões dos seus colaboradores.</p>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mb-5 max-w-md mx-auto">
+        {% if filial_gestor %}
+          Crie cargos para definir permissões dos colaboradores desta filial.
+        {% else %}
+          Crie cargos para definir permissões dos seus colaboradores.
+        {% endif %}
+      </p>
       <a href="{% url 'rh_cargo_novo' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">
         <i class="fas fa-plus"></i>Criar Primeiro Cargo
       </a>
@@ -36,14 +55,23 @@
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 hover:shadow-md transition-shadow">
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-3 mb-1">
+            <div class="flex items-center gap-3 mb-1 flex-wrap">
               <h3 class="text-lg font-bold text-gray-900 dark:text-white">
                 {% if cargo.locked %}<i class="fas fa-lock text-blue-500 mr-1"></i>{% endif %}
                 {{ cargo.nome }}
               </h3>
-              <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">
                 {{ cargo.total_colab }} colaborador{{ cargo.total_colab|pluralize:"es" }}
               </span>
+              {% if cargo.e_filial %}
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium border border-amber-200 dark:border-amber-800/50">
+                <i class="fas fa-store text-[10px] mr-0.5"></i>Filial
+              </span>
+              {% else %}
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium border border-blue-200 dark:border-blue-800/50">
+                <i class="fas fa-building text-[10px] mr-0.5"></i>Banca
+              </span>
+              {% endif %}
             </div>
             {% if cargo.descricao %}
             <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{{ cargo.descricao }}</p>
