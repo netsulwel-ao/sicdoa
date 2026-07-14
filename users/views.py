@@ -1047,6 +1047,13 @@ def presenca_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    # Stats do mes actual
+    from datetime import date as date_cls
+    registos_mes_qs = RegistoPresenca.objects.filter(colaborador=obj, data__year=hoje.year, data__month=hoje.month) if not e_inst else PresencaInstitucional.objects.filter(colaborador=obj, data__year=hoje.year, data__month=hoje.month)
+    total_mes = registos_mes_qs.count()
+    aprovados_mes = registos_mes_qs.filter(estado='Aprovado').count()
+    pendentes_mes = registos_mes_qs.filter(estado='Pendente').count()
+
     papel = obj.area_actuacao or (colaborador.cargo_banca.nome if not e_inst and colaborador.cargo_banca else "Colaborador") if e_inst else (colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador")
     if e_inst:
         papel = obj.area_actuacao or "Colaborador"
@@ -1067,6 +1074,9 @@ def presenca_view(request):
         "registo_hoje": registo_hoje,
         "historico": page_obj,
         "page_obj": page_obj,
+        "total_mes": total_mes,
+        "aprovados_mes": aprovados_mes,
+        "pendentes_mes": pendentes_mes,
     })
 
 
@@ -1233,6 +1243,14 @@ def ferias_view(request):
                         motivo=motivo,
                         estado="Pendente",
                     )
+                    if not e_inst:
+                        try:
+                            from rh.views import _actualizar_saldo_pos_criacao
+                            pedido_novo = PedidoFerias.objects.filter(colaborador=obj).order_by('-criado_em').first()
+                            if pedido_novo:
+                                _actualizar_saldo_pos_criacao(pedido_novo)
+                        except Exception:
+                            pass
                     messages.success(
                         request,
                         "Pedido de férias submetido com sucesso. Aguarde aprovação.",
@@ -1251,6 +1269,41 @@ def ferias_view(request):
     papel = obj.area_actuacao or "Colaborador" if e_inst else (colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador")
     from .permissoes import get_usuario_permissoes
     permissoes = get_usuario_permissoes(request)
+
+    saldo_ferias = None
+    saldo_anterior = None
+    if not e_inst and colaborador:
+        try:
+            from rh.views import obter_ou_criar_saldo
+            from datetime import date as date_cls
+            saldo_ferias = obter_ou_criar_saldo(colaborador, date.today().year)
+            saldo_anterior = obter_ou_criar_saldo(colaborador, date.today().year - 1)
+        except Exception:
+            pass
+
+    # Build visual calendar data for current month
+    hoje_date = timezone.localdate()
+    import calendar as cal_mod
+    cal_days = cal_mod.monthcalendar(hoje_date.year, hoje_date.month)
+    approved_days = set()
+    pending_days = set()
+    if saldo_ferias:
+        pedidos_para_calendario = ModelFerias.objects.filter(
+            colaborador=obj,
+            estado__in=["Aprovado", "Pendente"],
+            data_inicio__year=hoje_date.year,
+        )
+        for p in pedidos_para_calendario:
+            d = max(p.data_inicio, hoje_date.replace(day=1))
+            fim = min(p.data_fim, hoje_date.replace(day=cal_mod.monthrange(hoje_date.year, hoje_date.month)[1]))
+            while d <= fim:
+                if d.month == hoje_date.month:
+                    if p.estado == "Aprovado":
+                        approved_days.add(d.day)
+                    else:
+                        pending_days.add(d.day)
+                d += __import__('datetime').timedelta(days=1)
+
     return render(request, "colaboradores/ferias.html", {
         "nome": obj.nome,
         "papel": papel,
@@ -1261,6 +1314,15 @@ def ferias_view(request):
         "user_permissoes": permissoes,
         "pedidos": page_obj,
         "page_obj": page_obj,
+        "saldo": saldo_ferias,
+        "saldo_anterior": saldo_anterior,
+        "hoje": hoje_date,
+        "cal_year": hoje_date.year,
+        "cal_month": hoje_date.month,
+        "cal_month_name": ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][hoje_date.month],
+        "cal_days": cal_days,
+        "approved_days": approved_days,
+        "pending_days": pending_days,
     })
 
 

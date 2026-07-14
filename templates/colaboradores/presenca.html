@@ -2,16 +2,13 @@
 {% block content %}
 
     {# ── Cabeçalho ───────────────────────────────────────────────────────── #}
-    <div class="flex items-center justify-between">
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Marcar Presença</h1>
-          {% include 'includes/view-toggle.html' %}
-        </div>
-        <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
-          {{ hoje|date:"l, d \d\e F \d\e Y" }}
-        </p>
+    <div>
+      <div class="flex items-center gap-2">
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Marcar Presença</h1>
       </div>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
+        {{ hoje|date:"l, d \d\e F \d\e Y" }}
+      </p>
     </div>
 
     {# ── Alertas ─────────────────────────────────────────────────────────── #}
@@ -27,6 +24,22 @@
       <span class="text-sm font-medium">{{ mensagem_erro }}</span>
     </div>
     {% endif %}
+
+    {# ── Stats do Mês ────────────────────────────────────────────────────── #}
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+        <p class="text-2xl font-bold text-gray-800 dark:text-gray-200">{{ total_mes }}</p>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Total Mês</p>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+        <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ aprovados_mes }}</p>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Aprovados</p>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+        <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ pendentes_mes }}</p>
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Pendentes</p>
+      </div>
+    </div>
 
     {# ── Registo de Hoje ─────────────────────────────────────────────────── #}
     <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
@@ -79,6 +92,57 @@
           </div>
         </div>
 
+        {# Timeline de estado #}
+        {% if registo_hoje %}
+        <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700/50">
+          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Estado do Registo</p>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <i class="fas fa-check text-green-600 dark:text-green-400 text-sm"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Submetido</p>
+                <p class="text-[10px] text-gray-400">{{ registo_hoje.criado_em|date:"H:i" }}</p>
+              </div>
+            </div>
+            <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+            <div class="flex items-center gap-2">
+              {% if registo_hoje.estado == 'Aprovado' %}
+              <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <i class="fas fa-check-double text-white text-sm"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-green-600 dark:text-green-400">Aprovado</p>
+                {% if registo_hoje.data_aprovacao %}<p class="text-[10px] text-gray-400">{{ registo_hoje.data_aprovacao|date:"H:i" }}</p>{% endif %}
+              </div>
+              {% elif registo_hoje.estado == 'Rejeitado' %}
+              <div class="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center">
+                <i class="fas fa-times text-white text-sm"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-red-600 dark:text-red-400">Rejeitado</p>
+                {% if registo_hoje.data_aprovacao %}<p class="text-[10px] text-gray-400">{{ registo_hoje.data_aprovacao|date:"H:i" }}</p>{% endif %}
+              </div>
+              {% else %}
+              <div class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <i class="fas fa-clock text-amber-600 dark:text-amber-400 text-sm"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-amber-600 dark:text-amber-400">Aguardando</p>
+                <p class="text-[10px] text-gray-400">Pendente de aprovação</p>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% if registo_hoje.estado == 'Rejeitado' and registo_hoje.justificacao %}
+          <div class="mt-3 p-2 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/30">
+            <p class="text-xs text-red-600 dark:text-red-400"><i class="fas fa-info-circle mr-1"></i>{{ registo_hoje.justificacao }}</p>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
         {# Botões de acção #}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <form method="post">
@@ -107,13 +171,6 @@
             </button>
           </form>
         </div>
-
-        {% if registo_hoje and registo_hoje.estado == 'Pendente' %}
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-          <i class="fas fa-info-circle text-xs align-middle"></i>
-          Registo pendente de aprovação pelo responsável.
-        </p>
-        {% endif %}
       </div>
     </div>
 

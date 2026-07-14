@@ -195,6 +195,78 @@ def marcar_ferias_no_registo(pedido):
         data += timedelta(days=1)
 
 
+# ─── Saldo de Férias ──────────────────────────────────────────────────────────
+
+def obter_ou_criar_saldo(colaborador, ano=None):
+    """Obtém ou cria o saldo de férias de um colaborador para o ano dado."""
+    from .models import SaldoFerias
+    if ano is None:
+        ano = timezone.now().year
+    saldo, _ = SaldoFerias.objects.get_or_create(
+        colaborador=colaborador, ano=ano,
+        defaults={'dias_direito': 22, 'dias_gozados': 0, 'dias_pendentes': 0},
+    )
+    return saldo
+
+
+def saldo_dias_restantes(colaborador, ano=None):
+    """Retorna os dias de férias restantes do colaborador."""
+    saldo = obter_ou_criar_saldo(colaborador, ano)
+    return saldo.dias_restantes
+
+
+def _actualizar_saldo_pos_criacao(pedido):
+    """Quando um pedido de férias é criado, incrementa dias_pendentes."""
+    from datetime import timedelta
+    hoje = timezone.now().date()
+    dias_uteis = 0
+    data = pedido.data_inicio
+    while data <= pedido.data_fim:
+        if data.weekday() < 5:
+            dias_uteis += 1
+        data += timedelta(days=1)
+    saldo = obter_ou_criar_saldo(pedido.colaborador, hoje.year)
+    saldo.dias_pendentes = saldo.dias_pendentes + dias_uteis
+    saldo.save(update_fields=['dias_pendentes'])
+
+
+def _actualizar_saldo_pos_aprovacao(pedido):
+    """Quando um pedido é aprovado, move dias_pendentes para dias_gozados."""
+    from datetime import timedelta
+    hoje = timezone.now().date()
+    dias_uteis = 0
+    data = pedido.data_inicio
+    while data <= pedido.data_fim:
+        if data.weekday() < 5:
+            dias_uteis += 1
+        data += timedelta(days=1)
+    saldo = obter_ou_criar_saldo(pedido.colaborador, hoje.year)
+    saldo.dias_pendentes = max(saldo.dias_pendentes - dias_uteis, 0)
+    saldo.dias_gozados = saldo.dias_gozados + dias_uteis
+    saldo.save(update_fields=['dias_pendentes', 'dias_gozados'])
+
+
+def _actualizar_saldo_pos_rejeicao(pedido):
+    """Quando um pedido é rejeitado, decrementa dias_pendentes."""
+    from datetime import timedelta
+    hoje = timezone.now().date()
+    dias_uteis = 0
+    data = pedido.data_inicio
+    while data <= pedido.data_fim:
+        if data.weekday() < 5:
+            dias_uteis += 1
+        data += timedelta(days=1)
+    saldo = obter_ou_criar_saldo(pedido.colaborador, hoje.year)
+    saldo.dias_pendentes = max(saldo.dias_pendentes - dias_uteis, 0)
+    saldo.save(update_fields=['dias_pendentes'])
+
+
+def _actualizar_saldo_pos_apagamento(pedido):
+    """Quando um pedido pendente é apagado, decrementa dias_pendentes."""
+    if pedido.estado == 'Pendente':
+        _actualizar_saldo_pos_rejeicao(pedido)
+
+
 def _registrar_historico_presenca(banca, filial, tipo_registo, registo_id, accao,
                                    estado_anterior, estado_novo, colaborador, aprovador,
                                    observacao=''):
@@ -3566,12 +3638,7 @@ def presencas_view(request):
         colaborador__in=cols,
         data_inicio__lte=ultimo_dia_mes, data_fim__gte=primeiro_dia_mes,
     ).select_related('colaborador').order_by('-criado_em')
-    # Anotar can_approve em cada registo
-    for r in registos:
-        r.can_approve = (
-            r.estado == 'Pendente' and
-            pode_aprovar_presenca(request, banca, col_log, is_desp, r.colaborador)
-        )
+    # Anotar can_approve nos pedidos (não paginados)
     for p in pedidos_pendentes:
         p.can_approve = (
             p.estado == 'Pendente' and
@@ -3583,9 +3650,44 @@ def presencas_view(request):
                 p.estado == 'Pendente' and
                 pode_aprovar_presenca(request, banca, col_log, is_desp, p.colaborador)
             )
+
+    # ── Stats para o dashboard ────────────────────────────────────────────
+    total_colaboradores = cols.count()
+    registos_hoje = RegistoPresenca.objects.filter(colaborador__in=cols, data=hoje)
+    presentes_hoje = registos_hoje.filter(
+        tipo__in=('Entrada', 'Hora_Extra'), estado='Aprovado'
+    ).values('colaborador').distinct().count()
+    ausentes_hoje = registos_hoje.filter(
+        tipo__in=('Falta', 'Falta_Justificada'), estado__in=('Pendente', 'Aprovado')
+    ).values('colaborador').distinct().count()
+    pendentes_count = registos.filter(estado='Pendente').count()
+    ferias_pendentes_count = PedidoFerias.objects.filter(
+        colaborador__in=cols, estado='Pendente'
+    ).count()
+
+    # Paginar registos primeiro — annotation vai no page_obj, não no QuerySet
     paginator = Paginator(registos, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    # Anotar can_approve e dias_pendencia nos itens paginados
+    from datetime import timedelta
+    for r in page_obj:
+        r.can_approve = (
+            r.estado == 'Pendente' and
+            pode_aprovar_presenca(request, banca, col_log, is_desp, r.colaborador)
+        )
+        if r.estado == 'Pendente':
+            r.dias_pendencia = (hoje - r.criado_em.date()).days if hasattr(r.criado_em, 'date') else 0
+        else:
+            r.dias_pendencia = 0
+    for p in pedidos_pendentes:
+        p.dias_pendencia = (hoje - p.criado_em.date()).days if hasattr(p.criado_em, 'date') else 0
+    for p in pedidos_todos:
+        if p.estado == 'Pendente':
+            p.dias_pendencia = (hoje - p.criado_em.date()).days if hasattr(p.criado_em, 'date') else 0
+        else:
+            p.dias_pendencia = 0
 
     extra_params = {}
     for k in ('colaborador', 'data_inicio', 'data_fim'):
@@ -3605,6 +3707,12 @@ def presencas_view(request):
                       'colaborador_id': colaborador_id,
                       'data_inicio': data_inicio, 'data_fim': data_fim,
                       'extra_params': extra_qs,
+                      'total_colaboradores': total_colaboradores,
+                      'presentes_hoje': presentes_hoje,
+                      'ausentes_hoje': ausentes_hoje,
+                      'pendentes_count': pendentes_count,
+                      'ferias_pendentes_count': ferias_pendentes_count,
+                      'hoje_days_in_month': __import__('calendar').monthrange(hoje.year, hoje.month)[1],
                   }))
 
 
@@ -3709,6 +3817,96 @@ def presenca_aprovar_view(request, pk):
 
 
 @_requer_sessao
+def presenca_aprovar_massa_view(request):
+    """Aprovação/rejeição em massa de presenças e pedidos de férias."""
+    acc = obter_acesso_rh(request)
+    if not acc:
+        return redirect_sem_acesso_rh(request)
+    banca, col_log, gestor, is_desp = acc
+    if request.method != 'POST':
+        return redirect('rh_presencas')
+    ids_raw = request.POST.getlist('registos_ids')
+    tipo = request.POST.get('tipo_massa', 'presenca')
+    novo_estado = request.POST.get('estado_massa', 'Aprovado')
+    observacao = request.POST.get('observacao_massa', '').strip()
+    if novo_estado not in ('Aprovado', 'Rejeitado'):
+        novo_estado = 'Aprovado'
+    if not ids_raw:
+        messages.error(request, 'Nenhum registo selecionado.')
+        return redirect('rh_presencas')
+
+    aprovados = 0
+    rejeitados = 0
+    erros = 0
+
+    if tipo == 'ferias':
+        pedidos = PedidoFerias.objects.filter(pk__in=ids_raw, estado='Pendente', colaborador__banca=banca)
+        for pedido in pedidos:
+            if not pode_aprovar_presenca(request, banca, col_log, is_desp, pedido.colaborador):
+                erros += 1
+                continue
+            estado_anterior = pedido.estado
+            pedido.estado = novo_estado
+            pedido.aprovado_por = col_log
+            pedido.data_aprovacao = timezone.now()
+            if novo_estado == 'Rejeitado':
+                pedido.motivo_rejeicao = observacao
+            pedido.save(update_fields=['estado', 'aprovado_por', 'data_aprovacao', 'motivo_rejeicao'] if novo_estado == 'Rejeitado' else ['estado', 'aprovado_por', 'data_aprovacao'])
+            _registrar_historico_presenca(
+                banca=banca, filial=pedido.colaborador.filial,
+                tipo_registo='ferias', registo_id=pedido.pk,
+                accao='APROVADA' if novo_estado == 'Aprovado' else 'REJEITADA',
+                estado_anterior=estado_anterior, estado_novo=novo_estado,
+                colaborador=pedido.colaborador, aprovador=col_log,
+                observacao=observacao,
+            )
+            if novo_estado == 'Aprovado':
+                marcar_ferias_no_registo(pedido)
+                _actualizar_saldo_pos_aprovacao(pedido)
+                notificar_aprovado(pedido, banca, pedido.colaborador, 'ferias')
+                aprovados += 1
+            else:
+                _actualizar_saldo_pos_rejeicao(pedido)
+                notificar_rejeitado(pedido, banca, pedido.colaborador, 'ferias', motivo=observacao)
+                rejeitados += 1
+    else:
+        registos = RegistoPresenca.objects.filter(pk__in=ids_raw, estado='Pendente', colaborador__banca=banca)
+        for reg in registos:
+            if not pode_aprovar_presenca(request, banca, col_log, is_desp, reg.colaborador):
+                erros += 1
+                continue
+            estado_anterior = reg.estado
+            reg.estado = novo_estado
+            reg.aprovado_por = col_log
+            reg.data_aprovacao = timezone.now()
+            reg.save()
+            _registrar_historico_presenca(
+                banca=banca, filial=reg.colaborador.filial,
+                tipo_registo='presenca', registo_id=reg.pk,
+                accao='APROVADA' if novo_estado == 'Aprovado' else 'REJEITADA',
+                estado_anterior=estado_anterior, estado_novo=novo_estado,
+                colaborador=reg.colaborador, aprovador=col_log,
+                observacao=observacao,
+            )
+            if novo_estado == 'Aprovado':
+                notificar_aprovado(reg, banca, reg.colaborador, 'presenca')
+                aprovados += 1
+            else:
+                notificar_rejeitado(reg, banca, reg.colaborador, 'presenca', motivo=observacao)
+                rejeitados += 1
+
+    if aprovados:
+        messages.success(request, f'{aprovados} registo(s) {("aprovado" if novo_estado == "Aprovado" else "rejeitado")(s=True if aprovados > 1 else False)}.')
+    if rejeitados:
+        messages.success(request, f'{rejeitados} registo(s) rejeitado(s).')
+    if erros:
+        messages.warning(request, f'{erros} registo(s) sem permissão para alterar.')
+
+    tab = 'ferias' if tipo == 'ferias' else 'presencas'
+    return redirect(f'{reverse("rh_presencas")}?tab={tab}')
+
+
+@_requer_sessao
 def ferias_pedir_view(request):
     acc = obter_acesso_rh(request)
     if not acc:
@@ -3755,6 +3953,7 @@ def ferias_pedir_view(request):
                     colaborador=col, aprovador=col_log,
                 )
                 messages.success(request, 'Pedido de férias submetido com sucesso.')
+                _actualizar_saldo_pos_criacao(pedido)
                 responsavel = _encontrar_responsavel_aprovacao(banca, col)
                 if responsavel and (not col_log or responsavel.pk != col_log.pk):
                     notificar_ferias_pendente(pedido, banca, responsavel, request)
@@ -3792,7 +3991,9 @@ def ferias_aprovar_view(request, pk):
             pedido.estado = novo_estado
             pedido.aprovado_por = col_log
             pedido.data_aprovacao = timezone.now()
-            pedido.save()
+            if novo_estado == 'Rejeitado':
+                pedido.motivo_rejeicao = observacao
+            pedido.save(update_fields=['estado', 'aprovado_por', 'data_aprovacao', 'motivo_rejeicao'] if novo_estado == 'Rejeitado' else ['estado', 'aprovado_por', 'data_aprovacao'])
             _registrar_historico_presenca(
                 banca=banca, filial=pedido.colaborador.filial,
                 tipo_registo='ferias', registo_id=pedido.pk,
@@ -3803,8 +4004,10 @@ def ferias_aprovar_view(request, pk):
             )
             if novo_estado == 'Aprovado':
                 marcar_ferias_no_registo(pedido)
+                _actualizar_saldo_pos_aprovacao(pedido)
                 notificar_aprovado(pedido, banca, pedido.colaborador, 'ferias')
             else:
+                _actualizar_saldo_pos_rejeicao(pedido)
                 notificar_rejeitado(pedido, banca, pedido.colaborador, 'ferias', motivo=observacao)
             messages.success(request, f'Pedido de férias de {pedido.colaborador.nome} {novo_estado.lower()}.')
         except ValidationError as e:
@@ -3863,8 +4066,9 @@ def ferias_apagar_view(request, pk):
                 estado_anterior=pedido.estado, estado_novo='',
                 colaborador=pedido.colaborador, aprovador=col_log,
             )
+            _actualizar_saldo_pos_apagamento(pedido)
             pedido.delete()
-            messages.success(request, 'Pedido de férias removido com sucesso.')
+            messages.success(request, 'Pedido de ferias removido com sucesso.')
     return redirect('rh_ferias')
 
 

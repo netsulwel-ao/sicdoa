@@ -10,6 +10,30 @@
   </div>
 </div>
 
+<!-- ══════════ STATS CARDS ══════════ -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+    <p class="text-2xl font-bold text-gray-800 dark:text-gray-200">{{ total_colaboradores }}</p>
+    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Colaboradores</p>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ presentes_hoje }}</p>
+    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Presentes Hoje</p>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ ausentes_hoje }}</p>
+    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Ausentes</p>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+    <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ pendentes_count }}</p>
+    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Pendentes</p>
+  </div>
+  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ ferias_pendentes_count }}</p>
+    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Férias Pend.</p>
+  </div>
+</div>
+
 <!-- Tabs -->
 <div class="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit" data-tab-group="presencas-ferias">
   <button data-tab-btn="presencas" class="px-5 py-2 text-sm font-semibold rounded-lg bg-white dark:bg-gray-900 text-primary shadow-sm">Presenças</button>
@@ -33,6 +57,17 @@
 
 <!-- ══════════════ TAB: PRESENÇAS ══════════════ -->
 <div data-tab-content="presencas">
+
+  <!-- Barra de acção em massa (Presenças) -->
+  <div id="bulkActionBar" class="hidden mb-4 flex items-center gap-3 p-3 bg-primary/10 border border-primary/30 rounded-xl">
+    <span id="bulkCount" class="text-sm font-semibold text-primary">0 selecionado(s)</span>
+    <div class="ml-auto flex gap-2">
+      <button type="button" onclick="submeterMassa('presenca', 'Aprovado')" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-all"><i class="fas fa-check mr-1"></i>Aprovar</button>
+      <button type="button" onclick="submeterMassa('presenca', 'Rejeitado')" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"><i class="fas fa-times mr-1"></i>Rejeitar</button>
+      <button type="button" onclick="limparSelecao()" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Limpar</button>
+    </div>
+  </div>
+
   <!-- Pedidos de férias pendentes -->
   {% if pedidos %}
   <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 mb-6">
@@ -40,15 +75,34 @@
     <div class="space-y-2">
       {% for p in pedidos %}
       <div class="flex items-center justify-between bg-white dark:bg-gray-900 rounded-xl p-3 border border-amber-200 dark:border-amber-800">
-        <div><p class="font-semibold text-gray-900 dark:text-white text-sm">{{ p.colaborador.nome }}</p><p class="text-xs text-gray-500">{{ p.data_inicio|date:"d/m/Y" }} → {{ p.data_fim|date:"d/m/Y" }} ({{ p.dias }} dias)</p></div>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-3">
+          <input type="checkbox" data-ferias-check value="{{ p.pk }}" onchange="atualizarBulkFerias()" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
+          <div>
+            <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ p.colaborador.nome }}</p>
+            <p class="text-xs text-gray-500">{{ p.data_inicio|date:"d/m/Y" }} → {{ p.data_fim|date:"d/m/Y" }} ({{ p.dias }} dias)</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          {% if p.dias_pendencia is not None %}
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium {% if p.dias_pendencia >= 3 %}bg-red-100 text-red-700{% elif p.dias_pendencia >= 1 %}bg-amber-100 text-amber-700{% else %}bg-green-100 text-green-700{% endif %}">
+            {% if p.dias_pendencia == 0 %}Hoje{% elif p.dias_pendencia == 1 %}1 dia{% else %}{{ p.dias_pendencia }} dias{% endif %}
+          </span>
+          {% endif %}
           {% if p.can_approve %}
           <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-all">Aprovar</button></form>
-          <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-all">Rejeitar</button></form>
+          <button type="button" onclick="abrirModalRejeicao('ferias', {{ p.pk }})" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-all">Rejeitar</button>
           {% endif %}
         </div>
       </div>
       {% endfor %}
+    </div>
+    <!-- Botão aprovar em massa férias -->
+    <div id="bulkFeriasBar" class="hidden mt-3 flex items-center gap-3 pt-3 border-t border-amber-200 dark:border-amber-800">
+      <span id="bulkFeriasCount" class="text-sm font-semibold text-amber-700 dark:text-amber-300">0 selecionado(s)</span>
+      <div class="ml-auto flex gap-2">
+        <button type="button" onclick="submeterMassa('ferias', 'Aprovado')" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-all"><i class="fas fa-check mr-1"></i>Aprovar</button>
+        <button type="button" onclick="submeterMassa('ferias', 'Rejeitado')" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"><i class="fas fa-times mr-1"></i>Rejeitar</button>
+      </div>
     </div>
   </div>
   {% endif %}
@@ -63,12 +117,18 @@
       {% include 'includes/view-toggle.html' %}
     </div>
 
+    <!-- Grid View -->
     <div data-grid-view class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
       {% for r in registos %}
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all overflow-hidden">
         <div class="p-5">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-semibold text-gray-900 dark:text-white">{{ r.colaborador.nome }}</h3>
+            <div class="flex items-center gap-2">
+              {% if r.estado == 'Pendente' %}
+              <input type="checkbox" data-presenca-check value="{{ r.pk }}" onchange="atualizarBulkPresencas()" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
+              {% endif %}
+              <h3 class="font-semibold text-gray-900 dark:text-white">{{ r.colaborador.nome }}</h3>
+            </div>
             <span class="text-xs text-gray-500">{{ r.data|date:"d/m/Y" }}</span>
           </div>
           <div class="space-y-2 text-sm mb-4">
@@ -87,15 +147,20 @@
             </div>
           </div>
           <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
-            <div>
+            <div class="flex items-center gap-2">
               {% if r.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aprovado</span>
               {% elif r.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
               {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
+              {% if r.estado == 'Pendente' and r.dias_pendencia is not None %}
+              <span class="text-xs px-2 py-0.5 rounded-full font-medium {% if r.dias_pendencia >= 3 %}bg-red-100 text-red-700{% elif r.dias_pendencia >= 1 %}bg-amber-100 text-amber-700{% else %}bg-green-100 text-green-700{% endif %}">
+                {% if r.dias_pendencia == 0 %}Hoje{% elif r.dias_pendencia == 1 %}1 dia{% else %}{{ r.dias_pendencia }} dias{% endif %}
+              </span>
+              {% endif %}
             </div>
             {% if r.estado == 'Pendente' and r.can_approve %}
             <div class="flex gap-1">
               <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check-circle text-base"></i></button></form>
-              <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button></form>
+              <button type="button" onclick="abrirModalRejeicao('presenca', {{ r.pk }})" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button>
             </div>
             {% endif %}
             {% if r.tipo == 'Falta' and r.estado == 'Pendente' %}
@@ -113,8 +178,10 @@
       {% endfor %}
     </div>
 
+    <!-- List View -->
     <div data-list-view>
     <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-800/60"><tr>
+      <th class="px-3 py-3 w-10"><input type="checkbox" id="selectAllPresencas" onchange="toggleAllPresencas(this)" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"></th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Colaborador</th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
@@ -124,6 +191,7 @@
     </tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">
     {% for r in registos %}
     <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+      <td class="px-3 py-4">{% if r.estado == 'Pendente' %}<input type="checkbox" data-presenca-check value="{{ r.pk }}" onchange="atualizarBulkPresencas()" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">{% endif %}</td>
       <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white text-sm">{{ r.colaborador.nome }}</td>
       <td class="px-5 py-4 text-sm text-gray-600">{{ r.data|date:"d/m/Y" }}</td>
       <td class="px-5 py-4">
@@ -136,15 +204,22 @@
       </td>
       <td class="px-5 py-4 text-sm text-gray-600">{{ r.hora_entrada|default:"—" }} / {{ r.hora_saida|default:"—" }}</td>
       <td class="px-5 py-4">
-        {% if r.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aprovado</span>
-        {% elif r.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
-        {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
+        <div class="flex items-center gap-2">
+          {% if r.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Aprovado</span>
+          {% elif r.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
+          {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
+          {% if r.estado == 'Pendente' and r.dias_pendencia is not None %}
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium {% if r.dias_pendencia >= 3 %}bg-red-100 text-red-700{% elif r.dias_pendencia >= 1 %}bg-amber-100 text-amber-700{% else %}bg-green-100 text-green-700{% endif %}">
+            {% if r.dias_pendencia == 0 %}Hoje{% elif r.dias_pendencia == 1 %}1 dia{% else %}{{ r.dias_pendencia }} dias{% endif %}
+          </span>
+          {% endif %}
+        </div>
       </td>
       <td class="px-5 py-4 text-right">
           <div class="flex items-center justify-end gap-1">
             {% if r.estado == 'Pendente' and r.can_approve %}
              <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check-circle text-base"></i></button></form>
-             <form method="POST" action="{% url 'rh_presenca_aprovar' r.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button></form>
+             <button type="button" onclick="abrirModalRejeicao('presenca', {{ r.pk }})" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button>
             {% endif %}
             {% if r.tipo == 'Falta' and r.estado == 'Pendente' %}
             <button onclick="abrirJustificar({{ r.colaborador.pk }}, '{{ r.data|date:'Y-m-d' }}')" class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all" title="Justificar falta"><i class="fas fa-pencil-alt text-sm"></i></button>
@@ -170,11 +245,84 @@
 
 <!-- ══════════════ TAB: FÉRIAS ══════════════ -->
 <div data-tab-content="ferias" class="hidden">
+
+  <!-- Resumo férias da equipa -->
+  {% if pedidos_todos %}
+  {% with aprovados_count=0 pendentes_ferias=0 rejeitados_count=0 %}
+  <div class="grid grid-cols-3 gap-3 mb-6">
+    {% for p in pedidos_todos %}{% if p.estado == 'Aprovado' %}{% endif %}{% if p.estado == 'Pendente' %}{% endif %}{% if p.estado == 'Rejeitado' %}{% endif %}{% endfor %}
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+      <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ ferias_pendentes_count }}</p>
+      <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Pendentes</p>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+      <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{% for p in pedidos_todos %}{% if forloop.first %}0{% endif %}{% endfor %}{% if pedidos_todos %}{% endif %}</p>
+      <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Em Férias</p>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 text-center">
+      <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ ferias_pendentes_count }}</p>
+      <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Total no Período</p>
+    </div>
+  </div>
+  {% endwith %}
+  {% endif %}
+
+  <!-- Calendário visual da equipa -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 mb-6 overflow-x-auto">
+    <h3 class="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2"><i class="fas fa-calendar-alt text-primary"></i>Calendário de Férias da Equipa — {{ hoje|date:"F Y" }}</h3>
+    <div class="min-w-[700px]">
+      <table class="w-full text-xs">
+        <thead>
+          <tr>
+            <th class="text-left px-2 py-1 text-gray-500 font-semibold w-32">Colaborador</th>
+            {% for d in "1234567890123456789012345678901234567890"|make_list %}{% if forloop.counter <= hoje_days_in_month %}
+            <th class="px-0.5 py-1 text-center text-gray-400 font-normal {% if forloop.counter == hoje.day %}text-primary font-bold{% endif %}">{{ forloop.counter }}</th>
+            {% endif %}{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pedidos_todos %}
+          {% if p.estado == 'Aprovado' or p.estado == 'Pendente' %}
+          <tr>
+            <td class="px-2 py-1 text-gray-700 dark:text-gray-300 font-medium truncate" title="{{ p.colaborador.nome }}">{{ p.colaborador.nome|truncatechars:15 }}</td>
+            {% for d in "1234567890123456789012345678901234567890"|make_list %}{% if forloop.counter <= hoje_days_in_month %}
+            <td class="px-0.5 py-1 text-center">
+              {% with dia=forloop.counter %}
+              {% if dia >= p.data_inicio.day and dia <= p.data_fim.day and p.data_inicio.month == hoje.month %}
+                {% if p.estado == 'Aprovado' %}<span class="block w-5 h-5 rounded bg-blue-500 text-white text-[8px] leading-5" title="{{ p.colaborador.nome }}: Férias"></span>
+                {% else %}<span class="block w-5 h-5 rounded bg-amber-400 text-white text-[8px] leading-5" title="{{ p.colaborador.nome }}: Pendente"></span>{% endif %}
+              {% endif %}
+              {% endwith %}
+            </td>
+            {% endif %}{% endfor %}
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="flex items-center gap-4 mt-3 text-xs text-gray-500">
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-500 inline-block"></span>Aprovado</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-400 inline-block"></span>Pendente</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de acção em massa (Férias) -->
+  <div id="bulkActionBarFerias" class="hidden mb-4 flex items-center gap-3 p-3 bg-primary/10 border border-primary/30 rounded-xl">
+    <span id="bulkCountFerias" class="text-sm font-semibold text-primary">0 selecionado(s)</span>
+    <div class="ml-auto flex gap-2">
+      <button type="button" onclick="submeterMassa('ferias', 'Aprovado')" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-all"><i class="fas fa-check mr-1"></i>Aprovar</button>
+      <button type="button" onclick="submeterMassa('ferias', 'Rejeitado')" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-all"><i class="fas fa-times mr-1"></i>Rejeitar</button>
+      <button type="button" onclick="limparSelecaoFerias()" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Limpar</button>
+    </div>
+  </div>
+
   {% if not pedidos_todos %}
   <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center"><i class="fas fa-umbrella-beach text-gray-400 text-5xl mb-4 block"></i><h3 class="text-lg font-bold text-gray-700 dark:text-gray-300">Nenhum pedido de férias neste período</h3></div>
   {% else %}
   <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
     <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50 dark:bg-gray-800/60"><tr>
+      <th class="px-3 py-3 w-10"><input type="checkbox" id="selectAllFerias" onchange="toggleAllFerias(this)" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"></th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Colaborador</th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Período</th>
       <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Dias</th>
@@ -184,20 +332,28 @@
     </tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">
     {% for p in pedidos_todos %}
     <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+      <td class="px-3 py-4">{% if p.estado == 'Pendente' %}<input type="checkbox" data-ferias-check value="{{ p.pk }}" onchange="atualizarBulkFerias()" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">{% endif %}</td>
       <td class="px-5 py-4 font-semibold text-gray-900 dark:text-white text-sm">{{ p.colaborador.nome }}</td>
       <td class="px-5 py-4 text-sm text-gray-600">{{ p.data_inicio|date:"d/m/Y" }} → {{ p.data_fim|date:"d/m/Y" }}</td>
       <td class="px-5 py-4 text-sm text-gray-600">{{ p.dias }}</td>
       <td class="px-5 py-4 text-sm text-gray-600 max-w-[200px] truncate">{{ p.motivo|default:"—" }}</td>
       <td class="px-5 py-4">
-        {% if p.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Em Férias</span>
-        {% elif p.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
-        {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
+        <div class="flex items-center gap-2">
+          {% if p.estado == 'Aprovado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Em Férias</span>
+          {% elif p.estado == 'Rejeitado' %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejeitado</span>
+          {% else %}<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pendente</span>{% endif %}
+          {% if p.estado == 'Pendente' and p.dias_pendencia is not None %}
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium {% if p.dias_pendencia >= 3 %}bg-red-100 text-red-700{% elif p.dias_pendencia >= 1 %}bg-amber-100 text-amber-700{% else %}bg-green-100 text-green-700{% endif %}">
+            {% if p.dias_pendencia == 0 %}Hoje{% elif p.dias_pendencia == 1 %}1 dia{% else %}{{ p.dias_pendencia }} dias{% endif %}
+          </span>
+          {% endif %}
+        </div>
       </td>
       <td class="px-5 py-4 text-right">
         <div class="flex items-center justify-end gap-1">
           {% if p.estado == 'Pendente' and p.can_approve %}
           <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Aprovado"><button type="submit" class="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-all" title="Aprovar"><i class="fas fa-check-circle text-base"></i></button></form>
-          <form method="POST" action="{% url 'rh_ferias_aprovar' p.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="estado" value="Rejeitado"><button type="submit" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button></form>
+          <button type="button" onclick="abrirModalRejeicao('ferias', {{ p.pk }})" class="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-all" title="Rejeitar"><i class="fas fa-times-circle text-base"></i></button>
           {% endif %}
           {% if p.estado == 'Pendente' %}
           <button onclick="abrirEditarFerias({{ p.pk }}, {{ p.colaborador.pk }}, '{{ p.data_inicio|date:'Y-m-d' }}', '{{ p.data_fim|date:'Y-m-d' }}', '{{ p.motivo|default:''|escapejs }}')" class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all" title="Editar"><i class="fas fa-edit text-base"></i></button>
@@ -213,12 +369,42 @@
 </div>
 
 <script>
+/* ── Tab switching ── */
+(function(){
+  var activeTab = new URLSearchParams(window.location.search).get('tab') || 'presencas';
+  var btns = document.querySelectorAll('[data-tab-btn]');
+  function switchTab(tab) {
+    document.querySelectorAll('[data-tab-content]').forEach(function(c){ c.classList.add('hidden'); });
+    var content = document.querySelector('[data-tab-content="' + tab + '"]');
+    if (content) content.classList.remove('hidden');
+    btns.forEach(function(b){
+      b.classList.remove('bg-white', 'dark:bg-gray-900', 'text-primary', 'shadow-sm');
+      b.classList.add('text-gray-500', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:bg-white', 'dark:hover:bg-gray-700');
+    });
+    btns.forEach(function(b){
+      if (b.getAttribute('data-tab-btn') === tab) {
+        b.classList.remove('text-gray-500', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:bg-white', 'dark:hover:bg-gray-700');
+        b.classList.add('bg-white', 'dark:bg-gray-900', 'text-primary', 'shadow-sm');
+      }
+    });
+  }
+  btns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      switchTab(this.getAttribute('data-tab-btn'));
+    });
+  });
+  switchTab(activeTab);
+})();
+
+/* ── Presença modal functions ── */
 function togglePresencaFields() {
   var tipo = document.getElementById('tipoPresenca').value;
   var isEntrada = tipo === 'Entrada';
   var isJustif = tipo === 'Falta_Justificada';
-  document.getElementById('presencaHoras').classList.toggle('hidden', !isEntrada);
-  document.getElementById('presencaJustif').classList.toggle('hidden', !isJustif);
+  var ph = document.getElementById('presencaHoras');
+  var pj = document.getElementById('presencaJustif');
+  if (ph) ph.classList.toggle('hidden', !isEntrada);
+  if (pj) pj.classList.toggle('hidden', !isJustif);
   var he = document.querySelector('#modalPresenca input[name="hora_entrada"]');
   if (he) he.required = isEntrada;
 }
@@ -250,31 +436,132 @@ function abrirEditarFerias(pedidoPk, colId, dataInicio, dataFim, motivo) {
   modal.querySelector('[name="motivo"]').value = motivo;
   modal.classList.remove('hidden');
 }
-(function(){
-  var activeTab = new URLSearchParams(window.location.search).get('tab') || 'presencas';
-  var btns = document.querySelectorAll('[data-tab-btn]');
-  function switchTab(tab) {
-    document.querySelectorAll('[data-tab-content]').forEach(function(c){ c.classList.add('hidden'); });
-    var content = document.querySelector('[data-tab-content="' + tab + '"]');
-    if (content) content.classList.remove('hidden');
-    btns.forEach(function(b){
-      b.classList.remove('bg-white', 'dark:bg-gray-900', 'text-primary', 'shadow-sm');
-      b.classList.add('text-gray-500', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:bg-white', 'dark:hover:bg-gray-700');
-    });
-    btns.forEach(function(b){
-      if (b.getAttribute('data-tab-btn') === tab) {
-        b.classList.remove('text-gray-500', 'hover:text-gray-700', 'dark:hover:text-gray-300', 'hover:bg-white', 'dark:hover:bg-gray-700');
-        b.classList.add('bg-white', 'dark:bg-gray-900', 'text-primary', 'shadow-sm');
-      }
-    });
+
+/* ── Bulk selection (Presenças) ── */
+function toggleAllPresencas(el) {
+  var checked = el.checked;
+  document.querySelectorAll('[data-presenca-check]').forEach(function(cb){ cb.checked = checked; });
+  atualizarBulkPresencas();
+}
+function atualizarBulkPresencas() {
+  var cbs = document.querySelectorAll('[data-presenca-check]:checked');
+  var bar = document.getElementById('bulkActionBar');
+  var count = document.getElementById('bulkCount');
+  if (!bar) return;
+  if (cbs.length > 0) {
+    bar.classList.remove('hidden');
+    if (count) count.textContent = cbs.length + ' selecionado(s)';
+  } else {
+    bar.classList.add('hidden');
   }
-  btns.forEach(function(btn){
-    btn.addEventListener('click', function(){
-      switchTab(this.getAttribute('data-tab-btn'));
-    });
+}
+function limparSelecao() {
+  document.querySelectorAll('[data-presenca-check]').forEach(function(cb){ cb.checked = false; });
+  var sel = document.getElementById('selectAllPresencas');
+  if (sel) sel.checked = false;
+  var bar = document.getElementById('bulkActionBar');
+  if (bar) bar.classList.add('hidden');
+}
+
+/* ── Bulk selection (Férias) ── */
+function toggleAllFerias(el) {
+  var checked = el.checked;
+  document.querySelectorAll('[data-ferias-check]').forEach(function(cb){ cb.checked = checked; });
+  atualizarBulkFerias();
+}
+function atualizarBulkFerias() {
+  var cbs = document.querySelectorAll('[data-ferias-check]:checked');
+  var bar = document.getElementById('bulkActionBarFerias');
+  var count = document.getElementById('bulkCountFerias');
+  if (!bar) return;
+  if (cbs.length > 0) {
+    bar.classList.remove('hidden');
+    if (count) count.textContent = cbs.length + ' selecionado(s)';
+  } else {
+    bar.classList.add('hidden');
+  }
+}
+function limparSelecaoFerias() {
+  document.querySelectorAll('[data-ferias-check]').forEach(function(cb){ cb.checked = false; });
+  var sel = document.getElementById('selectAllFerias');
+  if (sel) sel.checked = false;
+  var bar = document.getElementById('bulkActionBarFerias');
+  if (bar) bar.classList.add('hidden');
+}
+
+/* ── Bulk submit ── */
+function submeterMassa(tipo, estado) {
+  var selector = tipo === 'ferias' ? '[data-ferias-check]:checked' : '[data-presenca-check]:checked';
+  var cbs = document.querySelectorAll(selector);
+  if (cbs.length === 0) return;
+  if (estado === 'Rejeitado') {
+    abrirModalRejeicaoMassa(tipo, estado);
+    return;
+  }
+  if (!confirm('Tem certeza que deseja aprovar ' + cbs.length + ' registo(s)?')) return;
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '{% url "rh_presenca_aprovar_massa" %}';
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (csrf) { var h = document.createElement('input'); h.type='hidden'; h.name='csrfmiddlewaretoken'; h.value=csrf.value; form.appendChild(h); }
+  cbs.forEach(function(cb){
+    var h = document.createElement('input'); h.type='hidden'; h.name='registos_ids'; h.value=cb.value; form.appendChild(h);
   });
-  switchTab(activeTab);
-})();
+  var ht = document.createElement('input'); ht.type='hidden'; ht.name='tipo_massa'; ht.value=tipo; form.appendChild(ht);
+  var he = document.createElement('input'); he.type='hidden'; he.name='estado_massa'; he.value=estado; form.appendChild(he);
+  document.body.appendChild(form);
+  form.submit();
+}
+
+/* ── Rejection modal ── */
+var _rejTipo = '', _rejPk = 0, _rejMassa = false, _rejMassaTipo = '', _rejMassaEstado = '';
+function abrirModalRejeicao(tipo, pk) {
+  _rejTipo = tipo; _rejPk = pk; _rejMassa = false;
+  document.getElementById('modalRejeicao').classList.remove('hidden');
+  document.getElementById('rejeicaoMotivo').value = '';
+  document.getElementById('rejeicaoMotivo').focus();
+}
+function abrirModalRejeicaoMassa(tipo, estado) {
+  _rejMassa = true; _rejMassaTipo = tipo; _rejMassaEstado = estado;
+  document.getElementById('modalRejeicao').classList.remove('hidden');
+  document.getElementById('rejeicaoMotivo').value = '';
+  document.getElementById('rejeicaoMotivo').focus();
+}
+function fecharModalRejeicao() {
+  document.getElementById('modalRejeicao').classList.add('hidden');
+}
+function confirmarRejeicao() {
+  var motivo = document.getElementById('rejeicaoMotivo').value.trim();
+  if (!motivo) { document.getElementById('rejeicaoMotivo').classList.add('border-red-500'); return; }
+  document.getElementById('rejeicaoMotivo').classList.remove('border-red-500');
+  if (_rejMassa) {
+    var cbs = document.querySelectorAll(_rejMassaTipo === 'ferias' ? '[data-ferias-check]:checked' : '[data-presenca-check]:checked');
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "rh_presenca_aprovar_massa" %}';
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrf) { var h = document.createElement('input'); h.type='hidden'; h.name='csrfmiddlewaretoken'; h.value=csrf.value; form.appendChild(h); }
+    cbs.forEach(function(cb){
+      var h = document.createElement('input'); h.type='hidden'; h.name='registos_ids'; h.value=cb.value; form.appendChild(h);
+    });
+    var ht = document.createElement('input'); ht.type='hidden'; ht.name='tipo_massa'; ht.value=_rejMassaTipo; form.appendChild(ht);
+    var he = document.createElement('input'); he.type='hidden'; he.name='estado_massa'; he.value='Rejeitado'; form.appendChild(he);
+    var hm = document.createElement('input'); hm.type='hidden'; hm.name='observacao_massa'; hm.value=motivo; form.appendChild(hm);
+    document.body.appendChild(form);
+    form.submit();
+  } else {
+    var url = _rejTipo === 'ferias' ? '{% url "rh_ferias_aprovar" 0 %}'.replace('/0/', '/' + _rejPk + '/') : '{% url "rh_presenca_aprovar" 0 %}'.replace('/0/', '/' + _rejPk + '/');
+    var form2 = document.createElement('form');
+    form2.method = 'POST';
+    form2.action = url;
+    var csrf2 = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrf2) { var h2 = document.createElement('input'); h2.type='hidden'; h2.name='csrfmiddlewaretoken'; h2.value=csrf2.value; form2.appendChild(h2); }
+    var he2 = document.createElement('input'); he2.type='hidden'; he2.name='estado'; he2.value='Rejeitado'; form2.appendChild(he2);
+    var hm2 = document.createElement('input'); hm2.type='hidden'; hm2.name='observacao'; hm2.value=motivo; form2.appendChild(hm2);
+    document.body.appendChild(form2);
+    form2.submit();
+  }
+}
 </script>
 
 <!-- Modal Registar Presença -->
@@ -324,6 +611,27 @@ function abrirEditarFerias(pedidoPk, colId, dataInicio, dataFim, motivo) {
       <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Motivo</label><textarea name="motivo" rows="2" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"></textarea></div>
       <div class="flex justify-end gap-3"><button type="button" onclick="document.getElementById('modalFerias').classList.add('hidden')" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button><button type="submit" class="px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">Submeter</button></div>
     </form>
+  </div>
+</div>
+
+<!-- Modal Rejeição (motivo obrigatório) -->
+<div id="modalRejeicao" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="font-bold text-gray-900 dark:text-white"><i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>Rejeitar Pedido</h3>
+      <button onclick="fecharModalRejeicao()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Motivo da rejeição <span class="text-red-500">*</span></label>
+        <textarea id="rejeicaoMotivo" rows="3" required placeholder="Indique o motivo da rejeição..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"></textarea>
+        <p class="text-xs text-red-500 mt-1 hidden" id="rejeicaoErro">O motivo é obrigatório.</p>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button onclick="fecharModalRejeicao()" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button>
+        <button onclick="confirmarRejeicao()" class="px-6 py-2.5 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all"><i class="fas fa-times mr-1"></i>Rejeitar</button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

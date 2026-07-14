@@ -837,6 +837,7 @@ class PedidoFerias(models.Model):
     data_fim     = models.DateField()
     motivo       = models.TextField(blank=True, default='')
     estado       = models.CharField(max_length=10, choices=ESTADOS, default='Pendente', db_index=True)
+    motivo_rejeicao = models.TextField(blank=True, default='', verbose_name='Motivo da rejeição')
     aprovado_por = models.ForeignKey(Colaborador, on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name='ferias_aprovadas')
     data_aprovacao = models.DateTimeField(null=True, blank=True)
@@ -978,6 +979,32 @@ class NotificacaoRH(models.Model):
         indexes = [
             models.Index(fields=['destinatario', 'lida']),
         ]
+
+
+class SaldoFerias(models.Model):
+    """Saldo de férias anual por colaborador."""
+    colaborador          = models.ForeignKey('Colaborador', on_delete=models.CASCADE, related_name='saldos_ferias')
+    ano                  = models.PositiveIntegerField()
+    dias_direito         = models.PositiveIntegerField(default=22)
+    dias_gozados         = models.PositiveIntegerField(default=0)
+    dias_pendentes       = models.PositiveIntegerField(default=0)
+    transferido_anterior = models.PositiveIntegerField(default=0, verbose_name='Dias transferidos do ano anterior')
+
+    class Meta:
+        db_table = 'rh_saldos_ferias'
+        unique_together = ('colaborador', 'ano')
+        ordering = ['-ano']
+
+    @property
+    def dias_restantes(self):
+        return max(self.dias_direito + self.transferido_anterior - self.dias_gozados - self.dias_pendentes, 0)
+
+    @property
+    def total_disponivel(self):
+        return self.dias_direito + self.transferido_anterior
+
+    def __str__(self):
+        return f'{self.colaborador.nome} — {self.ano}: {self.dias_restantes} dias restantes'
 
 
 # ─── Avaliação de Desempenho ──────────────────────────────────────────────────

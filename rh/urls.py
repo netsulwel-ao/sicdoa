@@ -92,6 +92,7 @@ urlpatterns = [
     # Presenças
     path('presencas/',                      views.presencas_view,           name='rh_presencas'),
     path('presencas/registar/',             views.presenca_registar_view,   name='rh_presenca_registar'),
+    path('presencas/aprovar-massa/',        views.presenca_aprovar_massa_view, name='rh_presenca_aprovar_massa'),
     path('presencas/<int:pk>/aprovar/',     views.presenca_aprovar_view,    name='rh_presenca_aprovar'),
     path('presencas/<int:pk>/apagar/',      views.presenca_apagar_view,     name='rh_presenca_apagar'),
 
