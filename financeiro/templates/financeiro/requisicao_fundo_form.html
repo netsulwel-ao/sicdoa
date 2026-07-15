@@ -1366,6 +1366,11 @@ document.addEventListener('DOMContentLoaded', function() {
       custoDespesaTipo.focus();
       return;
     }
+    if (docVal === 'true' && (!custoDocumento.files || !custoDocumento.files.length)) {
+      showToast('Anexe o comprovativo da despesa. Despesas documentadas exigem ficheiro comprovativo.', 'error');
+      custoDocumento.focus();
+      return;
+    }
     let valorNum = 0;
     try {
       if (custoValor.imask && custoValor.imask.unmaskedValue !== undefined) {
