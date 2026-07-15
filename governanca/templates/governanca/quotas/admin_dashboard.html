@@ -1,126 +1,182 @@
 {% extends 'governanca/base_governanca.html' %}
 {% block content %}
 {% csrf_token %}
-  <div class="mb-6 flex items-center justify-between">
-    <div>
-      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Administração de Quotas</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Gestão global do sistema de quotas</p>
-    </div>
-    <a href="{% url 'governanca_quotas_dashboard' %}"
-       class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-      <i class="fas fa-arrow-left text-base"></i>Voltar
-    </a>
-  </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-      <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total de Quotas</p>
-      <p class="text-2xl font-bold mt-2 text-gray-900 dark:text-gray-100">{{ total_quotas }}</p>
-    </div>
-    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-      <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pendentes / Atrasadas</p>
-      <p class="text-2xl font-bold mt-2 text-yellow-600 dark:text-yellow-400">{{ pendentes }}</p>
-    </div>
-    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-      <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pagas</p>
-      <p class="text-2xl font-bold mt-2 text-green-600 dark:text-green-400">{{ pagas }}</p>
-    </div>
-    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-      <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pagamentos p/ Confirmar</p>
-      <p class="text-2xl font-bold mt-2 text-orange-600 dark:text-orange-400">{{ pagamentos_pendentes }}</p>
+  <!-- Header -->
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">Administração de Quotas</h1>
+        <p class="text-base text-gray-600 dark:text-gray-300 mt-2">Gestão global do sistema de quotas</p>
+      </div>
+      <a href="{% url 'governanca_quotas_dashboard' %}"
+         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+        <i class="fas fa-arrow-left text-base"></i>Voltar
+      </a>
     </div>
   </div>
 
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/30">
+          <i class="fas fa-file-invoice-dollar text-blue-600 dark:text-blue-400 text-xl"></i>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Quotas</p>
+          <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ total_quotas }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/30">
+          <i class="fas fa-clock text-amber-600 dark:text-amber-400 text-xl"></i>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pendentes / Atrasadas</p>
+          <p class="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">{{ pendentes }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
+          <i class="fas fa-check-circle text-emerald-600 dark:text-emerald-400 text-xl"></i>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pagas</p>
+          <p class="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{{ pagas }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-900/30">
+          <i class="fas fa-hourglass-half text-orange-600 dark:text-orange-400 text-xl"></i>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pagamentos por Confirmar</p>
+          <p class="text-2xl font-bold mt-1 text-orange-600 dark:text-orange-400">{{ pagamentos_pendentes }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config Vigente -->
   {% if config %}
-  <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 mb-6">
-    <p class="text-sm text-gray-500">Valor da quota vigente</p>
-    <p class="text-xl font-bold text-[#111418] dark:text-gray-200">Kz {{ config.valor|fmtkz }} <span class="text-sm font-normal text-gray-500">({{ config.mes|stringformat:"02d" }}/{{ config.ano }})</span></p>
+  <div class="bg-gradient-to-r from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/5 rounded-2xl border border-primary/20 dark:border-primary/30 p-5 mb-6">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-primary/15">
+        <i class="fas fa-coins text-primary text-xl"></i>
+      </div>
+      <div>
+        <p class="text-xs font-medium text-primary/70 uppercase tracking-wider">Valor da Quota Vigente</p>
+        <p class="text-xl font-bold text-primary mt-0.5">Kz {{ config.valor|fmtkz }} <span class="text-sm font-normal text-gray-500">({{ config.mes|stringformat:"02d" }}/{{ config.ano }})</span></p>
+      </div>
+    </div>
   </div>
   {% endif %}
 
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-    <a href="{% url 'governanca_quotas_admin_config' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+  <!-- Accesos Rapidos -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <a href="{% url 'governanca_quotas_admin_config' %}" class="group block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
       <div class="flex items-center gap-4">
-        <div class="p-3 bg-primary/10 rounded-lg"><i class="fas fa-cog text-primary text-xl"></i></div>
-        <div><p class="font-bold text-[#111418] dark:text-gray-200">Configurar Valores</p><p class="text-sm text-gray-500">Definir valor, vencimento e multa</p></div>
+        <div class="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/15 transition-colors"><i class="fas fa-cog text-primary text-xl"></i></div>
+        <div><p class="font-bold text-gray-900 dark:text-gray-200">Configurar Valores</p><p class="text-sm text-gray-500">Definir valor, vencimento e multa</p></div>
       </div>
     </a>
-    <a href="{% url 'governanca_quotas_admin_pagamentos' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+    <a href="{% url 'governanca_quotas_admin_pagamentos' %}" class="group block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-orange-300 dark:hover:border-orange-700 transition-all">
       <div class="flex items-center gap-4">
-        <div class="p-3 bg-orange-50 rounded-lg"><i class="fas fa-hand-holding-usd text-orange-600 text-xl"></i></div>
-        <div><p class="font-bold text-[#111418] dark:text-gray-200">Pagamentos Pendentes</p><p class="text-sm text-gray-500">Confirmar ou rejeitar ({{ pagamentos_pendentes }})</p></div>
+        <div class="p-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 group-hover:bg-orange-100 dark:group-hover:bg-orange-900/30 transition-colors"><i class="fas fa-hand-holding-usd text-orange-600 dark:text-orange-400 text-xl"></i></div>
+        <div><p class="font-bold text-gray-900 dark:text-gray-200">Pagamentos Pendentes</p><p class="text-sm text-gray-500">Confirmar ou rejeitar ({{ pagamentos_pendentes }})</p></div>
       </div>
     </a>
-    <a href="{% url 'governanca_quotas_admin_relatorios' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+    <a href="{% url 'governanca_quotas_admin_relatorios' %}" class="group block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-700 transition-all">
       <div class="flex items-center gap-4">
-        <div class="p-3 bg-emerald-50 rounded-lg"><i class="fas fa-chart-bar text-emerald-600 text-xl"></i></div>
-        <div><p class="font-bold text-[#111418] dark:text-gray-200">Relatórios</p><p class="text-sm text-gray-500">Total arrecadado, atrasos e inadimplentes</p></div>
+        <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 transition-colors"><i class="fas fa-chart-bar text-emerald-600 dark:text-emerald-400 text-xl"></i></div>
+        <div><p class="font-bold text-gray-900 dark:text-gray-200">Relatórios</p><p class="text-sm text-gray-500">Total arrecadado, atrasos e inadimplentes</p></div>
       </div>
     </a>
-    <a href="{% url 'governanca_quotas_faturas' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+    <a href="{% url 'governanca_quotas_faturas' %}" class="group block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all">
       <div class="flex items-center gap-4">
-        <div class="p-3 bg-blue-50 rounded-lg"><i class="fas fa-list text-blue-600 text-xl"></i></div>
-        <div><p class="font-bold text-[#111418] dark:text-gray-200">Todas as Faturas</p><p class="text-sm text-gray-500">Lista completa de todas as quotas</p></div>
+        <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors"><i class="fas fa-list text-blue-600 dark:text-blue-400 text-xl"></i></div>
+        <div><p class="font-bold text-gray-900 dark:text-gray-200">Todas as Faturas</p><p class="text-sm text-gray-500">Lista completa de todas as quotas</p></div>
       </div>
     </a>
   </div>
 
-    <!-- Geração Manual -->
-  <a href="{% url 'governanca_quotas_admin_gerar_retroativo' %}"
-     class="block mt-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 hover:shadow-md transition">
-    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-2 flex items-center gap-2">
-      <i class="fas fa-plus-circle text-primary"></i> Gerar Quotas Retroactivas
-    </h2>
-    <p class="text-sm text-gray-500 mb-4">Criar quotas para períodos passados — página dedicada com selecção de membros e validação.</p>
-    <span class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm">
-      <i class="fas fa-external-link-alt"></i> Abrir Gerador
-    </span>
-  </a>
+  <!-- Ferramentas -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
-  <!-- Verificar Vencimentos (manual) -->
-  <div class="mt-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
-    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-2 flex items-center gap-2">
-      <i class="fas fa-clock text-amber-500"></i> Verificar Vencimentos
-    </h2>
-    <p class="text-sm text-gray-500 mb-4">Executar manualmente a verificação de quotas vencidas (cron diário automático às 03:00).</p>
-    <button type="button" onclick="verificarVencimentos()"
-            class="px-5 py-2.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2 shadow-sm">
-      <i class="fas fa-play"></i> Verificar Vencimentos Agora
-    </button>
-    <div id="msg-vencimentos" class="mt-3 hidden"></div>
-  </div>
+    <!-- Gerar Retroactivas -->
+    <a href="{% url 'governanca_quotas_admin_gerar_retroativo' %}"
+       class="group block bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 hover:shadow-md hover:border-primary/30 transition-all">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/15 transition-colors"><i class="fas fa-plus-circle text-primary text-lg"></i></div>
+        <h3 class="font-bold text-gray-900 dark:text-gray-200">Gerar Quotas Retroactivas</h3>
+      </div>
+      <p class="text-sm text-gray-500 mb-4">Criar quotas para períodos passados com selecção de membros.</p>
+      <span class="inline-flex items-center gap-2 text-sm font-semibold text-primary group-hover:translate-x-1 transition-transform">
+        Abrir Gerador <i class="fas fa-arrow-right text-xs"></i>
+      </span>
+    </a>
 
-  <!-- Gestão de Isenções -->
-  <div class="mt-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
-    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-2 flex items-center gap-2">
-      <i class="fas fa-star text-purple-500"></i> Gestão de Isenções
-    </h2>
-    <p class="text-sm text-gray-500 mb-4">Criar isenções de quotas para membros específicos.</p>
-    <button type="button" onclick="abrirModalIsencao()"
-            class="px-5 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm">
-      <i class="fas fa-plus"></i> Nova Isenção
-    </button>
-    <div id="lista-isencoes" class="mt-4 text-sm text-gray-500">Carregando isenções...</div>
-  </div>
-
-
-
-  <div class="mt-8 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
-    <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2">
-      <i class="fas fa-gavel text-red-500"></i> Gestão de Estado Financeiro (SUSPENSÃO)
-    </h2>
-    <p class="text-sm text-gray-500 mb-4">Definir manualmente o estado financeiro de um membro (Regular, Irregular ou Suspenso).</p>
-    <div class="flex flex-col sm:flex-row gap-3 mb-4">
-      <input type="text" id="busca-membro" placeholder="Buscar membro por nome ou cédula..." class="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
-      <button onclick="buscarMembros()" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90">Buscar</button>
+    <!-- Verificar Vencimentos -->
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/30"><i class="fas fa-clock text-amber-600 dark:text-amber-400 text-lg"></i></div>
+        <h3 class="font-bold text-gray-900 dark:text-gray-200">Verificar Vencimentos</h3>
+      </div>
+      <p class="text-sm text-gray-500 mb-4">Executar a verificação de quotas vencidas (cron automático às 03:00).</p>
+      <button type="button" onclick="verificarVencimentos()"
+              class="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-xl hover:bg-amber-700 transition-colors flex items-center gap-2 shadow-sm">
+        <i class="fas fa-play text-xs"></i> Verificar Agora
+      </button>
+      <div id="msg-vencimentos" class="mt-3 hidden"></div>
     </div>
-    <div id="resultado-membros" class="text-sm text-gray-500">Digite o nome ou cédula e clique em Buscar.</div>
+
+    <!-- Isenções -->
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/30"><i class="fas fa-star text-purple-600 dark:text-purple-400 text-lg"></i></div>
+        <h3 class="font-bold text-gray-900 dark:text-gray-200">Gestão de Isenções</h3>
+      </div>
+      <p class="text-sm text-gray-500 mb-4">Criar isenções de quotas para membros específicos.</p>
+      <button type="button" onclick="abrirModalIsencao()"
+              class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm">
+        <i class="fas fa-plus text-xs"></i> Nova Isenção
+      </button>
+      <div id="lista-isencoes" class="mt-4 text-sm text-gray-500 max-h-32 overflow-y-auto"></div>
+    </div>
+
   </div>
+
+  <!-- Gestão de Estado Financeiro -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="p-2.5 rounded-xl bg-red-100 dark:bg-red-900/30"><i class="fas fa-user-shield text-red-600 dark:text-red-400 text-lg"></i></div>
+      <div>
+        <h2 class="font-bold text-gray-900 dark:text-gray-200">Gestão de Estado Financeiro</h2>
+        <p class="text-sm text-gray-500">Definir manualmente o estado de um membro (Regular, Irregular ou Suspenso).</p>
+      </div>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-3">
+      <input type="text" id="busca-membro" placeholder="Buscar membro por nome ou cédula..."
+             class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+      <button onclick="buscarMembros()" class="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2">
+        <i class="fas fa-search text-xs"></i> Buscar
+      </button>
+    </div>
+    <div id="resultado-membros" class="mt-4 text-sm text-gray-500">Digite o nome ou cédula e clique em Buscar.</div>
+  </div>
+
   <!-- Modal Isenção -->
   <div id="modal-isencao" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-black/50 p-4">
     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 transform transition-all">
       <div class="flex items-center justify-between mb-5">
-        <h3 class="text-lg font-bold text-[#111418] dark:text-gray-200 flex items-center gap-2">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-200 flex items-center gap-2">
           <i class="fas fa-star text-purple-500"></i> Nova Isenção
         </h3>
         <button type="button" onclick="fecharModalIsencao()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none">&times;</button>
@@ -129,7 +185,7 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Membro</label>
           <select name="despachante_id" required
-                  class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
             <option value="">Selecionar membro...</option>
             {% for m in membros_isencao %}
             <option value="{{ m.id }}">{{ m.nome }} ({{ m.nif|default:"—" }})</option>
@@ -139,7 +195,7 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Tipo de Quota</label>
           <select name="tipo_quota_id"
-                  class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+                  class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
             <option value="">Todas as quotas</option>
             {% for t in tipos_quota %}
             <option value="{{ t.id }}">{{ t.nome }}</option>
@@ -150,27 +206,27 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data Início</label>
             <input type="date" name="data_inicio" required
-                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+                   class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data Fim (opcional)</label>
             <input type="date" name="data_fim"
-                   class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary">
+                   class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
           </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Motivo</label>
           <textarea name="motivo" rows="2" required
-                    class="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary"
+                    class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
                     placeholder="Motivo da isenção..."></textarea>
         </div>
         <div class="flex items-center gap-3 pt-2">
           <button type="submit"
-                  class="px-5 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm">
+                  class="px-5 py-2.5 bg-purple-600 text-white text-sm font-semibold rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm">
             <i class="fas fa-check"></i> Criar Isenção
           </button>
           <button type="button" onclick="fecharModalIsencao()"
-                  class="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                  class="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 font-medium rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             Cancelar
           </button>
         </div>
@@ -180,6 +236,7 @@
   </div>
 
   {% include 'includes/confirm-modal.html' %}
+
 <script>
 // ─── Isenções ────────────────────────────────────────────────────────
 function abrirModalIsencao() {
@@ -195,17 +252,18 @@ async function carregarIsencoes() {
   try {
     const res = await fetch('{% url "governanca_api_quotas_listar_isencoes" %}');
     const d = await res.json();
-    if (!d.isencoes || d.isencoes.length === 0) { el.innerHTML = '<span class="text-gray-500">Nenhuma isenção encontrada.</span>'; return; }
-    var html = '<div class="space-y-2 max-h-40 overflow-y-auto">';
+    if (!d.isencoes || d.isencoes.length === 0) { el.innerHTML = '<span class="text-gray-400 text-xs">Nenhuma isenção registada.</span>'; return; }
+    var html = '<div class="space-y-1.5">';
     d.isencoes.forEach(function(i) {
-      html += '<div class="flex items-center justify-between p-2 border border-gray-200 dark:border-gray-800 rounded-lg text-xs">';
-      html += '<div><span class="font-semibold text-[#111418] dark:text-gray-200">' + i.despachante_nome + '</span>';
-      html += '<span class="text-gray-500 ml-2">' + i.tipo_quota + ' | ' + i.data_inicio + ' a ' + i.data_fim + '</span></div>';
-      html += '<span class="text-gray-400">' + i.motivo + '</span></div>';
+      html += '<div class="flex items-center justify-between p-2 border border-gray-100 dark:border-gray-800 rounded-lg text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">';
+      html += '<div class="min-w-0"><span class="font-semibold text-gray-900 dark:text-gray-200">' + i.despachante_nome + '</span>';
+      html += '<span class="text-gray-500 ml-1.5">' + i.tipo_quota + ' | ' + i.data_inicio + ' a ' + i.data_fim + '</span></div>';
+      html += '<button onclick="eliminarIsencao(' + i.id + ', \'' + i.despachante_nome.replace(/'/g, "\\'") + '\')" class="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors shrink-0 ml-2" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>';
+      html += '</div>';
     });
     html += '</div>';
     el.innerHTML = html;
-  } catch(e) { el.innerHTML = '<span class="text-red-500">Erro ao carregar isenções.</span>'; }
+  } catch(e) { el.innerHTML = '<span class="text-red-500 text-xs">Erro ao carregar isenções.</span>'; }
 }
 document.getElementById('form-isencao')?.addEventListener('submit', function(e) {
   e.preventDefault();
@@ -229,9 +287,22 @@ document.getElementById('form-isencao')?.addEventListener('submit', function(e) 
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Criar Isenção';
   });
 });
+// ─── Eliminar Isenção ────────────────────────────────────────────────
+async function eliminarIsencao(id, nome) {
+  const ok = await showConfirm('Eliminar Isenção', 'Tem certeza que deseja eliminar a isenção de ' + nome + '?');
+  if (!ok) return;
+  try {
+    const res = await fetch('{% url "governanca_api_quotas_eliminar_isencao" pk=0 %}'.replace('/0/', '/' + id + '/'), {
+      method: 'POST',
+      headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+    });
+    const d = await res.json();
+    if (d.erro) { toast.error(d.erro); } else { toast.success(d.mensagem); carregarIsencoes(); }
+  } catch(e) { toast.error('Erro ao eliminar isenção.'); }
+}
 // ─── Verificar Vencimentos ───────────────────────────────────────────
 async function verificarVencimentos() {
-  var btn = event.target;
+  var btn = event.target.closest('button');
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A verificar...';
   try {
     const res = await fetch('{% url "governanca_api_quotas_verificar_vencimentos" %}', {
@@ -249,26 +320,30 @@ async function verificarVencimentos() {
     el.className = 'mt-3 p-4 rounded-xl text-sm bg-red-50 border border-red-200 text-red-700';
     el.innerHTML = 'Erro ao verificar vencimentos.';
   }
-  btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Verificar Vencimentos Agora';
+  btn.disabled = false; btn.innerHTML = '<i class="fas fa-play text-xs"></i> Verificar Agora';
 }
 // ─── Gestão de Estado ────────────────────────────────────────────────
 function buscarMembros() {
   var q = document.getElementById('busca-membro').value.trim();
   if (!q) return;
   var el = document.getElementById('resultado-membros');
-  el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A buscar...';
+  el.innerHTML = '<div class="flex items-center gap-2 text-gray-400"><i class="fas fa-spinner fa-spin"></i> A buscar...</div>';
   fetch('{% url "governanca_api_quotas_buscar_membros" %}?q=' + encodeURIComponent(q))
     .then(function(r) { return r.json(); }).then(function(d) {
-      if (!d.membros || d.membros.length === 0) { el.innerHTML = '<span class="text-gray-500">Nenhum membro encontrado.</span>'; return; }
-      var html = '<div class="space-y-2">';
+      if (!d.membros || d.membros.length === 0) { el.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-3"><i class="fas fa-search"></i> Nenhum membro encontrado.</div>'; return; }
+      var html = '<div class="space-y-2 mt-2">';
       d.membros.forEach(function(m) {
-        html += '<div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-800 rounded-lg">';
-        html += '<div><p class="text-sm font-semibold text-[#111418] dark:text-gray-200">' + m.nome + '</p><p class="text-xs text-gray-500">' + (m.cedula || '—') + ' | ' + (m.estado_financeiro || 'Regular') + '</p></div>';
-        html += '<div class="flex items-center gap-2">';
-        html += '<select id="estado-' + m.id + '" class="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs">';
+        var corEstado = m.estado_financeiro === 'Regular' ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : (m.estado_financeiro === 'Irregular' ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-red-600 bg-red-50 dark:bg-red-900/20');
+        html += '<div class="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">';
+        html += '<div class="flex items-center gap-3 min-w-0">';
+        html += '<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><i class="fas fa-user text-primary text-sm"></i></div>';
+        html += '<div class="min-w-0"><p class="text-sm font-semibold text-gray-900 dark:text-gray-200 truncate">' + m.nome + '</p>';
+        html += '<p class="text-xs text-gray-500">' + (m.cedula || '—') + ' &middot; <span class="font-medium ' + corEstado + ' px-1.5 py-0.5 rounded-full">' + (m.estado_financeiro || 'Regular') + '</span></p></div></div>';
+        html += '<div class="flex items-center gap-2 shrink-0">';
+        html += '<select id="estado-' + m.id + '" class="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium focus:ring-2 focus:ring-primary outline-none">';
         html += '<option value="Regular">Regular</option><option value="Irregular">Irregular</option><option value="Suspenso">Suspenso</option>';
         html += '</select>';
-        html += '<button onclick="definirEstado(' + m.id + ')" class="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700"><i class="fas fa-gavel"></i></button>';
+        html += '<button onclick="definirEstado(' + m.id + ')" class="px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors shadow-sm" title="Aplicar"><i class="fas fa-check"></i></button>';
         html += '</div></div>';
       });
       html += '</div>';
@@ -282,10 +357,9 @@ async function definirEstado(pk) {
   try {
     const res = await fetch('{% url "governanca_api_quotas_definir_estado" pk=0 %}'.replace('/0/', '/' + pk + '/'), { method: 'POST', body: fd, headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value } });
     await res.json();
-    alert('Estado atualizado!'); buscarMembros();
-  } catch(e) { alert('Erro ao atualizar estado'); }
+    toast.success('Estado financeiro atualizado com sucesso!'); buscarMembros();
+  } catch(e) { toast.error('Erro ao atualizar estado'); }
 }
-
 
 </script>
 {% endblock %}

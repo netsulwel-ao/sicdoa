@@ -2319,7 +2319,7 @@ def quotas_admin_relatorios(request):
         Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')
         .annotate(
             quotas_pend=Count('quotas', filter=Q(quotas__status__in=['Pendente', 'Atrasada'])),
-            total_devido=Sum('quotas__valor', filter=Q(quotas__status__in=['Pendente', 'Atrasada']), distinct=True),
+            total_devido=Sum('quotas__valor', filter=Q(quotas__status__in=['Pendente', 'Atrasada'])),
         )
         .filter(quotas_pend__gt=0)
         .order_by('-total_devido')
@@ -2355,6 +2355,122 @@ def quotas_admin_relatorios(request):
         'resumo_mensal': resumo_mensal,
     }
     return render(request, 'governanca/quotas/admin_relatorios.html', context)
+
+
+@_requer_login
+def quotas_admin_relatorios_pdf(request):
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+        return redirect('governanca_quotas_dashboard')
+
+    from django.db.models import Sum, Count, Q
+    from django.http import HttpResponse
+    from financeiro.pdf_utils import gerar_pdf_relatorio, fmt_kz
+
+    total_arrecadado = QuotaGerada.objects.filter(status='Paga').aggregate(total=Sum('valor'))['total'] or 0
+    stats = QuotaGerada.objects.aggregate(
+        atrasadas=Count('id', filter=Q(status='Atrasada')),
+        pendentes=Count('id', filter=Q(status='Pendente')),
+    )
+    inadimplentes = list(
+        Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')
+        .annotate(
+            quotas_pend=Count('quotas', filter=Q(quotas__status__in=['Pendente', 'Atrasada'])),
+            total_devido=Sum('quotas__valor', filter=Q(quotas__status__in=['Pendente', 'Atrasada'])),
+        )
+        .filter(quotas_pend__gt=0)
+        .order_by('-total_devido')[:20]
+    )
+    historico = list(
+        PagamentoQuota.objects.filter(status='Confirmado').select_related(
+            'quota', 'despachante', 'confirmado_por'
+        ).order_by('-confirmado_em')[:50]
+    )
+    resumo_mensal = list(
+        QuotaGerada.objects.values('ano', 'mes')
+        .annotate(
+            total=Count('id'),
+            pagas=Count('id', filter=Q(status='Paga')),
+            pendentes=Count('id', filter=Q(status='Pendente')),
+            atrasadas=Count('id', filter=Q(status='Atrasada')),
+            pend_conf=Count('id', filter=Q(status='Pendente Confirmacao')),
+            isentas=Count('id', filter=Q(status='Isenta')),
+            canceladas=Count('id', filter=Q(status='Cancelada')),
+            valor_total=Sum('valor'),
+            arrecadado=Sum('valor', filter=Q(status='Paga')),
+        )
+        .order_by('-ano', '-mes')[:12]
+    )
+
+    summary_cards = [
+        {'label': 'Total Arrecadado', 'value': f'Kz {fmt_kz(total_arrecadado)}', 'color': 'success'},
+        {'label': 'Quotas Pendentes', 'value': str(stats['pendentes']), 'color': 'warning'},
+        {'label': 'Quotas em Atraso', 'value': str(stats['atrasadas']), 'color': 'danger'},
+        {'label': 'Inadimplentes', 'value': str(len(inadimplentes)), 'color': 'primary'},
+    ]
+
+    resumo_columns = ['Período', 'Total', 'Pagas', 'Pendentes', 'Atrasadas', 'P.Conf', 'Isentas', 'Canceladas', 'Valor Total', 'Arrecadado']
+    resumo_rows = []
+    for r in resumo_mensal:
+        resumo_rows.append({'cells': [
+            f"{r['mes']:02d}/{r['ano']}",
+            str(r['total']),
+            str(r['pagas']),
+            str(r['pendentes']),
+            str(r['atrasadas']),
+            str(r['pend_conf']),
+            str(r['isentas']),
+            str(r['canceladas']),
+            f'Kz {fmt_kz(r["valor_total"])}',
+            f'Kz {fmt_kz(r["arrecadado"])}',
+        ]})
+
+    inad_columns = ['Despachante', 'Cédula', 'Pendentes', 'Total Devido']
+    inad_rows = []
+    for d in inadimplentes:
+        inad_rows.append({'cells': [
+            d.nome or '',
+            d.cedula or '—',
+            str(d.quotas_pend),
+            f'Kz {fmt_kz(d.total_devido)}',
+        ]})
+
+    hist_columns = ['Data', 'Despachante', 'Período', 'Valor', 'Método', 'Confirmado por']
+    hist_rows = []
+    for p in historico:
+        hist_rows.append({'cells': [
+            p.confirmado_em.strftime('%d/%m/%Y %H:%M') if p.confirmado_em else '',
+            p.despachante.nome if p.despachante else '',
+            f"{p.quota.mes:02d}/{p.quota.ano}" if p.quota else '',
+            f'Kz {fmt_kz(p.valor_pago)}',
+            p.metodo or '',
+            p.confirmado_por.nome if p.confirmado_por else '—',
+        ]})
+
+    extra_tables = [
+        {'title': 'Resumo Mensal de Quotas', 'columns': resumo_columns, 'rows': resumo_rows},
+        {'title': 'Despachantes Inadimplentes', 'columns': inad_columns, 'rows': inad_rows},
+        {'title': 'Últimos Pagamentos Confirmados', 'columns': hist_columns, 'rows': hist_rows},
+    ]
+
+    try:
+        pdf_bytes = gerar_pdf_relatorio(
+            report_name='Relatório de Quotas',
+            report_subtitle='Visão global da arrecadação, inadimplência e histórico de pagamentos',
+            columns=[],
+            rows=[],
+            summary_cards=summary_cards,
+            extra_tables=extra_tables,
+            request=request,
+            landscape_mode=True,
+        )
+
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        filename = f"Relatorio_Quotas_{timezone.now().strftime('%Y%m%d_%H%M')}.pdf"
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+    except Exception as e:
+        logger.error('Erro ao gerar PDF de quotas: %s', str(e), exc_info=True)
+        return HttpResponse(f'Erro ao gerar PDF: {str(e)}', status=500)
 
 
 @_requer_login
@@ -3130,6 +3246,21 @@ def api_quotas_listar_isencoes(request):
             'created_at': i.created_at.strftime('%d/%m/%Y %H:%M'),
         })
     return JsonResponse({'isencoes': data})
+
+
+@require_http_methods(['POST'])
+@_requer_login
+def api_quotas_eliminar_isencao(request, pk):
+    from users.permissoes import usuario_tem_permissao
+    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+        return JsonResponse({'erro': 'Sem permissão'}, status=403)
+    try:
+        isencao = IsencaoMembro.objects.get(pk=pk)
+    except IsencaoMembro.DoesNotExist:
+        return JsonResponse({'erro': 'Isenção não encontrada.'}, status=404)
+    nome = isencao.despachante.nome
+    isencao.delete()
+    return JsonResponse({'mensagem': f'Isenção de {nome} eliminada com sucesso.'})
 
 
 @require_http_methods(['POST'])

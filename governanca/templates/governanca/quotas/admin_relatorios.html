@@ -17,9 +17,11 @@
                    class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
                     <i class="fas fa-arrow-left text-base"></i>Voltar
                 </a>
-                <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium shadow-sm">
-                    <i class="fas fa-print"></i> Imprimir
-                </button>
+                <a href="{% url 'governanca_quotas_admin_relatorios_pdf' %}"
+                   target="_blank"
+                   class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium shadow-sm text-sm">
+                    <i class="fas fa-file-pdf"></i> Download PDF
+                </a>
                 {% include 'includes/view-toggle.html' %}
             </div>
         </div>

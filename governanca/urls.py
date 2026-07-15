@@ -124,6 +124,7 @@ urlpatterns = [
     path('quotas/admin/pagamentos/', views.quotas_admin_pagamentos, name='governanca_quotas_admin_pagamentos'),
     path('quotas/admin/config/', views.quotas_admin_config, name='governanca_quotas_admin_config'),
     path('quotas/admin/relatorios/', views.quotas_admin_relatorios, name='governanca_quotas_admin_relatorios'),
+    path('quotas/admin/relatorios/pdf/', views.quotas_admin_relatorios_pdf, name='governanca_quotas_admin_relatorios_pdf'),
     path('quotas/admin/gerar-retroativo/', views.quotas_admin_gerar_retroativo, name='governanca_quotas_admin_gerar_retroativo'),
 
     # API: Pagamentos
@@ -163,6 +164,7 @@ urlpatterns = [
     # API: Isenções (admin)
     path('quotas/api/isencoes/', views.api_quotas_listar_isencoes, name='governanca_api_quotas_listar_isencoes'),
     path('quotas/api/isencoes/criar/', views.api_quotas_criar_isencao, name='governanca_api_quotas_criar_isencao'),
+    path('quotas/api/isencoes/<int:pk>/eliminar/', views.api_quotas_eliminar_isencao, name='governanca_api_quotas_eliminar_isencao'),
 
     # API: Histórico
     path('quotas/api/historico/<uuid:fatura_uuid>/', views.api_quotas_historico, name='governanca_api_quotas_historico'),
