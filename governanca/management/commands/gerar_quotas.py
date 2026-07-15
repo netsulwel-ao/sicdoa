@@ -63,6 +63,10 @@ class Command(BaseCommand):
             self.stderr.write(f'Sem configuração de quota para {slug} {mes:02d}/{ano}')
             return
 
+        if config.valor <= 0:
+            self.stderr.write(f'Valor da quota é {config.valor} — skipping geração')
+            return
+
         periodo_ini, periodo_fim = _periodo(slug, ano, mes)
 
         despachantes = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')

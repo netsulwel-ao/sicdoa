@@ -713,6 +713,11 @@ class QuotaConfig(models.Model):
         cat = f' [{self.categoria}]' if self.categoria else ''
         return f'{label} {self.mes:02d}/{self.ano}{cat} — Kz {self.valor}' if self.mes else f'{label} {self.ano}{cat} — Kz {self.valor}'
 
+    def clean(self):
+        super().clean()
+        if self.valor is not None and self.valor <= 0:
+            raise ValidationError({'valor': 'O valor da quota deve ser maior que zero.'})
+
 
 class QuotaGerada(models.Model):
     STATUS = [
