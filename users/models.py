@@ -206,6 +206,14 @@ class LogAtividade(models.Model):
         return f"[{self.created_at:%d/%m/%Y %H:%M}] {self.usuario_nome} — {self.accao} ({self.modulo})"
 
 
+def _get_client_ip(request):
+    """Obtém o IP real do cliente, verificando HTTP_X_FORWARDED_FOR primeiro."""
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '-')
+
+
 def registrar_log(request, accao, modulo='sistema', descricao='',
                   modelo_alvo='', id_alvo=None, detalhes=None, email_forcado=''):
     """Regista uma atividade no log."""
@@ -225,7 +233,7 @@ def registrar_log(request, accao, modulo='sistema', descricao='',
         detalhes=detalhes,
         banca_id=request.session.get('banca_id') if request else None,
         filial_id=request.session.get('colaborador_filial_id') if request else None,
-        ip=request.META.get('REMOTE_ADDR', '') if request else '',
+        ip=_get_client_ip(request) if request else '',
         user_agent=request.META.get('HTTP_USER_AGENT', '')[:500] if request else '',
         url=request.build_absolute_uri() if request else '',
         created_at=timezone.now(),
