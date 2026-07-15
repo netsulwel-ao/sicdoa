@@ -249,7 +249,7 @@ class RequisicaoFundoLinhaForm(forms.ModelForm):
         if documentada and not documento_justificativo:
             if not self.instance.pk or not self.instance.documento_justificativo:
                 raise forms.ValidationError(
-                    'Comprovativo da despesa é obrigatório quando a despesa é documentada.'
+                    'Este campo é obrigatório para despesas documentadas. Anexe o comprovativo (PDF, imagem, etc.).'
                 )
         
         if not despesa_tipo:

@@ -172,7 +172,7 @@
                 {% endif %}
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody id="tab-doc" class="divide-y divide-gray-100">
               {% for custo in linhas_documentadas %}
               <tr class="hover:bg-gray-50 transition-colors">
                 <td class="px-6 py-3.5 text-gray-900 font-semibold text-xs">{{ custo.despesa_tipo }}</td>
@@ -189,10 +189,10 @@
                 <td class="px-6 py-3.5 text-right font-bold text-gray-900">{{ custo.valor|fmtkz }} <span class="text-xs font-medium text-gray-400">Kz</span></td>
                 {% if requisicao.estado == 'Pendente' %}
                 <td class="px-6 py-3.5 text-center">
-                  <div class="flex items-center justify-center gap-1">
-                    <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Editar"><i class="fas fa-pen text-xs"></i></a>
-                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></a>
-                  </div>
+                  <form method="post" action="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="button" onclick="confirmarFormPost(this.form, {tipo:'danger', titulo:'Eliminar Custo', mensagem:'Tem a certeza que pretende eliminar este custo?', textoBotao:'Sim, Eliminar', textoCancelar:'Voltar'})" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
+                  </form>
                 </td>
                 {% endif %}
               </tr>
@@ -207,15 +207,13 @@
               </tr>
               {% endfor %}
             </tbody>
-            {% if linhas_documentadas %}
             <tfoot class="bg-gray-50 border-t border-gray-200">
-              <tr>
+              <tr id="subtotal-doc-row" style="{% if not linhas_documentadas %}display:none{% endif %}">
                 <td colspan="{% if requisicao.estado == 'Pendente' %}4{% else %}3{% endif %}" class="px-6 py-3 text-right font-bold text-cdoa text-sm">Subtotal Documentadas</td>
-                <td class="px-6 py-3 text-right font-bold text-cdoa text-sm">{{ subtotal_documentadas|fmtkz }} <span class="text-xs">Kz</span></td>
+                <td class="px-6 py-3 text-right font-bold text-cdoa text-sm" id="subtotal-doc-value">{{ subtotal_documentadas|fmtkz }} <span class="text-xs">Kz</span></td>
                 {% if requisicao.estado == 'Pendente' %}<td></td>{% endif %}
               </tr>
             </tfoot>
-            {% endif %}
           </table>
         </div>
       </div>
@@ -244,7 +242,7 @@
                 {% endif %}
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody id="tab-naodoc" class="divide-y divide-gray-100">
               {% for custo in linhas_nao_documentadas %}
               <tr class="hover:bg-gray-50 transition-colors">
                 <td class="px-6 py-3.5 text-gray-900 font-semibold text-xs">{{ custo.despesa_tipo }}</td>
@@ -252,10 +250,10 @@
                 <td class="px-6 py-3.5 text-right font-bold text-gray-900">{{ custo.valor|fmtkz }} <span class="text-xs font-medium text-gray-400">Kz</span></td>
                 {% if requisicao.estado == 'Pendente' %}
                 <td class="px-6 py-3.5 text-center">
-                  <div class="flex items-center justify-center gap-1">
-                    <a href="{% url 'financeiro:requisicao_linha_editar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Editar"><i class="fas fa-pen text-xs"></i></a>
-                    <a href="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></a>
-                  </div>
+                  <form method="post" action="{% url 'financeiro:requisicao_linha_eliminar' requisicao.pk custo.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="button" onclick="confirmarFormPost(this.form, {tipo:'danger', titulo:'Eliminar Custo', mensagem:'Tem a certeza que pretende eliminar este custo?', textoBotao:'Sim, Eliminar', textoCancelar:'Voltar'})" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>
+                  </form>
                 </td>
                 {% endif %}
               </tr>
@@ -270,25 +268,56 @@
               </tr>
               {% endfor %}
             </tbody>
-            {% if linhas_nao_documentadas %}
             <tfoot class="bg-gray-50 border-t border-gray-200">
-              <tr>
+              <tr id="subtotal-naodoc-row" style="{% if not linhas_nao_documentadas %}display:none{% endif %}">
                 <td colspan="{% if requisicao.estado == 'Pendente' %}3{% else %}2{% endif %}" class="px-6 py-3 text-right font-bold text-secondary text-sm">Subtotal Nao-Documentadas</td>
-                <td class="px-6 py-3 text-right font-bold text-secondary text-sm">{{ subtotal_nao_documentadas|fmtkz }} <span class="text-xs">Kz</span></td>
+                <td class="px-6 py-3 text-right font-bold text-secondary text-sm" id="subtotal-naodoc-value">{{ subtotal_nao_documentadas|fmtkz }} <span class="text-xs">Kz</span></td>
                 {% if requisicao.estado == 'Pendente' %}<td></td>{% endif %}
               </tr>
             </tfoot>
-            {% endif %}
           </table>
         </div>
       </div>
 
       <!-- Botao Adicionar Custo -->
       {% if requisicao.estado == 'Pendente' %}
-      <div class="flex justify-center">
-        <a href="{% url 'financeiro:requisicao_linha_adicionar' requisicao.pk %}" class="flex items-center gap-2 px-6 py-3 bg-white border-2 border-dashed border-primary/30 text-primary rounded-xl font-medium hover:bg-primary/5 transition-colors">
-          <i class="fas fa-plus-circle"></i> Adicionar Novo Custo
-        </a>
+      <div id="custo-inline-section" class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <h2 class="text-sm font-bold text-cdoa uppercase tracking-wider flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs"><i class="fas fa-plus-circle"></i></span>
+            Adicionar Custo
+          </h2>
+        </div>
+        <div class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Documentada</label>
+              <select id="det-custo-documentada" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                <option value="true">Sim</option>
+                <option value="false" selected>Nao</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Tipo de Despesa</label>
+              <select id="det-custo-despesa-tipo" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                <option value="">Selecione</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Valor (KZ)</label>
+              <input type="text" id="det-custo-valor" placeholder="0,00" inputmode="decimal" class="moeda w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Comprovativo</label>
+              <input type="file" id="det-custo-documento" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer">
+            </div>
+          </div>
+          <div class="mt-4 flex justify-end">
+            <button type="button" id="btn-det-adicionar-custo" class="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+              <i class="fas fa-plus"></i>Adicionar
+            </button>
+          </div>
+        </div>
       </div>
       {% endif %}
 
@@ -350,17 +379,17 @@
           <!-- Total Destacado -->
           <div class="text-center mb-5 pb-5 border-b border-gray-100">
             <p class="text-xs text-gray-400 mb-1 uppercase tracking-wide">Total</p>
-            <p class="text-3xl font-bold text-cdoa">{{ requisicao.total_geral|fmtkz }} <span class="text-base font-medium text-gray-400">Kz</span></p>
+            <p class="text-3xl font-bold text-cdoa" id="sidebar-total">{{ requisicao.total_geral|fmtkz }} <span class="text-base font-medium text-gray-400">Kz</span></p>
           </div>
 
           <div class="space-y-3">
             <div class="flex justify-between items-center pb-3 border-b border-gray-100">
               <span class="text-sm text-gray-500">Subtotal</span>
-              <span class="font-semibold text-gray-900">{{ requisicao.subtotal_geral|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
+              <span class="font-semibold text-gray-900" id="sidebar-subtotal">{{ requisicao.subtotal_geral|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
             </div>
             <div class="flex justify-between items-center">
               <span class="text-sm text-gray-500">Retencao {{ requisicao.get_taxa_iva_display }}</span>
-              <span class="font-semibold text-gray-900">{{ requisicao.retencao|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
+              <span class="font-semibold text-gray-900" id="sidebar-retencao">{{ requisicao.retencao|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
             </div>
           </div>
 
@@ -518,4 +547,147 @@
   </div>
 
 </div>
+
+{% if requisicao.estado == 'Pendente' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var DESPESAS_DOC = [
+    'Direitos e importações', 'Emolumentos Gerais AD', 'IEC na Importação',
+    'IVA na Importação', 'Multas', 'Emissão DAR', 'Validação Carta porte',
+    'Validação B/L', 'Emissão/Correção – AWB', 'Emissão Pertence',
+    'ENANA', 'EP 13', 'EP 14', 'EP 15', 'Adicional EP 17',
+    'Emissão de Certificados', 'Transport', 'Transporte Inter-provincial',
+    'Caução do Contentor', 'Sobrestadia de Serviço', 'Pagamento do PIP',
+    'EP 17 – FAYOL', 'Validação do Delivery', 'Taxa Administrativa',
+    'Inspeção Sanitária', 'JUP', 'Factura de Exportação',
+    'Multas e Desdobramento', 'Outras despesas'
+  ];
+  var DESPESAS_NAODOC = [
+    'Honorários', 'Franquias', 'Inerentes', 'DU Provisório',
+    'Prestação de Serviço', 'Impressos e Selos', 'Fotocopias',
+    'Carga/Descarga', 'Licenciamento', 'Nossa Agencia', 'Viação e Transito',
+    'Aluguer de Pronto Soc', 'Agencia Exportação', 'Estiva', 'Risco',
+    'Transporte', 'Outras despesas', 'Diversos'
+  ];
+
+  var docSelect = document.getElementById('det-custo-documentada');
+  var tipoSelect = document.getElementById('det-custo-despesa-tipo');
+  var valorInput = document.getElementById('det-custo-valor');
+  var docFile = document.getElementById('det-custo-documento');
+  var btnAdd = document.getElementById('btn-det-adicionar-custo');
+  var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+
+  function preencherTipos(doc) {
+    var opcoes = doc === 'true' ? DESPESAS_DOC : DESPESAS_NAODOC;
+    tipoSelect.innerHTML = '<option value="">Selecione</option>';
+    opcoes.forEach(function(o) {
+      var opt = document.createElement('option');
+      opt.value = o; opt.textContent = o;
+      tipoSelect.appendChild(opt);
+    });
+  }
+  preencherTipos('false');
+
+  docSelect.addEventListener('change', function() {
+    preencherTipos(this.value);
+    if (this.value === 'false') {
+      docFile.disabled = true; docFile.style.opacity = '0.4';
+    } else { docFile.disabled = false; docFile.style.opacity = '1'; }
+  });
+
+  btnAdd.addEventListener('click', function() {
+    var despesaTipo = tipoSelect.value;
+    if (!despesaTipo) { showToast('Selecione o tipo de despesa', 'error'); tipoSelect.focus(); return; }
+
+    var isDoc = docSelect.value === 'true';
+    if (isDoc && !docFile.files.length) {
+      showToast('Anexe o comprovativo da despesa. Despesas documentadas exigem ficheiro comprovativo.', 'error');
+      docFile.focus();
+      return;
+    }
+
+    var valorNum = 0;
+    try {
+      if (valorInput.imask && valorInput.imask.typedValue !== undefined && valorInput.imask.typedValue !== null) {
+        valorNum = Number(valorInput.imask.typedValue) || 0;
+      } else if (typeof parseNumber === 'function') {
+        valorNum = parseNumber(valorInput.value) || 0;
+      } else {
+        valorNum = parseFloat(valorInput.value.replace(/\./g,'').replace(',','.')) || 0;
+      }
+    } catch(e) { valorNum = 0; }
+
+    if (despesaTipo === 'Honorários' && valorNum < 45000) {
+      valorNum = 45000;
+      showToast('O valor minimo para Honorarios e 45.000 KZ — ajustado automaticamente.', 'warning');
+    }
+
+    var formData = new FormData();
+    formData.append('tipo_custo', despesaTipo === 'Honorários' ? 'Honorários do Despachante' : 'Outras Despesas');
+    formData.append('descricao', despesaTipo);
+    formData.append('documentada', docSelect.value === 'true' ? 'True' : 'False');
+    formData.append('despesa_tipo', despesaTipo);
+    formData.append('valor', valorNum.toString());
+    if (docFile.files.length > 0) { formData.append('documento_justificativo', docFile.files[0]); }
+
+    btnAdd.disabled = true; btnAdd.innerHTML = '<i class="fas fa-spinner fa-spin"></i>A adicionar...';
+
+    fetch('{% url "financeiro:requisicao_linha_adicionar" requisicao.pk %}', {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken },
+      body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      btnAdd.disabled = false; btnAdd.innerHTML = '<i class="fas fa-plus"></i>Adicionar';
+      if (!data.success) { showToast(data.errors ? data.errors.join(', ') : 'Erro ao adicionar custo', 'error'); return; }
+
+      var linha = data.linha;
+      var isDoc = linha.documentada;
+
+      var tbody = isDoc ? document.getElementById('tab-doc') : document.getElementById('tab-naodoc');
+      if (tbody) {
+        var emptyRow = tbody.querySelector('td[colspan]');
+        if (emptyRow) emptyRow.closest('tr').remove();
+
+        var tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition-colors';
+        tr.innerHTML =
+          '<td class="px-6 py-3.5 text-gray-900 font-semibold text-xs">' + linha.despesa_tipo + '</td>' +
+          '<td class="px-6 py-3.5 text-gray-500 text-xs">' + (linha.descricao || '') + '</td>' +
+          (isDoc ? '<td class="px-6 py-3.5 text-center">' + (linha.has_documento ? '<a href="' + linha.documento_url + '" target="_blank" class="inline-flex items-center gap-1 text-primary hover:text-primary/80 text-xs font-medium"><i class="fas fa-file-alt"></i>Ver</a>' : '<span class="text-gray-300 text-xs">-</span>') + '</td>' : '') +
+          '<td class="px-6 py-3.5 text-right font-bold text-gray-900">' + formatNumber(linha.valor) + ' <span class="text-xs font-medium text-gray-400">Kz</span></td>' +
+          '<td class="px-6 py-3.5 text-center"><form method="post" action="{% url "financeiro:requisicao_linha_eliminar" requisicao.pk 0 %}'.replace('/0/', '/' + linha.id + '/') + '" class="inline"><input type="hidden" name="csrfmiddlewaretoken" value="' + csrfToken + '"><button type="button" onclick="confirmarFormPost(this.form, {tipo:\'danger\', titulo:\'Eliminar Custo\', mensagem:\'Tem a certeza que pretende eliminar este custo?\', textoBotao:\'Sim, Eliminar\', textoCancelar:\'Voltar\'})" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i class="fas fa-trash text-xs"></i></button></form></td>';
+        tbody.appendChild(tr);
+      }
+
+      var totais = data.totais;
+      var el;
+      el = document.getElementById('sidebar-subtotal'); if (el) el.textContent = formatNumber(totais.subtotal_geral) + ' Kz';
+      el = document.getElementById('sidebar-retencao'); if (el) el.textContent = formatNumber(totais.retencao) + ' Kz';
+      el = document.getElementById('sidebar-total'); if (el) el.textContent = formatNumber(totais.total_geral) + ' Kz';
+
+      // Subtotais documentadas / nao-documentadas
+      var subDocRow = document.getElementById('subtotal-doc-row');
+      var subDocVal = document.getElementById('subtotal-doc-value');
+      if (subDocVal) subDocVal.innerHTML = formatNumber(totais.subtotal_documentadas) + ' <span class="text-xs">Kz</span>';
+      if (subDocRow && totais.subtotal_documentadas > 0) subDocRow.style.display = '';
+
+      var subNaoDocRow = document.getElementById('subtotal-naodoc-row');
+      var subNaoDocVal = document.getElementById('subtotal-naodoc-value');
+      if (subNaoDocVal) subNaoDocVal.innerHTML = formatNumber(totais.subtotal_nao_documentadas) + ' <span class="text-xs">Kz</span>';
+      if (subNaoDocRow && totais.subtotal_nao_documentadas > 0) subNaoDocRow.style.display = '';
+
+      showToast('Custo adicionado: ' + despesaTipo, 'success');
+      tipoSelect.value = ''; valorInput.value = '';
+      docSelect.value = 'false'; preencherTipos('false');
+    })
+    .catch(function() {
+      btnAdd.disabled = false; btnAdd.innerHTML = '<i class="fas fa-plus"></i>Adicionar';
+      showToast('Erro de conexao', 'error');
+    });
+  });
+});
+</script>
+{% endif %}
 {% endblock %}

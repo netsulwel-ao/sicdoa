@@ -363,8 +363,12 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
         context['active_sub'] = 'requisicoes'
         all_linhas = self.object.linhas_ordenadas
         context['linhas'] = all_linhas
-        context['linhas_documentadas'] = [l for l in all_linhas if l.documentada]
-        context['linhas_nao_documentadas'] = [l for l in all_linhas if not l.documentada]
+        linhas_doc = [l for l in all_linhas if l.documentada]
+        linhas_nao_doc = [l for l in all_linhas if not l.documentada]
+        context['linhas_documentadas'] = linhas_doc
+        context['linhas_nao_documentadas'] = linhas_nao_doc
+        context['subtotal_documentadas'] = sum((l.valor or 0) for l in linhas_doc)
+        context['subtotal_nao_documentadas'] = sum((l.valor or 0) for l in linhas_nao_doc)
         context['historico'] = HistoricoFinanceiro.objects.filter(
             tipo_documento='Requisicao', documento_id=self.object.pk
         )[:20]
@@ -629,6 +633,8 @@ def adicionar_linha_requisicao(request, pk):
         requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
 
         if is_ajax:
+            doc_linhas = requisicao.linhas.filter(documentada=True)
+            nao_doc_linhas = requisicao.linhas.filter(documentada=False)
             return JsonResponse({
                 'success': True,
                 'message': 'Linha adicionada com sucesso.',
@@ -647,6 +653,8 @@ def adicionar_linha_requisicao(request, pk):
                     'iva_honorarios': float(requisicao.iva_honorarios),
                     'retencao': float(requisicao.retencao),
                     'total_geral': float(requisicao.total_geral),
+                    'subtotal_documentadas': float(sum((l.valor or 0) for l in doc_linhas)),
+                    'subtotal_nao_documentadas': float(sum((l.valor or 0) for l in nao_doc_linhas)),
                 }
             })
 
