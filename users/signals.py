@@ -31,6 +31,8 @@ def gerar_inscricao_auto(sender, instance, created, **kwargs):
             QuotaGerada.objects.create(
                 despachante=instance,
                 tipo=tipo,
+                ano=hoje.year,
+                mes=hoje.month,
                 descricao=f'{tipo.nome} — {instance.nome}',
                 valor=valor,
                 data_vencimento=vencimento,
@@ -43,4 +45,4 @@ def gerar_inscricao_auto(sender, instance, created, **kwargs):
             seq += 1
             referencia = f'QUOTA-INS-{hoje.month:02d}-{hoje.year}-{seq:05d}'
             continue
-    EstadoFinanceiro.objects.get_or_create(despachante=instance, defaults={'estado': 'Irregular'})
+    EstadoFinanceiro.objects.get_or_create(despachante=instance, defaults={'estado': 'Regular'})
