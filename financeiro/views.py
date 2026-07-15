@@ -946,8 +946,7 @@ def requisicao_pdf(request, pk):
         f"Peso Bruto: {requisicao.peso_bruto_kg or '—'} Kg\n"
         f"\n--- VALORES ---\n"
         f"Subtotal: {fmt_kz(requisicao.subtotal_geral or 0)} KZ\n"
-        f"IVA ({requisicao.taxa_iva}%): {fmt_kz(requisicao.iva_honorarios or 0)} KZ\n"
-        f"Retenção: {fmt_kz(requisicao.retencao or 0)} KZ\n"
+        f"Retenção ({requisicao.taxa_iva}%): {fmt_kz(requisicao.retencao or 0)} KZ\n"
         f"TOTAL: {fmt_kz(requisicao.total_geral or 0)} KZ\n"
         f"\n--- DESPACHANTE ---\n"
         f"Nome: {responsavel_nome}\n"
@@ -1143,9 +1142,7 @@ def requisicao_pdf(request, pk):
     # IMPOSTO/IVA + REFERÊNCIA DO PROCESSO (esquerda) | SUMÁRIO (direita)
     # ══════════════════════════════════════════════════════════════════
     iva_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
-    ret_pct = Decimal('0.065')
     sttl = requisicao.subtotal_geral or Decimal('0')
-    iva_val = requisicao.iva_honorarios or Decimal('0')
     ret_val = requisicao.retencao or Decimal('0')
     total = requisicao.total_geral or Decimal('0')
 
@@ -1153,10 +1150,7 @@ def requisicao_pdf(request, pk):
         [Paragraph('<b>Impostos</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
          Paragraph('<b>Incidência</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
          Paragraph('<b>Valor</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_RIGHT))],
-        [Paragraph(f'IVA - {iva_pct*100:.2f}', st('imc', fontSize=7)),
-         Paragraph(f'{fmt_kz(sttl)} KZ', st('imc', fontSize=7)),
-         Paragraph(f'{fmt_kz(iva_val)} KZ', st('imc', fontSize=7, alignment=TA_RIGHT))],
-        [Paragraph(f'Retenção - {ret_pct*100:.1f}', st('imc', fontSize=7)),
+        [Paragraph(f'Retenção - {iva_pct*100:.1f}%', st('imc', fontSize=7)),
          Paragraph(f'{fmt_kz(sttl)} KZ', st('imc', fontSize=7)),
          Paragraph(f'{fmt_kz(ret_val)} KZ', st('imc', fontSize=7, alignment=TA_RIGHT))],
     ]
@@ -1489,8 +1483,7 @@ Detalhes da Requisição:
   
 Totalizações:
   Subtotal Geral: {fmt_kz(requisicao.subtotal_geral)} KZ
-  IVA ({requisicao.taxa_iva}% Honorários): {fmt_kz(requisicao.iva_honorarios)} KZ
-  Retenção (6.5% Honorários): {fmt_kz(requisicao.retencao)} KZ
+  Retenção ({requisicao.taxa_iva}% Honorários): {fmt_kz(requisicao.retencao)} KZ
   Total Geral a Pagar: {fmt_kz(requisicao.total_geral)} KZ
 
 Esta Requisição de Fundos é equivalente a uma Fatura Proforma e não é documento contabilístico final, estando sujeita a alterações conforme a execução do despacho.
@@ -1534,11 +1527,7 @@ Equipa SICDOA
                     <td style="padding: 10px; text-align: right;">{fmt_kz(requisicao.subtotal_geral)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; color: #475569;">IVA ({requisicao.taxa_iva}% Honorários):</td>
-                    <td style="padding: 10px; text-align: right;">{fmt_kz(requisicao.iva_honorarios)} KZ</td>
-                </tr>
-                <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; color: #475569;">Retenção (6.5% Honorários):</td>
+                    <td style="padding: 10px; color: #475569;">Retenção ({requisicao.taxa_iva}% Honorários):</td>
                     <td style="padding: 10px; text-align: right;">{fmt_kz(requisicao.retencao)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 2px solid #137fec;">
@@ -1637,17 +1626,17 @@ def criar_factura_de_requisicao(request, pk):
             else:
                 despesas_operacionais += valor
         
-        # Retenção = 6.5% sobre Honorários do Despachante (mesmo critério do modelo RF)
+        # Retenção = taxa_retenção% sobre Honorários do Despachante
+        retencao_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
         base_retencao = sum(
             (linha.valor or 0) for linha in linhas_qs
             if (linha.tipo_custo or '').strip() == 'Honorários do Despachante'
         )
-        retencao = (base_retencao * Decimal('0.065')).quantize(Decimal('0.01'))
+        retencao = (base_retencao * retencao_pct).quantize(Decimal('0.01'))
         
         subtotal = honorarios + taxas_aduaneiras + emolumentos + despesas_operacionais
-        iva_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
-        iva = (subtotal * iva_pct).quantize(Decimal('0.01'))
-        valor_total = subtotal + iva - retencao
+        iva = Decimal('0.00')
+        valor_total = subtotal - retencao
         
         return honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, valor_total
     
@@ -1743,6 +1732,7 @@ def criar_factura_de_requisicao(request, pk):
         'emolumentos': fmt_kz(emolumentos),
         'despesas_operacionais': fmt_kz(despesas_operacionais),
         'iva': fmt_kz(iva),
+        'retencao': fmt_kz(retencao),
         'valor_total': fmt_kz(valor_total),
         'valor_total_extenso': _numero_extenso(int(valor_total)),
         'linhas': requisicao.linhas.all(),
@@ -2037,7 +2027,7 @@ class FacturaClienteDetailView(BaseContextMixin, DetailView):
         else:
             context['dias_restantes'] = 0
 
-        # Taxa IVA dinâmica (da Requisição vinculada ou 14%)
+        # Taxa retenção dinâmica (da Requisição vinculada ou 14%)
         taxa_iva_pct = '14'
         if f.requisicao_fundo_id:
             try:
@@ -4010,7 +4000,7 @@ def factura_pdf(request, pk):
     nr_du_qr = processo.numero_du if processo else '—'
     merc_qr = (getattr(getattr(factura, 'requisicao_fundo', None), 'mercadoria_descricao', '') or '')[:60] or '—'
 
-    # Taxa IVA para QR code e resumo
+    # Taxa retenção para QR code e resumo
     factura_iva_pct = Decimal('14')
     if factura.requisicao_fundo_id:
         try:

@@ -123,15 +123,9 @@
                 <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.despesas_operacionais|fmtkz }} Kz</td>
               </tr>
               {% endif %}
-              {% if factura.iva %}
-              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">IVA {{ taxa_iva_pct }}%</td>
-                <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.iva|fmtkz }} Kz</td>
-              </tr>
-              {% endif %}
               {% if factura.retencao %}
               <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Retencao 6.5%</td>
+                <td class="px-6 py-3.5 text-gray-700 dark:text-gray-300 font-medium">Retencao {{ taxa_iva_pct }}%</td>
                 <td class="px-6 py-3.5 text-right font-semibold text-gray-900 dark:text-white">{{ factura.retencao|fmtkz }} Kz</td>
               </tr>
               {% endif %}

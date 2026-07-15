@@ -9,7 +9,7 @@ from financeiro.models import RequisicaoFundo, RequisicaoFundoLinha
 
 
 class RequisicaoFundoCalculosTestCase(TestCase):
-    """Testes para validar cálculos corretos de IVA e retenção"""
+    """Testes para validar cálculos corretos de retenção"""
     
     def setUp(self):
         """Cria dados de teste"""
@@ -37,7 +37,7 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             status="Pendente"
         )
         
-        # Criar requisição
+        # Criar requisição (taxa_iva default='14' = 14% retenção)
         self.requisicao = RequisicaoFundo.objects.create(
             banca=self.banca,
             cliente=self.cliente,
@@ -46,9 +46,8 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             moeda_referencia="AOA"
         )
     
-    def test_calculo_iva_14_porcento_sobre_honorarios(self):
-        """Testa se IVA é 14% apenas sobre honorários do despachante"""
-        # Adicionar honorários de 100.000 KZ
+    def test_iva_sempre_zero(self):
+        """Testa que IVA é sempre 0 (sem IVA nos Custos Orçados)"""
         linha_honorarios = RequisicaoFundoLinha.objects.create(
             requisicao=self.requisicao,
             tipo_custo='Honorários do Despachante',
@@ -57,15 +56,13 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             valor=Decimal('100000.00')
         )
         
-        # Recarregar
         self.requisicao.refresh_from_db()
         
-        # IVA deve ser 14% de 100.000 = 14.000
-        self.assertEqual(self.requisicao.iva_honorarios, Decimal('14000.00'))
+        # IVA deve ser sempre 0
+        self.assertEqual(self.requisicao.iva_honorarios, Decimal('0.00'))
     
-    def test_calculo_retencao_6_5_porcento_sobre_honorarios(self):
-        """Testa se retenção é 6.5% apenas sobre honorários do despachante"""
-        # Adicionar honorários de 100.000 KZ
+    def test_calculo_retencao_14_porcento_sobre_honorarios(self):
+        """Testa se retenção é 14% (default) sobre honorários do despachante"""
         linha_honorarios = RequisicaoFundoLinha.objects.create(
             requisicao=self.requisicao,
             tipo_custo='Honorários do Despachante',
@@ -74,14 +71,31 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             valor=Decimal('100000.00')
         )
         
-        # Recarregar
+        self.requisicao.refresh_from_db()
+        
+        # Retenção deve ser 14% de 100.000 = 14.000
+        self.assertEqual(self.requisicao.retencao, Decimal('14000.00'))
+    
+    def test_calculo_retencao_6_5_porcento(self):
+        """Testa se retenção é 6.5% quando taxa_iva='6.5'"""
+        self.requisicao.taxa_iva = '6.5'
+        self.requisicao.save()
+        
+        linha_honorarios = RequisicaoFundoLinha.objects.create(
+            requisicao=self.requisicao,
+            tipo_custo='Honorários do Despachante',
+            descricao='Honorários',
+            documentada=False,
+            valor=Decimal('100000.00')
+        )
+        
         self.requisicao.refresh_from_db()
         
         # Retenção deve ser 6.5% de 100.000 = 6.500
         self.assertEqual(self.requisicao.retencao, Decimal('6500.00'))
     
-    def test_total_geral_inclui_iva_e_retencao(self):
-        """Testa se total = subtotal + IVA - retenção"""
+    def test_total_geral_sem_iva(self):
+        """Testa se total = subtotal - retenção (sem IVA)"""
         # Adicionar impostos (50.000) e honorários (100.000)
         linha_impostos = RequisicaoFundoLinha.objects.create(
             requisicao=self.requisicao,
@@ -100,24 +114,22 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             valor=Decimal('100000.00')
         )
         
-        # Recarregar
         self.requisicao.refresh_from_db()
         
         # Subtotal = 50.000 + 100.000 = 150.000
         self.assertEqual(self.requisicao.subtotal_geral, Decimal('150000.00'))
         
-        # IVA = 14% de 150.000 (subtotal) = 21.000
-        self.assertEqual(self.requisicao.iva_honorarios, Decimal('21000.00'))
+        # IVA = 0 (sem IVA)
+        self.assertEqual(self.requisicao.iva_honorarios, Decimal('0.00'))
         
-        # Retenção = 6.5% de 100.000 = 6.500
-        self.assertEqual(self.requisicao.retencao, Decimal('6500.00'))
+        # Retenção = 14% de 100.000 = 14.000
+        self.assertEqual(self.requisicao.retencao, Decimal('14000.00'))
         
-        # Total = 150.000 + 21.000 + 6.500 = 177.500
-        self.assertEqual(self.requisicao.total_geral, Decimal('177500.00'))
+        # Total = 150.000 - 14.000 = 136.000
+        self.assertEqual(self.requisicao.total_geral, Decimal('136000.00'))
     
-    def test_sem_honorarios_iva_retenacao_zero(self):
-        """Testa que sem honorários, IVA e retenção são zero"""
-        # Adicionar apenas impostos
+    def test_sem_honorarios_retencao_zero(self):
+        """Testa que sem honorários, retenção é zero"""
         linha_impostos = RequisicaoFundoLinha.objects.create(
             requisicao=self.requisicao,
             tipo_custo='Impostos e Taxas Aduaneiras (AGT)',
@@ -127,19 +139,17 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             valor=Decimal('50000.00')
         )
         
-        # Recarregar
         self.requisicao.refresh_from_db()
         
-        # Sem honorários, IVA = 14% do subtotal, retenção = 0
-        self.assertEqual(self.requisicao.iva_honorarios, Decimal('7000.00'))
+        # Sem honorários, IVA = 0, retenção = 0
+        self.assertEqual(self.requisicao.iva_honorarios, Decimal('0.00'))
         self.assertEqual(self.requisicao.retencao, Decimal('0.00'))
         
-        # Total = subtotal + IVA + retenção = 50.000 + 7.000 + 0
-        self.assertEqual(self.requisicao.total_geral, Decimal('57000.00'))
+        # Total = subtotal = 50.000
+        self.assertEqual(self.requisicao.total_geral, Decimal('50000.00'))
     
     def test_saldo_pendente_calculo(self):
         """Testa cálculo do saldo pendente"""
-        # Adicionar honorários
         linha_honorarios = RequisicaoFundoLinha.objects.create(
             requisicao=self.requisicao,
             tipo_custo='Honorários do Despachante',
@@ -148,25 +158,23 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             valor=Decimal('100000.00')
         )
         
-        # Recarregar
         self.requisicao.refresh_from_db()
         
-        # Total = 100.000 + 14.000 + 6.500 = 120.500
-        self.assertEqual(self.requisicao.total_geral, Decimal('120500.00'))
+        # Total = 100.000 - 14.000 = 86.000
+        self.assertEqual(self.requisicao.total_geral, Decimal('86000.00'))
         
         # Sem pagamento, saldo = total
-        self.assertEqual(self.requisicao.saldo_pendente, Decimal('120500.00'))
+        self.assertEqual(self.requisicao.saldo_pendente, Decimal('86000.00'))
         
         # Adicionar pagamento de 50.000
         self.requisicao.valor_pago = Decimal('50000.00')
         self.requisicao.save()
         
-        # Saldo = 120.500 - 50.000 = 70.500
-        self.assertEqual(self.requisicao.saldo_pendente, Decimal('70500.00'))
+        # Saldo = 86.000 - 50.000 = 36.000
+        self.assertEqual(self.requisicao.saldo_pendente, Decimal('36000.00'))
     
     def test_multiplas_linhas_honorarios_somadas(self):
-        """Testa que múltiplas linhas de honorários são TODAS contabilizadas para IVA/retenção"""
-        # Adicionar primeira linha de honorários: 50.000 KZ
+        """Testa que múltiplas linhas de honorários são TODAS contabilizadas para retenção"""
         linha_honorarios_1 = RequisicaoFundoLinha.objects.create(
             requisicao=self.requisicao,
             tipo_custo='Honorários do Despachante',
@@ -175,7 +183,6 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             valor=Decimal('50000.00')
         )
         
-        # Adicionar segunda linha de honorários: 20.000 KZ
         linha_honorarios_2 = RequisicaoFundoLinha.objects.create(
             requisicao=self.requisicao,
             tipo_custo='Honorários do Despachante',
@@ -184,38 +191,31 @@ class RequisicaoFundoCalculosTestCase(TestCase):
             valor=Decimal('20000.00')
         )
         
-        # Recarregar
         self.requisicao.refresh_from_db()
         
         # Total de honorários = 50.000 + 20.000 = 70.000
-        # IVA = 70.000 × 0.14 = 9.800 (sobre subtotal = 70.000)
-        self.assertEqual(self.requisicao.iva_honorarios, Decimal('9800.00'))
+        # IVA = 0
+        self.assertEqual(self.requisicao.iva_honorarios, Decimal('0.00'))
         
-        # Retenção = 70.000 × 0.065 = 4.550
-        self.assertEqual(self.requisicao.retencao, Decimal('4550.00'))
+        # Retenção = 70.000 × 0.14 = 9.800
+        self.assertEqual(self.requisicao.retencao, Decimal('9800.00'))
         
-        # Total = 70.000 + 9.800 + 4.550 = 84.350
-        self.assertEqual(self.requisicao.total_geral, Decimal('84350.00'))
+        # Total = 70.000 - 9.800 = 60.200
+        self.assertEqual(self.requisicao.total_geral, Decimal('60200.00'))
     
     def test_assinatura_digital_gerada(self):
         """Testa que assinatura digital é gerada automaticamente"""
-        # Recarregar para certificar que foi salva com assinatura
         self.requisicao.refresh_from_db()
         
-        # Deve ter assinatura digital (SHA-256 em Base64)
         self.assertIsNotNone(self.requisicao.assinatura_digital)
         self.assertGreater(len(self.requisicao.assinatura_digital), 0)
-        # SHA-256 em Base64 tem 44 caracteres (sem padding) ou 48 (com padding)
         self.assertIn(len(self.requisicao.assinatura_digital), [44, 48])
     
     def test_editar_requisicao_nao_pendente_bloqueada(self):
         """Testa que não é possível editar requisição após mudar de estado"""
-        # Aceitar requisição
         self.requisicao.estado = 'Aceite'
         self.requisicao.save()
         
-        # Tentar editar deveria falhar na view (testar apenas lógica)
-        # A validação é feita em RequisicaoFundoUpdateView.form_valid()
         self.assertNotEqual(self.requisicao.estado, 'Pendente')
 
 

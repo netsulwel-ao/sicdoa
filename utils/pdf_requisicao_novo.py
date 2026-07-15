@@ -183,15 +183,16 @@ def gerar_pdf_requisicao_profissional(requisicao, banca, cliente, processo, resp
     story.append(HRFlowable(width=W, thickness=1, color=colors.HexColor('#000000')))
     story.append(Spacer(1, 0.2*cm))
     
-    # ─── IMPOSTOS/IVA ──────────────────────────────────────────────────────────
+    # ─── IMPOSTOS/RETENÇÃO ──────────────────────────────────────────────────────
+    retencao_pct = Decimal(requisicao.taxa_iva or '14')
     impostos = [[
-        Paragraph('<b>Imposto/IVA %</b>', st('ih', fontName='Helvetica-Bold', fontSize=6)),
+        Paragraph('<b>Retenção %</b>', st('ih', fontName='Helvetica-Bold', fontSize=6)),
         Paragraph('<b>Incidência</b>', st('ih', fontName='Helvetica-Bold', fontSize=6)),
         Paragraph('<b>Valor</b>', st('ih', fontName='Helvetica-Bold', fontSize=6)),
     ], [
-        Paragraph('<font size="6">IVA - 14.00</font>', st('id')),
+        Paragraph(f'<font size="6">Retenção - {retencao_pct:.1f}</font>', st('id')),
         Paragraph(f'<font size="6">{valor_total}</font>', st('id', alignment=TA_CENTER)),
-        Paragraph(f'<font size="6">{fmt_kz(requisicao.iva_honorarios) if requisicao.iva_honorarios else "0,00"}</font>', st('id', alignment=TA_RIGHT)),
+        Paragraph(f'<font size="6">{fmt_kz(requisicao.retencao) if requisicao.retencao else "0,00"}</font>', st('id', alignment=TA_RIGHT)),
     ]]
     t_imp = Table(impostos, colWidths=[W*0.15, W*0.20, W*0.15])
     t_imp.setStyle(TableStyle([
@@ -220,7 +221,7 @@ def gerar_pdf_requisicao_profissional(requisicao, banca, cliente, processo, resp
         Paragraph(f'<font size="6">{valor_total}</font>', st('rs', alignment=TA_RIGHT)),
     ], [
         Paragraph('<font size="6">Total Impostos:</font>', st('rs')), 
-        Paragraph(f'<font size="6">{fmt_kz(requisicao.iva_honorarios) if requisicao.iva_honorarios else "0,00"}</font>', st('rs', alignment=TA_RIGHT)),
+        Paragraph(f'<font size="6">{fmt_kz(requisicao.retencao) if requisicao.retencao else "0,00"}</font>', st('rs', alignment=TA_RIGHT)),
     ], [
         Paragraph('<font size="6">Retenção: (0%)</font>', st('rs')), 
         Paragraph(f'<font size="6">{fmt_kz(requisicao.retencao) if requisicao.retencao else "0,00"}</font>', st('rs', alignment=TA_RIGHT)),

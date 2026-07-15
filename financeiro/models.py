@@ -48,12 +48,12 @@ class RequisicaoFundo(models.Model):
                              db_index=True, verbose_name='Estado')
     
     # Totalizações
-    TAXA_IVA_CHOICES = [
+    TAXA_RETENCAO_CHOICES = [
         ('14', '14% - Regime Geral'),
         ('6.5', '6,5% - Regime Simplificado'),
     ]
-    taxa_iva = models.CharField(max_length=5, choices=TAXA_IVA_CHOICES, default='14',
-                                verbose_name='Taxa de IVA')
+    taxa_iva = models.CharField(max_length=5, choices=TAXA_RETENCAO_CHOICES, default='14',
+                                verbose_name='Taxa de Retenção')
     subtotal_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
                                         verbose_name='Subtotal Geral')
     iva_honorarios = models.DecimalField(max_digits=15, decimal_places=2, default=0,
@@ -149,20 +149,20 @@ class RequisicaoFundo(models.Model):
             (linha.valor or 0) for linha in linhas
         )
         
-        # IVA = taxa_iva% sobre o Subtotal (todas as linhas)
-        iva_pct = Decimal(self.taxa_iva or '14') / Decimal('100')
-        self.iva_honorarios = (self.subtotal_geral * iva_pct).quantize(Decimal('0.01'))
+        # Sem IVA nos Custos Orçados
+        self.iva_honorarios = Decimal('0.00')
         
-        # Retenção = 6.5% sobre Honorários do Despachante (iteração em memória)
+        # Retenção = taxa_retenção% sobre Honorários do Despachante
+        retencao_pct = Decimal(self.taxa_iva or '14') / Decimal('100')
         valor_honorarios = sum(
             (linha.valor or 0) for linha in linhas
             if linha.tipo_custo == 'Honorários do Despachante'
         )
         
-        self.retencao = (valor_honorarios * Decimal('0.065')).quantize(Decimal('0.01'))
+        self.retencao = (valor_honorarios * retencao_pct).quantize(Decimal('0.01'))
         
-        # Total = Subtotal + IVA - Retenção (retenção é desconto, não acréscimo)
-        self.total_geral = (self.subtotal_geral + self.iva_honorarios - self.retencao).quantize(Decimal('0.01'))
+        # Total = Subtotal - Retenção
+        self.total_geral = (self.subtotal_geral - self.retencao).quantize(Decimal('0.01'))
 
     def _gerar_assinatura_digital(self):
         """Gera assinatura digital HMAC-SHA256 Base64 da requisição"""

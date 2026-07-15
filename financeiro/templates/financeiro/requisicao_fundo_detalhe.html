@@ -358,12 +358,8 @@
               <span class="text-sm text-gray-500">Subtotal</span>
               <span class="font-semibold text-gray-900">{{ requisicao.subtotal_geral|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
             </div>
-            <div class="flex justify-between items-center pb-3 border-b border-gray-100">
-              <span class="text-sm text-gray-500">IVA {{ requisicao.get_taxa_iva_display }}</span>
-              <span class="font-semibold text-gray-900">{{ requisicao.iva_honorarios|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
-            </div>
             <div class="flex justify-between items-center">
-              <span class="text-sm text-gray-500">Retencao 6.5%</span>
+              <span class="text-sm text-gray-500">Retencao {{ requisicao.get_taxa_iva_display }}</span>
               <span class="font-semibold text-gray-900">{{ requisicao.retencao|fmtkz }} <span class="text-xs text-gray-400">Kz</span></span>
             </div>
           </div>

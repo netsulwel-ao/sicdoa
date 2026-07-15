@@ -151,11 +151,7 @@
               <span class="font-semibold text-gray-900 tabular-nums">{{ requisicao.subtotal_geral|fmtkz }}</span>
             </div>
             <div class="flex justify-between text-sm px-1">
-              <span class="text-gray-500">IVA {{ requisicao.taxa_iva }}%</span>
-              <span class="font-semibold text-gray-900 tabular-nums">{{ requisicao.iva_honorarios|fmtkz }}</span>
-            </div>
-            <div class="flex justify-between text-sm px-1">
-              <span class="text-gray-900 font-medium">Retenção 6.5%</span>
+              <span class="text-gray-900 font-medium">Retenção {{ requisicao.get_taxa_iva_display }}</span>
               <span class="font-semibold text-gray-900 tabular-nums">{{ requisicao.retencao|fmtkz }}</span>
             </div>
           </div>

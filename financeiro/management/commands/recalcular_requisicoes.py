@@ -3,7 +3,7 @@ from financeiro.models import RequisicaoFundo
 
 
 class Command(BaseCommand):
-    help = 'Recalcula IVA e retenção para todas as requisições de fundos existentes'
+    help = 'Recalcula retenção para todas as requisições de fundos existentes'
 
     def add_arguments(self, parser):
         parser.add_argument(

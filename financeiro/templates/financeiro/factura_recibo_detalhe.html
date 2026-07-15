@@ -165,10 +165,6 @@
               <span class="text-gray-500">Subtotal</span>
               <span class="font-semibold text-gray-900 tabular-nums">{{ object.factura.subtotal|fmtkz }}</span>
             </div>
-            <div class="flex justify-between text-sm px-1">
-              <span class="text-gray-500">IVA {{ object.factura.taxa_iva|default:"14" }}%</span>
-              <span class="font-semibold text-gray-900 tabular-nums">{{ object.factura.iva|fmtkz }}</span>
-            </div>
           </div>
 
           <!-- Total -->
