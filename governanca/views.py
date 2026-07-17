@@ -4428,7 +4428,7 @@ def utilizador_novo_view(request):
     from users.permissoes import get_usuario_permissoes as _get_perms
     ctx = {
         'usuario': usuario, 'nome': usuario['nome'], 'papel': usuario['papel'],
-        'active_menu': 'ADMIN_RH', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
+        'active_menu': 'RH_INST', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
         'user_permissoes': _get_perms(request),
         'erros': erros, 'funcoes': Funcao.objects.all().order_by('nome'),
     }
@@ -4493,7 +4493,7 @@ def utilizador_editar_view(request, usuario_id):
     from users.permissoes import get_usuario_permissoes as _get_perms
     ctx = {
         'usuario': usuario, 'nome': usuario['nome'], 'papel': usuario['papel'],
-        'active_menu': 'ADMIN_RH', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
+        'active_menu': 'RH_INST', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
         'user_permissoes': _get_perms(request),
         'user_obj': user_obj, 'erros': erros, 'funcoes': Funcao.objects.all().order_by('nome'),
     }
@@ -4562,7 +4562,7 @@ def gerir_utilizadores(request):
         'usuario': usuario,
         'nome': usuario['nome'],
         'papel': usuario['papel'],
-        'active_menu': 'ADMIN_RH',
+        'active_menu': 'RH_INST',
         'active_sub': 'gerir_utilizadores',
         'is_admin_sistema': True,
         'user_permissoes': get_usuario_permissoes(request),
