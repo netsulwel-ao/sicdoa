@@ -10,6 +10,7 @@ def cargos_mesa(request):
         'cargo_mesa_funcao': None,
         'user_permissoes': set(),
         'tem_banca': False,
+        'tem_banca_central': False,
     }
     usuario_id = request.session.get('usuario_id')
     papel_sessao = request.session.get('usuario', {}).get('papel', '')
@@ -37,4 +38,8 @@ def cargos_mesa(request):
             ).exists()
         else:
             data['tem_banca'] = False
+
+        if papel_sessao == 'Administrador':
+            from .models import BancaCentral
+            data['tem_banca_central'] = BancaCentral.objects.filter(ativa=True).exists()
     return data

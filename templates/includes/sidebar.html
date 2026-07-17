@@ -186,8 +186,60 @@
     </ul>
     {% endif %}
 
-    {# ── Recursos Humanos Institucionais (apenas Administrador) ──────── #}
-    {% if papel == 'Administrador' or 'gerir_colaboradores_inst' in user_permissoes or 'gerir_presencas_inst' in user_permissoes or 'gerir_ferias_inst' in user_permissoes or 'gerir_avaliacoes_inst' in user_permissoes or 'processar_salarios_inst' in user_permissoes or 'gerir_recrutamento_inst' in user_permissoes or 'gerir_subsidios_inst' in user_permissoes %}
+    {# ── Banca Central (RH Institucional — apenas Administrador) ──────── #}
+    {% if papel == 'Administrador' and tem_banca_central %}
+    <button type="button" data-collapse="rh-inst"
+            class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
+                   {% if active == 'RH_INST' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-building flex-shrink-0"></i>
+      <span class="text-sm font-medium flex-1 truncate">Banca Central</span>
+      <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'RH_INST' %}rotate-180{% endif %}"></i>
+    </button>
+    <ul data-submenu="rh-inst" class="ml-4 space-y-0.5 {% if active != 'RH_INST' %}hidden{% endif %}">
+      <li>
+        <a href="{% url 'rh_banca_central' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'banca_central' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-chart-pie text-base"></i>Dashboard
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_admin_colaboradores_inst' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'colaboradores_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-id-badge text-base"></i>Colaboradores
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_cargos_lista' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'funcoes' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-user-tag text-base"></i>Funções
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_admin_salarios_inst' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'salarios_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-credit-card text-base"></i>Processamento Salarial
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_inst_vagas' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'recrutamento_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-briefcase text-base"></i>Recrutamento
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'logs_atividade' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'logs' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-history text-base"></i>Logs de Atividade
+        </a>
+      </li>
+    </ul>
+    {% elif papel == 'Administrador' and 'gerir_colaboradores_inst' in user_permissoes or 'gerir_presencas_inst' in user_permissoes or 'gerir_ferias_inst' in user_permissoes or 'gerir_avaliacoes_inst' in user_permissoes or 'processar_salarios_inst' in user_permissoes or 'gerir_recrutamento_inst' in user_permissoes or 'gerir_subsidios_inst' in user_permissoes %}
     <button type="button" data-collapse="rh-inst"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'RH_INST' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">

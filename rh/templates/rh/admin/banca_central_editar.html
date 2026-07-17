@@ -1,0 +1,244 @@
+{% extends 'rh/base_rh.html' %}
+
+{% block breadcrumb %}
+<i class="fas fa-chevron-right text-xs"></i>
+<a href="{% url 'rh_banca_central' %}" class="hover:text-primary transition-colors">Banca Central</a>
+<i class="fas fa-chevron-right text-xs"></i>
+<span class="text-gray-700 dark:text-gray-300 font-medium">Editar</span>
+{% endblock %}
+
+{% block conteudo %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Editar Banca Central</h1>
+    <p class="text-gray-500 mt-1 text-sm">{{ banca.nome }}</p>
+  </div>
+  <a href="{% url 'rh_banca_central' %}"
+     class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+    <i class="fas fa-arrow-left text-base"></i>Voltar
+  </a>
+</div>
+
+{% if erro %}
+<div class="mb-5 flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+  <i class="fas fa-times-circle text-red-600"></i>
+  <p class="text-sm font-medium">{{ erro }}</p>
+</div>
+{% endif %}
+
+<form method="POST" enctype="multipart/form-data" class="space-y-6">
+  {% csrf_token %}
+
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-building text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Dados da Instituição</h2>
+    </div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="lg:col-span-2">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nome da Instituição <span class="text-red-500">*</span></label>
+        <input type="text" name="nome" required value="{{ form.nome }}" placeholder="Nome da instituição"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">NIF <span class="text-red-500">*</span></label>
+        <input type="text" name="nif" required value="{{ form.nif }}" placeholder="NIF"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+        <select name="tipo" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+          {% for val, label in banca_tipos %}<option value="{{ val }}" {% if form.tipo == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Email</label>
+        <input type="email" name="email" value="{{ form.email }}" placeholder="email@instituicao.ao"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
+        <input type="text" name="telefone" value="{{ form.telefone }}" placeholder="+244 923 456 789"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Província</label>
+        <select name="provincia" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+          <option value="">Selecione...</option>
+          {% for p in provincias %}<option value="{{ p }}" {% if form.provincia == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Município</label>
+        <input type="text" name="municipio" value="{{ form.municipio }}" placeholder="Município"
+               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+      </div>
+      <div class="lg:col-span-3">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
+        <textarea name="endereco" rows="2" placeholder="Endereço físico..."
+                  class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ form.endereco }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logotipo -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-image text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Logotipo</h2>
+    </div>
+    <div class="p-6">
+      {% if banca.logo %}
+      <div class="mb-3">
+        <img src="{{ banca.logo.url }}" alt="Logotipo" class="max-h-20 rounded-lg border border-gray-200 dark:border-gray-700">
+      </div>
+      {% endif %}
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Logotipo da Instituição</label>
+      <input type="file" name="logo" accept="image/*"
+             class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 transition-all" />
+      <p class="text-xs text-gray-500 mt-1">Deixe em branco para manter o actual.</p>
+    </div>
+  </div>
+
+  <!-- Dados Bancários -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-university text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Dados Bancários</h2>
+    </div>
+    <div class="p-6">
+      <div id="bancos_wrapper" class="space-y-4"></div>
+      <button type="button" id="btn_adicionar_banco" onclick="adicionarBanco()"
+        class="mt-4 inline-flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-xl text-sm font-semibold hover:bg-green-100 transition-all">
+        <i class="fas fa-plus"></i>Adicionar Banco
+      </button>
+
+      <div class="mt-6">
+        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Instruções de Pagamento</label>
+        <textarea name="instrucoes_pagamento" rows="2" placeholder="Ex: Transferência bancária para a conta acima indicada..."
+                  class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none">{{ form.instrucoes_pagamento }}</textarea>
+      </div>
+
+      <input type="hidden" name="dados_bancarios_json" id="dados_bancarios_json" value="{{ form.dados_bancarios_json }}">
+    </div>
+  </div>
+
+  <!-- Template de banco card (oculto) -->
+  <template id="tpl_banco_card">
+    <div class="banco-card bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 relative">
+      <button type="button" onclick="removerBanco(this)"
+        class="absolute top-3 right-3 w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+        title="Remover banco">
+        <i class="fas fa-times text-sm"></i>
+      </button>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Banco</label>
+          <select data-field="banco"
+            class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+            <option value="">Selecione...</option>
+            <option value="BANC">BANC - Banco Angolano de Negocios e Comercio, S.A.</option>
+            <option value="BAI">BAI - Banco Angolano de Investimentos, S.A.</option>
+            <option value="BCA">BCA - Banco Comercial Angolano, S.A.</option>
+            <option value="BCGA">BCGA - Banco Caixa Geral Angola, S.A.</option>
+            <option value="BFA">BFA - Banco de Fomento Angola, S.A.</option>
+            <option value="BIC">BIC - Banco BIC, S.A.</option>
+            <option value="BMA">BMA - Banco Millennium Atlantico, S.A.</option>
+            <option value="BPC">BPC - Banco de Poupanca e Credito, S.A.</option>
+            <option value="BSOL">BSOL - Banco Sol, S.A.</option>
+            <option value="SBA">SBA - Standard Bank de Angola, S.A.</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">IBAN</label>
+          <input type="text" data-field="iban" placeholder="Ex: AO06 0040 0000 1234 5678 9010 0"
+            class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <div class="flex justify-end gap-3">
+    <a href="{% url 'rh_banca_central' %}" class="px-6 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">Cancelar</a>
+    <button type="submit" class="px-8 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+      <i class="fas fa-save text-lg"></i>Guardar Alterações
+    </button>
+  </div>
+</form>
+
+<script>
+(function() {
+  const MAX_BANCOS = 4;
+  const wrapper = document.getElementById('bancos_wrapper');
+  const btnAdd = document.getElementById('btn_adicionar_banco');
+  const hiddenInput = document.getElementById('dados_bancarios_json');
+
+  function lerBancosDoForm() {
+    const cards = wrapper.querySelectorAll('.banco-card');
+    const lista = [];
+    cards.forEach(card => {
+      const banco = card.querySelector('[data-field="banco"]').value;
+      const iban = card.querySelector('[data-field="iban"]').value.trim();
+      if (banco) lista.push({ banco: banco, iban: iban });
+    });
+    return lista;
+  }
+
+  function sincronizarHidden() {
+    hiddenInput.value = JSON.stringify(lerBancosDoForm());
+  }
+
+  function atualizarBotao() {
+    const count = wrapper.querySelectorAll('.banco-card').length;
+    btnAdd.style.display = count >= MAX_BANCOS ? 'none' : '';
+  }
+
+  function criarCard(dados) {
+    const tpl = document.getElementById('tpl_banco_card');
+    const clone = tpl.content.cloneNode(true);
+    const card = clone.querySelector('.banco-card');
+    if (dados) {
+      if (dados.banco) card.querySelector('[data-field="banco"]').value = dados.banco;
+      if (dados.iban) card.querySelector('[data-field="iban"]').value = dados.iban;
+    }
+    card.querySelectorAll('select, input').forEach(el => {
+      el.addEventListener('change', sincronizarHidden);
+      el.addEventListener('input', sincronizarHidden);
+    });
+    wrapper.appendChild(clone);
+    atualizarBotao();
+    sincronizarHidden();
+  }
+
+  window.adicionarBanco = function(dados) {
+    if (wrapper.querySelectorAll('.banco-card').length >= MAX_BANCOS) return;
+    criarCard(dados || null);
+  };
+
+  window.removerBanco = function(btn) {
+    const card = btn.closest('.banco-card');
+    card.style.transition = 'opacity 0.2s, transform 0.2s';
+    card.style.opacity = '0';
+    card.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      card.remove();
+      atualizarBotao();
+      sincronizarHidden();
+    }, 200);
+  };
+
+  // Carregar dados existentes
+  (function carregarDadosExistentes() {
+    try {
+      const raw = hiddenInput.value;
+      const dados = JSON.parse(raw);
+      if (Array.isArray(dados)) {
+        dados.forEach(d => criarCard(d));
+      }
+    } catch(e) {}
+  })();
+
+  document.querySelector('form').addEventListener('submit', sincronizarHidden);
+})();
+</script>
+{% endblock %}

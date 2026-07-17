@@ -777,3 +777,190 @@ def admin_salario_inst_novo_view(request):
 
     ctx = _ctx_admin(request, sub='salarios_inst', active_menu='RH_INST')
     return render(request, 'rh/admin/salario_inst_novo.html', ctx)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# BANCA CENTRAL
+# ══════════════════════════════════════════════════════════════════════════
+
+from .models import BancaCentral
+
+
+@_requer_admin
+def banca_central_view(request):
+    """Dashboard da Banca Central — visão geral da instituição."""
+    banca = BancaCentral.get_instance()
+    if not banca or not banca.ativa:
+        return redirect('rh_banca_central_criar')
+
+    stats_colab = {
+        'total': ColaboradorInstitucional.objects.count(),
+        'ativos': ColaboradorInstitucional.objects.filter(estado='Ativo').count(),
+    }
+    stats_bancas = {
+        'total': Banca.objects.filter(ativa=True).count(),
+        'despachantes': Banca.objects.filter(ativa=True).values('usuario_id').distinct().count(),
+    }
+
+    from users.models import VagaInstitucional, CandidaturaInstitucional
+    vagas_qs = VagaInstitucional.objects.aggregate(
+        vagas_abertas=Count('id', filter=Q(estado='Aberta')),
+        total_vagas=Count('id'),
+    )
+    candidaturas_stats = CandidaturaInstitucional.objects.aggregate(
+        total=Count('id'),
+        pendentes=Count('id', filter=Q(estado='Recebida')),
+        entrevistas=Count('id', filter=Q(estado='Entrevista')),
+        aprovados=Count('id', filter=Q(estado='Aprovado')),
+    )
+
+    colaboradores_recentes = ColaboradorInstitucional.objects.order_by('-criado_em')[:5]
+    candidaturas_recentes = CandidaturaInstitucional.objects.select_related('vaga').order_by('-criado_em')[:5]
+    bancas_despachantes = Banca.objects.filter(ativa=True).select_related().order_by('nome')[:10]
+
+    ctx = _ctx_admin(request, sub='banca_central', active_menu='RH_INST', extra={
+        'banca': banca,
+        'total_colaboradores': stats_colab['total'],
+        'colaboradores_activos': stats_colab['ativos'],
+        'total_bancas': stats_bancas['total'],
+        'total_despachantes': stats_bancas['despachantes'],
+        'vagas_abertas': vagas_qs['vagas_abertas'],
+        'total_vagas': vagas_qs['total_vagas'],
+        'total_candidaturas': candidaturas_stats['total'],
+        'candidaturas_pendentes': candidaturas_stats['pendentes'],
+        'entrevistas_agendadas': candidaturas_stats['entrevistas'],
+        'candidatos_aprovados': candidaturas_stats['aprovados'],
+        'colaboradores_recentes': colaboradores_recentes,
+        'candidaturas_recentes': candidaturas_recentes,
+        'bancas_despachantes': bancas_despachantes,
+    })
+    return render(request, 'rh/admin/banca_central_dashboard.html', ctx)
+
+
+@_requer_admin
+def banca_central_criar_view(request):
+    """Criar a Banca Central (apenas se não existir)."""
+    if BancaCentral.objects.filter(ativa=True).exists():
+        return redirect('rh_banca_central')
+
+    from rh.views import BANCA_TIPOS, PROVINCIAS
+
+    def _render(extra=None):
+        return render(request, 'rh/admin/banca_central_criar.html', _ctx_admin(
+            request, sub='banca_central', active_menu='RH_INST',
+            extra={'banca_tipos': BANCA_TIPOS, 'provincias': PROVINCIAS, **(extra or {})}))
+
+    if request.method == 'POST':
+        dados = {k: request.POST.get(k, '').strip() for k in
+                 ['nome', 'nif', 'tipo', 'email', 'telefone',
+                  'endereco', 'provincia', 'municipio']}
+        dados['instrucoes_pagamento'] = request.POST.get('instrucoes_pagamento', '').strip()
+
+        bancos_json_raw = request.POST.get('dados_bancarios_json', '[]').strip()
+        try:
+            bancos_lista = json.loads(bancos_json_raw) if bancos_json_raw else []
+        except (json.JSONDecodeError, ValueError):
+            bancos_lista = []
+        if not isinstance(bancos_lista, list):
+            bancos_lista = []
+        bancos_lista = [b for b in bancos_lista if isinstance(b, dict) and b.get('banco')]
+        if len(bancos_lista) > 4:
+            bancos_lista = bancos_lista[:4]
+
+        if not dados['nome'] or not dados['nif']:
+            return _render({'erro': 'Nome e NIF são obrigatórios.'})
+
+        if BancaCentral.objects.filter(nif=dados['nif']).exists():
+            return _render({'erro': 'Já existe um registo com este NIF.'})
+
+        banca = BancaCentral(**dados)
+        banca.dados_bancarios_json = json.dumps(bancos_lista, ensure_ascii=False)
+        if bancos_lista:
+            banca.banco = bancos_lista[0].get('banco', '')
+            banca.iban = bancos_lista[0].get('iban', '')
+        if 'logo' in request.FILES:
+            banca.logo = request.FILES['logo']
+        banca.save()
+
+        messages.success(request, 'Banca Central criada com sucesso.')
+        return redirect('rh_banca_central')
+
+    return _render()
+
+
+@_requer_admin
+def banca_central_editar_view(request):
+    """Editar dados da Banca Central."""
+    banca = BancaCentral.get_instance()
+    if not banca:
+        return redirect('rh_banca_central_criar')
+
+    from rh.views import BANCA_TIPOS, PROVINCIAS
+
+    def _render(extra=None):
+        form_data = {
+            'nome': banca.nome, 'nif': banca.nif, 'tipo': banca.tipo,
+            'email': banca.email, 'telefone': banca.telefone,
+            'endereco': banca.endereco, 'provincia': banca.provincia,
+            'municipio': banca.municipio,
+            'instrucoes_pagamento': banca.instrucoes_pagamento,
+            'dados_bancarios_json': banca.dados_bancarios_json or '[]',
+        }
+        return render(request, 'rh/admin/banca_central_editar.html', _ctx_admin(
+            request, sub='banca_central', active_menu='RH_INST',
+            extra={'banca': banca, 'banca_tipos': BANCA_TIPOS,
+                   'provincias': PROVINCIAS, 'form': form_data, **(extra or {})}))
+
+    if request.method == 'POST':
+        dados = {k: request.POST.get(k, '').strip() for k in
+                 ['nome', 'nif', 'tipo', 'email', 'telefone',
+                  'endereco', 'provincia', 'municipio']}
+        dados['instrucoes_pagamento'] = request.POST.get('instrucoes_pagamento', '').strip()
+
+        bancos_json_raw = request.POST.get('dados_bancarios_json', '[]').strip()
+        try:
+            bancos_lista = json.loads(bancos_json_raw) if bancos_json_raw else []
+        except (json.JSONDecodeError, ValueError):
+            bancos_lista = []
+        if not isinstance(bancos_lista, list):
+            bancos_lista = []
+        bancos_lista = [b for b in bancos_lista if isinstance(b, dict) and b.get('banco')]
+        if len(bancos_lista) > 4:
+            bancos_lista = bancos_lista[:4]
+
+        if not dados['nome'] or not dados['nif']:
+            return _render({'erro': 'Nome e NIF são obrigatórios.'})
+
+        if BancaCentral.objects.filter(nif=dados['nif']).exclude(pk=banca.pk).exists():
+            return _render({'erro': 'Já existe outro registo com este NIF.'})
+
+        for k, v in dados.items():
+            setattr(banca, k, v)
+
+        banca.dados_bancarios_json = json.dumps(bancos_lista, ensure_ascii=False)
+        if bancos_lista:
+            banca.banco = bancos_lista[0].get('banco', '')
+            banca.iban = bancos_lista[0].get('iban', '')
+        else:
+            banca.banco = ''
+            banca.iban = ''
+
+        if 'logo' in request.FILES:
+            banca.logo = request.FILES['logo']
+        banca.save()
+
+        messages.success(request, 'Dados da Banca Central actualizados com sucesso.')
+        return redirect('rh_banca_central')
+
+    return _render()
+
+
+@_requer_admin
+def banca_central_detalhe_view(request):
+    """Informações detalhadas da Banca Central."""
+    banca = BancaCentral.get_instance()
+    if not banca:
+        return redirect('rh_banca_central_criar')
+
+    ctx = _ctx_admin(request, sub='banca_central', active_menu='RH_INST', extra={'banca': banca})
+    return render(request, 'rh/admin/banca_central_info.html', ctx)

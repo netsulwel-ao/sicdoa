@@ -141,6 +141,52 @@ class FilialBanca(models.Model):
         return f"{self.banca.nome} — {self.provincia}"
 
 
+class BancaCentral(models.Model):
+    """Banca Central da instituição (CDOA) — registo único partilhado por todos os admins."""
+    TIPOS = Banca.TIPOS
+
+    nome            = models.CharField(max_length=255, db_index=True)
+    nif             = models.CharField(max_length=50, unique=True)
+    tipo            = models.CharField(max_length=20, choices=TIPOS, default='SA')
+    email           = models.EmailField(blank=True, default='', db_index=True)
+    telefone        = models.CharField(max_length=30, blank=True, default='')
+    endereco        = models.TextField(blank=True, default='')
+    provincia       = models.CharField(max_length=100, blank=True, default='')
+    municipio       = models.CharField(max_length=100, blank=True, default='')
+    logo            = models.ImageField(upload_to='banca_central/logos/', null=True, blank=True)
+    banco           = models.CharField(max_length=255, blank=True, default='')
+    numero_conta    = models.CharField(max_length=50, blank=True, default='')
+    iban            = models.CharField(max_length=50, blank=True, default='')
+    dados_bancarios_json = models.TextField(blank=True, default='[]')
+    instrucoes_pagamento = models.TextField(blank=True, default='')
+    ativa           = models.BooleanField(default=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+    updated_at      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'rh_banca_central'
+        verbose_name = 'Banca Central'
+        verbose_name_plural = 'Bancas Centrais'
+
+    def __str__(self):
+        return f"{self.nome} ({self.nif})"
+
+    @classmethod
+    def get_instance(cls):
+        return cls.objects.first()
+
+    @property
+    def bancos_lista(self):
+        if not self.dados_bancarios_json:
+            return []
+        try:
+            import json
+            lista = json.loads(self.dados_bancarios_json)
+            return lista if isinstance(lista, list) else []
+        except (json.JSONDecodeError, ValueError):
+            return []
+
+
 class GestorFilial(models.Model):
     """
     Gestor delegado para uma filial específica.

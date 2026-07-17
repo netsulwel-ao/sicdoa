@@ -183,4 +183,10 @@ urlpatterns = [
     path('institucional/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/ver/', views_institucional.inst_avaliacao_detalhe_view,   name='rh_inst_avaliacao_detalhe'),
     path('institucional/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/apagar/', views_institucional.inst_avaliacao_apagar_view, name='rh_inst_avaliacao_apagar'),
 
+    # ── Banca Central ─────────────────────────────────────────────────────
+    path('banca-central/',                    views_admin.banca_central_view,         name='rh_banca_central'),
+    path('banca-central/criar/',              views_admin.banca_central_criar_view,   name='rh_banca_central_criar'),
+    path('banca-central/editar/',             views_admin.banca_central_editar_view,  name='rh_banca_central_editar'),
+    path('banca-central/detalhe/',            views_admin.banca_central_detalhe_view, name='rh_banca_central_detalhe'),
+
     ]
