@@ -100,6 +100,25 @@
     </div>
   </div>
 
+  <!-- Assinatura Digital -->
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <i class="fas fa-signature text-primary"></i>
+      <h2 class="font-semibold text-gray-900 dark:text-white">Assinatura Digital</h2>
+    </div>
+    <div class="p-6">
+      {% if banca.assinatura %}
+      <div class="mb-3">
+        <img src="{{ banca.assinatura.url }}" alt="Assinatura" class="max-h-16 rounded-lg border border-gray-200 dark:border-gray-700">
+      </div>
+      {% endif %}
+      <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Assinatura do Responsável</label>
+      <input type="file" name="assinatura" accept="image/*"
+             class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 transition-all" />
+      <p class="text-xs text-gray-500 mt-1">Imagem da assinatura digital (PNG com fundo transparente recomendado). Deixe em branco para manter a actual.</p>
+    </div>
+  </div>
+
   <!-- Dados Bancários -->
   <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
     <div class="flex items-center gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">

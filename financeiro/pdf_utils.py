@@ -73,6 +73,24 @@ def _carregar_logo_banca(banca):
     return Paragraph('', _st('empty', fontSize=1))
 
 
+def _carregar_assinatura_banca(banca):
+    """Carrega assinatura digital da banca para ReportLab Image ou retorna Paragraph vazio."""
+    if not banca:
+        return None
+    assinatura_path = None
+    if hasattr(banca, 'assinatura') and banca.assinatura:
+        try:
+            assinatura_path = banca.assinatura.path
+        except Exception:
+            pass
+    if assinatura_path:
+        try:
+            return RLImage(assinatura_path, width=4 * cm, height=1.5 * cm)
+        except Exception:
+            pass
+    return None
+
+
 def _gerar_qr_code(texto):
     """Gera QR Code como ReportLab Image."""
     import qrcode as _qr
@@ -239,7 +257,7 @@ def gerar_pdf_relatorio(
     if banca:
         nome_txt = _safe(banca.nome) if banca.nome else 'Despachante Oficial'
         nif_txt = banca.nif or 'N/D'
-        cdoa = _safe(banca.licenca_cdoa) or '—'
+        cdoa = _safe(getattr(banca, 'licenca_cdoa', '') or '') or '—'
         endereco = _safe(banca.endereco) or '—'
         telefone = _safe(banca.telefone) or '—'
         email_b = _safe(banca.email) or '—'
@@ -474,7 +492,16 @@ def gerar_pdf_relatorio(
         story.append(Spacer(1, 0.15 * cm))
 
     # ════════════════════════════════════════════════════════════════
-    # 9. RODAPÉ: HASH + PÁGINA/DATA
+    # 9. ASSINATURA DIGITAL (se disponível)
+    # ════════════════════════════════════════════════════════════════
+    _assinatura_img = _carregar_assinatura_banca(banca)
+    if _assinatura_img:
+        story.append(Spacer(1, 0.15 * cm))
+        story.append(_assinatura_img)
+        story.append(Spacer(1, 0.1 * cm))
+
+    # ════════════════════════════════════════════════════════════════
+    # 10. RODAPÉ: HASH + PÁGINA/DATA
     # ════════════════════════════════════════════════════════════════
     story.append(HRFlowable(width=W, thickness=0.5, color=colors.HexColor('#e2e2e2')))
     story.append(Spacer(1, 0.1 * cm))

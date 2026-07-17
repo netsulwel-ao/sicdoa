@@ -194,7 +194,14 @@ def _gerar_pdf_processamento_inst(processamento, request):
         story = []
 
         # LOGO (esquerda) + QR CODE (direita)
+        from .models import BancaCentral
+        _bc = BancaCentral.get_instance()
         col_logo = Paragraph('', st('empty', fontSize=1))
+        if _bc and _bc.logo and RLImage:
+            try:
+                col_logo = RLImage(_bc.logo.path, width=2.4 * cm, height=1.7 * cm)
+            except Exception:
+                col_logo = Paragraph('', st('empty', fontSize=1))
 
         qr_data = (
             f"=== PROCESSAMENTO SALARIAL INSTITUCIONAL ===\n"
@@ -473,10 +480,16 @@ def _gerar_pdf_processamento_inst(processamento, request):
         # ASSINATURA
         story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
         story.append(Spacer(1, 0.1 * cm))
+        _assinatura_img = Paragraph('', st('ass_img', fontSize=1))
+        if _bc and _bc.assinatura and RLImage:
+            try:
+                _assinatura_img = RLImage(_bc.assinatura.path, width=4 * cm, height=1.5 * cm)
+            except Exception:
+                _assinatura_img = Paragraph('', st('ass_img', fontSize=1))
         ass_data = [
             [Paragraph('<b>Assinatura:</b>', st('ass_lab', fontSize=8)),
              Paragraph('', st('ass_spc', fontSize=8))],
-            [Spacer(1, 0.2 * cm), Spacer(1, 0.2 * cm)],
+            [_assinatura_img, Spacer(1, 0.2 * cm)],
             [HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA),
              HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA)],
             [Paragraph('<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),

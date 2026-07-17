@@ -2453,6 +2453,7 @@ def quotas_admin_relatorios_pdf(request):
     ]
 
     try:
+        from rh.models import BancaCentral
         pdf_bytes = gerar_pdf_relatorio(
             report_name='Relatório de Quotas',
             report_subtitle='Visão global da arrecadação, inadimplência e histórico de pagamentos',
@@ -2460,6 +2461,7 @@ def quotas_admin_relatorios_pdf(request):
             rows=[],
             summary_cards=summary_cards,
             extra_tables=extra_tables,
+            banca=BancaCentral.get_instance(),
             request=request,
             landscape_mode=True,
         )

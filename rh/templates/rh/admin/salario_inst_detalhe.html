@@ -1,0 +1,318 @@
+{% extends 'rh/base_rh.html' %}
+{% load rh_extras %}
+{% block conteudo %}
+
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-5">
+      <a href="{% url 'rh_admin_salarios_inst' %}" class="hover:text-primary">Processamento Salarial</a>
+      <i class="fas fa-chevron-right text-xs"></i>
+      <span class="text-gray-700 dark:text-gray-300">{{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}</span>
+    </div>
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+          Processamento {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}
+        </h1>
+        <p class="text-gray-500 mt-1 text-sm">
+          Estado:
+          {% if proc.estado == 'Pago' %}<span class="font-semibold text-green-600">Pago</span>
+          {% elif proc.estado == 'Processado' %}<span class="font-semibold text-blue-600">Processado</span>
+          {% else %}<span class="font-semibold text-amber-600">Rascunho</span>{% endif %}
+          · {{ recibos|length }} recibo{{ recibos|length|pluralize:"s" }}
+          {% if subsidios_ativos %}
+          · {{ subsidios_ativos|length }} subsídio{{ subsidios_ativos|length|pluralize:"s" }} ativo{{ subsidios_ativos|length|pluralize:"s" }}
+          {% endif %}
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="{% url 'rh_admin_salarios_inst' %}"
+           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+           <i class="fas fa-arrow-left text-base"></i>Voltar
+        </a>
+        {% if proc.estado == 'Pago' %}
+        <a href="{% url 'rh_admin_salario_inst_download' proc.pk %}"
+           class="px-4 py-2.5 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all flex items-center gap-2">
+          <i class="fas fa-file-pdf"></i>
+          Baixar Comprovante PDF
+        </a>
+        {% endif %}
+        {% if proc.estado != 'Pago' %}
+        <form method="POST" id="formEstado" class="inline">
+          {% csrf_token %}
+          {% if proc.estado == 'Rascunho' %}
+          <button type="submit" name="accao" value="processar"
+                  class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all flex items-center gap-2">
+            <i class="fas fa-check-circle text-base"></i>Processar
+          </button>
+          {% elif proc.estado == 'Processado' %}
+          <button type="submit" name="accao" value="reabrir"
+                  class="px-4 py-2.5 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-400 font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all flex items-center gap-2 text-sm">
+            <i class="fas fa-edit text-base"></i>Reabrir para Edição
+          </button>
+          <button type="submit" name="accao" value="pagar"
+                  class="px-5 py-2.5 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all flex items-center gap-2">
+            <i class="fas fa-credit-card text-base"></i>Marcar como Pago
+          </button>
+          {% endif %}
+        </form>
+        {% if proc.estado != 'Pago' %}
+        <a href="{% url 'rh_admin_salario_inst_apagar' proc.pk %}"
+           class="p-2.5 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+           title="Apagar processamento">
+          <i class="fas fa-trash"></i>
+        </a>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {% if proc.estado == 'Pago' %}
+    <div class="mb-6 flex items-start gap-4 p-5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl">
+      <i class="fas fa-lock text-green-600 dark:text-green-400 text-2xl flex-shrink-0"></i>
+      <div>
+        <p class="font-bold text-green-800 dark:text-green-300 text-base">Processamento Pago — Registo Permanente</p>
+        <p class="text-green-700 dark:text-green-400 text-sm mt-1">
+          Este processamento foi marcado como <strong>Pago</strong> e está bloqueado para edição.
+          Nenhum valor, subsídio ou estado pode ser alterado. Este é um registo contabilístico permanente.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm"><div class="flex items-center gap-3"><div class="p-2.5 rounded-xl bg-primary/10"><i class="fas fa-users text-primary text-xl"></i></div><div><p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Colaboradores</p><p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ recibos|length }}</p></div></div></div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm"><div class="flex items-center gap-3"><div class="p-2.5 rounded-xl bg-green-50"><i class="fas fa-money-bill text-green-600 text-xl"></i></div><div><p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bruto</p><p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ proc.total_bruto|fmtkz }}</p></div></div></div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm"><div class="flex items-center gap-3"><div class="p-2.5 rounded-xl bg-amber-50"><i class="fas fa-file-invoice text-amber-600 text-xl"></i></div><div><p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Descontos</p><p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ proc.total_descontos|fmtkz }}</p></div></div></div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm"><div class="flex items-center gap-3"><div class="p-2.5 rounded-xl bg-purple-50"><i class="fas fa-wallet text-purple-600 text-xl"></i></div><div><p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Líquido</p><p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ proc.total_liquido|fmtkz }}</p></div></div></div>
+    </div>
+
+    {% if proc.estado != 'Pago' %}
+    <div class="flex flex-wrap gap-4 mb-5 text-xs">
+      <span class="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+        <span class="w-3 h-3 rounded bg-blue-100 border border-blue-300 inline-block"></span>
+        Subsídios editáveis
+      </span>
+      <span class="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+        <span class="w-3 h-3 rounded bg-gray-100 border border-gray-300 inline-block"></span>
+        Calculado automaticamente (IRT · INSS 3%)
+      </span>
+      <span class="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+        <span class="w-3 h-3 rounded bg-red-50 border border-red-200 inline-block"></span>
+        Faltas editável
+      </span>
+    </div>
+    {% endif %}
+
+    {% if not recibos %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-12 text-center">
+      <i class="fas fa-receipt text-gray-400 text-5xl mb-4 block"></i>
+      <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300">Nenhum recibo gerado</h3>
+      <p class="text-gray-500 text-sm mt-2">Não há colaboradores activos para processar.</p>
+    </div>
+    {% else %}
+
+    {% if not subsidios_ativos %}
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 mb-6">
+      <div class="flex items-start gap-4">
+        <i class="fas fa-exclamation-triangle text-amber-600 text-2xl flex-shrink-0"></i>
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold text-amber-800 dark:text-amber-300 mb-2">Nenhum Subsídio Configurado</h3>
+          <p class="text-amber-700 dark:text-amber-400 text-sm">
+            Não há subsídios configurados. Os valores de subsídios serão zero até configurar.
+          </p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if proc.estado == 'Pago' %}
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-green-200 dark:border-green-800 shadow-sm overflow-hidden mb-5">
+    {% else %}
+    <form method="POST" id="formRecibos">
+      {% csrf_token %}
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-5">
+    {% endif %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm" id="tabelaRecibos">
+            <thead class="bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase sticky left-0 bg-gray-50 dark:bg-gray-800/60">Colaborador</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Salário Base</th>
+                {% for subsidio in subsidios_ativos %}
+                <th class="px-4 py-3 text-right text-xs font-semibold text-blue-600 uppercase">
+                  {{ subsidio.codigo }}
+                  <span class="block text-xs font-normal text-gray-500">{{ subsidio.nome|truncatechars:15 }}</span>
+                </th>
+                {% endfor %}
+                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Bruto</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-red-500 uppercase">Faltas</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-red-500 uppercase">IRT</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-red-500 uppercase">INSS 3%</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-green-600 uppercase font-bold">Líquido</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              {% for r in recibos %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors" data-recibo="{{ r.pk }}">
+                <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white sticky left-0 bg-white dark:bg-gray-900">
+                  <div>{{ r.colaborador.nome }}</div>
+                </td>
+                <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300 font-medium">
+                  <span class="salario-base">{{ r.salario_base|fmtkz }}</span>
+                </td>
+                {% for subsidio in subsidios_ativos %}
+                <td class="px-4 py-3">
+                  {% if proc.estado == 'Rascunho' %}
+                  <input type="text" inputmode="decimal"
+                         name="rec_{{ r.pk }}_subsidio_{{ subsidio.pk }}"
+                         value="{% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|fmtkz }}{% endif %}{% endfor %}"
+                         class="moeda subsidio-{{ subsidio.pk }} w-28 px-2 py-1.5 rounded-lg border-2 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700 text-right text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                         oninput="recalcularLinha(this)" />
+                  {% else %}
+                  <span class="block text-right text-gray-700 dark:text-gray-300">
+                    {% for vinculo in r.subsidios_vinculados.all %}{% if vinculo.subsidio.pk == subsidio.pk %}{{ vinculo.valor|fmtkz }}{% endif %}{% endfor %}
+                  </span>
+                  {% endif %}
+                </td>
+                {% endfor %}
+                <td class="px-4 py-3 text-right font-semibold text-gray-800 dark:text-gray-200">
+                  <span class="bruto">{{ r.bruto|fmtkz }}</span>
+                </td>
+                <td class="px-4 py-3 text-right bg-red-50/50 dark:bg-red-900/10">
+                  {% if proc.estado == 'Rascunho' %}
+                  <input type="number" inputmode="numeric" min="0" step="1"
+                         name="rec_{{ r.pk }}_faltas"
+                         value="{{ r.faltas_count }}"
+                         class="faltas w-20 px-2 py-1.5 rounded-lg border-2 border-red-200 bg-white dark:bg-gray-800 dark:border-red-700 text-right text-sm text-red-600 dark:text-red-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 transition-all"
+                         oninput="recalcularLinha(this)" />
+                  {% else %}
+                  <span class="text-red-600 dark:text-red-400">{% if r.outros_descontos > 0 %}-{{ r.outros_descontos|fmtkz }}{% else %}<span class="text-gray-400">—</span>{% endif %}</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 text-right text-red-600 dark:text-red-400 bg-gray-50/50 dark:bg-gray-800/30">
+                  -<span class="irt">{{ r.irt|fmtkz }}</span>
+                  <div class="text-xs text-gray-400">IRT</div>
+                </td>
+                <td class="px-4 py-3 text-right text-red-600 dark:text-red-400 bg-gray-50/50 dark:bg-gray-800/30">
+                  -<span class="inss">{{ r.inss_trabalhador|fmtkz }}</span>
+                  <div class="text-xs text-gray-400">3%</div>
+                </td>
+                <td class="px-4 py-3 text-right font-black text-green-700 dark:text-green-400 bg-green-50/50 dark:bg-green-900/10">
+                  <span class="liquido">{{ r.liquido|fmtkz }}</span>
+                  <div class="text-xs font-normal text-gray-500">KZ</div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="bg-gray-50 dark:bg-gray-800/60 border-t-2 border-gray-200 dark:border-gray-700">
+              <tr>
+                <td colspan="{{ subsidios_ativos|length|add:6 }}" class="px-4 py-3 text-right font-bold text-gray-700 dark:text-gray-300">Total Líquido:</td>
+                <td class="px-4 py-3 text-right font-black text-xl text-primary" id="totalLiquido">
+                  {{ proc.total_liquido|fmtkz }} KZ
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+    {% if proc.estado == 'Pago' %}
+    </div>
+    {% else %}
+      </div>
+
+      {% if proc.estado == 'Rascunho' %}
+      <div class="flex justify-end">
+        <button type="submit" name="accao" value="salvar"
+                class="px-6 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all flex items-center gap-2 shadow-sm">
+          <i class="fas fa-save text-base"></i>Guardar Subsídios
+        </button>
+      </div>
+      {% endif %}
+    </form>
+    {% endif %}
+
+    <div class="mt-5 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-start gap-3">
+      <i class="fas fa-info-circle text-blue-600 flex-shrink-0"></i>
+      <div class="text-sm text-blue-800 dark:text-blue-300">
+        <p class="font-semibold mb-1">Regras de cálculo automático:</p>
+        <ul class="space-y-0.5 text-blue-700 dark:text-blue-400">
+          <li>· <strong>IRT</strong> - calculado pela tabela angolana vigente sobre (Salário Base - Faltas)</li>
+          <li>· <strong>INSS</strong> - 3% do (Salário Base - Faltas) (trabalhador) + 8% entidade patronal</li>
+          <li>· <strong>Faltas</strong> - desconto proporcional: salário ÷ 22 dias úteis × nº faltas aprovadas</li>
+          <li>· <strong>Subsídios</strong> - valores editáveis por colaborador</li>
+          <li>· <strong>Líquido</strong> = (Salário Base - Faltas - IRT - INSS) + Subsídios</li>
+        </ul>
+      </div>
+    </div>
+
+    {% endif %}
+
+<script>
+function parseKZ(s) {
+  if (!s) return 0;
+  return parseFloat(String(s).replace(/\s/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function fmtKZ(n) {
+  var p = n.toFixed(2).split('.');
+  var i = p[0], d = p[1];
+  var grupos = [];
+  while (i.length > 3) { grupos.unshift(i.slice(-3)); i = i.slice(0, -3); }
+  grupos.unshift(i);
+  return grupos.join(' ') + ',' + d;
+}
+
+function calcularIRT(salario) {
+  const s = parseFloat(salario) || 0;
+  if (s <= 150000)      return 0;
+  if (s <= 200000)      return (s - 150000) * 0.16;
+  if (s <= 300000)      return 8000 + (s - 200000) * 0.18;
+  if (s <= 500000)      return 26000 + (s - 300000) * 0.19;
+  if (s <= 1000000)     return 64000 + (s - 500000) * 0.20;
+  if (s <= 1500000)     return 164000 + (s - 1000000) * 0.21;
+  if (s <= 2000000)     return 269000 + (s - 1500000) * 0.22;
+  if (s <= 5000000)     return 379000 + (s - 2000000) * 0.23;
+  if (s <= 10000000)    return 1069000 + (s - 5000000) * 0.24;
+  return 2269000 + (s - 10000000) * 0.25;
+}
+
+function recalcularLinha(inputEl) {
+  const row = inputEl.closest('tr');
+  const salarioBase = parseKZ(row.querySelector('.salario-base').textContent);
+  
+  let totalSubsidios = 0;
+  row.querySelectorAll('input[name*="subsidio_"]').forEach(input => {
+    totalSubsidios += parseKZ(input.value);
+  });
+  
+  const faltasInput = row.querySelector('.faltas');
+  const faltasCount = parseInt(faltasInput ? faltasInput.value : '0') || 0;
+  const descontoFaltas = faltasCount > 0 ? (salarioBase / 22 * faltasCount) : 0;
+  const baseImpostos = Math.max(0, salarioBase - descontoFaltas);
+  const bruto = salarioBase + totalSubsidios;
+  const irt = calcularIRT(baseImpostos);
+  const inss = baseImpostos * 0.03;
+  const liquido = (baseImpostos - irt - inss) + totalSubsidios;
+
+  row.querySelector('.bruto').textContent = fmtKZ(bruto);
+  row.querySelector('.irt').textContent = fmtKZ(irt);
+  row.querySelector('.inss').textContent = fmtKZ(inss);
+  row.querySelector('.liquido').textContent = fmtKZ(Math.max(liquido, 0));
+
+  recalcularTotal();
+}
+
+function recalcularTotal() {
+  let total = 0;
+  document.querySelectorAll('.liquido').forEach(el => {
+    total += parseKZ(el.textContent);
+  });
+  const totalEl = document.getElementById('totalLiquido');
+  if (totalEl) totalEl.textContent = fmtKZ(total) + ' KZ';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  recalcularTotal();
+});
+</script>
+
+{% endblock %}

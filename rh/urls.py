@@ -20,6 +20,9 @@ urlpatterns = [
     path('admin/colaboradores-institucionais/avaliacoes/ciclo/<int:ciclo_pk>/avaliar/<int:col_pk>/', views_admin.admin_avaliacao_inst_nova_view, name='rh_admin_avaliacao_inst_editar'),
     path('admin/colaboradores-institucionais/salarios/',                                views_admin.admin_salarios_inst_view,               name='rh_admin_salarios_inst'),
     path('admin/colaboradores-institucionais/salarios/novo/',                           views_admin.admin_salario_inst_novo_view,           name='rh_admin_salario_inst_novo'),
+    path('admin/colaboradores-institucionais/salarios/<int:pk>/',                       views_admin.admin_salario_inst_detalhe_view,        name='rh_admin_salario_inst_detalhe'),
+    path('admin/colaboradores-institucionais/salarios/<int:pk>/apagar/',                views_admin.admin_salario_inst_apagar_view,         name='rh_admin_salario_inst_apagar'),
+    path('admin/colaboradores-institucionais/salarios/<int:pk>/download/',              views_admin.admin_salario_inst_download_view,       name='rh_admin_salario_inst_download'),
 
     # ── Administração do Sistema (apenas Administradores) ──────────────────
     path('admin/despachantes/',                                     views_admin.admin_despachantes_view,                    name='admin_despachantes'),

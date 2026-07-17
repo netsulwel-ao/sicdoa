@@ -154,6 +154,8 @@ class BancaCentral(models.Model):
     provincia       = models.CharField(max_length=100, blank=True, default='')
     municipio       = models.CharField(max_length=100, blank=True, default='')
     logo            = models.ImageField(upload_to='banca_central/logos/', null=True, blank=True)
+    assinatura      = models.ImageField(upload_to='banca_central/assinaturas/', null=True, blank=True,
+                                        help_text='Assinatura digital do responsável (imagem PNG com fundo transparente)')
     banco           = models.CharField(max_length=255, blank=True, default='')
     numero_conta    = models.CharField(max_length=50, blank=True, default='')
     iban            = models.CharField(max_length=50, blank=True, default='')

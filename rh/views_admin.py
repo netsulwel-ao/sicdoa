@@ -737,7 +737,9 @@ def admin_avaliacao_inst_nova_view(request, ciclo_pk, col_pk=None):
 
 @_requer_admin_ou_permissoes('processar_salarios_inst')
 def admin_salarios_inst_view(request):
-    processamentos = ProcessamentoSalarialInstitucional.objects.all().order_by('-ano', '-mes')
+    processamentos = ProcessamentoSalarialInstitucional.objects.annotate(
+        total_recibos=Count('recibos'),
+    ).order_by('-ano', '-mes')
 
     paginator = Paginator(processamentos, 20)
     page_number = request.GET.get('page')
@@ -752,31 +754,261 @@ def admin_salarios_inst_view(request):
 
 @_requer_admin_ou_permissoes('processar_salarios_inst')
 def admin_salario_inst_novo_view(request):
+    from users.models import (
+        ColaboradorInstitucional, ProcessamentoSalarialInstitucional,
+        ReciboSalarialInstitucional, SubsidioInstitucional,
+        SubsidioReciboInstitucional, PresencaInstitucional,
+    )
+    from .tax_utils import _calcular_irt, MESES, _dec
+    from decimal import Decimal
+
     if request.method == 'POST':
-        mes = int(request.POST.get('mes'))
-        ano = int(request.POST.get('ano'))
+        mes = int(request.POST.get('mes') or 1)
+        ano = int(request.POST.get('ano') or timezone.now().year)
+        proc, criado = ProcessamentoSalarialInstitucional.objects.get_or_create(
+            mes=mes, ano=ano, defaults={'estado': 'Rascunho'}
+        )
+        if not criado:
+            return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
 
-        if ProcessamentoSalarialInstitucional.objects.filter(mes=mes, ano=ano).exists():
-            messages.error(request, 'Já existe um processamento para este período.')
-            return redirect('rh_admin_salarios_inst')
+        subsidios_inst = list(SubsidioInstitucional.objects.filter(ativo=True))
+        subsidio_colab_ids = {}
+        for s in subsidios_inst:
+            if s.apenas_especificos:
+                subsidio_colab_ids[s.pk] = set(s.colaboradores_especificos.values_list('id', flat=True))
 
-        processamento = ProcessamentoSalarialInstitucional.objects.create(mes=mes, ano=ano)
-        colaboradores = ColaboradorInstitucional.objects.filter(estado='Ativo', salario_base__isnull=False)
+        colaboradores_ids = request.POST.getlist('colaboradores')
+        colaboradores_qs = ColaboradorInstitucional.objects.filter(estado='Ativo')
+        if colaboradores_ids:
+            colaboradores_qs = colaboradores_qs.filter(pk__in=colaboradores_ids)
+        for col in colaboradores_qs:
+            salario = col.salario_base or Decimal('0')
+            faltas = PresencaInstitucional.objects.filter(
+                colaborador=col, data__month=mes, data__year=ano,
+                tipo__in=['Falta', 'Falta_Justificada'], estado='Aprovado',
+            ).count()
+            dias_uteis = Decimal('22')
+            desconto_faltas = (salario / dias_uteis * faltas).quantize(Decimal('0.01')) if faltas > 0 else Decimal('0')
+            salario_apos_faltas = max(salario - desconto_faltas, Decimal('0'))
+            irt = _calcular_irt(salario_apos_faltas)
+            inss_trab = (salario_apos_faltas * Decimal('0.03')).quantize(Decimal('0.01'))
+            inss_ent = (salario_apos_faltas * Decimal('0.08')).quantize(Decimal('0.01'))
 
-        for col in colaboradores:
-            ReciboSalarialInstitucional.objects.create(
-                processamento=processamento,
-                colaborador=col,
-                salario_base=col.salario_base or 0,
+            subsidios_aplicaveis = []
+            for subsidio in subsidios_inst:
+                if subsidio.apenas_especificos:
+                    if col.id in subsidio_colab_ids.get(subsidio.pk, set()):
+                        subsidios_aplicaveis.append(subsidio)
+                else:
+                    subsidios_aplicaveis.append(subsidio)
+
+            total_subsidios = Decimal('0')
+            for subsidio in subsidios_aplicaveis:
+                if subsidio.tipo_calculo == 'PERCENTUAL':
+                    if subsidio.percentual and salario:
+                        total_subsidios += (salario * subsidio.percentual) / 100
+                    else:
+                        total_subsidios += subsidio.valor_padrao
+                elif subsidio.tipo_calculo == 'DIAS_TRABALHO':
+                    total_subsidios += subsidio.valor_padrao * 22
+                elif subsidio.tipo_calculo == 'DEPENDENTES':
+                    total_subsidios += subsidio.valor_padrao * 1
+                else:
+                    total_subsidios += subsidio.valor_padrao
+
+            recibo, recibo_criado = ReciboSalarialInstitucional.objects.get_or_create(
+                processamento=proc, colaborador=col,
+                defaults={
+                    'salario_base': salario,
+                    'subsidio_alimentacao': Decimal('0'),
+                    'subsidio_transporte': Decimal('0'),
+                    'outros_subsidios': total_subsidios,
+                    'outros_descontos': desconto_faltas,
+                    'irt': irt,
+                    'inss_trabalhador': inss_trab,
+                    'inss_entidade': inss_ent,
+                }
             )
 
-        processamento.estado = 'Processado'
-        processamento.save(update_fields=['estado'])
-        messages.success(request, f'Salários processados para {mes:02d}/{ano}.')
-        return redirect('rh_admin_salarios_inst')
+            if recibo_criado:
+                for subsidio in subsidios_aplicaveis:
+                    if subsidio.tipo_calculo == 'PERCENTUAL':
+                        v = (salario * subsidio.percentual) / 100 if subsidio.percentual and salario else subsidio.valor_padrao
+                    elif subsidio.tipo_calculo == 'DIAS_TRABALHO':
+                        v = subsidio.valor_padrao * 22
+                    elif subsidio.tipo_calculo == 'DEPENDENTES':
+                        v = subsidio.valor_padrao * 1
+                    else:
+                        v = subsidio.valor_padrao
+                    SubsidioReciboInstitucional.objects.get_or_create(
+                        recibo=recibo, subsidio=subsidio,
+                        defaults={'valor': v, 'valor_padrao': subsidio.valor_padrao},
+                    )
 
-    ctx = _ctx_admin(request, sub='salarios_inst', active_menu='RH_INST')
+        return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
+
+    hoje = timezone.now().date()
+    cols = ColaboradorInstitucional.objects.filter(estado='Ativo')
+    anos = list(range(2023, hoje.year + 2))
+    ctx = _ctx_admin(request, sub='salarios_inst', active_menu='RH_INST', extra={
+        'colaboradores': cols, 'meses': list(enumerate(MESES, 1)),
+        'anos': anos, 'ano_atual': hoje.year,
+    })
     return render(request, 'rh/admin/salario_inst_novo.html', ctx)
+
+
+@_requer_admin_ou_permissoes('processar_salarios_inst')
+def admin_salario_inst_detalhe_view(request, pk):
+    from users.models import (
+        ProcessamentoSalarialInstitucional, SubsidioInstitucional,
+        SubsidioReciboInstitucional,
+    )
+    from .tax_utils import _calcular_irt, MESES, _dec
+    from decimal import Decimal
+
+    proc = get_object_or_404(ProcessamentoSalarialInstitucional, pk=pk)
+    recibos = proc.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
+
+    if request.method == 'POST':
+        if proc.estado == 'Pago':
+            messages.error(request, 'Processamento Pago não pode ser alterado.')
+            return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
+
+        action = request.POST.get('accao', '')
+        if action == 'salvar':
+            subsidios_ativos = list(SubsidioInstitucional.objects.filter(ativo=True))
+            for r in recibos:
+                p = f'rec_{r.pk}_'
+                total_subs = Decimal('0')
+                subsidios_aplicaveis = []
+                for subsidio in subsidios_ativos:
+                    if subsidio.apenas_especificos:
+                        if subsidio.colaboradores_especificos.filter(id=r.colaborador.id).exists():
+                            subsidios_aplicaveis.append(subsidio)
+                    else:
+                        subsidios_aplicaveis.append(subsidio)
+
+                for subsidio in subsidios_aplicaveis:
+                    v = _dec(request.POST.get(f'{p}subsidio_{subsidio.pk}', '0'))
+                    vinculo, created = SubsidioReciboInstitucional.objects.get_or_create(
+                        recibo=r, subsidio=subsidio,
+                        defaults={'valor': v, 'valor_padrao': subsidio.valor_padrao},
+                    )
+                    if not created:
+                        vinculo.valor = v
+                        vinculo.save()
+                    total_subs += v
+
+                SubsidioReciboInstitucional.objects.filter(recibo=r).exclude(
+                    subsidio_id__in=[s.pk for s in subsidios_aplicaveis]
+                ).delete()
+                r.outros_subsidios = total_subs
+                r.subsidio_alimentacao = Decimal('0')
+                r.subsidio_transporte = Decimal('0')
+                faltas_count = int(request.POST.get(f'{p}faltas', '0') or '0')
+                r.outros_descontos = (r.salario_base / Decimal('22') * faltas_count).quantize(Decimal('0.01')) if faltas_count > 0 else Decimal('0')
+                base_impostos = r.base_calculo_impostos
+                r.irt = _calcular_irt(base_impostos)
+                r.inss_trabalhador = (base_impostos * Decimal('0.03')).quantize(Decimal('0.01'))
+                r.inss_entidade = (base_impostos * Decimal('0.08')).quantize(Decimal('0.01'))
+                r.save()
+            messages.success(request, 'Alterações guardadas.')
+
+        elif action == 'processar':
+            if proc.total_liquido == 0:
+                messages.error(request, 'Total líquido é 0,00 KZ. Verifique os dados.')
+                return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
+            proc.estado = 'Processado'
+            proc.processado_em = timezone.now()
+            proc.save()
+            messages.success(request, f'Processamento {proc.mes:02d}/{proc.ano} processado.')
+
+        elif action == 'pagar':
+            if proc.total_liquido == 0:
+                messages.error(request, 'Total líquido é 0,00 KZ.')
+                return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
+            proc.estado = 'Pago'
+            proc.save()
+            messages.success(request, f'Processamento {proc.mes:02d}/{proc.ano} pago.')
+
+        elif action == 'reabrir':
+            if proc.estado == 'Processado':
+                proc.estado = 'Rascunho'
+                proc.processado_em = None
+                proc.save()
+                messages.success(request, 'Processamento reaberto.')
+            else:
+                messages.error(request, 'Apenas processamentos "Processado" podem ser reabertos.')
+        return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
+
+    subsidios_ativos = SubsidioInstitucional.objects.filter(ativo=True)
+    tem_faltantes = False
+    for r in recibos:
+        for subsidio in subsidios_ativos:
+            if not subsidio.obrigatorio:
+                continue
+            if SubsidioReciboInstitucional.objects.filter(recibo=r, subsidio=subsidio).exists():
+                continue
+            tem_faltantes = True
+            if subsidio.tipo_calculo == 'PERCENTUAL':
+                v = (r.salario_base * subsidio.percentual) / 100 if subsidio.percentual and r.salario_base else subsidio.valor_padrao
+            elif subsidio.tipo_calculo == 'DIAS_TRABALHO':
+                v = subsidio.valor_padrao * 22
+            elif subsidio.tipo_calculo == 'DEPENDENTES':
+                v = subsidio.valor_padrao * 1
+            else:
+                v = subsidio.valor_padrao
+            SubsidioReciboInstitucional.objects.get_or_create(
+                recibo=r, subsidio=subsidio,
+                defaults={'valor': v, 'valor_padrao': subsidio.valor_padrao},
+            )
+    if tem_faltantes:
+        recibos = proc.recibos.select_related('colaborador').prefetch_related('subsidios_vinculados__subsidio').all()
+
+    ctx = _ctx_admin(request, sub='salarios_inst', active_menu='RH_INST', extra={
+        'proc': proc, 'recibos': recibos, 'meses': MESES,
+        'subsidios_ativos': subsidios_ativos,
+    })
+    return render(request, 'rh/admin/salario_inst_detalhe.html', ctx)
+
+
+@_requer_admin_ou_permissoes('processar_salarios_inst')
+def admin_salario_inst_apagar_view(request, pk):
+    from users.models import ProcessamentoSalarialInstitucional
+
+    proc = get_object_or_404(ProcessamentoSalarialInstitucional, pk=pk)
+    if proc.estado == 'Pago':
+        messages.error(request, 'Processamentos Pago são permanentes.')
+        return redirect('rh_admin_salarios_inst')
+    if request.method == 'POST':
+        label = f'{proc.mes:02d}/{proc.ano}'
+        proc.delete()
+        messages.success(request, f'Processamento {label} apagado.')
+        return redirect('rh_admin_salarios_inst')
+    ctx = _ctx_admin(request, sub='salarios_inst', active_menu='RH_INST', extra={'proc': proc})
+    return render(request, 'rh/admin/salario_inst_apagar.html', ctx)
+
+
+@_requer_admin_ou_permissoes('processar_salarios_inst')
+def admin_salario_inst_download_view(request, pk):
+    from users.models import ProcessamentoSalarialInstitucional
+    from django.http import HttpResponse
+
+    proc = get_object_or_404(ProcessamentoSalarialInstitucional, pk=pk)
+    if proc.estado != 'Pago':
+        messages.error(request, 'PDF disponível apenas para processamentos "Pago".')
+        return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
+    try:
+        from .views_institucional import _gerar_pdf_processamento_inst
+        buffer = _gerar_pdf_processamento_inst(proc, request)
+        if buffer is None:
+            raise RuntimeError("PDF generation returned None")
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="comprovante_pagamento_inst_{proc.mes:02d}_{proc.ano}.pdf"'
+        return response
+    except Exception as e:
+        messages.error(request, f'Erro ao gerar PDF: {str(e)}')
+        return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -880,6 +1112,8 @@ def banca_central_criar_view(request):
             banca.iban = bancos_lista[0].get('iban', '')
         if 'logo' in request.FILES:
             banca.logo = request.FILES['logo']
+        if 'assinatura' in request.FILES:
+            banca.assinatura = request.FILES['assinatura']
         banca.save()
 
         messages.success(request, 'Banca Central criada com sucesso.')
@@ -947,6 +1181,8 @@ def banca_central_editar_view(request):
 
         if 'logo' in request.FILES:
             banca.logo = request.FILES['logo']
+        if 'assinatura' in request.FILES:
+            banca.assinatura = request.FILES['assinatura']
         banca.save()
 
         messages.success(request, 'Dados da Banca Central actualizados com sucesso.')
