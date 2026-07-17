@@ -186,13 +186,13 @@
     </ul>
     {% endif %}
 
-    {# ── Banca Central (RH Institucional — apenas Administrador) ──────── #}
+    {# ── Recursos Humanos Institucional (apenas Administrador com Banca Central) ── #}
     {% if papel == 'Administrador' and tem_banca_central %}
     <button type="button" data-collapse="rh-inst"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'RH_INST' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-      <i class="fas fa-building flex-shrink-0"></i>
-      <span class="text-sm font-medium flex-1 truncate">Banca Central</span>
+      <i class="fas fa-users flex-shrink-0"></i>
+      <span class="text-sm font-medium flex-1 truncate">Recursos Humanos</span>
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'RH_INST' %}rotate-180{% endif %}"></i>
     </button>
     <ul data-submenu="rh-inst" class="ml-4 space-y-0.5 {% if active != 'RH_INST' %}hidden{% endif %}">
@@ -200,7 +200,7 @@
         <a href="{% url 'rh_banca_central' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'banca_central' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-chart-pie text-base"></i>Dashboard
+          <i class="fas fa-store text-base"></i>Banca Central
         </a>
       </li>
       <li>
