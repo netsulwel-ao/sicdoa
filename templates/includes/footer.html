@@ -53,7 +53,7 @@
     function getOpenMenus(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch(e){ return []; } }
     function saveOpenMenus(arr){ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
 
-    // Restaurar estado ao carregar
+    // Restaurar estado ao carregar — sincroniza DOM, localStorage e Django
     var openMenus = getOpenMenus();
     document.querySelectorAll('[data-collapse]').forEach(function(colBtn) {
       var key   = colBtn.getAttribute('data-collapse');
@@ -62,8 +62,8 @@
 
       if (!ul) return;
 
-      // Forçar aberto se estava salvo no localStorage OU se Django já deixou aberto
-      var isOpen = openMenus.indexOf(key) !== -1 || !ul.classList.contains('hidden');
+      var djangoOpen = !ul.classList.contains('hidden');
+      var isOpen = openMenus.indexOf(key) !== -1 || djangoOpen;
       if (isOpen) {
         ul.classList.remove('hidden');
       } else {
@@ -71,10 +71,20 @@
       }
       if (arrow) arrow.classList.toggle('rotate-180', isOpen);
 
+      // Sincronizar: se Django abriu e não estava no LS, salvar
+      if (djangoOpen && openMenus.indexOf(key) === -1) {
+        openMenus.push(key);
+        saveOpenMenus(openMenus);
+      }
+      // Se Django fechou mas estava no LS, reabrir
+      if (!djangoOpen && openMenus.indexOf(key) !== -1) {
+        ul.classList.remove('hidden');
+        if (arrow) arrow.classList.add('rotate-180');
+      }
+
       colBtn.addEventListener('click', function() {
         var nowHidden = ul.classList.toggle('hidden');
         if (arrow) arrow.classList.toggle('rotate-180', !nowHidden);
-        // Atualizar localStorage
         var current = getOpenMenus();
         if (nowHidden) {
           current = current.filter(function(k){ return k !== key; });
