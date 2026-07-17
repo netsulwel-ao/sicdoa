@@ -161,12 +161,13 @@ def _gerar_pdf_processamento_inst(processamento, request):
             from django.utils.html import escape as _esc
             return _esc(str(text))
 
-        # Dados do utilizador da sessao (administrador da instituicao)
-        usuario = request.session.get('usuario', {})
-        nome_txt = _safe(usuario.get('nome', 'ADMINISTRACAO INSTITUCIONAL'))
-        nif_txt = usuario.get('nif', 'N/D') or 'N/D'
-        telefone = usuario.get('telefone', '—') or '—'
-        email_b = usuario.get('email', '—') or '—'
+        # Dados da Banca Central
+        from .models import BancaCentral
+        _bc = BancaCentral.get_instance()
+        nome_txt = _safe(_bc.nome) if _bc and _bc.nome else 'ADMINISTRACAO INSTITUCIONAL'
+        nif_txt = (_bc.nif or 'N/D') if _bc else 'N/D'
+        telefone = (_bc.telefone or '—') if _bc else '—'
+        email_b = (_bc.email or '—') if _bc else '—'
         responsavel_nome = nome_txt.upper()
         responsavel_nif = nif_txt
         responsavel_cedula = '—'
@@ -194,8 +195,6 @@ def _gerar_pdf_processamento_inst(processamento, request):
         story = []
 
         # LOGO (esquerda) + QR CODE (direita)
-        from .models import BancaCentral
-        _bc = BancaCentral.get_instance()
         col_logo = Paragraph('', st('empty', fontSize=1))
         if _bc and _bc.logo and RLImage:
             try:
@@ -238,11 +237,14 @@ def _gerar_pdf_processamento_inst(processamento, request):
         story.append(Spacer(1, 0.15 * cm))
 
         # BLOCO EMPRESA (esquerda) + INFO DOCUMENTO (direita)
+        cdoa_txt = _safe(getattr(_bc, 'licenca_cdoa', '') or '') if _bc else '—'
+        endereco_txt = _safe(_bc.endereco) if _bc and _bc.endereco else '—'
         empresa_info = (
             f'<font size="9"><b>{nome_txt}</b></font><br/>'
+            f'<font size="7.5" color="#334155">Residência: {endereco_txt}</font><br/>'
             f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
             f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
-            f'<font size="7.5" color="#334155">NIF: {nif_txt}</font>'
+            f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Licença CDOA: {cdoa_txt}</font>'
         )
         doc_info = (
             f'<font size="7.5">Processamento Salarial Institucional</font><br/>'
