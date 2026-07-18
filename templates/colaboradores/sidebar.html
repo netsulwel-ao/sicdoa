@@ -172,7 +172,6 @@
     {% endif %}
 
     {# ── Gestão Financeira ──────────────────────────────────────────── #}
-    {% if not e_gestor_filial %}
     {% if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes or 'acesso_auditoria' in permissoes or 'ver_requisicoes' in permissoes or 'ver_recibos' in permissoes or 'ver_notas_financeiro' in permissoes or 'ver_facturas' in permissoes or 'ver_conta_corrente' in permissoes or 'ver_relatorios_financeiros' in permissoes %}
     <button type="button" data-collapse="financeiro"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
@@ -239,7 +238,6 @@
       </li>
       {% endif %}
     </ul>
-    {% endif %}
     {% endif %}
 
     {# ── Gestão RH (despachante / admin_banca) ── escondido para gestor de filial (itens já em "Gestão de Filial") ── #}
