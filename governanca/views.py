@@ -53,6 +53,21 @@ def _get_usuario(request):
     return request.session.get('usuario')
 
 
+def _usuario(request):
+    """Dict do usuário da sessão — seguro contra KeyError."""
+    return request.session.get('usuario', {})
+
+
+def _usuario_papel(request):
+    """Papel do usuário — seguro contra KeyError."""
+    return _usuario(request).get('papel', '')
+
+
+def _usuario_nome(request):
+    """Nome do usuário — seguro contra KeyError."""
+    return _usuario(request).get('nome', '')
+
+
 def _requer_login(view_func):
     def wrapper(request, *args, **kwargs):
         usuario = _get_usuario(request)
@@ -216,9 +231,9 @@ def index(request):
         quotas_pendentes = qs_quotas.filter(status='Pendente').count()
         quotas_pagas = qs_quotas.filter(status='Paga').count()
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'assembleias': Assembleia.objects.all()[:5],
         'proximas': Assembleia.objects.filter(status='Agendada', data_hora__gte=hoje).order_by('data_hora')[:5],
@@ -277,9 +292,9 @@ def lista_assembleias(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'active_sub': 'assembleias',
         'assembleias': page_obj,
@@ -294,7 +309,7 @@ def lista_assembleias(request):
 @_requer_login
 def nova_assembleia(request):
     from users.permissoes import usuario_tem_permissao
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia') and not usuario_tem_permissao(request, 'gerir_governanca'):
         messages.error(request, 'Sem permissão para criar assembleias.')
         return redirect('governanca_assembleias')
@@ -424,9 +439,9 @@ def nova_assembleia(request):
 
     total_ativos = Usuario.objects.filter(status='Ativo', papel__in=['Administrador', 'Despachante Oficial', 'Colaborador Institucional']).count()
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'active_sub': 'assembleias',
         'total_ativos': total_ativos,
@@ -457,9 +472,9 @@ def detalhe_assembleia(request, pk):
     minha_resposta_obj = RespostaPresenca.objects.filter(assembleia=assembleia, usuario_id=usuario_id).first()
 
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'assembleia': assembleia,
         'minhas_procuracao': minhas_procuracao,
@@ -477,7 +492,7 @@ def detalhe_assembleia(request, pk):
 def editar_assembleia(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         messages.error(request, 'Sem permissão.')
         return redirect('governanca_detalhe', pk=pk)
@@ -524,9 +539,9 @@ def editar_assembleia(request, pk):
         return redirect('governanca_detalhe', pk=pk)
 
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'assembleia': assembleia,
     }
@@ -590,15 +605,15 @@ def sala_assembleia(request, pk):
     if assembleia.livekit_room:
         livekit_token = _livekit_token(
             assembleia.livekit_room,
-            request.session['usuario']['nome'],
+            _usuario_nome(request),
         )
 
     elegivel, _ = _verificar_elegibilidade(usuario_id)
 
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'assembleia': assembleia,
         'pautas': assembleia.pautas.with_vote_counts(),
@@ -613,7 +628,7 @@ def sala_assembleia(request, pk):
         'mesa': MembroMesa.objects.filter(assembleia=assembleia).select_related('usuario'),
         'despachantes': Usuario.objects.filter(
             papel='Despachante Oficial', status='Ativo'
-        ).exclude(id=usuario_id) if request.session['usuario']['papel'] == 'Administrador' else [],
+        ).exclude(id=usuario_id) if _usuario_papel(request) == 'Administrador' else [],
         'elegivel': elegivel,
     }
     return render(request, 'governanca/sala_assembleia.html', context)
@@ -625,7 +640,7 @@ def sala_assembleia(request, pk):
 def gerir_assembleia(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         messages.error(request, 'Sem permissão.')
         return redirect('governanca_detalhe', pk=pk)
@@ -642,8 +657,8 @@ def gerir_assembleia(request, pk):
             )
 
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
         'papel': papel,
         'active_menu': 'Governanca',
         'assembleia': assembleia,
@@ -686,9 +701,9 @@ def repositorio_atas(request):
 
     cached = cache_get_or_set(cache_key, _compute, timeout=300)
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'active_sub': 'atas',
         **cached,
@@ -919,7 +934,7 @@ def api_confirmar_procuracao(request, pk):
     _broadcast_ws(assembleia.id, 'procuracao_confirmada', {
         'procuracao_id': procuracao.id,
         'outorgante_id': procuracao.outorgante_id,
-        'outorgante_nome': request.session['usuario']['nome'],
+        'outorgante_nome': _usuario_nome(request),
         'outorgado_id': procuracao.outorgado_id,
     })
 
@@ -1002,7 +1017,7 @@ def api_cancelar_procuracao(request, pk):
 def api_iniciar_votacao(request, pk):
     from users.permissoes import usuario_tem_permissao
     pauta = get_object_or_404(PautaVotacao, pk=pk)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_votacoes'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem abrir votações.'}, status=403)
     if pauta.assembleia.status != 'Em Curso':
@@ -1041,7 +1056,7 @@ def api_iniciar_votacao(request, pk):
 def api_encerrar_votacao(request, pk):
     from users.permissoes import usuario_tem_permissao
     pauta = get_object_or_404(PautaVotacao, pk=pk)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_votacoes'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem encerrar votações.'}, status=403)
     pauta.status = 'Concluida'
@@ -1274,7 +1289,7 @@ def api_status_assembleia(request, pk):
 def api_iniciar_assembleia(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem iniciar assembleias.'}, status=403)
     if assembleia.status != 'Agendada':
@@ -1295,7 +1310,7 @@ def api_iniciar_assembleia(request, pk):
 def api_concluir_assembleia(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem concluir assembleias.'}, status=403)
     if assembleia.status != 'Em Curso':
@@ -1337,7 +1352,7 @@ def api_concluir_assembleia(request, pk):
 def api_cancelar_assembleia(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem cancelar assembleias.'}, status=403)
     assembleia.status = 'Cancelada'
@@ -1519,7 +1534,7 @@ def api_publicar_documento(request, pk, doc_pk):
 def api_remover_documento(request, pk, doc_pk):
     from users.permissoes import usuario_tem_permissao
     doc = get_object_or_404(DocumentoAssembleia, pk=doc_pk, assembleia_id=pk)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     usuario_id = request.session['usuario_id']
     from users.permissoes import _is_admin_ou_acesso_total
     is_admin = _is_admin_ou_acesso_total(request)
@@ -1558,7 +1573,7 @@ def _pode_admin_ou_secretario(papel, usuario_obj, request=None):
 @require_http_methods(['POST'])
 @_requer_login
 def api_gerar_documento(request):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
+    if not _pode_admin_ou_secretario(_usuario_papel(request), request.usuario_obj, request):
         return JsonResponse({'status': 'error', 'message': 'Sem permissão.'}, status=403)
 
     assembleia_id = request.POST.get('assembleia_id', '').strip()
@@ -1695,7 +1710,7 @@ def api_secretario_assembleias(request):
 def api_mesa_adicionar(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
@@ -1725,7 +1740,7 @@ def api_mesa_adicionar(request, pk):
 def api_mesa_remover(request, pk, membro_pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     membro = get_object_or_404(MembroMesa, pk=membro_pk, assembleia=assembleia)
     membro.delete()
@@ -1799,7 +1814,7 @@ def _livekit_rest_call(method, body=None):
 @_requer_login
 def api_livekit_mute(request):
     """Muta ou remove um participante do LiveKit."""
-    if request.session['usuario']['papel'] != 'Administrador':
+    if _usuario_papel(request) != 'Administrador':
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     data = json.loads(request.body)
     room = data.get('room', '')
@@ -1893,7 +1908,7 @@ def api_livekit_participants(request):
 @_requer_login
 def api_livekit_token(request):
     room = request.GET.get('room', '')
-    identity = request.session['usuario']['nome']
+    identity = _usuario_nome(request)
     token = _livekit_token(room, identity)
     return JsonResponse({
         'token': token,
@@ -1909,7 +1924,7 @@ def api_livekit_refresh_token(request):
     room = request.GET.get('room', '')
     if not room:
         return JsonResponse({'status': 'error', 'message': 'Room obrigatória.'}, status=400)
-    identity = request.session['usuario']['nome']
+    identity = _usuario_nome(request)
     token = _livekit_token(room, identity)
     return JsonResponse({'token': token, 'identity': identity})
 
@@ -1918,7 +1933,7 @@ def api_livekit_refresh_token(request):
 @_requer_login
 def api_recording_start(request):
     """Inicia gravação da assembleia via LiveKit Egress."""
-    if request.session['usuario']['papel'] != 'Administrador':
+    if _usuario_papel(request) != 'Administrador':
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     try:
         body = json.loads(request.body)
@@ -1947,7 +1962,7 @@ def api_recording_start(request):
 @_requer_login
 def api_recording_stop(request):
     """Para a gravação da assembleia."""
-    if request.session['usuario']['papel'] != 'Administrador':
+    if _usuario_papel(request) != 'Administrador':
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     try:
         body = json.loads(request.body)
@@ -2130,7 +2145,7 @@ def _atualizar_estado_financeiro(despachante_id, registar_historico=False, reque
 def quotas_dashboard(request):
     from users.permissoes import usuario_tem_permissao
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel not in ('Administrador', 'Despachante Oficial') and not (usuario_tem_permissao(request, 'gerir_quotas') or usuario_tem_permissao(request, 'ver_quotas')):
         return redirect('governanca_index')
     ef = _get_estado_financeiro(usuario_id)
@@ -2142,7 +2157,7 @@ def quotas_dashboard(request):
     page_obj = paginator.get_page(page_number)
     carteira = CarteiraProfissional.objects.filter(despachante_id=usuario_id).first()
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': papel, 'active_menu': 'Governanca', 'active_sub': 'quotas',
         'estado_financeiro': ef, 'quotas_pendentes': quotas_pendentes,
         'total_quotas': total_quotas, 'ultimas_quotas': page_obj, 'page_obj': page_obj, 'carteira': carteira,
@@ -2153,7 +2168,7 @@ def quotas_dashboard(request):
 @_requer_login
 def quotas_faturas(request):
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     from users.permissoes import _is_admin_ou_acesso_total
     if papel == 'Administrador':
         quotas = QuotaGerada.objects.all().select_related('despachante').order_by('-ano','-mes')
@@ -2163,7 +2178,7 @@ def quotas_faturas(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': papel, 'active_menu': 'Governanca', 'active_sub': 'quotas',
         'quotas': page_obj, 'page_obj': page_obj, 'is_admin': papel == 'Administrador',
     }
@@ -2186,8 +2201,8 @@ def quotas_fatura_detalhe(request, fatura_uuid):
     multa_info = _calcular_multa_quota(quota, config)
     historico = HistoricoQuota.objects.filter(quota=quota).select_related('utilizador').order_by('-created_at')[:20]
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'], 'active_menu': 'Governanca', 'active_sub': 'quotas',
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request), 'active_menu': 'Governanca', 'active_sub': 'quotas',
         'quota': quota, 'pagamentos': page_obj, 'page_obj': page_obj,
         'multa_info': multa_info, 'config_multa': config.multa_percentual if config else 0,
         'config_dias_carencia': config.dias_carencia if config else 5,
@@ -2205,8 +2220,8 @@ def quotas_certidao(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'], 'active_menu': 'Governanca', 'active_sub': 'quotas',
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request), 'active_menu': 'Governanca', 'active_sub': 'quotas',
         'estado_financeiro': ef, 'certidoes': page_obj, 'page_obj': page_obj,
         'pode_emitir': ef.estado == 'Regular',
     }
@@ -2219,8 +2234,8 @@ def quotas_carteira(request):
     carteira = CarteiraProfissional.objects.filter(despachante_id=usuario_id).first()
     ef = _get_estado_financeiro(usuario_id)
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'], 'active_menu': 'Governanca', 'active_sub': 'quotas',
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request), 'active_menu': 'Governanca', 'active_sub': 'quotas',
         'carteira': carteira, 'estado_financeiro': ef,
     }
     return render(request, 'governanca/quotas/carteira.html', context)
@@ -2231,7 +2246,7 @@ def quotas_carteira(request):
 @_requer_login
 def quotas_admin_dashboard(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
 
     from django.db.models import Count, Q
@@ -2241,7 +2256,7 @@ def quotas_admin_dashboard(request):
         pagas=Count('id', filter=Q(status='Paga')),
     )
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'total_quotas': stats['total'],
         'pendentes': stats['pendentes'],
@@ -2258,7 +2273,7 @@ def quotas_admin_dashboard(request):
 @_requer_login
 def quotas_admin_pagamentos(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     pagamentos_qs = PagamentoQuota.objects.all().select_related('despachante','quota').order_by('-data_pagamento')
     paginator = Paginator(pagamentos_qs, 8)
@@ -2276,7 +2291,7 @@ def quotas_admin_pagamentos(request):
             'total_sugerido': multa_info['total_sugerido'],
         })
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'pagamentos': page_obj, 'page_obj': page_obj,
         'pagamentos_com_multa': pagamentos_com_multa,
@@ -2287,14 +2302,14 @@ def quotas_admin_pagamentos(request):
 @_requer_login
 def quotas_admin_config(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     configs_qs = QuotaConfig.objects.order_by('-ano','-mes')
     paginator = Paginator(configs_qs, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'configs': page_obj, 'page_obj': page_obj,
         'categorias': CategoriaMembro.objects.filter(usuario__papel='Despachante Oficial', usuario__status='Ativo').distinct(),
@@ -2306,7 +2321,7 @@ def quotas_admin_config(request):
 @_requer_login
 def quotas_admin_relatorios(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
 
     from django.db.models import Sum, Count, Q
@@ -2347,7 +2362,7 @@ def quotas_admin_relatorios(request):
         .order_by('-ano', '-mes')[:12]
     )
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'total_arrecadado': total_arrecadado,
         'quotas_em_atraso': stats['atrasadas'],
@@ -2362,7 +2377,7 @@ def quotas_admin_relatorios(request):
 @_requer_login
 def quotas_admin_relatorios_pdf(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
 
     from django.db.models import Sum, Count, Q
@@ -2481,7 +2496,7 @@ def quotas_admin_relatorios_pdf(request):
 @_requer_login
 def quotas_admin_gerar_retroativo(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     hoje = timezone.now()
     config_qs = QuotaConfig.objects.filter(ativa=True).select_related('tipo', 'categoria').order_by('-ano', '-mes')
@@ -2497,7 +2512,7 @@ def quotas_admin_gerar_retroativo(request):
             'ativa': c.ativa,
         })
     context = {
-        'usuario': request.session['usuario'], 'nome': request.session['usuario']['nome'],
+        'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'tipos_quota': TipoQuota.objects.all(),
         'ano_actual': hoje.year,
@@ -2559,7 +2574,7 @@ def api_quotas_pagar(request, fatura_uuid):
 @_requer_login
 def api_quotas_confirmar_pagamento(request, pk):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     pag = get_object_or_404(PagamentoQuota, pk=pk)
     acao = request.POST.get('acao', 'confirmar')
@@ -2637,7 +2652,7 @@ def api_quotas_emitir_certidao(request):
     if not despachante:
         return JsonResponse({'erro': 'Utilizador não encontrado'}, status=404)
     from utils.pdf_quotas import gerar_certidao_pdf
-    result = gerar_certidao_pdf(despachante, request.session['usuario']['nome'])
+    result = gerar_certidao_pdf(despachante, _usuario_nome(request))
     validade = timezone.now().date() + _dt.timedelta(days=90)
     cert = CertidaoRegularidade.objects.create(
         despachante_id=despachante_id, codigo_certidao=result['codigo'],
@@ -2657,7 +2672,7 @@ def api_quotas_emitir_certidao(request):
 def api_quotas_definir_estado(request, pk):
     """Admin define estado financeiro de um despachante."""
     from users.permissoes import usuario_tem_permissao
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     if request.method != 'POST':
@@ -2680,7 +2695,7 @@ def api_quotas_definir_estado(request, pk):
 def api_quotas_buscar_membros(request):
     """Busca membros (despachantes) para o admin definir estado financeiro."""
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     q = request.GET.get('q', '').strip()
     membros = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo')
@@ -2716,7 +2731,7 @@ def api_quotas_verificar_estado(request):
 @_requer_login
 def api_quotas_listar(request):
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     ano = request.GET.get('ano')
     from users.permissoes import _is_admin_ou_acesso_total
     e_admin = papel == 'Administrador'
@@ -2742,7 +2757,7 @@ def api_quotas_listar(request):
 @_requer_login
 def api_quotas_dashboard(request):
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     ef = _get_estado_financeiro(usuario_id)
     pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada','Pendente Confirmacao']).count()
     pagas = QuotaGerada.objects.filter(despachante_id=usuario_id, status='Paga').count()
@@ -2781,7 +2796,7 @@ def api_quotas_renovar_carteira(request):
     carteira.status = 'Activa'
     carteira.save()
     from utils.pdf_quotas import gerar_carteira_pdf
-    pdf_path, pdf_url = gerar_carteira_pdf(despachante, carteira, request.session['usuario']['nome'])
+    pdf_path, pdf_url = gerar_carteira_pdf(despachante, carteira, _usuario_nome(request))
     carteira.arquivo_pdf = pdf_path
     carteira.save(update_fields=['arquivo_pdf'])
     return JsonResponse({'status': 'ok', 'numero_carteira': carteira.numero_carteira, 'validade': str(carteira.data_validade), 'pdf_url': pdf_url})
@@ -2805,7 +2820,7 @@ def api_quotas_carteira(request):
 def api_quotas_listar_despachantes(request):
     """Lista todos os Despachante Oficial ativos para seleção pré-publicação."""
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     despachantes = Usuario.objects.filter(papel='Despachante Oficial', status='Ativo').order_by('nome')
     data = []
@@ -2824,7 +2839,7 @@ def api_quotas_listar_despachantes(request):
 @_requer_login
 def api_quotas_salvar_config(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
         ano = int(request.POST.get('ano', 0))
@@ -2908,7 +2923,7 @@ def api_quotas_publicar(request):
     exceto os listados em 'excluidos[]'.
     """
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
         config_id = int(request.POST.get('config_id', 0))
@@ -3017,7 +3032,7 @@ def api_quotas_publicar(request):
 @_requer_login
 def api_quotas_gerar_retroativo(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
         mes = int(request.POST.get('mes', 0))
@@ -3147,7 +3162,7 @@ def api_quotas_gerar_retroativo(request):
 @_requer_login
 def api_quotas_marcar_paga(request, fatura_uuid):
     from users.permissoes import usuario_tem_permissao
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
@@ -3186,7 +3201,7 @@ def api_quotas_marcar_paga(request, fatura_uuid):
 def api_quotas_cancelar(request, fatura_uuid):
     """Admin cancela uma quota. NUNCA apaga o registo."""
     from users.permissoes import usuario_tem_permissao
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
@@ -3233,7 +3248,7 @@ def api_quotas_cancelar(request, fatura_uuid):
 @_requer_login
 def api_quotas_listar_isencoes(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     isencoes = IsencaoMembro.objects.select_related('despachante', 'tipo_quota', 'aprovado_por').order_by('-created_at')
     ano = request.GET.get('ano')
@@ -3259,7 +3274,7 @@ def api_quotas_listar_isencoes(request):
 @_requer_login
 def api_quotas_eliminar_isencao(request, pk):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
         isencao = IsencaoMembro.objects.get(pk=pk)
@@ -3274,7 +3289,7 @@ def api_quotas_eliminar_isencao(request, pk):
 @_requer_login
 def api_quotas_criar_isencao(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     try:
         despachante_id = int(request.POST.get('despachante_id', 0))
@@ -3342,7 +3357,7 @@ def api_quotas_criar_isencao(request):
 @_requer_login
 def api_quotas_historico(request, fatura_uuid):
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     if papel != 'Administrador' and quota.despachante_id != usuario_id:
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
@@ -3365,7 +3380,7 @@ def api_quotas_historico(request, fatura_uuid):
 @_requer_login
 def api_quotas_verificar_vencimentos(request):
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     from governanca.management.commands.verificar_vencimentos import Command as VencCmd
     from io import StringIO
@@ -3406,9 +3421,9 @@ def consulta_lista(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'active_sub': 'consulta',
         'page_obj': page_obj,
@@ -3439,9 +3454,9 @@ def consulta_detalhe(request, pk):
         qs_votos = votacao_ativa.votos.values('voto').annotate(total=Count('id'))
         resultados_votacao = {r['voto']: r['total'] for r in qs_votos}
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'active_sub': 'consulta',
         'consulta': consulta,
@@ -3499,9 +3514,9 @@ def consulta_criar(request):
             messages.success(request, 'Consulta criada com sucesso.')
             return redirect('governanca_consulta_detalhe', pk=consulta.id)
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'active_sub': 'consulta',
     }
@@ -3542,9 +3557,9 @@ def consulta_editar(request, pk):
         messages.success(request, 'Consulta atualizada com sucesso.')
         return redirect('governanca_consulta_detalhe', pk=consulta.id)
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'active_sub': 'consulta',
         'consulta': consulta,
@@ -3568,9 +3583,9 @@ def consulta_relatorio(request, pk):
         qs_votos = votacao.votos.values('voto').annotate(total=Count('id'))
         resultados = {r['voto']: r['total'] for r in qs_votos}
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'active_sub': 'consulta',
         'consulta': consulta,
@@ -3583,7 +3598,7 @@ def consulta_relatorio(request, pk):
 
 @_requer_login
 def api_consulta_publicar(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
+    if not _pode_admin_ou_secretario(_usuario_papel(request), request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Rascunho')
     consulta.status = 'Publicada'
@@ -3656,8 +3671,8 @@ def api_consulta_responder(request, pk):
 
 @_requer_login
 def api_consulta_abrir_votacao(request, pk):
-    papel = request.session['usuario']['papel']
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
+    papel = _usuario_papel(request)
+    if not _pode_admin_ou_secretario(_usuario_papel(request), request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Publicada')
     if consulta.prazo_fim and consulta.prazo_fim <= timezone.now():
@@ -3697,7 +3712,7 @@ def api_consulta_votar(request, pk):
 
 @_requer_login
 def api_consulta_encerrar(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
+    if not _pode_admin_ou_secretario(_usuario_papel(request), request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='EmVotacao')
     votacao = consulta.votacoes.filter(ativa=True).first()
@@ -3720,7 +3735,7 @@ def api_consulta_encerrar(request, pk):
 
 @_requer_login
 def api_consulta_gerar_relatorio(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
+    if not _pode_admin_ou_secretario(_usuario_papel(request), request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     if hasattr(consulta, 'relatorio'):
@@ -3766,7 +3781,7 @@ def api_consulta_gerar_relatorio(request, pk):
 
 @_requer_login
 def api_consulta_publicar_versao_final(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
+    if not _pode_admin_ou_secretario(_usuario_papel(request), request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     consulta.status = 'Aprovada'
@@ -3784,7 +3799,7 @@ def api_consulta_publicar_versao_final(request, pk):
 
 @_requer_login
 def api_consulta_rejeitar(request, pk):
-    if not _pode_admin_ou_secretario(request.session['usuario']['papel'], request.usuario_obj, request):
+    if not _pode_admin_ou_secretario(_usuario_papel(request), request.usuario_obj, request):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     consulta = get_object_or_404(ConsultaPublica, pk=pk, status='Encerrada')
     consulta.status = 'Rejeitada'
@@ -3810,9 +3825,9 @@ def lista_convocatorias(request, pk):
     publicadas = qs.filter(status='Publicada').count()
     rascunhos = qs.filter(status='Rascunho').count()
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'assembleia': assembleia,
         'convocatorias': page_obj,
@@ -3828,7 +3843,7 @@ def lista_convocatorias(request, pk):
 def criar_convocatoria(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_convocatorias'):
+    if _usuario_papel(request) != 'Administrador' and not usuario_tem_permissao(request, 'gerir_convocatorias'):
         messages.error(request, 'Sem permissão.')
         return redirect('governanca_detalhe', pk=pk)
     if assembleia.status != 'Agendada':
@@ -3867,9 +3882,9 @@ def criar_convocatoria(request, pk):
         return redirect('governanca_convocatorias', pk=assembleia.pk)
 
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'assembleia': assembleia,
     }
@@ -3881,7 +3896,7 @@ def criar_convocatoria(request, pk):
 def api_convocatoria_publicar(request, pk):
     from users.permissoes import usuario_tem_permissao
     conv = get_object_or_404(Convocatoria, pk=pk)
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_convocatorias'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_convocatorias'):
         return JsonResponse({'status': 'error', 'message': 'Sem permissão.'}, status=403)
     if conv.assembleia.status != 'Agendada':
         return JsonResponse({'status': 'error', 'message': 'A assembleia já não está agendada.'}, status=400)
@@ -3952,7 +3967,7 @@ def api_responder_presenca(request, pk):
 def api_reabrir_votacao(request, pk):
     from users.permissoes import usuario_tem_permissao
     pauta = get_object_or_404(PautaVotacao, pk=pk)
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_votacoes'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_votacoes'):
         return JsonResponse({'status': 'error', 'message': 'Sem permissão.'}, status=403)
     if pauta.status != 'Concluida':
         return JsonResponse({'status': 'error', 'message': 'Apenas pautas concluídas podem ser reabertas.'}, status=400)
@@ -4198,7 +4213,7 @@ def api_assinar_ata(request, pk):
     ata = get_object_or_404(AtaDigital, pk=pk)
     assembleia = ata.assembleia
     usuario = request.usuario_obj
-    papel = request.session['usuario']['papel']
+    papel = _usuario_papel(request)
 
     # Verificar se usuário é membro da mesa
     membro = MembroMesa.objects.filter(assembleia=assembleia, usuario=usuario).first()
@@ -4264,7 +4279,7 @@ def api_assinar_ata(request, pk):
 def assembleia_logs(request, pk):
     from users.permissoes import usuario_tem_permissao
     assembleia = get_object_or_404(Assembleia, pk=pk)
-    if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
+    if _usuario_papel(request) not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_assembleia'):
         messages.error(request, 'Sem permissão.')
         return redirect('governanca_detalhe', pk=pk)
 
@@ -4274,9 +4289,9 @@ def assembleia_logs(request, pk):
     page_obj = paginator.get_page(page_number)
 
     context = {
-        'usuario': request.session['usuario'],
-        'nome': request.session['usuario']['nome'],
-        'papel': request.session['usuario']['papel'],
+        'usuario': _usuario(request),
+        'nome': _usuario_nome(request),
+        'papel': _usuario_papel(request),
         'active_menu': 'Governanca',
         'assembleia': assembleia,
         'logs': page_obj,
@@ -4596,7 +4611,7 @@ def api_utilizador_criar(request):
     from django.utils.text import slugify
 
     from users.permissoes import usuario_tem_permissao
-    if request.session['usuario']['papel'] != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
+    if _usuario_papel(request) != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
     data = json.loads(request.body)
@@ -4761,7 +4776,7 @@ Administração SICDOA — CDOA Angola
 @_requer_login
 def api_utilizador_toggle_status(request):
     from users.models import Usuario
-    if request.session['usuario']['papel'] != 'Administrador':
+    if _usuario_papel(request) != 'Administrador':
         return JsonResponse({'erro': 'Apenas administradores podem alterar estado de utilizadores'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
@@ -4782,7 +4797,7 @@ def api_utilizador_enviar_credenciais(request):
     from users.models import Usuario
     from utils.email_utils import gerar_senha_aleatoria
     import bcrypt
-    if request.session['usuario']['papel'] != 'Administrador':
+    if _usuario_papel(request) != 'Administrador':
         return JsonResponse({'erro': 'Apenas administradores podem reenviar credenciais'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
@@ -4826,7 +4841,7 @@ def api_permissoes_usuario(request):
 def api_utilizador_eliminar(request):
     """Elimina um utilizador."""
     from users.models import Usuario
-    if request.session['usuario']['papel'] != 'Administrador':
+    if _usuario_papel(request) != 'Administrador':
         return JsonResponse({'erro': 'Apenas administradores podem eliminar utilizadores'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
@@ -4843,7 +4858,7 @@ def api_utilizador_eliminar(request):
 def api_utilizador_atribuir_funcao(request):
     """Atribui ou remove a função de um utilizador."""
     from users.models import Funcao, Usuario
-    if request.session['usuario']['papel'] != 'Administrador':
+    if _usuario_papel(request) != 'Administrador':
         return JsonResponse({'erro': 'Apenas administradores podem atribuir funções'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')

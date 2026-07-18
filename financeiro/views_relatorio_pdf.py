@@ -123,7 +123,7 @@ def _dados_facturacao(request):
         'rows': [
             {'cells': [f.numero_factura, f.cliente.nome if f.cliente else 'N/D',
                        f'{fmt_kz(f.valor_total)}', f'{fmt_kz(f.valor_pago)}',
-                       f.estado, f.data_emissao.strftime('%d/%m/%Y')]}
+                       f.estado, f.data_emissao.strftime('%d/%m/%Y') if f.data_emissao else 'N/D']}
             for f in qs.select_related('cliente')[:200]
         ],
         'filtros': {'Periodo': _montar_periodo(data_ini, data_fim)},
@@ -166,7 +166,7 @@ def _dados_recibos(request):
         'rows': [
             {'cells': [r.numero_recibo, r.cliente.nome if r.cliente else 'N/D',
                        f'{fmt_kz(r.valor_recebido)}', r.forma_pagamento,
-                       r.data_pagamento.strftime('%d/%m/%Y'), r.utilizador_responsavel_nome]}
+                       r.data_pagamento.strftime('%d/%m/%Y') if r.data_pagamento else 'N/D', r.utilizador_responsavel_nome]}
             for r in qs.select_related('cliente')[:200]
         ],
         'extra_tables': extra,
@@ -199,7 +199,7 @@ def _dados_requisicoes_fundos(request):
         'columns': ['No', 'Cliente', 'Estado', 'Data', 'Criador'],
         'rows': [
             {'cells': [r.numero_requisicao, r.cliente.nome if r.cliente else 'N/D',
-                       r.estado, r.data_emissao.strftime('%d/%m/%Y'), r.criado_por_nome]}
+                       r.estado, r.data_emissao.strftime('%d/%m/%Y') if r.data_emissao else 'N/D', r.criado_por_nome]}
             for r in qs.select_related('cliente')[:200]
         ],
         'filtros': {'Periodo': _montar_periodo(data_ini, data_fim), 'Estado': estado or 'Todos'},
@@ -235,7 +235,7 @@ def _dados_notas_credito(request):
             {'cells': [n.numero_nota, n.cliente.nome if n.cliente else 'N/D',
                        n.factura_relacionada.numero_factura if n.factura_relacionada else 'N/D',
                        f'{fmt_kz(n.valor_creditado)}', n.estado,
-                       n.data.strftime('%d/%m/%Y'), (n.motivo or '')[:50]]}
+                       n.data.strftime('%d/%m/%Y') if n.data else 'N/D', (n.motivo or '')[:50]]}
             for n in qs.select_related('cliente', 'factura_relacionada')[:200]
         ],
         'filtros': {'Periodo': _montar_periodo(data_ini, data_fim), 'Estado': estado or 'Todos'},
@@ -271,7 +271,7 @@ def _dados_notas_debito(request):
             {'cells': [n.numero_nota, n.cliente.nome if n.cliente else 'N/D',
                        n.factura_relacionada.numero_factura if n.factura_relacionada else 'N/D',
                        f'{fmt_kz(n.valor)}', n.estado,
-                       n.data.strftime('%d/%m/%Y'), (n.motivo or '')[:50]]}
+                       n.data.strftime('%d/%m/%Y') if n.data else 'N/D', (n.motivo or '')[:50]]}
             for n in qs.select_related('cliente', 'factura_relacionada')[:200]
         ],
         'filtros': {'Periodo': _montar_periodo(data_ini, data_fim), 'Estado': estado or 'Todos'},
@@ -299,7 +299,7 @@ def _dados_contas_receber(request):
             {'cells': [f.numero_factura, f.cliente.nome if f.cliente else 'N/D',
                        f'{fmt_kz(f.valor_total)}', f'{fmt_kz(f.valor_pago)}',
                        f'{fmt_kz(f.valor_total - f.valor_pago)}',
-                       f.data_vencimento.strftime('%d/%m/%Y'), f.estado]}
+                       f.data_vencimento.strftime('%d/%m/%Y') if f.data_vencimento else 'N/D', f.estado]}
             for f in qs.select_related('cliente').order_by('data_vencimento')[:200]
         ],
         'filtros': {'Estado': 'Pendente / Parcialmente Paga'},
@@ -831,4 +831,4 @@ def relatorio_pdf(request, tipo):
         return response
     except Exception as e:
         logger.error('Erro ao gerar PDF do relatorio %s: %s', tipo, str(e), exc_info=True)
-        return HttpResponse(f'Erro ao gerar PDF: {str(e)}', status=500)
+        return HttpResponse('Erro ao gerar relatório. Tente novamente.', status=500)

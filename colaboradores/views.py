@@ -39,7 +39,7 @@ def dashboard_colaborador_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id and colaborador.cargo_banca else 'Colaborador',
         'active_menu': 'Dashboard',
         'tempo_restante_sessao': tempo_restante,
         'colaborador': colaborador,
@@ -71,7 +71,7 @@ def perfil_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id and colaborador.cargo_banca else 'Colaborador',
         'active_menu': 'Meus Dados',
         'active_sub': 'perfil',
         'colaborador': colaborador,
@@ -98,7 +98,7 @@ def documentos_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id and colaborador.cargo_banca else 'Colaborador',
         'active_menu': 'Meus Dados',
         'active_sub': 'documentos',
         'colaborador': colaborador,
@@ -125,7 +125,7 @@ def presenca_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id and colaborador.cargo_banca else 'Colaborador',
         'active_menu': 'Presença',
         'colaborador': colaborador,
         'e_responsavel': colaborador.e_gestor_filial,
@@ -151,7 +151,7 @@ def salario_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id and colaborador.cargo_banca else 'Colaborador',
         'active_menu': 'Salarial',
         'active_sub': 'salario',
         'colaborador': colaborador,
@@ -178,7 +178,7 @@ def historico_salarial_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id and colaborador.cargo_banca else 'Colaborador',
         'active_menu': 'Salarial',
         'active_sub': 'historico-salarial',
         'colaborador': colaborador,
@@ -205,7 +205,7 @@ def ferias_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id and colaborador.cargo_banca else 'Colaborador',
         'active_menu': 'Ferias',
         'colaborador': colaborador,
         'e_responsavel': colaborador.e_gestor_filial,
@@ -235,7 +235,7 @@ def buscar_view(request):
     
     contexto = {
         'nome': colaborador.nome,
-        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id else 'Colaborador',
+        'papel': colaborador.cargo_banca.nome if colaborador.cargo_banca_id and colaborador.cargo_banca else 'Colaborador',
         'active_menu': 'Dashboard',
         'query': query,
         'colaborador': colaborador,

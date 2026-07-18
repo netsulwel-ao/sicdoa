@@ -368,7 +368,7 @@ def admin_banca_toggle_view(request, banca_id):
 
     # Notificar o dono da banca quando for desativada
     if not banca.ativa:
-        dono = Usuario.objects.filter(pk=banca.usuario_id).first()
+        dono = Usuario.objects.filter(pk=banca.usuario_id).first() if banca.usuario_id else None
         if dono:
             _criar_notificacao(
                 usuario_id=dono.id,

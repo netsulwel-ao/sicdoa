@@ -216,17 +216,24 @@ def login_view(request):
                         self.is_secretario = False
                         self.is_vice_secretario = False
                         self.funcao = None
-                        self.banca_usuario_id = c.banca.usuario_id
+                        self.banca_usuario_id = c.banca.usuario_id if c.banca else None
                         self.banca_id = c.banca_id
                         # cargo_banca
                         if c.cargo_banca_id:
-                            self.cargo_banca_id = c.cargo_banca_id
-                            self.cargo_banca_nome = c.cargo_banca.nome
-                            self.papel = "Colaborador"
-                            self.papel_display = c.cargo_banca.nome
-                            self._permissoes = list(
-                                c.cargo_banca.permissoes.values_list('codigo', flat=True)
-                            )
+                            try:
+                                self.cargo_banca_id = c.cargo_banca_id
+                                self.cargo_banca_nome = c.cargo_banca.nome
+                                self.papel = "Colaborador"
+                                self.papel_display = c.cargo_banca.nome
+                                self._permissoes = list(
+                                    c.cargo_banca.permissoes.values_list('codigo', flat=True)
+                                )
+                            except Exception:
+                                self.cargo_banca_id = c.cargo_banca_id
+                                self.cargo_banca_nome = ''
+                                self.papel = "Colaborador"
+                                self.papel_display = "Colaborador"
+                                self._permissoes = []
                         else:
                             self.cargo_banca_id = None
                             self.cargo_banca_nome = ''
