@@ -170,6 +170,7 @@
             <p class="text-sm text-gray-500">{{ usuario.papel }}</p>
           </div>
 
+          {% if usuario.papel != 'Administrador' %}
           <!-- Assinatura Digital -->
           <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
@@ -204,6 +205,7 @@
               </button>
             </div>
           </div>
+          {% endif %}
 
           <!-- Estatísticas -->
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
@@ -364,6 +366,7 @@
 </div>
 {% endif %}
 
+{% if usuario.papel != 'Administrador' %}
 <!-- ── Modal Assinatura Digital ── -->
 <div id="modalAssinatura" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl">
@@ -449,6 +452,7 @@
     </form>
   </div>
 </div>
+{% endif %}
 
 <script>
 function abrirModal(id) {
