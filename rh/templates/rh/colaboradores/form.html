@@ -448,6 +448,9 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
       const novosDocs = document.querySelectorAll('[name^="documento_arquivo_"]');
       let arquivosComTipoFaltando = false;
+      let tamanhoTotal = 0;
+      const LIMITE_ARQUIVO = 2 * 1024 * 1024;
+      const LIMITE_TOTAL = 8 * 1024 * 1024;
 
       novosDocs.forEach(function(input, idx) {
         if (input.files && input.files.length > 0) {
@@ -457,12 +460,26 @@ document.addEventListener('DOMContentLoaded', function() {
             arquivosComTipoFaltando = true;
             tipoInput.focus();
           }
+          for (let i = 0; i < input.files.length; i++) {
+            tamanhoTotal += input.files[i].size;
+            if (input.files[i].size > LIMITE_ARQUIVO) {
+              e.preventDefault();
+              window.toast.error('Ficheiro "' + input.files[i].name + '" excede 2 MB.');
+              return false;
+            }
+          }
         }
       });
 
       if (arquivosComTipoFaltando) {
         e.preventDefault();
         window.toast.error('Selecione o tipo de documento para cada arquivo enviado.');
+        return false;
+      }
+
+      if (tamanhoTotal > LIMITE_TOTAL) {
+        e.preventDefault();
+        window.toast.error('Tamanho total dos documentos excede 8 MB. Reduza o tamanho dos ficheiros.');
         return false;
       }
     });

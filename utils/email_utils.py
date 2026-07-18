@@ -156,9 +156,9 @@ def _enviar_brevo(assunto, texto, html, destinatarios, anexos=None):
 
 def _enviar(assunto, texto, html, destinatarios, anexos=None):
     """
-    Envia email de forma síncrona.
-    Usa Celery quando REDIS_ENABLED=1, caso contrário chama directamente.
-    Retorna (sucesso, mensagem) com o resultado real do envio.
+    Envia email de forma não-bloqueante.
+    Usa Celery quando REDIS_ENABLED=1, caso contrário usa threading.
+    Retorna (sucesso, mensagem) imediatamente.
     """
     if not destinatarios:
         return False, "Nenhum destinatário definido"
@@ -171,7 +171,16 @@ def _enviar(assunto, texto, html, destinatarios, anexos=None):
         except Exception as e:  # noqa: BLE001
             logger.error("Falha ao enviar email via Celery: %s", str(e))
             return False, f"Falha ao enviar email: {str(e)}"
-    return _enviar_sync(assunto, texto, html, destinatarios, anexos)
+
+    import threading
+    t = threading.Thread(
+        target=_enviar_sync,
+        args=(assunto, texto, html, destinatarios),
+        kwargs={'anexos': anexos},
+        daemon=True,
+    )
+    t.start()
+    return True, "Email em envio"
 
 
 # ─── Colaboradores ────────────────────────────────────────────────────────────
