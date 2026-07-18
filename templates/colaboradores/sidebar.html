@@ -161,10 +161,18 @@
           <i class="fas fa-trophy text-base"></i>Avaliação de Desempenho
         </a>
       </li>
+      <li>
+        <a href="{% url 'rh_cargos_lista' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'cargos' or sub == 'permissoes_filial' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-user-tag text-base"></i>Cargos & P..
+        </a>
+      </li>
     </ul>
     {% endif %}
 
     {# ── Gestão Financeira ──────────────────────────────────────────── #}
+    {% if not e_gestor_filial %}
     {% if 'gerir_financeiro' in permissoes or 'gerir_financeiro_filial' in permissoes or 'acesso_auditoria' in permissoes or 'ver_requisicoes' in permissoes or 'ver_recibos' in permissoes or 'ver_notas_financeiro' in permissoes or 'ver_facturas' in permissoes or 'ver_conta_corrente' in permissoes or 'ver_relatorios_financeiros' in permissoes %}
     <button type="button" data-collapse="financeiro"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
@@ -232,8 +240,10 @@
       {% endif %}
     </ul>
     {% endif %}
+    {% endif %}
 
-    {# ── Gestão RH (despachante / admin_banca) ──────────────────────── #}
+    {# ── Gestão RH (despachante / admin_banca) ── escondido para gestor de filial (itens já em "Gestão de Filial") ── #}
+    {% if not e_gestor_filial %}
     {% if 'admin_banca' in permissoes or 'gerir_rh' in permissoes or 'gerir_filial' in permissoes or 'gerir_colaboradores_banca' in permissoes or 'gerir_presencas_banca' in permissoes or 'gerir_recrutamento_banca' in permissoes or 'gerir_avaliacoes_banca' in permissoes or 'gerir_processamento_salarial' in permissoes %}
     <button type="button" data-collapse="gestao-rh"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
@@ -316,6 +326,7 @@
       </li>
       {% endif %}
     </ul>
+    {% endif %}
     {% endif %}
 
     {# ── Logs de Atividade ──────────────────────────────────────────── #}

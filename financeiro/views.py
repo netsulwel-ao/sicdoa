@@ -99,6 +99,17 @@ def _user_tem_acesso_total(request):
     return papel == 'Administrador'
 
 
+def _is_colaborador_institucional(request):
+    """True para Colaborador Institucional — acesso global nos relatórios."""
+    papel = request.session.get('usuario', {}).get('papel', '')
+    return papel == 'Colaborador Institucional'
+
+
+def _tem_acesso_global(request):
+    """True se o utilizador deve ver dados globais (admin ou Colaborador Institucional)."""
+    return _user_tem_acesso_total(request) or _is_colaborador_institucional(request)
+
+
 def _tem_escopo_filial(perm_set, filial_id=None):
     """True se o user está escopeado a uma filial (por filial_id ou permissão)."""
     if filial_id:
@@ -171,7 +182,7 @@ class BaseContextMixin:
         return self.request.session.get('usuario_id')
 
     def _get_user_cliente_filter(self):
-        if _user_tem_acesso_total(self.request):
+        if _tem_acesso_global(self.request):
             return {}
         from users.permissoes import get_usuario_permissoes
         perm_set = get_usuario_permissoes(self.request)
@@ -188,7 +199,7 @@ class BaseContextMixin:
         return filtro
 
     def _get_user_filter_direct(self):
-        if _user_tem_acesso_total(self.request):
+        if _tem_acesso_global(self.request):
             return {}
         from users.permissoes import get_usuario_permissoes
         perm_set = get_usuario_permissoes(self.request)
@@ -1863,7 +1874,7 @@ class FacturasHomeView(BaseContextMixin, TemplateView):
 
 @requer_sessao_ativa
 def du_custos_json(request, pk):
-    if _user_tem_acesso_total(request):
+    if _tem_acesso_global(request):
         du = get_object_or_404(DeclaracaoUnica, pk=pk, status='Aprovada')
     else:
         banca_id = request.session.get('banca_id')
@@ -1902,7 +1913,7 @@ def _get_object_or_404_com_scope(request, model, pk, scope_field='cliente__usuar
             perm_set = get_usuario_permissoes(request)
             if _tem_escopo_filial(perm_set, filial_id):
                 base['filial_id'] = filial_id
-    if _user_tem_acesso_total(request):
+    if _tem_acesso_global(request):
         return get_object_or_404(model, **base)
     usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
     if not usuario_id:
@@ -2603,7 +2614,7 @@ class NotaCreditoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
 def aprovar_nota_credito(request, pk):
     usuario_id = request.session.get('usuario_id')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
-    pode_aprovar = _user_tem_acesso_total(request)
+    pode_aprovar = _tem_acesso_global(request)
     if nota.utilizador_criador_id == usuario_id:
         pode_aprovar = False
     if not pode_aprovar:
@@ -2650,7 +2661,7 @@ def rejeitar_nota_credito(request, pk):
     usuario_id = request.session.get('usuario_id')
     nota = _get_object_or_404_com_scope(request, NotaCredito, pk)
     pode_rejeitar = (
-        _user_tem_acesso_total(request) or
+        _tem_acesso_global(request) or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_rejeitar:
@@ -2685,7 +2696,7 @@ def cancelar_nota_credito(request, pk):
     usuario_id = request.session.get('usuario_id')
     papel = request.session.get('usuario', {}).get('papel', '')
     pode_cancelar = (
-        _user_tem_acesso_total(request) or
+        _tem_acesso_global(request) or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_cancelar:
@@ -2897,7 +2908,7 @@ class NotaDebitoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView):
 def aprovar_nota_debito(request, pk):
     usuario_id = request.session.get('usuario_id')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
-    pode_aprovar = _user_tem_acesso_total(request)
+    pode_aprovar = _tem_acesso_global(request)
     if nota.utilizador_criador_id == usuario_id:
         pode_aprovar = False
     if not pode_aprovar:
@@ -2945,7 +2956,7 @@ def rejeitar_nota_debito(request, pk):
     usuario_id = request.session.get('usuario_id')
     nota = _get_object_or_404_com_scope(request, NotaDebito, pk)
     pode_rejeitar = (
-        _user_tem_acesso_total(request) or
+        _tem_acesso_global(request) or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_rejeitar:
@@ -2980,7 +2991,7 @@ def cancelar_nota_debito(request, pk):
     usuario_id = request.session.get('usuario_id')
     papel = request.session.get('usuario', {}).get('papel', '')
     pode_cancelar = (
-        _user_tem_acesso_total(request) or
+        _tem_acesso_global(request) or
         nota.utilizador_criador_id == usuario_id
     )
     if not pode_cancelar:
@@ -5308,7 +5319,7 @@ def api_dados_cliente(request):
         
         # Verificar permissões
         cliente = None
-        if not _user_tem_acesso_total(request):
+        if not _tem_acesso_global(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
                 try:
@@ -5356,7 +5367,7 @@ def api_buscar_cliente(request):
     try:
         q = request.GET.get('q', '').strip()
         qs = Cliente.objects.filter(ativo=True)
-        if not _user_tem_acesso_total(request):
+        if not _tem_acesso_global(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
                 qs = qs.filter(banca_id=banca_id)
@@ -5405,7 +5416,7 @@ def api_processos_cliente(request):
         except Cliente.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Cliente não encontrado'})
         
-        if not _user_tem_acesso_total(request):
+        if not _tem_acesso_global(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
                 if cliente.banca_id and cliente.banca_id != banca_id:
@@ -5432,7 +5443,7 @@ def api_processos_cliente(request):
         filtro['status'] = 'Submetida'
         
         filtro_du = None
-        if not _user_tem_acesso_total(request):
+        if not _tem_acesso_global(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
                 filtro['banca_id'] = banca_id
@@ -5478,7 +5489,7 @@ def api_dados_processo(request):
         
         filtro = {'id': processo_id}
         filtro_du = None
-        if not _user_tem_acesso_total(request):
+        if not _tem_acesso_global(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
                 filtro['banca_id'] = banca_id
@@ -5637,7 +5648,7 @@ def api_facturas_por_cliente(request):
         except (ValueError, TypeError):
             return JsonResponse({'success': True, 'facturas': []})
 
-        if not _user_tem_acesso_total(request):
+        if not _tem_acesso_global(request):
             banca_id = request.session.get('banca_id')
             if banca_id:
                 cliente_existe = Cliente.objects.filter(id=cliente_id, banca_id=banca_id).exists()

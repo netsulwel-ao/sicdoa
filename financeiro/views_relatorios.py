@@ -19,7 +19,7 @@ from clientes.models import Cliente
 from .models import (
     RequisicaoFundo, FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo, HistoricoFinanceiro
 )
-from .views import BaseContextMixin, _tem_escopo_filial, _user_tem_acesso_total
+from .views import BaseContextMixin, _tem_escopo_filial, _user_tem_acesso_total, _is_colaborador_institucional
 from utils.format_kz import fmt_kz
 
 logger = logging.getLogger(__name__)
@@ -30,8 +30,10 @@ class ReportPermissionMixin:
     required_permission = ''
 
     def dispatch(self, request, *args, **kwargs):
-        from .views import _user_tem_acesso_total
+        from .views import _user_tem_acesso_total, _is_colaborador_institucional
         if _user_tem_acesso_total(request):
+            return super().dispatch(request, *args, **kwargs)
+        if _is_colaborador_institucional(request):
             return super().dispatch(request, *args, **kwargs)
         if self.required_permission and usuario_tem_permissao(request, self.required_permission):
             return super().dispatch(request, *args, **kwargs)
@@ -566,18 +568,20 @@ def fluxo_caixa_json(request):
     # Aplicar filtragem correta por papel/permissão
     filtro = {}
     if not _user_tem_acesso_total(request):
-        from users.permissoes import get_usuario_permissoes
-        perm_set = get_usuario_permissoes(request)
-        banca_id = request.session.get('banca_id')
-        if not banca_id:
-            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-            if usuario_id:
-                filtro = {'banca__usuario_id': usuario_id}
-        else:
-            filtro = {'banca_id': banca_id}
-            filial_id = request.session.get('colaborador_filial_id')
-            if filial_id and _tem_escopo_filial(perm_set, filial_id):
-                filtro['filial_id'] = filial_id
+        from .views import _is_colaborador_institucional
+        if not _is_colaborador_institucional(request):
+            from users.permissoes import get_usuario_permissoes
+            perm_set = get_usuario_permissoes(request)
+            banca_id = request.session.get('banca_id')
+            if not banca_id:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                if usuario_id:
+                    filtro = {'banca__usuario_id': usuario_id}
+            else:
+                filtro = {'banca_id': banca_id}
+                filial_id = request.session.get('colaborador_filial_id')
+                if filial_id and _tem_escopo_filial(perm_set, filial_id):
+                    filtro['filial_id'] = filial_id
     
     clientes = Cliente.objects.filter(**filtro) if filtro else Cliente.objects.all()
 
@@ -773,18 +777,20 @@ def dashboard_financeiro_json(request):
     # Aplicar filtragem correta por papel/permissão
     filtro = {}
     if not _user_tem_acesso_total(request):
-        from users.permissoes import get_usuario_permissoes
-        perm_set = get_usuario_permissoes(request)
-        banca_id = request.session.get('banca_id')
-        if not banca_id:
-            usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
-            if usuario_id:
-                filtro = {'banca__usuario_id': usuario_id}
-        else:
-            filtro = {'banca_id': banca_id}
-            filial_id = request.session.get('colaborador_filial_id')
-            if filial_id and _tem_escopo_filial(perm_set, filial_id):
-                filtro['filial_id'] = filial_id
+        from .views import _is_colaborador_institucional
+        if not _is_colaborador_institucional(request):
+            from users.permissoes import get_usuario_permissoes
+            perm_set = get_usuario_permissoes(request)
+            banca_id = request.session.get('banca_id')
+            if not banca_id:
+                usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
+                if usuario_id:
+                    filtro = {'banca__usuario_id': usuario_id}
+            else:
+                filtro = {'banca_id': banca_id}
+                filial_id = request.session.get('colaborador_filial_id')
+                if filial_id and _tem_escopo_filial(perm_set, filial_id):
+                    filtro['filial_id'] = filial_id
     
     clientes = Cliente.objects.filter(**filtro) if filtro else Cliente.objects.all()
 

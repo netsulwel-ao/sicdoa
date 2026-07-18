@@ -1,15 +1,26 @@
+"""
+Geração de PDFs profissionais para:
+  - Certidão de Regularidade
+  - Carteira Profissional
+
+Utiliza o layout profissional do sistema (ReportLab SimpleDocTemplate + Table + Paragraph)
+com cabeçalho da BancaCentral, QR Code funcional e rodapé institucional.
+"""
 import os
 import hashlib
 import uuid
 import datetime
 from io import BytesIO
+
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm, cm
-from reportlab.lib.colors import HexColor, black, white, navy
-from reportlab.pdfgen import canvas
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.utils import ImageReader
-from reportlab.platypus import Table, TableStyle, Paragraph
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import cm, mm
+from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+    HRFlowable, Image as RLImage, PageBreak,
+)
 from django.conf import settings
 
 try:
@@ -18,176 +29,363 @@ try:
 except ImportError:
     _QRCODE_OK = False
 
-CDOA_BLUE = HexColor('#1a3a5c')
-CDOA_GOLD = HexColor('#c9a84c')
-CDOA_RED = HexColor('#8b0000')
-GRAY_LIGHT = HexColor('#f0f0f0')
 
-def _draw_border(c, x, y, w, h):
-    c.setStrokeColor(CDOA_BLUE)
-    c.setLineWidth(2)
-    c.rect(x, y, w, h)
-    c.setStrokeColor(CDOA_GOLD)
-    c.setLineWidth(0.5)
-    c.rect(x + 4, y + 4, w - 8, h - 8)
+# ── Cores institucionais ────────────────────────────────────────────────────
+COR_PRIMARIO = colors.HexColor('#0f172a')
+COR_SECUNDARIO = colors.white
+COR_CINZA = colors.HexColor('#64748b')
+COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
+COR_BORDA = colors.HexColor('#cbd5e1')
+COR_VERDE = colors.HexColor('#059669')
+COR_VERMELHO = colors.HexColor('#dc2626')
+COR_BRANCO = colors.white
+COR_GOLD = colors.HexColor('#c9a84c')
+COR_ALT_ROW = colors.HexColor('#f8fafc')
 
-def _draw_header(c, title, subtitle=''):
-    c.saveState()
-    c.setFillColor(CDOA_BLUE)
-    c.rect(0, A4[1] - 50, A4[0], 50, fill=1, stroke=0)
-    c.setFillColor(white)
-    c.setFont('Helvetica-Bold', 14)
-    c.drawString(30, A4[1] - 35, 'REPÚBLICA DE ANGOLA')
-    c.setFont('Helvetica', 9)
-    c.drawString(30, A4[1] - 20, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA)')
-    c.setFillColor(CDOA_GOLD)
-    c.setFont('Helvetica-Bold', 22)
-    c.drawCentredString(A4[0] / 2, A4[1] - 85, title)
-    if subtitle:
-        c.setFillColor(HexColor('#555555'))
-        c.setFont('Helvetica', 10)
-        c.drawCentredString(A4[0] / 2, A4[1] - 100, subtitle)
-    c.restoreState()
 
-def _draw_footer(c):
-    c.saveState()
-    c.setStrokeColor(CDOA_GOLD)
-    c.setLineWidth(0.5)
-    c.line(30, 55, A4[0] - 30, 55)
-    c.setFont('Helvetica', 7)
-    c.setFillColor(HexColor('#888888'))
-    c.drawCentredString(A4[0] / 2, 40, 'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA) — ANGOLA')
-    c.drawCentredString(A4[0] / 2, 28, 'Este documento é válido apenas com a assinatura digital e selo da CDOA.')
-    c.restoreState()
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _safe(text):
+    """Escapa caracteres HTML/XML para ReportLab Paragraph."""
+    if not text:
+        return ''
+    from django.utils.html import escape as _esc
+    return _esc(str(text))
+
+
+def _st(name, **kw):
+    """Cria ParagraphStyle padrão."""
+    defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRIMARIO, leading=11)
+    defaults.update(kw)
+    return ParagraphStyle(name, **defaults)
+
+
+def _hash_documento(dados):
+    """Gera hash curto do documento para rodapé."""
+    raw = '|'.join(str(v) for v in dados)
+    return hashlib.sha256(raw.encode()).hexdigest()[:12].upper()
+
+
+def _carregar_logo_banca(banca):
+    """Carrega logo da banca para ReportLab Image ou retorna Paragraph vazio."""
+    if not banca:
+        return Paragraph('', _st('empty', fontSize=1))
+    logo_path = None
+    if hasattr(banca, 'logo') and banca.logo:
+        try:
+            logo_path = banca.logo.path
+        except Exception:
+            pass
+    if logo_path:
+        try:
+            return RLImage(logo_path, width=2.4 * cm, height=1.7 * cm)
+        except Exception:
+            pass
+    return Paragraph('', _st('empty', fontSize=1))
+
+
+def _carregar_assinatura_banca(banca):
+    """Carrega assinatura digital da banca para ReportLab Image ou retorna None."""
+    if not banca:
+        return None
+    assinatura_path = None
+    if hasattr(banca, 'assinatura') and banca.assinatura:
+        try:
+            assinatura_path = banca.assinatura.path
+        except Exception:
+            pass
+    if assinatura_path:
+        try:
+            return RLImage(assinatura_path, width=4 * cm, height=1.5 * cm)
+        except Exception:
+            pass
+    return None
+
+
+def _gerar_qr_code(texto):
+    """Gera QR Code como ReportLab Image."""
+    if not _QRCODE_OK:
+        return Paragraph('', _st('empty', fontSize=1))
+    try:
+        _qr_buf = BytesIO()
+        _qr_obj = _qrcode.QRCode(version=1, box_size=10, border=2)
+        _qr_obj.add_data(texto)
+        _qr_obj.make(fit=True)
+        _qr_obj.make_image(fill_color="black", back_color="white").save(_qr_buf, format='PNG')
+        _qr_buf.seek(0)
+        return RLImage(_qr_buf, width=2.2 * cm, height=2.2 * cm)
+    except Exception:
+        return Paragraph('', _st('empty', fontSize=1))
+
+
+def _get_banca_central():
+    """Retorna a BancaCentral (registo único) ou None."""
+    try:
+        from rh.models import BancaCentral
+        return BancaCentral.get_instance()
+    except Exception:
+        return None
+
+
+def _build_header(banca, report_name, report_subtitle, request=None):
+    """Constrói o bloco de cabeçalho padrão (logo + QR + empresa + relatório)."""
+    agora = datetime.datetime.now()
+    story = []
+
+    # ── Linha superior: Logo (esq) + QR Code (dir) ──
+    col_logo = _carregar_logo_banca(banca)
+
+    qr_texto = (
+        f"=== {report_name.upper()} ===\n"
+        f"{report_subtitle}\n"
+        f"Data: {agora.strftime('%d/%m/%Y %H:%M')}"
+    )
+    qr_flowable = _gerar_qr_code(qr_texto)
+
+    top_line = Table([[col_logo, qr_flowable]], colWidths=[14.5 * cm, 2.5 * cm])
+    top_line.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(top_line)
+    story.append(Spacer(1, 0.15 * cm))
+
+    # ── Bloco empresa (esq) + bloco documento (dir) ──
+    if banca:
+        nome_txt = _safe(banca.nome) if banca.nome else 'CDOA'
+        nif_txt = banca.nif or 'N/D'
+        cdoa = _safe(getattr(banca, 'licenca_cdoa', '') or '') or '—'
+        endereco = _safe(banca.endereco) or '—'
+        telefone = _safe(banca.telefone) or '—'
+        email_b = _safe(banca.email) or '—'
+    else:
+        nome_txt = 'Câmara dos Despachantes Oficiais de Angola'
+        nif_txt = '5417276825'
+        cdoa = '—'
+        endereco = '—'
+        telefone = '—'
+        email_b = '—'
+
+    empresa_info = (
+        f'<font size="9"><b>{nome_txt}</b></font><br/>'
+        f'<font size="7.5" color="#334155">Residência: {endereco}</font><br/>'
+        f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
+        f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
+        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Licença CDOA: {cdoa}</font>'
+    )
+
+    data_geracao = agora.strftime('%d/%m/%Y %H:%M')
+    utilizador = ''
+    if request and hasattr(request, 'session'):
+        utilizador = request.session.get('usuario', {}).get('nome', '')
+
+    doc_info = (
+        f'<font size="9"><b>{report_name}</b></font><br/>'
+        f'<font size="7.5" color="#334155">{report_subtitle}</font><br/>'
+        f'<font size="7.5" color="#334155">Gerado: {data_geracao}</font>'
+    )
+    if utilizador:
+        doc_info += f'<br/><font size="7.5" color="#334155">Utilizador: {_safe(utilizador)}</font>'
+
+    header_body = Table([[
+        Paragraph(empresa_info, _st('empresa_info', fontSize=7.5, leading=10)),
+        Paragraph(doc_info, _st('doc_info', fontSize=7.5, leading=10)),
+    ]], colWidths=[9.5 * cm, 7.5 * cm])
+    header_body.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_body)
+
+    # ── Linha separadora ──
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.3 * cm))
+
+    return story
+
+
+def _build_footer(story, doc_hash, codigo):
+    """Constrói o rodapé padrão (hash + disclaimer)."""
+    story.append(Spacer(1, 0.4 * cm))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.2 * cm))
+
+    hash_text = (
+        f'<font size="6.5" color="#94a3b8">'
+        f'Hash SHA-256: {doc_hash[:32]}... &nbsp;|&nbsp; '
+        f'Código: {codigo[:20]} &nbsp;|&nbsp; '
+        f'Verifique a autenticidade no portal da CDOA.'
+        f'</font>'
+    )
+    story.append(Paragraph(hash_text, _st('hash_footer', fontSize=6.5, textColor=COR_CINZA)))
+
+    story.append(Spacer(1, 0.3 * cm))
+    disclaimer = (
+        '<font size="6.5" color="#94a3b8">'
+        'CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA) — ANGOLA — '
+        'Este documento é válido apenas com a assinatura digital e o selo da CDOA.'
+        '</font>'
+    )
+    story.append(Paragraph(disclaimer, _st('disclaimer', fontSize=6.5, textColor=COR_CINZA, alignment=TA_CENTER)))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CERTIDÃO DE REGULARIDADE
+# ══════════════════════════════════════════════════════════════════════════════
 
 def gerar_certidao_pdf(despachante, admin_nome):
-    buf = BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    w, h = A4
+    """
+    Gera PDF profissional da Certidão de Regularidade.
+    Retorna dict com codigo, hash, validade, pdf_path, pdf_url.
+    """
+    banca = _get_banca_central()
 
-    # Fundo
-    c.saveState()
-    c.setFillColor(HexColor('#fafaf5'))
-    c.rect(0, 0, w, h, fill=1, stroke=0)
-    c.restoreState()
-
-    _draw_border(c, 15, 15, w - 30, h - 30)
-    _draw_header(c, 'CERTIDÃO DE REGULARIDADE', 'Situação Financeira e Disciplinar')
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+        topMargin=0.5 * cm, bottomMargin=1.0 * cm,
+        title='Certidão de Regularidade',
+    )
 
     codigo = str(uuid.uuid4()).upper()
-    validade = (datetime.date.today() + datetime.timedelta(days=90)).isoformat()
-    hoje = datetime.date.today().strftime('%d de %B de %Y')
-
-    # Número de registro
-    c.saveState()
-    c.setFont('Courier-Bold', 10)
-    c.setFillColor(HexColor('#666666'))
-    c.drawString(40, h - 120, f'Registo Nº {codigo[:16]}')
-    c.restoreState()
-
-    # Texto principal
-    y = h - 155
-    c.saveState()
-    c.setFont('Helvetica', 11)
-    c.setFillColor(HexColor('#333333'))
-
-    linhas = [
-        f'A CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA), no uso das suas atribuições legais e',
-        f'estatutárias, vem por meio desta CERTIDÃO DE REGULARIDADE declarar que:',
-        '',
-    ]
-    for linha in linhas:
-        c.drawString(40, y, linha)
-        y -= 16
-
-    # Nome do despachante em destaque
-    y -= 4
-    c.setFillColor(CDOA_BLUE)
-    c.setFont('Helvetica-Bold', 14)
-    c.drawString(40, y, despachante.nome.upper())
-    y -= 22
-    c.setFillColor(HexColor('#333333'))
-    c.setFont('Helvetica', 11)
-    info = f'Cédula Profissional Nº {despachante.cedula or "__________"} | NIF: {despachante.nif or "__________"}'
-    c.drawString(40, y, info)
-    y -= 30
-
-    c.drawString(40, y, 'encontra-se em situação REGULAR perante esta Câmara, não possuindo quaisquer')
-    y -= 16
-    c.drawString(40, y, 'débitos ou pendências financeiras ou disciplinares até à presente data.')
-    y -= 30
-
-    c.setFont('Helvetica-Bold', 11)
-    c.drawString(40, y, 'Validade:')
-    c.setFont('Helvetica', 11)
-    c.drawString(110, y, f'{validade} (90 dias a contar da data de emissão)')
-    y -= 20
-    c.setFont('Helvetica-Bold', 11)
-    c.drawString(40, y, 'Data de Emissão:')
-    c.setFont('Helvetica', 11)
-    c.drawString(170, y, hoje)
-    c.restoreState()
+    validade_date = datetime.date.today() + datetime.timedelta(days=90)
+    validade = validade_date.isoformat()
+    hoje = datetime.date.today()
+    data_emissao = hoje.strftime('%d de %B de %Y')
 
     # Hash de segurança
     raw = f'{codigo}-{despachante.id}-{datetime.datetime.now().isoformat()}'
     cert_hash = hashlib.sha256(raw.encode()).hexdigest()
-    c.saveState()
-    y = h - 380
-    c.setFillColor(HexColor('#f8f8f8'))
-    c.rect(40, y - 5, w - 80, 55, fill=1, stroke=0)
-    c.setStrokeColor(HexColor('#dddddd'))
-    c.rect(40, y - 5, w - 80, 55, fill=0, stroke=1)
-    c.setFont('Courier', 7)
-    c.setFillColor(HexColor('#888888'))
-    c.drawString(50, y + 5, f'Hash SHA-256: {cert_hash[:64]}')
-    c.drawString(50, y - 10, f'Código de Verificação: {codigo[:24]}')
-    c.drawString(50, y - 25, 'Para validar a autenticidade, aceda ao portal da CDOA e introduza o código acima.')
-    c.restoreState()
 
-    # Assinaturas
-    y = h - 480
-    c.saveState()
-    c.setStrokeColor(HexColor('#999999'))
-    c.setLineWidth(1)
-    mid = w / 2
-    c.line(80, y, mid - 40, y)
-    c.line(mid + 40, y, w - 80, y)
-    c.setFont('Helvetica', 9)
-    c.setFillColor(HexColor('#555555'))
-    c.drawCentredString((80 + mid - 40) / 2, y - 15, 'O Presidente da CDOA')
-    c.drawCentredString((mid + 40 + w - 80) / 2, y - 15, 'O Secretário-Geral')
-    c.setFont('Helvetica', 7)
-    c.setFillColor(HexColor('#999999'))
-    c.drawCentredString((80 + mid - 40) / 2, y - 28, '(Assinatura e Carimbo)')
-    c.drawCentredString((mid + 40 + w - 80) / 2, y - 28, '(Assinatura e Carimbo)')
-    c.restoreState()
+    story = []
 
-    # Selo dourado (círculo decorativo)
-    c.saveState()
-    c.setStrokeColor(CDOA_GOLD)
-    c.setLineWidth(3)
-    cx, cy = w - 80, h - 150
-    c.circle(cx, cy, 20)
-    c.setFillColor(CDOA_GOLD)
-    c.setFont('Helvetica-Bold', 10)
-    c.drawCentredString(cx, cy - 4, 'CDOA')
-    c.restoreState()
+    # ── Cabeçalho institucional ──
+    story.extend(_build_header(
+        banca,
+        'CERTIDÃO DE REGULARIDADE',
+        'Situação Financeira e Disciplinar',
+    ))
 
-    # Número de página
-    c.saveState()
-    c.setFont('Helvetica', 8)
-    c.setFillColor(HexColor('#aaaaaa'))
-    c.drawCentredString(w / 2, 16, f'Documento gerado electronicamente • {datetime.datetime.now().strftime("%d/%m/%Y %H:%M")} • Pág. 1/1')
-    c.restoreState()
+    # ── Código de registo ──
+    story.append(Paragraph(
+        f'<font size="8" color="#64748b">Registo Nº {codigo[:20]}</font>',
+        _st('registo', fontSize=8, textColor=COR_CINZA)
+    ))
+    story.append(Spacer(1, 0.4 * cm))
 
-    _draw_footer(c)
-    c.showPage()
-    c.save()
+    # ── Texto principal ──
+    story.append(Paragraph(
+        'A CÂMARA DOS DESPACHANTES OFICIAIS ADUANEIROS (CDOA), no uso das suas '
+        'atribuições legais e estatutárias, vem por meio desta '
+        '<b>CERTIDÃO DE REGULARIDADE</b> declarar que:',
+        _st('texto1', fontSize=10, leading=14)
+    ))
+    story.append(Spacer(1, 0.5 * cm))
+
+    # ── Nome do despachante em destaque ──
+    nome_box_data = [[
+        Paragraph(
+            f'<font size="14" color="#0f172a"><b>{_safe(despachante.nome.upper())}</b></font>',
+            _st('nome_desp', fontSize=14, textColor=COR_PRIMARIO)
+        )
+    ]]
+    nome_box = Table(nome_box_data, colWidths=[16 * cm])
+    nome_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), COR_CINZA_CLARO),
+        ('BOX', (0, 0), (-1, -1), 0.5, COR_BORDA),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    story.append(nome_box)
+    story.append(Spacer(1, 0.3 * cm))
+
+    # ── Dados do despachante ──
+    dados_data = [
+        ['Cédula Profissional', despachante.cedula or '—'],
+        ['NIF', despachante.nif or '—'],
+        ['Data de Emissão', data_emissao],
+        ['Validade', f'{validade_date.strftime("%d/%m/%Y")} (90 dias)'],
+    ]
+    dados_rows = []
+    for label, valor in dados_data:
+        dados_rows.append([
+            Paragraph(f'<b>{label}</b>', _st('label', fontSize=9, textColor=COR_CINZA)),
+            Paragraph(str(valor), _st('valor', fontSize=9, textColor=COR_PRIMARIO)),
+        ])
+
+    dados_table = Table(dados_rows, colWidths=[5 * cm, 11 * cm])
+    dados_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
+    ]))
+    story.append(dados_table)
+    story.append(Spacer(1, 0.5 * cm))
+
+    # ── Declaração ──
+    story.append(Paragraph(
+        'encontra-se em situação <b>REGULAR</b> perante esta Câmara, não possuindo '
+        'quaisquer débitos ou pendências financeiras ou disciplinares até à presente data.',
+        _st('declaracao', fontSize=10, leading=14)
+    ))
+    story.append(Spacer(1, 0.5 * cm))
+
+    # ── Data e local ──
+    story.append(Paragraph(
+        f'Luanda, {data_emissao}',
+        _st('data_local', fontSize=10, alignment=TA_RIGHT)
+    ))
+    story.append(Spacer(1, 1.0 * cm))
+
+    # ── Assinaturas ──
+    assinatura_img = _carregar_assinatura_banca(banca)
+
+    assinatura_data = [
+        [
+            Paragraph('O Presidente da CDOA', _st('sig_label', fontSize=8, textColor=COR_CINZA, alignment=TA_CENTER)),
+        ],
+    ]
+    if assinatura_img:
+        assinatura_data.append([
+            assinatura_img,
+        ])
+    assinatura_data.append([
+        Paragraph('(Assinatura e Carimbo)', _st('sig_sub', fontSize=7, textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)),
+    ])
+    assinatura_table = Table(assinatura_data, colWidths=[16 * cm])
+    assinatura_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(assinatura_table)
+
+    # ── Rodapé ──
+    _build_footer(story, cert_hash, codigo)
+
+    # ── Gerar PDF ──
+    doc.build(story)
 
     pdf_path = os.path.join(settings.MEDIA_ROOT, 'certidoes', f'{codigo}.pdf')
     os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
     with open(pdf_path, 'wb') as f:
-        f.write(buf.getvalue())
+        f.write(buffer.getvalue())
 
     return {
         'codigo': codigo,
@@ -198,191 +396,202 @@ def gerar_certidao_pdf(despachante, admin_nome):
     }
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# CARTEIRA PROFISSIONAL
+# ══════════════════════════════════════════════════════════════════════════════
+
 def gerar_carteira_pdf(despachante, carteira, admin_nome='Administração CDOA'):
-    buf = BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    w, h = A4
+    """
+    Gera PDF profissional da Carteira Profissional.
+    Retorna (pdf_filename, pdf_url).
+    """
+    banca = _get_banca_central()
 
-    # Fundo
-    c.saveState()
-    c.setFillColor(HexColor('#fafaf5'))
-    c.rect(0, 0, w, h, fill=1, stroke=0)
-    c.restoreState()
-
-    _draw_border(c, 15, 15, w - 30, h - 30)
-    _draw_header(c, 'CARTEIRA PROFISSIONAL', 'Documento de Identificação do Despachante')
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+        topMargin=0.5 * cm, bottomMargin=1.0 * cm,
+        title='Carteira Profissional',
+    )
 
     hoje = datetime.date.today()
     codigo_doc = str(uuid.uuid4()).upper()[:16]
 
-    # Faixa lateral com a foto (simulada)
-    c.saveState()
-    c.setFillColor(CDOA_BLUE)
-    c.rect(35, 125, 120, 160, fill=1, stroke=0)
-    c.setFillColor(HexColor('#2a5a8c'))
-    c.rect(38, 128, 114, 154, fill=1, stroke=0)
-    # Placeholder para foto
-    c.setFillColor(HexColor('#4a7aaa'))
-    c.circle(95, 210, 40)
-    c.setFillColor(white)
-    c.setFont('Helvetica', 40)
-    c.drawCentredString(95, 198, '👤')
-    c.setFont('Helvetica', 8)
-    c.setFillColor(HexColor('#cccccc'))
-    c.drawCentredString(95, 165, 'FOTO')
-    c.setFont('Helvetica-Bold', 11)
-    c.setFillColor(white)
-    c.drawCentredString(95, 140, 'CDOA')
-    c.restoreState()
-
-    # Dados do membro
-    x = 170
-    y_dados = h - 150
-    c.saveState()
-    c.setFont('Helvetica-Bold', 9)
-    c.setFillColor(HexColor('#888888'))
-    labels = ['NOME COMPLETO', 'CÉDULA PROFISSIONAL', 'NIF', 'EMAIL', 'TELEFONE', 'CATEGORIA', 'ESTADO']
-    vals = [
-        despachante.nome.upper(),
-        (despachante.cedula or '__________'),
-        (despachante.nif or '__________'),
-        (despachante.email or '__________'),
-        (despachante.telefone or '__________'),
-        'Despachante Oficial',
-        carteira.status.upper(),
-    ]
-    for i, (label, val) in enumerate(zip(labels, vals)):
-        yy = y_dados - (i * 28)
-        c.drawString(x, yy, label)
-        c.setFont('Helvetica-Bold', 11)
-        c.setFillColor(HexColor('#222222'))
-        c.drawString(x, yy - 14, val)
-        c.setFont('Helvetica-Bold', 9)
-        c.setFillColor(HexColor('#888888'))
-        if i < len(labels) - 1:
-            c.setStrokeColor(HexColor('#eeeeee'))
-            c.setLineWidth(0.5)
-            c.line(x, yy - 24, w - 40, yy - 24)
-    c.restoreState()
-
-    # Número e validade da carteira em destaque
-    c.saveState()
-    barra_y = h - 365
-    c.setFillColor(CDOA_BLUE)
-    c.rect(35, barra_y, w - 70, 55, fill=1, stroke=0)
-    c.setFillColor(white)
-    c.setFont('Helvetica', 9)
-    c.drawString(50, barra_y + 35, 'Nº DA CARTEIRA')
-    c.setFont('Helvetica-Bold', 18)
-    c.drawString(50, barra_y + 12, carteira.numero_carteira)
-    c.setFont('Helvetica', 9)
-    c.drawCentredString(w - 100, barra_y + 35, 'VALIDADE')
-    c.setFont('Helvetica-Bold', 14)
-    c.drawCentredString(w - 70, barra_y + 14, carteira.data_validade.strftime('%d/%m/%Y'))
-    c.restoreState()
-
-    # Código de barras simulado
-    bc_y = h - 440
-    c.saveState()
-    c.setStrokeColor(HexColor('#333333'))
-    c.setLineWidth(1)
-    barcode = carteira.numero_carteira.replace('CDOA-', '').replace('-', '')
-    for i, ch in enumerate(barcode):
-        if ch.isdigit():
-            c.setLineWidth(int(ch) / 2 + 0.5)
-        else:
-            c.setLineWidth(2)
-        xx = 50 + i * 4
-        if xx < w - 50:
-            c.line(xx, bc_y, xx, bc_y + 30)
-    c.setFont('Courier', 8)
-    c.setFillColor(HexColor('#555555'))
-    num_visivel = carteira.numero_carteira
-    c.drawCentredString(w / 2, bc_y - 15, num_visivel)
-    c.restoreState()
-
-    # QR Code real
-    qr_data = f"CDOA:{carteira.numero_carteira}|{despachante.nome}|{despachante.cedula or ''}"
-    qr_x, qr_y = w - 90, h - 470
-    qr_size = 30
-    if _QRCODE_OK:
-        try:
-            qr = _qrcode.QRCode(version=1, error_correction=_qrcode.constants.ERROR_CORRECT_L, box_size=10, border=2)
-            qr.add_data(qr_data)
-            qr.make(fit=True)
-            qr_img = qr.make_image(fill_color="black", back_color="white")
-            buf_qr = BytesIO()
-            qr_img.save(buf_qr, format='PNG')
-            buf_qr.seek(0)
-            c.drawImage(ImageReader(buf_qr), qr_x, qr_y, qr_size, qr_size)
-        except Exception:
-            c.saveState()
-            c.setStrokeColor(HexColor('#333333'))
-            c.setLineWidth(0.5)
-            c.rect(qr_x, qr_y, qr_size, qr_size)
-            c.setFont('Helvetica', 5)
-            c.setFillColor(HexColor('#999999'))
-            c.drawCentredString(w - 75, qr_y - 10, 'QR Code')
-            c.restoreState()
-    else:
-        c.saveState()
-        c.setStrokeColor(HexColor('#333333'))
-        c.setLineWidth(0.5)
-        c.rect(qr_x, qr_y, qr_size, qr_size)
-        c.setFont('Helvetica', 5)
-        c.setFillColor(HexColor('#999999'))
-        c.drawCentredString(w - 75, qr_y - 10, 'QR Code')
-        c.restoreState()
-
-    # Texto legal
-    c.saveState()
-    legal_y = h - 510
-    c.setFont('Helvetica-Oblique', 7.5)
-    c.setFillColor(HexColor('#888888'))
-    textos = [
-        'A presente Carteira Profissional é o documento de identificação do Despachante Oficial',
-        'devidamente habilitado a exercer a actividade de despachante aduaneiro em território nacional,',
-        'ao abrigo do Estatuto da CDOA e demais legislação aplicável.',
-    ]
-    for i, t in enumerate(textos):
-        c.drawCentredString(w / 2, legal_y - (i * 11), t)
-    c.restoreState()
-
-    # Hash
+    # Hash de segurança
     raw = f'{carteira.numero_carteira}-{despachante.id}-{datetime.datetime.now().isoformat()}'
-    doc_hash = hashlib.sha256(raw.encode()).hexdigest()[:20]
-    c.saveState()
-    c.setFont('Courier', 6)
-    c.setFillColor(HexColor('#aaaaaa'))
-    c.drawString(35, 65, f'SHA-256: {doc_hash}...')
-    c.restoreState()
+    doc_hash = hashlib.sha256(raw.encode()).hexdigest()
 
-    # Selo dourado
-    c.saveState()
-    c.setStrokeColor(CDOA_GOLD)
-    c.setLineWidth(3)
-    cx, cy = w - 75, h - 120
-    c.circle(cx, cy, 18)
-    c.setFillColor(CDOA_GOLD)
-    c.setFont('Helvetica-Bold', 9)
-    c.drawCentredString(cx, cy - 4, 'CDOA')
-    c.restoreState()
+    # QR Code com dados de validação
+    qr_data = f"CDOA:{carteira.numero_carteira}|{despachante.nome}|{despachante.cedula or ''}"
 
-    c.saveState()
-    c.setFont('Helvetica', 8)
-    c.setFillColor(HexColor('#aaaaaa'))
-    c.drawCentredString(w / 2, 16, f'Documento gerado electronicamente • {datetime.datetime.now().strftime("%d/%m/%Y %H:%M")} • Pág. 1/1')
-    c.restoreState()
+    story = []
 
-    _draw_footer(c)
-    c.showPage()
-    c.save()
+    # ── Cabeçalho institucional ──
+    story.extend(_build_header(
+        banca,
+        'CARTEIRA PROFISSIONAL',
+        'Documento de Identificação do Despachante Oficial',
+    ))
+
+    # ── Número e validade em destaque ──
+    num_validade_data = [[
+        Paragraph(
+            f'<font size="8" color="#94a3b8">Nº DA CARTEIRA</font><br/>'
+            f'<font size="16" color="#ffffff"><b>{_safe(carteira.numero_carteira)}</b></font>',
+            _st('num_cart', fontSize=16, textColor=COR_BRANCO)
+        ),
+        Paragraph(
+            f'<font size="8" color="#94a3b8">VALIDADE</font><br/>'
+            f'<font size="14" color="#ffffff"><b>{carteira.data_validade.strftime("%d/%m/%Y")}</b></font>',
+            _st('validade_cart', fontSize=14, textColor=COR_BRANCO, alignment=TA_RIGHT)
+        ),
+    ]]
+    num_validade_box = Table(num_validade_data, colWidths=[10 * cm, 6 * cm])
+    num_validade_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), COR_PRIMARIO),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+    ]))
+    story.append(num_validade_box)
+    story.append(Spacer(1, 0.5 * cm))
+
+    # ── Dados do despachante ──
+    dados_items = [
+        ('NOME COMPLETO', despachante.nome.upper()),
+        ('CÉDULA PROFISSIONAL', despachante.cedula or '—'),
+        ('NIF', despachante.nif or '—'),
+        ('EMAIL', despachante.email or '—'),
+        ('TELEFONE', despachante.telefone or '—'),
+        ('CATEGORIA', 'Despachante Oficial'),
+        ('ESTADO', carteira.status.upper()),
+    ]
+
+    dados_rows = []
+    for label, valor in dados_items:
+        dados_rows.append([
+            Paragraph(
+                f'<font size="8" color="#64748b">{label}</font>',
+                _st(f'l_{label}', fontSize=8, textColor=COR_CINZA)
+            ),
+            Paragraph(
+                f'<font size="10" color="#0f172a"><b>{_safe(str(valor))}</b></font>',
+                _st(f'v_{label}', fontSize=10, textColor=COR_PRIMARIO)
+            ),
+        ])
+
+    dados_table = Table(dados_rows, colWidths=[5 * cm, 11 * cm])
+    dados_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
+        ('BACKGROUND', (0, 0), (-1, 0), COR_CINZA_CLARO),
+    ]))
+    story.append(dados_table)
+    story.append(Spacer(1, 0.5 * cm))
+
+    # ── Data de emissão e renovação ──
+    emissor_data = [
+        [
+            Paragraph(
+                f'<font size="8" color="#64748b">DATA DE EMISSÃO</font><br/>'
+                f'<font size="10" color="#0f172a"><b>{carteira.data_emissao.strftime("%d/%m/%Y")}</b></font>',
+                _st('emissao', fontSize=10)
+            ),
+            Paragraph(
+                f'<font size="8" color="#64748b">DATA DE RENOVAÇÃO</font><br/>'
+                f'<font size="10" color="#0f172a"><b>{carteira.data_renovacao.strftime("%d/%m/%Y") if carteira.data_renovacao else "—"}</b></font>',
+                _st('renovacao', fontSize=10)
+            ),
+            Paragraph(
+                f'<font size="8" color="#64748b">EMITIDO POR</font><br/>'
+                f'<font size="10" color="#0f172a"><b>{_safe(admin_nome)}</b></font>',
+                _st('emissor', fontSize=10)
+            ),
+        ]
+    ]
+    emissor_table = Table(emissor_data, colWidths=[5.3 * cm, 5.3 * cm, 5.4 * cm])
+    emissor_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('BOX', (0, 0), (-1, -1), 0.5, COR_BORDA),
+        ('LINEBEFORE', (1, 0), (1, 0), 0.5, COR_BORDA),
+        ('BACKGROUND', (0, 0), (-1, -1), COR_CINZA_CLARO),
+    ]))
+    story.append(emissor_table)
+    story.append(Spacer(1, 0.5 * cm))
+
+    # ── Assinatura ──
+    assinatura_img = _carregar_assinatura_banca(banca)
+    if assinatura_img:
+        assinatura_data = [[
+            Paragraph('O Presidente da CDOA', _st('sig_label_cart', fontSize=8, textColor=COR_CINZA, alignment=TA_CENTER)),
+        ], [
+            assinatura_img,
+        ], [
+            Paragraph('(Assinatura e Carimbo)', _st('sig_sub_cart', fontSize=7, textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)),
+        ]]
+        assinatura_table = Table(assinatura_data, colWidths=[16 * cm])
+        assinatura_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(assinatura_table)
+        story.append(Spacer(1, 0.5 * cm))
+
+    # ── QR Code + Texto legal ──
+    qr_img = _gerar_qr_code(qr_data)
+
+    legal_texto = (
+        '<font size="7.5" color="#64748b">'
+        'A presente Carteira Profissional é o documento de identificação do Despachante Oficial '
+        'devidamente habilitado a exercer a actividade de despachante aduaneiro em território nacional, '
+        'ao abrigo do Estatuto da CDOA e demais legislação aplicável.'
+        '<br/><br/>'
+        f'<b>Código de Verificação:</b> {codigo_doc}<br/>'
+        f'<b>Hash SHA-256:</b> {doc_hash[:32]}...<br/>'
+        'Para validar a autenticidade, acede ao portal da CDOA e introduza o código acima.'
+        '</font>'
+    )
+
+    qr_legal_data = [[
+        qr_img,
+        Paragraph(legal_texto, _st('legal', fontSize=7.5, leading=10, textColor=COR_CINZA)),
+    ]]
+    qr_legal_table = Table(qr_legal_data, colWidths=[3 * cm, 13 * cm])
+    qr_legal_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(qr_legal_table)
+
+    # ── Rodapé ──
+    _build_footer(story, doc_hash, carteira.numero_carteira)
+
+    # ── Gerar PDF ──
+    doc.build(story)
 
     safe_number = carteira.numero_carteira.replace("/", "-").replace("\\", "-")
     pdf_filename = f'carteiras/{safe_number}.pdf'
     pdf_path = os.path.join(settings.MEDIA_ROOT, pdf_filename)
     os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
     with open(pdf_path, 'wb') as f:
-        f.write(buf.getvalue())
+        f.write(buffer.getvalue())
 
     return pdf_filename, f'/media/{pdf_filename}'

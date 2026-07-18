@@ -306,7 +306,7 @@ def admin_bancas_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    ctx = _ctx_admin(request, sub='admin_bancas', extra={
+    ctx = _ctx_admin(request, sub='admin_bancas', active_menu='RH_INST', extra={
         'bancas_info': page_obj,
         'total_bancas': len(bancas_info),
         'page_obj': page_obj,
@@ -337,7 +337,7 @@ def admin_banca_detalhe_view(request, banca_id):
         total_colaboradores=Count('id'),
     )
 
-    ctx = _ctx_admin(request, sub='admin_bancas', extra={
+    ctx = _ctx_admin(request, sub='admin_bancas', active_menu='RH_INST', extra={
         'banca': banca,
         'dono': dono,
         'filiais': filiais,
@@ -437,7 +437,7 @@ def admin_atribuir_cargo_view(request, usuario_id):
         return redirect('admin_despachantes')
 
     ocupantes = {c.funcao: c.usuario.nome for c in CargoMesa.objects.select_related('usuario').all()}
-    ctx = _ctx_admin(request, sub='admin_despachantes', extra={
+    ctx = _ctx_admin(request, sub='admin_despachantes', active_menu='RH_INST', extra={
         'usuario_alvo': usuario,
         'cargo_atual': cargo_atual.funcao if cargo_atual else None,
         'ocupantes': ocupantes,

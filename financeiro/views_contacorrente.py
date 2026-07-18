@@ -26,8 +26,8 @@ from utils.format_kz import fmt_kz
 
 def _user_filter_direct_from_request(request):
     """Retorna dict de filtro para isolar clientes de cada Despachante."""
-    from .views import _user_tem_acesso_total
-    if _user_tem_acesso_total(request):
+    from .views import _user_tem_acesso_total, _is_colaborador_institucional
+    if _user_tem_acesso_total(request) or _is_colaborador_institucional(request):
         return {}
     from users.permissoes import get_usuario_permissoes
     from .views import _tem_escopo_filial

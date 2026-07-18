@@ -57,14 +57,16 @@ def _get_clientes(request):
 
 
 def _get_banca(request):
-    from rh.models import Banca
+    from rh.models import Banca, BancaCentral
     banca_id = request.session.get('banca_id')
     if banca_id:
         return Banca.objects.filter(pk=banca_id).first()
     usuario_id = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
     if usuario_id:
-        return Banca.objects.filter(usuario_id=usuario_id).first()
-    return None
+        b = Banca.objects.filter(usuario_id=usuario_id).first()
+        if b:
+            return b
+    return BancaCentral.get_instance()
 
 
 def _parse_dates(request):
@@ -798,11 +800,13 @@ def relatorio_pdf(request, tipo):
         return HttpResponse('Tipo de relatorio invalido', status=404)
 
     if not _user_tem_acesso_total(request):
-        from users.permissoes import usuario_tem_permissao
-        if not usuario_tem_permissao(request, 'ver_relatorios_operacionais'):
-            papel = request.session.get('usuario', {}).get('papel', '')
-            if papel not in ('Administrador', 'Despachante Oficial'):
-                return HttpResponse('Sem permissão para aceder a relatórios.', status=403)
+        from .views import _is_colaborador_institucional
+        if not _is_colaborador_institucional(request):
+            from users.permissoes import usuario_tem_permissao
+            if not usuario_tem_permissao(request, 'ver_relatorios_operacionais'):
+                papel = request.session.get('usuario', {}).get('papel', '')
+                if papel not in ('Administrador', 'Despachante Oficial'):
+                    return HttpResponse('Sem permissão para aceder a relatórios.', status=403)
 
     try:
         dados = dados_fn(request)

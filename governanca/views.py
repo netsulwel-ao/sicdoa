@@ -1572,14 +1572,14 @@ def api_gerar_documento(request):
     from .utils import gerar_conteudo_documento
     titulo_map = {'ata': f'Ata — {assembleia.titulo}', 'relatorio': f'Relatório — {assembleia.titulo}', 'decreto': f'Decreto — {assembleia.titulo}'}
     titulo = titulo_map.get(tipo, f'Documento — {assembleia.titulo}')
-    conteudo = gerar_conteudo_documento(assembleia, tipo, created_by=usuario_obj)
+    conteudo = gerar_conteudo_documento(assembleia, tipo, created_by=request.usuario_obj)
 
     doc = DocumentoAssembleia.objects.create(
         assembleia=assembleia,
         tipo=tipo,
         titulo=titulo,
         conteudo=conteudo,
-        created_by=usuario_obj,
+        created_by=request.usuario_obj,
     )
     return JsonResponse({'status': 'ok', 'id': doc.id, 'titulo': doc.titulo, 'tipo': doc.tipo})
 
@@ -1658,7 +1658,7 @@ def api_secretario_assembleias(request):
         return JsonResponse({'status': 'error', 'message': 'Sessão expirada.'}, status=401)
     usuario_id = usuario.get('id')
     usuario_obj = Usuario.objects.filter(pk=usuario_id).first()
-    if not usuario_obj or not (usuario_obj.has_cargo('secretario') or usuario_obj.has_cargo('vice-secretario')):
+    if not usuario_obj or not (usuario_obj.is_secretario or usuario_obj.is_vice_secretario):
         return JsonResponse({'status': 'error', 'message': 'Apenas Secretário e Vice-Secretário.'}, status=403)
     from django.db.models import Prefetch
     assembleias = Assembleia.objects.prefetch_related(
@@ -2286,6 +2286,7 @@ def quotas_admin_pagamentos(request):
 
 @_requer_login
 def quotas_admin_config(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     configs_qs = QuotaConfig.objects.order_by('-ano','-mes')
@@ -2304,6 +2305,7 @@ def quotas_admin_config(request):
 
 @_requer_login
 def quotas_admin_relatorios(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
 
@@ -2359,6 +2361,7 @@ def quotas_admin_relatorios(request):
 
 @_requer_login
 def quotas_admin_relatorios_pdf(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
 
@@ -2477,6 +2480,7 @@ def quotas_admin_relatorios_pdf(request):
 
 @_requer_login
 def quotas_admin_gerar_retroativo(request):
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_dashboard')
     hoje = timezone.now()
@@ -2675,6 +2679,7 @@ def api_quotas_definir_estado(request, pk):
 @_requer_login
 def api_quotas_buscar_membros(request):
     """Busca membros (despachantes) para o admin definir estado financeiro."""
+    from users.permissoes import usuario_tem_permissao
     if request.session['usuario']['papel'] not in ('Administrador',) and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     q = request.GET.get('q', '').strip()
@@ -3721,6 +3726,7 @@ def api_consulta_gerar_relatorio(request, pk):
     if hasattr(consulta, 'relatorio'):
         return JsonResponse({'erro': 'Relatório já gerado'}, status=400)
     import hashlib, json
+    from django.db.models import Count
     from django.utils import timezone
     sugestoes = {}
     for artigo in consulta.artigos.prefetch_related('comentarios__autor'):
