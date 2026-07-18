@@ -336,9 +336,8 @@ LOGGING = {
 }
 
 # ── Upload limits ─────────────────────────────────────────────────────
-# Máximo de dados POST em memória (2.5 MB) — acima disso, escreve em disco temporário
-DATA_UPLOAD_MAX_MEMORY_SIZE = 2.5 * 1024 * 1024
-FILE_UPLOAD_MAX_MEMORY_SIZE = 2.5 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2_621_440   # 2.5 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2_621_440   # 2.5 MB
 
 # ── Startup warnings ───────────────────────────────────────────────────
 import logging
