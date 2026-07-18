@@ -29,11 +29,15 @@ class ErrorCaptureMiddleware:
     def _sanitize_post(self, request):
         sensitive_keys = {'password', 'senha', 'passwd', 'token', 'secret', 'csrfmiddlewaretoken'}
         data = {}
-        for key in request.POST:
+        try:
+            post = request.POST
+        except Exception:
+            return {}
+        for key in post:
             if key.lower() in sensitive_keys:
                 data[key] = '***REDACTED***'
             else:
-                data[key] = request.POST[key]
+                data[key] = post[key]
         return data
 
     def _handle_error(self, request):

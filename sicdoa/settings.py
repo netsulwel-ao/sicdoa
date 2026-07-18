@@ -336,8 +336,8 @@ LOGGING = {
 }
 
 # ── Upload limits ─────────────────────────────────────────────────────
-DATA_UPLOAD_MAX_MEMORY_SIZE = 2_621_440   # 2.5 MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 2_621_440   # 2.5 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10_485_760   # 10 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10_485_760   # 10 MB
 
 # ── Startup warnings ───────────────────────────────────────────────────
 import logging
