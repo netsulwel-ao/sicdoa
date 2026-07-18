@@ -26,7 +26,7 @@
 
     {# ── Gestão Aduaneira ───────────────────────────────────────────────── #}
     {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
-    {% if papel == 'Despachante Oficial' or 'gerir_aduaneiro' in user_permissoes or 'criar_declaracao_unica' in user_permissoes or 'ver_pauta_aduaneira' in user_permissoes or 'gerir_clientes' in user_permissoes %}
+    {% if papel == 'Despachante Oficial' or 'gerir_aduaneiro' in user_permissoes or 'criar_declaracao_unica' in user_permissoes or 'ver_pauta_aduaneira' in user_permissoes or 'gerir_clientes' in user_permissoes or 'gerir_clientes_filial' in user_permissoes %}
     <button type="button" data-collapse="aduaneira"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'Gestão Aduaneira' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
@@ -53,7 +53,7 @@
         </a>
       </li>
       {% endif %}
-      {% if papel == 'Despachante Oficial' or 'gerir_clientes' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or 'gerir_clientes' in user_permissoes or 'gerir_clientes_filial' in user_permissoes %}
       <li>
         <a href="{% url 'clientes:lista' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
