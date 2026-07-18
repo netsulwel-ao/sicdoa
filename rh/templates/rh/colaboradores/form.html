@@ -389,14 +389,14 @@ function removeDocumento(docId) {
 
 // Mostra/esconde o selector de filial quando "Gestor de Filial" é seleccionado
 document.addEventListener('DOMContentLoaded', function() {
-  const cargoSelect = document.querySelector('[name="cargo_banca"]');
+  const cargoSelectBanca = document.querySelector('[name="cargo_banca"]');
   const filialContainer = document.getElementById('filialGestorContainer');
-  if (cargoSelect && filialContainer) {
+  if (cargoSelectBanca && filialContainer) {
     function toggleFilialGestor() {
-      const opt = cargoSelect.options[cargoSelect.selectedIndex];
+      const opt = cargoSelectBanca.options[cargoSelectBanca.selectedIndex];
       filialContainer.classList.toggle('hidden', !opt || !opt.textContent.trim().startsWith('Gestor de Filial'));
     }
-    cargoSelect.addEventListener('change', toggleFilialGestor);
+    cargoSelectBanca.addEventListener('change', toggleFilialGestor);
     toggleFilialGestor();
   }
 

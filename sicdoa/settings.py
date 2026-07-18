@@ -42,8 +42,6 @@ if REDIS_ENABLED:
     INSTALLED_APPS += ['django_celery_beat']
 
 MIDDLEWARE = [
-    'utils.middleware.ErrorCaptureMiddleware',
-    'utils.request_logging.RequestLoggingMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -54,6 +52,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'users.middleware.SessionExpirationMiddleware',
     'users.middleware.ActivityLogMiddleware',
+    'utils.middleware.ErrorCaptureMiddleware',
+    'utils.request_logging.RequestLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'sicdoa.urls'

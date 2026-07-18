@@ -65,11 +65,11 @@ def _requer_inst_modulo(*modulos):
 
 
 def _ctx_inst(request, sub='', extra=None):
-    u = request.session['usuario']
+    u = request.session.get('usuario', {})
     from users.permissoes import get_usuario_permissoes
     user_permissoes = get_usuario_permissoes(request)
     ctx = {
-        'usuario': u, 'nome': u['nome'], 'papel': u['papel'],
+        'usuario': u, 'nome': u.get('nome', ''), 'papel': u.get('papel', ''),
         'active_menu': 'RH_INST', 'active_sub': sub,
         'user_permissoes': user_permissoes,
     }

@@ -147,7 +147,13 @@ class SessionExpirationMiddleware:
                         'UTILIZADOR_NAO_ENCONTRADO: usuario_id=%s path=%s — sessao invalida',
                         usuario_id, request.path
                     )
-                    pass
+                    limpar_sessao(request)
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'error': 'Sessão inválida',
+                            'redirect': '/login/'
+                        }, status=401)
+                    return redirect('login')
 
             # ── COLABORADOR (tipo_usuario == 'colaborador') ──
             elif tipo_usuario == 'colaborador':
@@ -207,7 +213,13 @@ class SessionExpirationMiddleware:
                             'COLABORADOR_NAO_ENCONTRADO: colaborador_id=%s path=%s — sessao invalida',
                             colaborador_id, request.path
                         )
-                        pass
+                        limpar_sessao(request)
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return JsonResponse({
+                                'error': 'Sessão inválida',
+                                'redirect': '/login/'
+                            }, status=401)
+                        return redirect('login')
         
         response = self.get_response(request)
         return response

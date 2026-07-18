@@ -3,6 +3,7 @@ import io
 import json
 import uuid
 
+from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
 from django.db import IntegrityError
@@ -1975,4 +1976,4 @@ def du_historico(request, du_uuid):
     ctx['historicos'] = historicos
     ctx['total_versoes'] = historicos.count()
 
-    return render(request, 'aduaneiro/du_historico.html', ctx)
+    return render(request, 'du_historico.html', ctx)

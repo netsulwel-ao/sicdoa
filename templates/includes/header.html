@@ -99,7 +99,7 @@
     <div class="hidden sm:block w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 flex-shrink-0"></div>
 
     <!-- Perfil — sm+ (nome + papel) -->
-    <a href="/perfil/"
+    <a href="{% url 'meu_perfil' %}"
       class="hidden sm:flex items-center gap-2 pl-1 pr-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group flex-shrink-0"
       style="height:36px;">
       <div class="relative flex-shrink-0">
@@ -115,7 +115,7 @@
     </a>
 
     <!-- Perfil — mobile (só avatar) -->
-    <a href="/perfil/"
+    <a href="{% url 'meu_perfil' %}"
       class="sm:hidden relative flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-600 shadow-sm"
       style="min-height:unset;">
       <i class="fas fa-user text-white" style="font-size:16px; line-height:1;"></i>
@@ -143,6 +143,20 @@
     </button>
   </div>
 </div>
+
+<script>
+/* ── URLs do template (Django url tag → JS) ── */
+var SICDOA_URLS = {
+  login: '{% url "login" %}',
+  sessaoStatus: '{% url "sessao_status" %}',
+  renovarSessao: '{% url "renovar_sessao" %}',
+  duLista: '{% url "aduaneiro:du_lista" %}',
+  duPesquisar: '{% url "aduaneiro:du_pesquisar" %}',
+  notificacoes: '{% url "governanca_api_notificacoes" %}',
+  notificacaoLida: '{% url "governanca_api_notificacao_lida" 0 %}'.replace('/0/', '/'),
+  notificacoesMarcarTodas: '{% url "governanca_api_notificacoes_marcar_todas" %}',
+};
+</script>
 
 <script>
 /* ── Barra "Em Reunião" ────────────────────────────────────────── */
@@ -241,7 +255,7 @@
         </a>
       `).join('');
 
-      verTodos.href = `/du/lista/?q=${encodeURIComponent(q)}`;
+      verTodos.href = `${SICDOA_URLS.duLista}?q=${encodeURIComponent(q)}`;
       footer.classList.remove('hidden');
       abrir();
     }
@@ -249,7 +263,7 @@
     async function pesquisar(q) {
       renderLoading();
       try {
-        const res  = await fetch(`/du/api/pesquisar/?q=${encodeURIComponent(q)}`);
+        const res  = await fetch(`${SICDOA_URLS.duPesquisar}?q=${encodeURIComponent(q)}`);
         const data = await res.json();
         renderResultados(data.resultados || [], q);
       } catch {
@@ -270,7 +284,7 @@
       if (e.key === 'Escape') { fechar(); this.blur(); }
       if (e.key === 'Enter') {
         const q = this.value.trim();
-        if (q.length >= 2) window.location.href = `/du/lista/?q=${encodeURIComponent(q)}`;
+        if (q.length >= 2) window.location.href = `${SICDOA_URLS.duLista}?q=${encodeURIComponent(q)}`;
       }
     });
 
@@ -327,20 +341,20 @@
   
   async function verificarSessao() {
     try {
-      const res = await fetch('/users/api/sessao-status/', {
+      const res = await fetch(SICDOA_URLS.sessaoStatus, {
         method: 'GET',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
       
       if (!res.ok) {
-        window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+        window.location.href = SICDOA_URLS.login + '?next=' + encodeURIComponent(window.location.pathname);
         return;
       }
       
       const data = await res.json();
       
       if (!data.active) {
-        window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+        window.location.href = SICDOA_URLS.login + '?next=' + encodeURIComponent(window.location.pathname);
         return;
       }
       
@@ -397,8 +411,8 @@
     
     _intervalModal = setInterval(async function() {
       try {
-        var r = await fetch('/users/api/sessao-status/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        if (!r.ok) { window.location.href = '/login/'; return; }
+        var r = await fetch(SICDOA_URLS.sessaoStatus, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!r.ok) { window.location.href = SICDOA_URLS.login; return; }
         var d = await r.json();
         var restante = d.tempo_restante || 0;
         var el = document.getElementById('sessao-tempo-modal');
@@ -409,7 +423,7 @@
           var btn = document.getElementById('btn-renovar-sessao');
           if (btn) {
             btn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right:6px;"></i>Iniciar Sessão';
-            btn.onclick = function() { window.location.href = '/login/'; };
+            btn.onclick = function() { window.location.href = SICDOA_URLS.login; };
             btn.style.background = '#059669';
           }
           var msgEl = document.getElementById('sessao-mensagem-modal');
@@ -420,7 +434,7 @@
     
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) {
-        window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+        window.location.href = SICDOA_URLS.login + '?next=' + encodeURIComponent(window.location.pathname);
       }
     });
   }
@@ -430,7 +444,7 @@
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>A renovar...'; }
     
     try {
-      var res = await fetch('/users/api/renovar-sessao/', {
+      var res = await fetch(SICDOA_URLS.renovarSessao, {
         method: 'POST',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
@@ -495,7 +509,7 @@
 
   async function carregarNotificacoes() {
     try {
-      const res = await fetch('/governanca/api/notificacoes/');
+      const res = await fetch(SICDOA_URLS.notificacoes);
       const data = await res.json();
       badge.classList.toggle('hidden', data.nao_lidas === 0);
       if (!aberto) return;
@@ -528,7 +542,7 @@
       lista.querySelectorAll('.notif-marcar').forEach(b => {
         b.addEventListener('click', async function() {
           try {
-            const r = await fetch('/governanca/api/notificacoes/marcar-lida/'+this.dataset.id+'/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
+            const r = await fetch(SICDOA_URLS.notificacaoLida + this.dataset.id + '/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
             if (!r.ok) console.error('Erro ao marcar lida:', r.status);
             carregarNotificacoes();
           } catch(e) { console.error(e); }
@@ -547,7 +561,7 @@
   if (marcarTodas) {
     marcarTodas.addEventListener('click', async function() {
       try {
-        const r = await fetch('/governanca/api/notificacoes/marcar-todas/', { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
+        const r = await fetch(SICDOA_URLS.notificacoesMarcarTodas, { method:'POST', headers:{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value||''} });
         if (!r.ok) console.error('Erro ao marcar todas:', r.status);
         carregarNotificacoes();
       } catch(e) { console.error(e); }

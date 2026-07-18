@@ -57,7 +57,6 @@ PROVINCIAS = [
 BANCA_TIPOS = Banca.TIPOS
 CARGOS      = Colaborador.CARGOS
 ESTADOS_COL = Colaborador.ESTADOS
-MESES = MESES  # imported from tax_utils
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -113,10 +112,10 @@ def _validar_mistura_sede_filial(codigos_perm):
 
 
 def _ctx(request, sub='', extra=None):
-    u = request.session['usuario']
+    u = request.session.get('usuario', {})
     from users.permissoes import get_usuario_permissoes
     user_permissoes = get_usuario_permissoes(request)
-    ctx = {'usuario': u, 'nome': u['nome'], 'papel': u['papel'],
+    ctx = {'usuario': u, 'nome': u.get('nome', ''), 'papel': u.get('papel', ''),
            'active_menu': 'RH', 'active_sub': sub,
            'user_permissoes': user_permissoes}
     acc = obter_acesso_rh(request)
@@ -1147,7 +1146,8 @@ def banca_view(request):
             return render(request, 'rh/banca/bloqueada.html', _ctx(request, 'banca', {
                 'banca': banca,
             }))
-        return redirect('rh_banca_criar')
+        # Banca existe e está ativa mas utilizador não tem acesso RH
+        return redirect('dashboard')
 
     if not banca.ativa:
         return render(request, 'rh/banca/bloqueada.html', _ctx(request, 'banca', {
@@ -3712,7 +3712,7 @@ def presencas_view(request):
                       'ausentes_hoje': ausentes_hoje,
                       'pendentes_count': pendentes_count,
                       'ferias_pendentes_count': ferias_pendentes_count,
-                      'hoje_days_in_month': __import__('calendar').monthrange(hoje.year, hoje.month)[1],
+                      'hoje_days_in_month': calendar.monthrange(hoje.year, hoje.month)[1],
                   }))
 
 
@@ -4421,7 +4421,7 @@ def cargos_lista_view(request):
     filial_gestor = gestor.filial if gestor and gestor.filial_id else None
     return render(request, 'rh/cargos_lista.html',
                   _ctx(request, 'cargos', {
-                      'banca': banca, 'cargos': cargos,
+                      'banca': banca, 'cargos': cargos.prefetch_related('permissoes'),
                       'filial_gestor': filial_gestor,
                       'e_gestor_filial': bool(gestor),
                   }))

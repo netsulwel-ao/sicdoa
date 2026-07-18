@@ -1,6 +1,5 @@
 from django.urls import path
 from . import views
-from . import views_public
 from . import views_admin
 from . import views_institucional
 

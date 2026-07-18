@@ -487,9 +487,10 @@ def login_portal_view(request):
             'message': 'Dados inválidos enviados.'
         }, status=400)
     except Exception as e:  # noqa: BLE001
+        login_logger.error('LOGIN_PORTAL_ERRO: %s', e, exc_info=True)
         return JsonResponse({
             'success': False,
-            'message': f'Erro interno: {str(e)}'
+            'message': 'Erro interno ao processar autenticação. Tente novamente.'
         }, status=500)
 
 
@@ -542,8 +543,8 @@ def dashboard_view(request):
 
 def _dashboard_inner(request):
 
-    usuario = request.session["usuario"]
-    uid     = request.session["usuario_id"]
+    usuario = request.session.get("usuario", {})
+    uid     = request.session.get("usuario_id")
     papel   = usuario.get("papel", "")
 
     from aduaneiro.models import DeclaracaoUnica
@@ -745,10 +746,25 @@ def dashboard_colaborador_view(request):
             data_emissao__gte=_ms, data_emissao__lt=_me
         ).count()
 
-        col_dash = Colaborador.objects.select_related('cargo_banca', 'banca').get(id=colaborador_id)
+        from financeiro.models import RequisicaoFundo
+        req_pend_qs = RequisicaoFundo.objects.filter(
+            estado='Pendente', cliente__usuario_id=dono_id
+        )
+        try:
+            col_dash = Colaborador.objects.select_related('cargo_banca', 'banca').get(id=colaborador_id)
+        except Colaborador.DoesNotExist:
+            return redirect("login")
+
+        top_devedores = clientes_qs.filter(ativo=True, saldo_conta_corrente__lt=0).order_by('saldo_conta_corrente')[:5]
+
+        from financeiro.models import HistoricoFinanceiro
+        try:
+            recente = HistoricoFinanceiro.objects.order_by('-data')[:10]
+        except Exception:
+            recente = []
 
         contexto = {
-            "usuario": request.session["usuario"],
+            "usuario": request.session.get("usuario", {}),
             "nome": col_dash.nome,
             "papel": col_dash.cargo_banca.nome if col_dash.cargo_banca else "Colaborador",
             "active_menu": "Dashboard",
@@ -765,11 +781,16 @@ def dashboard_colaborador_view(request):
             "stats_colab_total": col_dash.banca.colaboradores.count() if col_dash.banca else 0,
             "stats_colab_ativos": col_dash.banca.colaboradores.filter(estado='Ativo').count() if col_dash.banca else 0,
             "stats_notificacoes": Notificacao.objects.filter(usuario_id=dono_id, lida=False).count(),
+            "top_devedores": top_devedores,
+            "recente": recente,
         }
         return render(request, "dashboard.html", contexto)
 
     # ── Dashboard simples de colaborador da banca ─────────────────────────
-    colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
+    try:
+        colaborador = Colaborador.objects.select_related('cargo_banca').get(id=colaborador_id)
+    except Colaborador.DoesNotExist:
+        return redirect("login")
     papel = colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador"
     e_gestor = colaborador.e_gestor_filial
     try:
@@ -778,7 +799,7 @@ def dashboard_colaborador_view(request):
         filial_gestor = None
 
     contexto = {
-        "usuario": request.session["usuario"],
+        "usuario": request.session.get("usuario", {}),
         "nome": colaborador.nome,
         "papel": papel,
         "active_menu": "Dashboard",
@@ -1331,6 +1352,11 @@ def buscar_view(request):
     colaborador, erro = _verificar_sessao_colaborador(request)
     if erro:
         return erro
+    if not colaborador:
+        institucional = _get_institucional(request)
+        if not institucional:
+            return redirect("login")
+        return redirect("dashboard_colaborador")
 
     query = request.GET.get("q", "").strip()
     if not query:

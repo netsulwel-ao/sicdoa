@@ -44,9 +44,9 @@ def _requer_sessao(fn):
 
 def _ctx(request, sub='', extra=None):
     """Contexto base para templates"""
-    u = request.session['usuario']
+    u = request.session.get('usuario', {})
     from rh.acesso import contexto_colaborador
-    ctx = {'usuario': u, 'nome': u['nome'], 'papel': u['papel'],
+    ctx = {'usuario': u, 'nome': u.get('nome', ''), 'papel': u.get('papel', ''),
            'active_menu': 'Gestão Aduaneira', 'active_sub': 'clientes'}
     ctx.update(contexto_colaborador(request))
     if extra:
