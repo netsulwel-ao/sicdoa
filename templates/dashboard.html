@@ -22,7 +22,7 @@
       <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Aduaneiro</span>
     </div>
     <p class="text-gray-600 dark:text-gray-400 text-xs font-medium mb-0.5">Processos</p>
-    <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_dus_total }}</p>
+    <p class="text-[#111418] dark:text-gray-200 text-base md:text-lg font-bold truncate">{{ stats_dus_total }}</p>
     <p class="text-xs text-gray-500 mt-1">{{ stats_dus_ativos }} ativos &middot; {{ stats_dus_mes|fmtkz }} KZ mês</p>
     <a href="{% url 'aduaneiro:du_lista' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver todos <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
   </div>
@@ -35,7 +35,7 @@
       <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Clientes</span>
     </div>
     <p class="text-gray-600 dark:text-gray-400 text-xs font-medium mb-0.5">Clientes</p>
-    <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_clientes }}</p>
+    <p class="text-[#111418] dark:text-gray-200 text-base md:text-lg font-bold truncate">{{ stats_clientes }}</p>
     <p class="text-xs text-gray-500 mt-1">Clientes activos registados</p>
     <a href="{% url 'clientes:lista' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver todos <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
   </div>
@@ -48,7 +48,7 @@
       <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">Financeiro</span>
     </div>
     <p class="text-gray-600 dark:text-gray-400 text-xs font-medium mb-0.5">Facturação (mês)</p>
-    <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_fact_valor|fmtkz }} KZ</p>
+    <p class="text-[#111418] dark:text-gray-200 text-base md:text-lg font-bold truncate">{{ stats_fact_valor|fmtkz }} KZ</p>
     <p class="text-xs text-gray-500 mt-1">{{ stats_fact_qtd }} factura{{ stats_fact_qtd|pluralize:"s" }} emitida{{ stats_fact_qtd|pluralize:"s" }}</p>
     <a href="{% url 'financeiro:factura_lista' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver facturas <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
   </div>
@@ -61,7 +61,7 @@
       <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300">Requisições</span>
     </div>
     <p class="text-gray-600 dark:text-gray-400 text-xs font-medium mb-0.5">Pendentes</p>
-    <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_requisicoes_pendentes }}</p>
+    <p class="text-[#111418] dark:text-gray-200 text-base md:text-lg font-bold truncate">{{ stats_requisicoes_pendentes }}</p>
     <p class="text-xs text-gray-500 mt-1">Aguardando aprovação</p>
     <a href="{% url 'financeiro:requisicao_lista' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver todas <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
   </div>
@@ -75,7 +75,7 @@
       <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary dark:bg-primary/20">Administração</span>
     </div>
     <p class="text-gray-600 dark:text-gray-400 text-xs font-medium mb-0.5">Utilizadores do Sistema</p>
-    <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_utilizadores_total }}</p>
+    <p class="text-[#111418] dark:text-gray-200 text-base md:text-lg font-bold truncate">{{ stats_utilizadores_total }}</p>
     <p class="text-xs text-gray-500 mt-1">{{ stats_utilizadores_ativos }} activo{{ stats_utilizadores_ativos|pluralize:"s" }}</p>
     <span class="mt-2 inline-block text-primary text-xs font-semibold group-hover:underline">Gerir <i class="fas fa-arrow-right text-xs ml-0.5"></i></span>
   </a>
@@ -89,7 +89,7 @@
       <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300">Notificações</span>
     </div>
     <p class="text-gray-600 dark:text-gray-400 text-xs font-medium mb-0.5">Não lidas</p>
-    <p class="text-[#111418] dark:text-gray-200 text-xl md:text-2xl font-bold">{{ stats_notificacoes }}</p>
+    <p class="text-[#111418] dark:text-gray-200 text-base md:text-lg font-bold truncate">{{ stats_notificacoes }}</p>
     <p class="text-xs text-gray-500 mt-1">Notificações pendentes</p>
     <a href="{% url 'governanca_notificacoes' %}" class="mt-2 inline-block text-primary text-xs font-semibold hover:underline">Ver todas <i class="fas fa-arrow-right text-xs ml-0.5"></i></a>
   </div>
