@@ -25,7 +25,7 @@
     </a>
 
     {# ── Gestão Aduaneira ───────────────────────────────────────────────── #}
-    {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
+    {% if papel != 'Administrador' %}
     {% if papel == 'Despachante Oficial' or 'gerir_aduaneiro' in user_permissoes or 'criar_declaracao_unica' in user_permissoes or 'ver_pauta_aduaneira' in user_permissoes or 'gerir_clientes' in user_permissoes or 'gerir_clientes_filial' in user_permissoes %}
     <button type="button" data-collapse="aduaneira"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
@@ -154,8 +154,8 @@
     </ul>
     {% endif %}
 
-    {# ── Recursos Humanos Institucional (apenas Administrador) ── #}
-    {% if papel == 'Administrador' %}
+    {# ── Recursos Humanos Institucional ── #}
+    {% if papel == 'Administrador' or 'gerir_colaboradores_inst' in user_permissoes or 'processar_salarios_inst' in user_permissoes or 'gerir_recrutamento_inst' in user_permissoes or 'gerir_presencas_inst' in user_permissoes or 'gerir_ferias_inst' in user_permissoes or 'gerir_avaliacoes_inst' in user_permissoes or 'gerir_subsidios_inst' in user_permissoes or 'gerir_utilizadores' in user_permissoes %}
     <button type="button" data-collapse="rh-inst"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'RH_INST' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
@@ -164,6 +164,7 @@
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'RH_INST' %}rotate-180{% endif %}"></i>
     </button>
     <ul data-submenu="rh-inst" class="ml-4 space-y-0.5 {% if active != 'RH_INST' %}hidden{% endif %}">
+      {% if papel == 'Administrador' %}
       {% if tem_banca_central %}
       <li>
         <a href="{% url 'rh_banca_central' %}"
@@ -180,6 +181,7 @@
           <i class="fas fa-plus-circle text-base"></i>Criar Banca Central
         </a>
       </li>
+      {% endif %}
       {% endif %}
       {% if papel == 'Administrador' or 'gerir_utilizadores' in user_permissoes %}
       <li>
@@ -199,6 +201,7 @@
         </a>
       </li>
       {% endif %}
+      {% if papel == 'Administrador' or 'processar_salarios_inst' in user_permissoes %}
       <li>
         <a href="{% url 'rh_admin_salarios_inst' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -206,6 +209,8 @@
           <i class="fas fa-credit-card text-base"></i>Processamento Salarial
         </a>
       </li>
+      {% endif %}
+      {% if papel == 'Administrador' or 'gerir_recrutamento_inst' in user_permissoes %}
       <li>
         <a href="{% url 'rh_inst_vagas' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -213,6 +218,8 @@
           <i class="fas fa-briefcase text-base"></i>Recrutamento
         </a>
       </li>
+      {% endif %}
+      {% if papel == 'Administrador' or 'acesso_auditoria' in user_permissoes %}
       <li>
         <a href="{% url 'logs_atividade' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -220,6 +227,7 @@
           <i class="fas fa-history text-base"></i>Logs de Atividade
         </a>
       </li>
+      {% endif %}
     </ul>
     {% endif %}
 
@@ -292,7 +300,7 @@
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'Financeiro' %}rotate-180{% endif %}"></i>
     </button>
     <ul data-submenu="financeiro" class="ml-4 space-y-0.5 {% if active != 'Financeiro' %}hidden{% endif %}">
-      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'ver_requisicoes' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and 'ver_requisicoes' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:requisicao_lista' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -301,7 +309,7 @@
         </a>
       </li>
       {% endif %}
-      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'ver_recibos' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and 'ver_recibos' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:recibo_lista' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -310,7 +318,7 @@
         </a>
       </li>
       {% endif %}
-      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'ver_notas_financeiro' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and 'ver_notas_financeiro' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:notas_home' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -319,7 +327,7 @@
         </a>
       </li>
       {% endif %}
-      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and papel != 'Colaborador Institucional' and 'ver_facturas' in user_permissoes %}
+      {% if papel == 'Despachante Oficial' or papel != 'Administrador' and 'gerir_financeiro' in user_permissoes or papel != 'Administrador' and 'ver_facturas' in user_permissoes %}
       <li>
         <a href="{% url 'financeiro:facturas_home' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm

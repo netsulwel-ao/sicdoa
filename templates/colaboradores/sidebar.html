@@ -1,4 +1,4 @@
-{% load rh_extras %}{% with active=active_menu|default:'' sub=active_sub|default:'' papel=papel|default:'Colaborador' e_responsavel=e_responsavel|default:False permissoes=user_permissoes|default:'' e_gestor_filial=e_gestor_filial|default:e_responsavel %}
+{% load rh_extras %}{% with active=active_menu|default:'' sub=active_sub|default:'' papel=papel|default:'Colaborador' e_responsavel=e_responsavel|default:False permissoes=user_permissoes|default:'' e_gestor_filial=e_gestor_filial|default:False %}
 <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 transform bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 transition-transform duration-200 -translate-x-full lg:translate-x-0 overflow-y-auto">
 
   {# ── Logo ───────────────────────────────────────────────────────────#}
@@ -23,7 +23,6 @@
     </a>
 
     {# ── Gestão Aduaneira ──────────────────────────────────────────── #}
-    {% if papel != 'Colaborador Institucional' %}
     {% if 'gerir_aduaneiro' in permissoes or 'criar_declaracao_unica' in permissoes or 'ver_pauta_aduaneira' in permissoes or 'gerir_clientes' in permissoes or 'gerir_clientes_filial' in permissoes %}
     <button type="button" data-collapse="aduaneiro"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
@@ -61,7 +60,6 @@
       </li>
       {% endif %}
     </ul>
-    {% endif %}
     {% endif %}
 
     {# ── Recursos Humanos ──────────────────────────────────────────── #}

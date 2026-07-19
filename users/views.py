@@ -1628,6 +1628,10 @@ def meu_perfil_assinatura(request):
         messages.error(request, 'Não tem permissão para alterar a assinatura.')
         return redirect("meu_perfil")
 
+    if usuario.papel != 'Despachante Oficial':
+        messages.error(request, 'Apenas Despachantes Oficiais podem criar assinatura digital.')
+        return redirect("meu_perfil")
+
     assinatura = request.POST.get("assinatura", "").strip()
     ficheiro = request.FILES.get("assinatura_upload")
 

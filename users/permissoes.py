@@ -228,6 +228,20 @@ def get_usuario_permissoes(request):
                 return permissoes
             except Colaborador.DoesNotExist:
                 pass
+        # Institucional sem Colaborador RH (tipo_usuario='colaborador' mas sem registro rh)
+        # → resolver permissões via tabela usuarios (funcao + permissoes_diretas)
+        usuario_id = request.session['usuario_id']
+        usuario = Usuario.objects.filter(pk=usuario_id).select_related('funcao').prefetch_related(
+            'permissoes_diretas'
+        ).first()
+        if usuario:
+            permissoes = set(usuario.permissoes_diretas.values_list('codigo', flat=True))
+            if usuario.papel == 'Colaborador Institucional':
+                permissoes.update(_get_usuario_funcao_permissoes(usuario))
+            if 'acesso_auditoria' in permissoes:
+                ver_codigos = set(Permissao.objects.filter(codigo__startswith='ver_').values_list('codigo', flat=True))
+                permissoes.update(ver_codigos)
+            return permissoes
         return set()
     usuario_id = request.session['usuario_id']
     usuario = Usuario.objects.filter(pk=usuario_id).select_related('funcao').prefetch_related(
