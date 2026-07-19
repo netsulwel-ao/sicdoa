@@ -903,11 +903,11 @@ def perfil_view(request):
     pode_editar = 'alterar_perfil' in permissoes
 
     if request.method == "POST":
-        if not pode_editar:
+        acao = request.POST.get("acao", "")
+
+        if acao == "editar_perfil" and not pode_editar:
             messages.error(request, 'Não tem permissão para alterar o perfil.')
             return redirect("colaborador_perfil")
-
-        acao = request.POST.get("acao", "")
 
         if acao == "editar_perfil":
             obj = institucional if institucional else colaborador
@@ -919,19 +919,29 @@ def perfil_view(request):
             return redirect("colaborador_perfil")
 
         if acao == "alterar_password":
-            from .models import Usuario
             usuario_id = request.session.get("usuario_id")
-            try:
-                user_obj = Usuario.objects.get(pk=usuario_id)
-            except Usuario.DoesNotExist:
-                messages.error(request, "Utilizador não encontrado.")
-                return redirect("colaborador_perfil")
-
             senha_actual = request.POST.get("senha_actual", "")
             nova_senha = request.POST.get("nova_senha", "")
             confirmar = request.POST.get("confirmar_senha", "")
 
-            if not _verificar_password(senha_actual, user_obj.password):
+            if request.session.get("tipo_usuario") == "colaborador":
+                from rh.models import Colaborador as _Col
+                try:
+                    user_obj = _Col.objects.get(pk=usuario_id)
+                except _Col.DoesNotExist:
+                    messages.error(request, "Utilizador não encontrado.")
+                    return redirect("colaborador_perfil")
+                hash_actual = user_obj.password or ""
+            else:
+                from .models import Usuario
+                try:
+                    user_obj = Usuario.objects.get(pk=usuario_id)
+                except Usuario.DoesNotExist:
+                    messages.error(request, "Utilizador não encontrado.")
+                    return redirect("colaborador_perfil")
+                hash_actual = user_obj.password or ""
+
+            if not _verificar_password(senha_actual, hash_actual):
                 messages.error(request, "A palavra-passe actual está incorrecta.")
             elif len(nova_senha) < 8:
                 messages.error(request, "A nova palavra-passe deve ter pelo menos 8 caracteres.")
@@ -963,6 +973,9 @@ def perfil_view(request):
 
     # Banca colaborador
     papel = colaborador.cargo_banca.nome if colaborador.cargo_banca else "Colaborador"
+    documentos = DocumentoColaborador.objects.filter(
+        colaborador=colaborador
+    ).order_by("-criado_em")
     return render(request, "colaboradores/perfil.html", {
         "nome": colaborador.nome,
         "papel": papel,
@@ -973,6 +986,7 @@ def perfil_view(request):
         "e_responsavel": colaborador.e_gestor_filial,
         "user_permissoes": permissoes,
         "pode_editar_perfil": pode_editar,
+        "documentos": documentos,
     })
 
 
@@ -1093,7 +1107,8 @@ def presenca_view(request):
     return render(request, "colaboradores/presenca.html", {
         "nome": obj.nome,
         "papel": papel,
-        "active_menu": "Presença",
+        "active_menu": "RH",
+        "active_sub": "presenca",
         "colaborador": obj,
         "colaborador_logado": obj,
         "e_responsavel": False if e_inst else colaborador.e_gestor_filial,
@@ -1125,8 +1140,8 @@ def processo_salarial_view(request):
     return render(request, "colaboradores/processo_salarial.html", {
         "nome": obj.nome,
         "papel": papel,
-        "active_menu": "processo-salarial",
-        "active_sub": "processo-salarial",
+        "active_menu": "RH",
+        "active_sub": "salario",
         "colaborador": obj,
         "colaborador_logado": obj,
         "e_responsavel": False if e_inst else colaborador.e_gestor_filial,
@@ -1166,7 +1181,7 @@ def salario_view(request):
     return render(request, "colaboradores/salario.html", {
         "nome": obj.nome,
         "papel": papel,
-        "active_menu": "processo-salarial",
+        "active_menu": "RH",
         "active_sub": "salario",
         "colaborador": obj,
         "colaborador_logado": obj,
@@ -1213,7 +1228,7 @@ def historico_salarial_view(request):
     return render(request, "colaboradores/historico_salarial.html", {
         "nome": obj.nome,
         "papel": papel,
-        "active_menu": "processo-salarial",
+        "active_menu": "RH",
         "active_sub": "historico-salarial",
         "colaborador": obj,
         "colaborador_logado": obj,
@@ -1335,7 +1350,8 @@ def ferias_view(request):
     return render(request, "colaboradores/ferias.html", {
         "nome": obj.nome,
         "papel": papel,
-        "active_menu": "Ferias",
+        "active_menu": "RH",
+        "active_sub": "ferias",
         "colaborador": obj,
         "colaborador_logado": obj,
         "e_responsavel": False if e_inst else colaborador.e_gestor_filial,

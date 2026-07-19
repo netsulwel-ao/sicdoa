@@ -1,225 +1,471 @@
 ﻿{% extends 'colaboradores/base_colaboradores.html' %}
 {% block content %}
 
-    {# ── Cabeçalho ───────────────────────────────────────────────────────── #}
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Meu Perfil</h1>
-        <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5">Consulte e edite as suas informações</p>
-      </div>
-      <a href="{% url 'dashboard_colaborador' %}"
-         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-        <i class="fas fa-arrow-left text-base"></i>Voltar
-      </a>
-    </div>
+{# ── Profile Header ────────────────────────────────────────────────────── #}
+<div class="relative rounded-2xl overflow-hidden mb-8">
+  {# cover #}
+  <div class="h-44 sm:h-52 bg-gradient-to-br from-primary via-blue-600 to-indigo-700 relative">
+    <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNCI+PHBhdGggZD0iTTM2IDM0djZoNnYtNmgtNnptMC0zMHY2aDZ2LTZoLTZ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+  </div>
 
-    {# ── Alertas ─────────────────────────────────────────────────────────── #}
-    {% if mensagem_sucesso %}
-    <div class="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-800 dark:text-green-300">
-      <i class="fas fa-check-circle text-green-600 dark:text-green-400"></i>
-      <span class="text-sm font-medium">{{ mensagem_sucesso }}</span>
-    </div>
-    {% endif %}
-    {% if mensagem_erro %}
-    <div class="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-300">
-      <i class="fas fa-times-circle text-red-600 dark:text-red-400"></i>
-      <span class="text-sm font-medium">{{ mensagem_erro }}</span>
-    </div>
-    {% endif %}
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-      {# ── Informações Pessoais (só leitura) ───────────────────────────── #}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-          <i class="fas fa-user text-primary text-xl"></i>
-          <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Informações Pessoais</h2>
-        </div>
-        <div class="p-5 space-y-4">
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Nome Completo</label>
-            <p class="text-gray-800 dark:text-gray-200 font-medium">{{ colaborador.nome }}</p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</label>
-            <p class="text-gray-800 dark:text-gray-200">{{ colaborador.email|default:"—" }}</p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">NIF</label>
-            <p class="text-gray-800 dark:text-gray-200">{{ colaborador.nif|default:"—" }}</p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">BI</label>
-            <p class="text-gray-800 dark:text-gray-200">{{ colaborador.bi|default:"—" }}</p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Género</label>
-            <p class="text-gray-800 dark:text-gray-200">{{ colaborador.get_genero_display|default:"—" }}</p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Data de Nascimento</label>
-            <p class="text-gray-800 dark:text-gray-200">
-              {% if colaborador.data_nascimento %}{{ colaborador.data_nascimento|date:"d/m/Y" }}{% else %}—{% endif %}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {# ── Informações Profissionais (só leitura) ──────────────────────── #}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-          <i class="fas fa-id-badge text-primary text-xl"></i>
-          <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Informações Profissionais</h2>
-        </div>
-        <div class="p-5 space-y-4">
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Cargo</label>
-            <p class="text-gray-800 dark:text-gray-200 font-medium">{{ colaborador.cargo_label }}</p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Departamento</label>
-            <p class="text-gray-800 dark:text-gray-200">{{ colaborador.departamento|default:"—" }}</p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Local de Trabalho</label>
-            <p class="text-gray-800 dark:text-gray-200">{{ colaborador.local_trabalho }}</p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Data de Admissão</label>
-            <p class="text-gray-800 dark:text-gray-200">
-              {% if colaborador.data_admissao %}{{ colaborador.data_admissao|date:"d/m/Y" }}{% else %}—{% endif %}
-            </p>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Estado</label>
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
-              {% if colaborador.estado == 'Ativo' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
-              {% elif colaborador.estado == 'Ferias' %}bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400
-              {% else %}bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400{% endif %}">
-              {{ colaborador.estado }}
-            </span>
-          </div>
-          {% if e_responsavel %}
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Função Adicional</label>
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-              <i class="fas fa-star text-xs"></i>
-              Responsável de Filial
-            </span>
+  <div class="relative bg-white dark:bg-gray-900 border-t border-gray-200/60 dark:border-gray-800/60">
+    <div class="px-6 sm:px-8 pb-6 -mt-16">
+      <div class="flex flex-col sm:flex-row items-start sm:items-end gap-5">
+        {# avatar #}
+        <div class="relative flex-shrink-0">
+          {% if colaborador.foto %}
+          <img src="{{ colaborador.foto.url }}" alt="{{ colaborador.nome }}"
+               class="w-32 h-32 rounded-2xl object-cover border-4 border-white dark:border-gray-900 shadow-xl">
+          {% else %}
+          <div class="w-32 h-32 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center border-4 border-white dark:border-gray-900 shadow-xl">
+            <span class="text-white text-5xl font-extrabold drop-shadow">{{ colaborador.nome|first }}</span>
           </div>
           {% endif %}
+          <span class="absolute bottom-2 right-2 w-5 h-5 rounded-full border-[3px] border-white dark:border-gray-900
+            {% if colaborador.estado == 'Ativo' %}bg-emerald-500
+            {% elif colaborador.estado == 'Ferias' %}bg-orange-500
+            {% else %}bg-gray-400{% endif %}"></span>
+        </div>
+
+        {# info #}
+        <div class="flex-1 min-w-0 pt-2 sm:pt-0">
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-2">
+            {{ colaborador.nome }}
+          </h1>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold
+              {% if colaborador.estado == 'Ativo' %}bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400
+              {% elif colaborador.estado == 'Ferias' %}bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400
+              {% else %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+              <span class="w-2 h-2 rounded-full
+                {% if colaborador.estado == 'Ativo' %}bg-emerald-500
+                {% elif colaborador.estado == 'Ferias' %}bg-orange-500
+                {% else %}bg-gray-400{% endif %}"></span>
+              {{ colaborador.estado }}
+            </span>
+            {% if e_responsavel %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+              <i class="fas fa-star text-[10px]"></i> Responsável de Filial
+            </span>
+            {% endif %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+              <i class="fas fa-briefcase text-[10px]"></i> {{ papel }}
+            </span>
+          </div>
+        </div>
+
+        {# back button #}
+        <a href="{% url 'dashboard_colaborador' %}"
+           class="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm transition-all">
+          <i class="fas fa-arrow-left text-xs"></i> Voltar
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Alertas ───────────────────────────────────────────────────────────── #}
+{% if messages %}
+{% for msg in messages %}
+<div class="flex items-center gap-3 p-4 rounded-2xl border mb-4
+  {% if msg.tags == 'success' %}bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300
+  {% elif msg.tags == 'error' %}bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300
+  {% else %}bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300{% endif %}">
+  <div class="p-1.5 rounded-lg
+    {% if msg.tags == 'success' %}bg-emerald-100 dark:bg-emerald-900/40
+    {% elif msg.tags == 'error' %}bg-red-100 dark:bg-red-900/40
+    {% else %}bg-blue-100 dark:bg-blue-900/40{% endif %}">
+    <i class="fas {% if msg.tags == 'success' %}fa-check-circle text-emerald-600 dark:text-emerald-400
+       {% elif msg.tags == 'error' %}fa-times-circle text-red-600 dark:text-red-400
+       {% else %}fa-info-circle text-blue-600 dark:text-blue-400{% endif %}"></i>
+  </div>
+  <span class="text-sm font-medium">{{ msg }}</span>
+</div>
+{% endfor %}
+{% elif mensagem_sucesso %}
+<div class="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-emerald-800 dark:text-emerald-300 mb-4">
+  <div class="p-1.5 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg"><i class="fas fa-check-circle text-emerald-600 dark:text-emerald-400"></i></div>
+  <span class="text-sm font-medium">{{ mensagem_sucesso }}</span>
+</div>
+{% elif mensagem_erro %}
+<div class="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-800 dark:text-red-300 mb-4">
+  <div class="p-1.5 bg-red-100 dark:bg-red-900/40 rounded-lg"><i class="fas fa-times-circle text-red-600 dark:text-red-400"></i></div>
+  <span class="text-sm font-medium">{{ mensagem_erro }}</span>
+</div>
+{% endif %}
+
+{# ── Tabs ──────────────────────────────────────────────────────────────── #}
+<div class="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl mb-6 overflow-x-auto" id="perfil-tabs">
+  <button onclick="showTab('pessoal')" id="tab-pessoal"
+          class="tab-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all bg-white dark:bg-gray-700 text-primary shadow-sm">
+    <i class="fas fa-user text-xs"></i> Dados Pessoais
+  </button>
+  <button onclick="showTab('profissional')" id="tab-profissional"
+          class="tab-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+    <i class="fas fa-briefcase text-xs"></i> Dados Profissionais
+  </button>
+  <button onclick="showTab('editar')" id="tab-editar"
+          class="tab-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+    <i class="fas fa-pen-to-square text-xs"></i> Editar Perfil
+  </button>
+  <button onclick="showTab('documentos')" id="tab-documentos"
+          class="tab-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+    <i class="fas fa-file-alt text-xs"></i> Documentos
+  </button>
+  <button onclick="showTab('senha')" id="tab-senha"
+          class="tab-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+    <i class="fas fa-shield-halved text-xs"></i> Alterar Palavra-passe
+  </button>
+</div>
+
+{# ── Tab: Dados Pessoais ──────────────────────────────────────────────── #}
+<div id="panel-pessoal" class="tab-panel">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
+    <div class="px-6 sm:px-8 py-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2.5">
+        <span class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl"><i class="fas fa-user text-blue-600 dark:text-blue-400 text-sm"></i></span>
+        Informações Pessoais
+      </h2>
+    </div>
+    <div class="p-6 sm:p-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
+        <div class="sm:col-span-2 lg:col-span-3">
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Nome Completo</dt>
+          <dd class="text-base font-bold text-gray-900 dark:text-white">{{ colaborador.nome }}</dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Email</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-envelope text-[10px] text-gray-400"></i>
+            <span class="truncate">{{ colaborador.email|default:"—" }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Telefone</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-phone text-[10px] text-gray-400"></i>
+            <span class="tabular-nums">{{ colaborador.telefone|default:"—" }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Género</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-venus-mars text-[10px] text-gray-400"></i>
+            {{ colaborador.get_genero_display|default:"—" }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">NIF</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-id-card text-[10px] text-gray-400"></i>
+            <span class="tabular-nums">{{ colaborador.nif|default:"—" }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Bilhete de Identidade</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-address-card text-[10px] text-gray-400"></i>
+            <span class="tabular-nums">{{ colaborador.bi|default:"—" }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Data de Nascimento</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-cake-candles text-[10px] text-gray-400"></i>
+            {% if colaborador.data_nascimento %}
+            <span class="tabular-nums">{{ colaborador.data_nascimento|date:"d/m/Y" }}</span>
+            {% else %}—{% endif %}
+          </dd>
         </div>
       </div>
+    </div>
+  </div>
+</div>
 
-      {% if pode_editar_perfil %}
-      {# ── Editar Perfil ──────────────────────────────────────────────── #}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-          <i class="fas fa-edit text-primary text-xl"></i>
-          <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Editar Perfil</h2>
+{# ── Tab: Dados Profissionais ─────────────────────────────────────────── #}
+<div id="panel-profissional" class="tab-panel hidden">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
+    <div class="px-6 sm:px-8 py-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2.5">
+        <span class="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl"><i class="fas fa-briefcase text-purple-600 dark:text-purple-400 text-sm"></i></span>
+        Informações Profissionais
+      </h2>
+    </div>
+    <div class="p-6 sm:p-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Cargo</dt>
+          <dd class="text-base font-bold text-gray-900 dark:text-white">{{ colaborador.cargo_label }}</dd>
         </div>
-        <form method="post" class="p-5 space-y-4">
-          {% csrf_token %}
-          <input type="hidden" name="acao" value="editar_perfil">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nome</label>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Estado</dt>
+          <dd>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold
+              {% if colaborador.estado == 'Ativo' %}bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400
+              {% elif colaborador.estado == 'Ferias' %}bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400
+              {% else %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+              <span class="w-1.5 h-1.5 rounded-full
+                {% if colaborador.estado == 'Ativo' %}bg-emerald-500
+                {% elif colaborador.estado == 'Ferias' %}bg-orange-500
+                {% else %}bg-gray-400{% endif %}"></span>
+              {{ colaborador.estado }}
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Departamento</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-building text-[10px] text-gray-400"></i>
+            {{ colaborador.departamento|default:"—" }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Local de Trabalho</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-map-marker-alt text-[10px] text-gray-400"></i>
+            {{ colaborador.local_trabalho }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Data de Admissão</dt>
+          <dd class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i class="fas fa-calendar-check text-[10px] text-gray-400"></i>
+            {% if colaborador.data_admissao %}
+            <span class="tabular-nums">{{ colaborador.data_admissao|date:"d/m/Y" }}</span>
+            {% else %}—{% endif %}
+          </dd>
+        </div>
+        {% if e_responsavel %}
+        <div>
+          <dt class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Função Adicional</dt>
+          <dd>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+              <i class="fas fa-star text-[10px]"></i> Responsável de Filial
+            </span>
+          </dd>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Tab: Editar Perfil ───────────────────────────────────────────────── #}
+<div id="panel-editar" class="tab-panel hidden">
+  {% if pode_editar_perfil %}
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
+    <div class="px-6 sm:px-8 py-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2.5">
+        <span class="p-2 bg-primary/10 dark:bg-primary/20 rounded-xl"><i class="fas fa-pen-to-square text-primary text-sm"></i></span>
+        Editar Informações de Contacto
+      </h2>
+    </div>
+    <form method="post" class="p-6 sm:p-8">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="editar_perfil">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-2xl">
+        <div class="sm:col-span-2">
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Nome Completo</label>
+          <div class="relative">
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"><i class="fas fa-user text-xs"></i></div>
             <input type="text" name="nome" value="{{ colaborador.nome }}"
-                   class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+                   class="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all">
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Email</label>
+          <div class="relative">
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"><i class="fas fa-envelope text-xs"></i></div>
             <input type="email" name="email" value="{{ colaborador.email }}"
-                   class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+                   class="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all">
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telefone</label>
-            <input type="tel" name="telefone" value="{{ colaborador.telefone }}"
-                   placeholder="+244 9XX XXX XXX"
-                   class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Telefone</label>
+          <div class="relative">
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"><i class="fas fa-phone text-xs"></i></div>
+            <input type="tel" name="telefone" value="{{ colaborador.telefone }}" placeholder="+244 9XX XXX XXX"
+                   class="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all">
           </div>
-          <button type="submit"
-                  class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
-            <i class="fas fa-save text-base"></i>
-            Guardar Alterações
-          </button>
-        </form>
+        </div>
       </div>
+      <div class="mt-6 flex gap-3">
+        <button type="submit"
+                class="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all">
+          <i class="fas fa-check text-xs"></i> Guardar Alterações
+        </button>
+        <button type="reset"
+                class="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+          <i class="fas fa-rotate-left text-xs"></i> Repor
+        </button>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-sm p-12 text-center">
+    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 mb-4">
+      <i class="fas fa-lock text-gray-400 text-xl"></i>
+    </div>
+    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Não tem permissão para editar o perfil.</p>
+  </div>
+  {% endif %}
+</div>
 
-      {# ── Alterar Palavra-passe ────────────────────────────────────────── #}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-          <i class="fas fa-lock text-primary text-xl"></i>
-          <h2 class="text-gray-800 dark:text-gray-200 font-semibold">Alterar Palavra-passe</h2>
+{# ── Tab: Documentos ───────────────────────────────────────────────────── #}
+<div id="panel-documentos" class="tab-panel hidden">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
+    <div class="px-6 sm:px-8 py-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2.5">
+        <span class="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl"><i class="fas fa-file-alt text-amber-600 dark:text-amber-400 text-sm"></i></span>
+        Meus Documentos
+      </h2>
+    </div>
+    <div class="p-6 sm:p-8">
+      {% if documentos %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for doc in documentos %}
+        <div class="group relative bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200/60 dark:border-gray-700/60 p-4 hover:border-primary/30 dark:hover:border-primary/30 hover:shadow-sm transition-all">
+          <div class="flex items-start gap-3 mb-3">
+            <div class="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex-shrink-0">
+              <i class="fas fa-file-alt text-blue-600 dark:text-blue-400 text-lg"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{{ doc.get_tipo_display }}</p>
+              <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 tabular-nums">{{ doc.criado_em|date:"d/m/Y H:i" }}</p>
+            </div>
+          </div>
+          {% if doc.descricao %}
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">{{ doc.descricao }}</p>
+          {% endif %}
+          <a href="{{ doc.arquivo.url }}" target="_blank"
+             class="flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 text-primary text-xs font-semibold rounded-lg hover:bg-primary/20 transition-colors">
+            <i class="fas fa-download text-[10px]"></i> Download
+          </a>
         </div>
-        <form method="post" class="p-5 space-y-4" id="form-password">
-          {% csrf_token %}
-          <input type="hidden" name="acao" value="alterar_password">
+        {% endfor %}
+      </div>
       {% else %}
-      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden lg:col-span-2">
-        <div class="flex flex-col items-center justify-center py-10 text-center px-4">
-          <i class="fas fa-lock text-gray-300 dark:text-gray-600 mb-3" style="font-size: 40px;"></i>
-          <p class="text-gray-500 dark:text-gray-400 font-medium">Não tem permissão para editar o perfil</p>
-          <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">A permissão <strong>Alterar Próprio Perfil</strong> não está atribuída ao seu cargo.</p>
+      <div class="text-center py-10">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-800 mb-3">
+          <i class="fas fa-file-alt text-gray-400 text-xl"></i>
         </div>
+        <p class="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Nenhum documento</p>
+        <p class="text-xs text-gray-400 dark:text-gray-500">Os seus documentos aparecerão aqui quando disponíveis.</p>
       </div>
       {% endif %}
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Palavra-passe Actual <span class="text-red-500">*</span>
-            </label>
-            <div class="relative">
-              <input type="password" name="senha_actual" id="senha_actual" required
-                     placeholder="••••••••"
-                     class="w-full px-3 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-              <button type="button" onclick="togglePass('senha_actual')"
-                      class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <i class="fas fa-eye text-base" id="icon_senha_actual"></i>
-              </button>
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Nova Palavra-passe <span class="text-red-500">*</span>
-            </label>
-            <div class="relative">
-              <input type="password" name="nova_senha" id="nova_senha" required minlength="4"
-                     placeholder="Mínimo 4 caracteres"
-                     class="w-full px-3 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-              <button type="button" onclick="togglePass('nova_senha')"
-                      class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <i class="fas fa-eye text-base" id="icon_nova_senha"></i>
-              </button>
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Confirmar Nova Palavra-passe <span class="text-red-500">*</span>
-            </label>
-            <div class="relative">
-              <input type="password" name="confirmar_senha" id="confirmar_senha" required minlength="4"
-                     placeholder="Repita a nova palavra-passe"
-                     class="w-full px-3 py-2.5 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-              <button type="button" onclick="togglePass('confirmar_senha')"
-                      class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <i class="fas fa-eye text-base" id="icon_confirmar_senha"></i>
-              </button>
-            </div>
-            <p id="msg-match" class="text-xs mt-1 hidden"></p>
-          </div>
-          <button type="submit"
-                  class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
-            <i class="fas fa-key text-base"></i>
-            Alterar Palavra-passe
-          </button>
-        </form>
-      </div>
-
     </div>
+  </div>
+</div>
+
+{# ── Tab: Alterar Palavra-passe ────────────────────────────────────────── #}
+<div id="panel-senha" class="tab-panel hidden">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
+    <div class="px-6 sm:px-8 py-5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2.5">
+        <span class="p-2 bg-red-50 dark:bg-red-900/20 rounded-xl"><i class="fas fa-shield-halved text-red-600 dark:text-red-400 text-sm"></i></span>
+        Alterar Palavra-passe
+      </h2>
+      <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 ml-10">Mínimo 8 caracteres, 1 maiúscula e 1 dígito</p>
+    </div>
+    <form method="post" id="form-password" class="p-6 sm:p-8">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="alterar_password">
+      <div class="max-w-md space-y-4">
+
+        {# senha actual #}
+        <div>
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">
+            Palavra-passe Actual <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"><i class="fas fa-lock text-xs"></i></div>
+            <input type="password" name="senha_actual" id="senha_actual" required
+                   placeholder="••••••••"
+                   class="w-full pl-10 pr-11 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all">
+            <button type="button" onclick="togglePass('senha_actual')"
+                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              <i class="fas fa-eye text-sm" id="icon_senha_actual"></i>
+            </button>
+          </div>
+        </div>
+
+        {# divider #}
+        <div class="border-t border-gray-100 dark:border-gray-800"></div>
+
+        {# nova senha #}
+        <div>
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">
+            Nova Palavra-passe <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"><i class="fas fa-key text-xs"></i></div>
+            <input type="password" name="nova_senha" id="nova_senha" required minlength="8"
+                   placeholder="Mínimo 8 caracteres"
+                   class="w-full pl-10 pr-11 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all">
+            <button type="button" onclick="togglePass('nova_senha')"
+                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              <i class="fas fa-eye text-sm" id="icon_nova_senha"></i>
+            </button>
+          </div>
+          {# strength indicator #}
+          <div class="flex gap-1 mt-2" id="strength-bar">
+            <div class="h-1 flex-1 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" id="str-1"></div>
+            <div class="h-1 flex-1 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" id="str-2"></div>
+            <div class="h-1 flex-1 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" id="str-3"></div>
+            <div class="h-1 flex-1 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" id="str-4"></div>
+          </div>
+          <p class="text-[11px] mt-1 text-gray-400 dark:text-gray-500" id="strength-text"></p>
+        </div>
+
+        {# confirmar #}
+        <div>
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">
+            Confirmar Palavra-passe <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"><i class="fas fa-check-double text-xs"></i></div>
+            <input type="password" name="confirmar_senha" id="confirmar_senha" required minlength="8"
+                   placeholder="Repita a nova palavra-passe"
+                   class="w-full pl-10 pr-11 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all">
+            <button type="button" onclick="togglePass('confirmar_senha')"
+                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              <i class="fas fa-eye text-sm" id="icon_confirmar_senha"></i>
+            </button>
+          </div>
+          <p id="msg-match" class="text-xs mt-1.5 hidden"></p>
+        </div>
+
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 hover:shadow-lg hover:shadow-red-600/25 active:scale-[0.98] transition-all">
+          <i class="fas fa-shield-halved text-xs"></i> Alterar Palavra-passe
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script>
+/* ── Tabs ─────────────────────────────────────────────────────────────── */
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.add('hidden'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) {
+    b.classList.remove('bg-white', 'dark:bg-gray-700', 'text-primary', 'shadow-sm');
+    b.classList.add('text-gray-500', 'dark:text-gray-400');
+  });
+  var panel = document.getElementById('panel-' + id);
+  var btn   = document.getElementById('tab-' + id);
+  if (panel) panel.classList.remove('hidden');
+  if (btn) {
+    btn.classList.add('bg-white', 'dark:bg-gray-700', 'text-primary', 'shadow-sm');
+    btn.classList.remove('text-gray-500', 'dark:text-gray-400');
+  }
+}
+
+/* ── Toggle password visibility ───────────────────────────────────────── */
 function togglePass(id) {
-  const input = document.getElementById(id);
-  const icon = document.getElementById('icon_' + id);
+  var input = document.getElementById(id);
+  var icon  = document.getElementById('icon_' + id);
   if (input.type === 'password') {
     input.type = 'text';
     icon.className = icon.className.replace('fa-eye', 'fa-eye-slash');
@@ -229,66 +475,107 @@ function togglePass(id) {
   }
 }
 
-const nova     = document.getElementById('nova_senha');
-const confirmar = document.getElementById('confirmar_senha');
-const msg      = document.getElementById('msg-match');
-
-function verificarMatch() {
-  if (nova.value.length > 0 && nova.value.length < 4) {
-    msg.classList.remove('hidden');
-    msg.innerHTML = '<i class="fas fa-times text-red-600 text-xs"></i> Mínimo de 4 caracteres';
-    msg.className = 'text-xs mt-1 text-red-600 dark:text-red-400';
-    return;
-  }
-  if (!confirmar.value) { msg.classList.add('hidden'); return; }
-  msg.classList.remove('hidden');
-  if (nova.value === confirmar.value) {
-    msg.innerHTML = '<i class="fas fa-check text-green-600 text-xs"></i> As palavras-passe coincidem';
-    msg.className = 'text-xs mt-1 text-green-600 dark:text-green-400';
-  } else {
-    msg.innerHTML = '<i class="fas fa-times text-red-600 text-xs"></i> As palavras-passe não coincidem';
-    msg.className = 'text-xs mt-1 text-red-600 dark:text-red-400';
-  }
+/* ── Password strength bar ───────────────────────────────────────────── */
+var strInput = document.getElementById('nova_senha');
+if (strInput) {
+  strInput.addEventListener('input', function() {
+    var v = this.value, s = 0;
+    if (v.length >= 8)  s++;
+    if (v.length >= 12) s++;
+    if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++;
+    if (/[0-9]/.test(v) && /[^A-Za-z0-9]/.test(v)) s++;
+    var colors = ['bg-gray-200 dark:bg-gray-700', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-emerald-500'];
+    var labels = ['', 'Fraca', 'Razoável', 'Boa', 'Forte'];
+    var textC  = ['', 'text-red-500', 'text-orange-500', 'text-yellow-600', 'text-emerald-600'];
+    for (var i = 1; i <= 4; i++) {
+      var el = document.getElementById('str-' + i);
+      el.className = 'h-1 flex-1 rounded-full transition-colors ' + (i <= s ? colors[s] : 'bg-gray-200 dark:bg-gray-700');
+    }
+    var txt = document.getElementById('strength-text');
+    txt.textContent = labels[s] || '';
+    txt.className = 'text-[11px] mt-1 font-medium ' + (textC[s] || 'text-gray-400 dark:text-gray-500');
+  });
 }
 
-document.getElementById('form-password').addEventListener('submit', function(e) {
-  const senhaActual = document.getElementById('senha_actual').value.trim();
-  const novaSenha   = nova.value.trim();
-  const confirmarSenha = confirmar.value.trim();
-  if (!senhaActual) {
-    e.preventDefault();
-    msg.classList.remove('hidden');
-    msg.innerHTML = '<i class="fas fa-times text-red-600 text-xs"></i> Preencha a palavra-passe actual';
-    msg.className = 'text-xs mt-1 text-red-600 dark:text-red-400';
-    document.getElementById('senha_actual').focus();
-    return;
-  }
-  if (novaSenha.length < 4) {
-    e.preventDefault();
-    msg.classList.remove('hidden');
-    msg.innerHTML = '<i class="fas fa-times text-red-600 text-xs"></i> A nova palavra-passe deve ter pelo menos 4 caracteres';
-    msg.className = 'text-xs mt-1 text-red-600 dark:text-red-400';
-    nova.focus();
-    return;
-  }
-  if (!confirmarSenha) {
-    e.preventDefault();
-    msg.classList.remove('hidden');
-    msg.innerHTML = '<i class="fas fa-times text-red-600 text-xs"></i> Confirme a nova palavra-passe';
-    msg.className = 'text-xs mt-1 text-red-600 dark:text-red-400';
-    confirmar.focus();
-    return;
-  }
-  if (novaSenha !== confirmarSenha) {
-    e.preventDefault();
-    msg.classList.remove('hidden');
-    msg.innerHTML = '<i class="fas fa-times text-red-600 text-xs"></i> As palavras-passe não coincidem';
-    msg.className = 'text-xs mt-1 text-red-600 dark:text-red-400';
-    confirmar.focus();
-  }
-});
+/* ── Match indicator ──────────────────────────────────────────────────── */
+var formPwd = document.getElementById('form-password');
+if (formPwd) {
+  var nova      = document.getElementById('nova_senha');
+  var confirmar = document.getElementById('confirmar_senha');
+  var msg       = document.getElementById('msg-match');
 
-nova.addEventListener('input', verificarMatch);
-confirmar.addEventListener('input', verificarMatch);
+  function verificarMatch() {
+    if (nova.value.length > 0 && nova.value.length < 8) {
+      msg.classList.remove('hidden');
+      msg.innerHTML = '<i class="fas fa-times text-red-500 text-xs"></i> Mínimo de 8 caracteres';
+      msg.className = 'text-xs mt-1.5 text-red-500 dark:text-red-400';
+      return;
+    }
+    if (!confirmar.value) { msg.classList.add('hidden'); return; }
+    msg.classList.remove('hidden');
+    if (nova.value === confirmar.value) {
+      msg.innerHTML = '<i class="fas fa-check text-emerald-500 text-xs"></i> Palavras-passe coincidem';
+      msg.className = 'text-xs mt-1.5 text-emerald-600 dark:text-emerald-400';
+    } else {
+      msg.innerHTML = '<i class="fas fa-times text-red-500 text-xs"></i> Não coincidem';
+      msg.className = 'text-xs mt-1.5 text-red-500 dark:text-red-400';
+    }
+  }
+
+  formPwd.addEventListener('submit', function(e) {
+    var senhaActual    = document.getElementById('senha_actual').value.trim();
+    var novaSenha      = nova.value.trim();
+    var confirmarSenha = confirmar.value.trim();
+    if (!senhaActual) {
+      e.preventDefault();
+      msg.classList.remove('hidden');
+      msg.innerHTML = '<i class="fas fa-times text-red-500 text-xs"></i> Preencha a palavra-passe actual';
+      msg.className = 'text-xs mt-1.5 text-red-500 dark:text-red-400';
+      document.getElementById('senha_actual').focus();
+      return;
+    }
+    if (novaSenha.length < 8) {
+      e.preventDefault();
+      msg.classList.remove('hidden');
+      msg.innerHTML = '<i class="fas fa-times text-red-500 text-xs"></i> Mínimo 8 caracteres';
+      msg.className = 'text-xs mt-1.5 text-red-500 dark:text-red-400';
+      nova.focus();
+      return;
+    }
+    if (!confirmarSenha) {
+      e.preventDefault();
+      msg.classList.remove('hidden');
+      msg.innerHTML = '<i class="fas fa-times text-red-500 text-xs"></i> Confirme a nova palavra-passe';
+      msg.className = 'text-xs mt-1.5 text-red-500 dark:text-red-400';
+      confirmar.focus();
+      return;
+    }
+    if (novaSenha !== confirmarSenha) {
+      e.preventDefault();
+      msg.classList.remove('hidden');
+      msg.innerHTML = '<i class="fas fa-times text-red-500 text-xs"></i> Não coincidem';
+      msg.className = 'text-xs mt-1.5 text-red-500 dark:text-red-400';
+      confirmar.focus();
+    }
+  });
+
+  nova.addEventListener('input', verificarMatch);
+  confirmar.addEventListener('input', verificarMatch);
+}
+
+/* ── Auto-open tab on error ───────────────────────────────────────────── */
+{% if messages %}
+  {% for msg in messages %}
+    {% if msg.tags == 'error' and 'palavra-passe' in msg.message|lower %}
+      showTab('senha');
+    {% elif msg.tags == 'error' and 'perfil' in msg.message|lower %}
+      showTab('editar');
+    {% endif %}
+  {% endfor %}
+{% endif %}
 </script>
+
+<style>
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+</style>
 {% endblock %}

@@ -22,31 +22,6 @@
       <span class="text-sm font-medium">Dashboard</span>
     </a>
 
-    {# ── Meus Dados ──────────────────────────────────────────────────── #}
-    <button type="button" data-collapse="meus-dados"
-            class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
-                   {% if active == 'Meus Dados' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-      <i class="fas fa-user flex-shrink-0"></i>
-      <span class="text-sm font-medium flex-1 truncate">Meus Dados</span>
-      <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'Meus Dados' %}rotate-180{% endif %}"></i>
-    </button>
-    <ul data-submenu="meus-dados" class="ml-4 space-y-0.5 {% if active != 'Meus Dados' %}hidden{% endif %}">
-      <li>
-        <a href="{% url 'colaborador_perfil' %}"
-           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
-                  {% if active == 'perfil' or sub == 'perfil' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-user text-base"></i>Meu Perfil
-        </a>
-      </li>
-      <li>
-        <a href="{% url 'colaborador_documentos' %}"
-           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
-                  {% if active == 'documentos' or sub == 'documentos' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-file-alt text-base"></i>Meus Documentos
-        </a>
-      </li>
-    </ul>
-
     {# ── Gestão Aduaneira ──────────────────────────────────────────── #}
     {% if papel != 'Colaborador Institucional' %}
     {% if 'gerir_aduaneiro' in permissoes or 'criar_declaracao_unica' in permissoes or 'ver_pauta_aduaneira' in permissoes or 'gerir_clientes' in permissoes or 'gerir_clientes_filial' in permissoes %}
