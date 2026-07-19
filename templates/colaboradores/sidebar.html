@@ -1,4 +1,4 @@
-{% load rh_extras %}{% with active=active_menu|default:'' sub=active_sub|default:'' papel=papel|default:'Colaborador' e_responsavel=e_responsavel|default:False permissoes=user_permissoes|default:'' %}{% with col=colaborador_logado|default:colaborador e_gestor_filial=e_gestor_filial|default:e_responsavel %}
+{% load rh_extras %}{% with active=active_menu|default:'' sub=active_sub|default:'' papel=papel|default:'Colaborador' e_responsavel=e_responsavel|default:False permissoes=user_permissoes|default:'' %}{% with col=colaborador_logado|default:colaborador|default:"" e_gestor_filial=e_gestor_filial|default:e_responsavel %}
 <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 transform bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 transition-transform duration-200 -translate-x-full lg:translate-x-0 overflow-y-auto">
 
   {# ── Logo ───────────────────────────────────────────────────────────#}
