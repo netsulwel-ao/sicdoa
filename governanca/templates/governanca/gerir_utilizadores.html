@@ -264,6 +264,7 @@
                title="Editar">
               <i class="fas fa-pen text-xs"></i>
             </a>
+            {% if pode_executar_acoes %}
             <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent border-none"
                     data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
               <i class="fas fa-paper-plane text-xs"></i>
@@ -279,6 +280,14 @@
                 <i class="fas fa-circle-play text-sm"></i>
               {% endif %}
             </button>
+            {% endif %}
+            {% if usuario.papel == 'Administrador' and u.papel != 'Despachante Oficial' %}
+            <button class="btn-eliminar w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer bg-transparent border-none"
+                    data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}"
+                    title="Eliminar utilizador">
+              <i class="fas fa-trash-can text-xs"></i>
+            </button>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -419,6 +428,7 @@
                    title="Editar">
                   <i class="fas fa-pen text-xs"></i>
                 </a>
+                {% if pode_executar_acoes %}
                 <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-all cursor-pointer bg-transparent border-none"
                         data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
                   <i class="fas fa-paper-plane text-xs"></i>
@@ -434,6 +444,14 @@
                     <i class="fas fa-circle-play text-sm"></i>
                   {% endif %}
                 </button>
+                {% endif %}
+                {% if usuario.papel == 'Administrador' and u.papel != 'Despachante Oficial' %}
+                <button class="btn-eliminar w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all cursor-pointer bg-transparent border-none"
+                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}"
+                        title="Eliminar utilizador">
+                  <i class="fas fa-trash-can text-xs"></i>
+                </button>
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -467,6 +485,7 @@
   const apiToggle = '{% url "governanca_api_utilizador_toggle" %}';
   const apiCredenciais = '{% url "governanca_api_utilizador_credenciais" %}';
   const apiAtribuirFuncao = '{% url "governanca_api_utilizador_atribuir_funcao" %}';
+  const apiEliminar = '{% url "governanca_api_utilizador_eliminar" %}';
 
   var funcoesData = {};
   {% for f in funcoes %}
@@ -538,7 +557,10 @@
           body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
         });
         const data = await res.json();
-        if (data.status === 'ok') { location.reload(); }
+        if (data.status === 'ok') {
+          if (window.toast) window.toast.success('Utilizador ' + (ativo ? 'suspenso' : 'ativado') + ' com sucesso.');
+          setTimeout(function() { location.reload(); }, 800);
+        }
         else { if (window.toast) window.toast.error(data.erro || 'Erro.'); }
       } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
     });
@@ -559,6 +581,29 @@
           if (window.toast) window.toast.success('Credenciais enviadas com sucesso.');
         } else {
           if (window.toast) window.toast.error(data.erro || 'Erro.');
+        }
+      } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
+    });
+  });
+
+  document.querySelectorAll('.btn-eliminar').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const usuarioId = parseInt(this.dataset.usuarioId);
+      const nome = this.dataset.usuarioNome;
+      const ok = await showConfirm('Eliminar Utilizador', 'Tem certeza que deseja eliminar o utilizador "' + nome + '"? Esta acção não pode ser desfeita.', 'Eliminar');
+      if (!ok) return;
+      try {
+        const res = await fetch(apiEliminar, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+          body: JSON.stringify({ usuario_id: usuarioId })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          if (window.toast) window.toast.success(data.message || 'Utilizador eliminado com sucesso.');
+          location.reload();
+        } else {
+          if (window.toast) window.toast.error(data.erro || 'Erro ao eliminar utilizador.');
         }
       } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
     });

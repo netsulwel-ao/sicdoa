@@ -4369,12 +4369,20 @@ def api_notificacoes_marcar_todas_lidas(request):
 
 @_requer_login
 def utilizador_novo_view(request):
-    from users.permissoes import usuario_tem_permissao
+    from users.permissoes import get_usuario_permissoes
     usuario = _get_usuario(request)
     if not usuario:
         return redirect('login')
-    if usuario.get('papel') != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
-        messages.error(request, 'Apenas administradores podem criar utilizadores.')
+    permissoes = get_usuario_permissoes(request)
+    papel = usuario.get('papel', '')
+    _pode_gerir = (
+        papel == 'Administrador'
+        or 'admin' in permissoes
+        or 'gerir_utilizadores' in permissoes
+        or papel == 'Colaborador Institucional'
+    )
+    if not _pode_gerir:
+        messages.error(request, 'Sem permissão para gerir utilizadores.')
         return redirect('dashboard')
 
     erros = {}
@@ -4460,12 +4468,20 @@ def utilizador_novo_view(request):
 
 @_requer_login
 def utilizador_editar_view(request, usuario_id):
-    from users.permissoes import usuario_tem_permissao
+    from users.permissoes import get_usuario_permissoes
     usuario = _get_usuario(request)
     if not usuario:
         return redirect('login')
-    if usuario.get('papel') != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
-        messages.error(request, 'Apenas administradores podem editar utilizadores.')
+    permissoes = get_usuario_permissoes(request)
+    papel = usuario.get('papel', '')
+    _pode_gerir = (
+        papel == 'Administrador'
+        or 'admin' in permissoes
+        or 'gerir_utilizadores' in permissoes
+        or papel == 'Colaborador Institucional'
+    )
+    if not _pode_gerir:
+        messages.error(request, 'Sem permissão para gerir utilizadores.')
         return redirect('dashboard')
 
     from users.models import Usuario, ColaboradorInstitucional
@@ -4531,12 +4547,20 @@ def utilizador_permissoes_view(request, usuario_id):
 
 @_requer_login
 def gerir_utilizadores(request):
-    from users.permissoes import usuario_tem_permissao, get_usuario_permissoes
+    from users.permissoes import get_usuario_permissoes
     usuario = _get_usuario(request)
     if not usuario:
         return redirect('login')
-    if usuario.get('papel') != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
-        messages.error(request, 'Apenas administradores podem gerir utilizadores.')
+    permissoes = get_usuario_permissoes(request)
+    papel = usuario.get('papel', '')
+    _pode_gerir = (
+        papel == 'Administrador'
+        or 'admin' in permissoes
+        or 'gerir_utilizadores' in permissoes
+        or papel == 'Colaborador Institucional'
+    )
+    if not _pode_gerir:
+        messages.error(request, 'Sem permissão para gerir utilizadores.')
         return redirect('dashboard')
 
     from users.models import Usuario
@@ -4589,6 +4613,7 @@ def gerir_utilizadores(request):
         'active_sub': 'gerir_utilizadores',
         'is_admin_sistema': True,
         'user_permissoes': get_usuario_permissoes(request),
+        'pode_executar_acoes': papel == 'Administrador' or 'admin' in permissoes or 'gerir_utilizadores' in permissoes or papel == 'Colaborador Institucional',
         'utilizadores': utilizadores,
         'bancas_por_usuario': bancas_por_usuario,
         'stats_total': stats_total,
@@ -4610,8 +4635,16 @@ def api_utilizador_criar(request):
     import bcrypt, json
     from django.utils.text import slugify
 
-    from users.permissoes import usuario_tem_permissao
-    if _usuario_papel(request) != 'Administrador' and not usuario_tem_permissao(request, 'gerir_utilizadores'):
+    from users.permissoes import get_usuario_permissoes
+    permissoes = get_usuario_permissoes(request)
+    _papel = _usuario_papel(request)
+    _pode_gerir = (
+        _papel == 'Administrador'
+        or 'admin' in permissoes
+        or 'gerir_utilizadores' in permissoes
+        or _papel == 'Colaborador Institucional'
+    )
+    if not _pode_gerir:
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
 
     data = json.loads(request.body)
@@ -4776,8 +4809,12 @@ Administração SICDOA — CDOA Angola
 @_requer_login
 def api_utilizador_toggle_status(request):
     from users.models import Usuario
-    if _usuario_papel(request) != 'Administrador':
-        return JsonResponse({'erro': 'Apenas administradores podem alterar estado de utilizadores'}, status=403)
+    from users.permissoes import usuario_tem_permissao
+    papel = _usuario_papel(request)
+    if papel not in ('Administrador', 'Colaborador Institucional') \
+       and not usuario_tem_permissao(request, 'gerir_rh') \
+       and not usuario_tem_permissao(request, 'gerir_utilizadores'):
+        return JsonResponse({'erro': 'Sem permissão para alterar estado de utilizadores'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
     if not usuario_id:
@@ -4797,8 +4834,12 @@ def api_utilizador_enviar_credenciais(request):
     from users.models import Usuario
     from utils.email_utils import gerar_senha_aleatoria
     import bcrypt
-    if _usuario_papel(request) != 'Administrador':
-        return JsonResponse({'erro': 'Apenas administradores podem reenviar credenciais'}, status=403)
+    from users.permissoes import usuario_tem_permissao
+    papel = _usuario_papel(request)
+    if papel not in ('Administrador', 'Colaborador Institucional') \
+       and not usuario_tem_permissao(request, 'gerir_rh') \
+       and not usuario_tem_permissao(request, 'gerir_utilizadores'):
+        return JsonResponse({'erro': 'Sem permissão para reenviar credenciais'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
     usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
@@ -4848,6 +4889,8 @@ def api_utilizador_eliminar(request):
     if not usuario_id:
         return JsonResponse({'erro': 'ID do utilizador obrigatório.'}, status=400)
     usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
+    if usuario_obj.papel == 'Despachante Oficial':
+        return JsonResponse({'erro': 'Não é possível eliminar utilizadores do tipo Despachante Oficial.'}, status=403)
     nome = usuario_obj.nome
     usuario_obj.delete()
     return JsonResponse({'status': 'ok', 'message': f'Utilizador "{nome}" eliminado com sucesso.'})
@@ -4858,8 +4901,12 @@ def api_utilizador_eliminar(request):
 def api_utilizador_atribuir_funcao(request):
     """Atribui ou remove a função de um utilizador."""
     from users.models import Funcao, Usuario
-    if _usuario_papel(request) != 'Administrador':
-        return JsonResponse({'erro': 'Apenas administradores podem atribuir funções'}, status=403)
+    from users.permissoes import usuario_tem_permissao
+    papel = _usuario_papel(request)
+    if papel not in ('Administrador', 'Colaborador Institucional') \
+       and not usuario_tem_permissao(request, 'gerir_rh') \
+       and not usuario_tem_permissao(request, 'gerir_utilizadores'):
+        return JsonResponse({'erro': 'Sem permissão para atribuir funções'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
     funcao_id = data.get('funcao_id')
