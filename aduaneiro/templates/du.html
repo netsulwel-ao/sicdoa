@@ -404,7 +404,7 @@
 
                     <div class="input-group">
                       <input type="text" id="vinheta_sufixo" class="form-input"
-                             value="CDOA{{ cedula_vinheta }}"
+                             value="CDOA{% if is_colaborador_operando and dono_du %}{{ dono_du.cedula|default:'' }}{% else %}{{ usuario.cedula|default:'' }}{% endif %}"
                              oninput="filtrarVinhetas()"
                              autocomplete="off" spellcheck="false" />
                       <button type="button" id="vinheta_btn_consultar" class="btn-secondary" onclick="consultarVinhetas()">
@@ -1726,7 +1726,7 @@ function atualizarCamposDestinatario() {
 // ─── Vinhetas ────────────────────────────────────────────────────────────────
 
 var _vinhetasCache = [];
-var _vinhetaPrefixo = 'CDOA{{ cedula_vinheta }}';
+var _vinhetaPrefixo = 'CDOA{% if is_colaborador_operando and dono_du %}{{ dono_du.cedula|default:"" }}{% else %}{{ usuario.cedula|default:"" }}{% endif %}';
 
 function consultarVinhetas() {
   var btn  = document.getElementById('vinheta_btn_consultar');
