@@ -133,6 +133,11 @@ def _pode_escrever(request):
         if usuario_tem_permissao(request, 'gerir_financeiro') or \
            usuario_tem_permissao(request, 'gerir_financeiro_filial'):
             return True
+    # Colaboradores da banca (tipo_usuario == 'colaborador') com permissão de escrita
+    if request.session.get('tipo_usuario') == 'colaborador':
+        if usuario_tem_permissao(request, 'gerir_financeiro') or \
+           usuario_tem_permissao(request, 'gerir_financeiro_filial'):
+            return True
     # Apenas acesso_auditoria (sem permissões de escrita) → apenas leitura
     if usuario_tem_permissao(request, 'acesso_auditoria'):
         return False
