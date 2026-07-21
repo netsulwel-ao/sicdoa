@@ -5333,7 +5333,8 @@ def api_dados_usuario_banca(request):
                 filial = FilialBanca.objects.get(id=filial_id, banca=banca)
                 filial_data = {
                     'id': filial.id,
-                    'nome': filial.nome,
+                    'nome': filial.provincia,
+                    'provincia': filial.provincia,
                 }
             except FilialBanca.DoesNotExist:
                 pass
@@ -5345,6 +5346,7 @@ def api_dados_usuario_banca(request):
         })
 
     except Exception as e:
+        logger.exception('api_dados_usuario_banca erro')
         return JsonResponse({'success': False, 'error': 'Erro interno. Tente novamente.'})
 
 
