@@ -91,7 +91,7 @@ def criar_sessao_usuario(request, usuario):
         'cedula': usuario.cedula or '',
         'telefone': usuario.telefone or '',
         'username': usuario.username,
-        'foto': usuario.foto or '',
+        'foto': getattr(usuario, 'foto', '') or '',
         'is_secretario': getattr(usuario, 'is_secretario', False),
         'is_vice_secretario': getattr(usuario, 'is_vice_secretario', False),
         'funcao_nome': funcao_nome,
