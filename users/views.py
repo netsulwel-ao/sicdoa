@@ -91,15 +91,28 @@ def _verificar_sessao_colaborador(request):
 
 
 def _get_institucional(request):
-    """Retorna ColaboradorInstitucional ligado ao usuário da sessão, ou None."""
-    from .models import ColaboradorInstitucional
+    """Retorna ColaboradorInstitucional ligado ao usuário da sessão.
+
+    Se não existir registo mas o utilizador for Colaborador Institucional,
+    cria automaticamente um registo básico para poder aceder às funcionalidades.
+    """
+    from .models import ColaboradorInstitucional, Usuario
     usuario_id = request.session.get("usuario_id")
     if not usuario_id:
         return None
     try:
         return ColaboradorInstitucional.objects.get(usuario_id=usuario_id)
     except ColaboradorInstitucional.DoesNotExist:
-        return None
+        usuario = Usuario.objects.filter(pk=usuario_id).first()
+        if not usuario or usuario.papel != "Colaborador Institucional":
+            return None
+        return ColaboradorInstitucional.objects.create(
+            usuario=usuario,
+            nome=usuario.nome,
+            email=usuario.email or "",
+            area_actuacao="",
+            estado="Ativo",
+        )
 
 
 # ─── Autenticação ─────────────────────────────────────────────────────────────
@@ -280,12 +293,12 @@ def login_view(request):
         from .models import registrar_log as _rl
         criar_sessao_usuario(request, usuario)
         cache.delete(attempts_key)
-        # Forçar sessão de colaborador limitado
+        # Manter sessão de colaborador institucional (preservar papel real)
         request.session['tipo_usuario'] = 'colaborador'
         request.session['usuario'] = {
             **request.session['usuario'],
-            'papel': 'Colaborador',
-            'papel_display': 'Colaborador',
+            'papel': 'Colaborador Institucional',
+            'papel_display': 'Colaborador Institucional',
             'permissoes': [],
             'funcao_nome': '',
         }
@@ -703,10 +716,11 @@ def dashboard_colaborador_view(request):
     if not colaborador_id:
         from governanca.models import Notificacao
         uid = request.session.get("usuario_id")
+        papel_sessao = request.session.get("usuario", {}).get("papel", "Colaborador Institucional")
         contexto = {
             "usuario": request.session.get("usuario", {}),
             "nome": request.session.get("usuario", {}).get("nome", ""),
-            "papel": "Colaborador",
+            "papel": papel_sessao,
             "active_menu": "Dashboard",
             "tempo_restante_sessao": tempo_restante_sessao(request),
             "user_permissoes": permissoes,
@@ -1662,6 +1676,88 @@ def meu_perfil_assinatura(request):
         )
 
     messages.success(request, "Assinatura digital guardada com sucesso.")
+    return redirect("meu_perfil")
+
+
+def meu_perfil_foto(request):
+    """Guarda a foto de perfil do utilizador (apenas Despachante Oficial)."""
+    usuario, erro = _verificar_sessao_usuario(request)
+    if erro:
+        return erro
+    if request.method != "POST":
+        return redirect("meu_perfil")
+
+    from .permissoes import usuario_tem_permissao
+    if not usuario_tem_permissao(request, 'alterar_perfil'):
+        messages.error(request, 'Não tem permissão para alterar a foto de perfil.')
+        return redirect("meu_perfil")
+
+    if usuario.papel != 'Despachante Oficial':
+        messages.error(request, 'Apenas Despachantes Oficiais podem adicionar foto de perfil.')
+        return redirect("meu_perfil")
+
+    ficheiro = request.FILES.get("foto_upload")
+    if not ficheiro:
+        messages.error(request, 'Selecione uma imagem para a foto de perfil.')
+        return redirect("meu_perfil")
+
+    if ficheiro.size > 5 * 1024 * 1024:
+        messages.error(request, 'A imagem não pode ter mais de 5MB.')
+        return redirect("meu_perfil")
+
+    tipo = ficheiro.content_type or ''
+    if tipo not in ('image/png', 'image/jpeg', 'image/gif', 'image/webp'):
+        messages.error(request, 'Formato inválido. Use PNG, JPG, GIF ou WebP.')
+        return redirect("meu_perfil")
+
+    # Apagar foto anterior se existir
+    if usuario.foto:
+        import os
+        from django.conf import settings
+        caminho_antigo = os.path.join(settings.MEDIA_ROOT, str(usuario.foto))
+        if os.path.exists(caminho_antigo):
+            os.remove(caminho_antigo)
+
+    usuario.foto = ficheiro
+    usuario.save(update_fields=['foto'])
+
+    # Actualizar sessão
+    sess = request.session.get("usuario", {})
+    sess["foto"] = usuario.foto.url if usuario.foto else ""
+    request.session["usuario"] = sess
+    request.session.modified = True
+
+    messages.success(request, "Foto de perfil actualizada com sucesso.")
+    return redirect("meu_perfil")
+
+
+def meu_perfil_foto_remover(request):
+    """Remove a foto de perfil do utilizador (apenas Despachante Oficial)."""
+    usuario, erro = _verificar_sessao_usuario(request)
+    if erro:
+        return erro
+    if request.method != "POST":
+        return redirect("meu_perfil")
+
+    if usuario.papel != 'Despachante Oficial':
+        messages.error(request, 'Apenas Despachantes Oficiais podem remover a foto de perfil.')
+        return redirect("meu_perfil")
+
+    if usuario.foto:
+        import os
+        from django.conf import settings
+        caminho = os.path.join(settings.MEDIA_ROOT, str(usuario.foto))
+        if os.path.exists(caminho):
+            os.remove(caminho)
+        usuario.foto = ''
+        usuario.save(update_fields=['foto'])
+
+        sess = request.session.get("usuario", {})
+        sess["foto"] = ""
+        request.session["usuario"] = sess
+        request.session.modified = True
+
+    messages.success(request, "Foto de perfil removida com sucesso.")
     return redirect("meu_perfil")
 
 

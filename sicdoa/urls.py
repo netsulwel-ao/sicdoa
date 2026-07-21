@@ -33,6 +33,8 @@ urlpatterns = [
     path('perfil/guardar/', user_views.meu_perfil_guardar, name='meu_perfil_guardar'),
     path('perfil/senha/', user_views.meu_perfil_senha, name='meu_perfil_senha'),
     path('perfil/assinatura/', user_views.meu_perfil_assinatura, name='meu_perfil_assinatura'),
+    path('perfil/foto/', user_views.meu_perfil_foto, name='meu_perfil_foto'),
+    path('perfil/foto/remover/', user_views.meu_perfil_foto_remover, name='meu_perfil_foto_remover'),
 
     # Dashboard
     path('dashboard/', user_views.dashboard_view, name='dashboard'),

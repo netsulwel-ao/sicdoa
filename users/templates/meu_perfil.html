@@ -159,15 +159,39 @@
 
           <!-- Foto de Perfil -->
           <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-center">
-            <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 relative group">
               {% if usuario.foto %}
-                <img src="{{ usuario.foto }}" alt="Foto" class="w-24 h-24 rounded-full object-cover" />
+                <img src="/media/{{ usuario.foto }}" alt="Foto" class="w-24 h-24 rounded-full object-cover" />
               {% else %}
                 <i class="fas fa-user text-primary" style="font-size:48px;"></i>
+              {% endif %}
+              {% if usuario.papel == 'Despachante Oficial' %}
+              <div class="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onclick="document.getElementById('foto_file').click()">
+                <i class="fas fa-camera text-white text-lg"></i>
+              </div>
               {% endif %}
             </div>
             <p class="font-semibold text-gray-900">{{ usuario.nome }}</p>
             <p class="text-sm text-gray-500">{{ usuario.papel }}</p>
+            {% if usuario.papel == 'Despachante Oficial' %}
+            <form id="foto_form" method="POST" action="{% url 'meu_perfil_foto' %}" enctype="multipart/form-data" class="mt-3">
+              {% csrf_token %}
+              <input type="file" id="foto_file" name="foto_upload" accept="image/*" class="hidden" onchange="document.getElementById('foto_form').submit()" />
+              <div class="flex gap-2 justify-center">
+                <button type="button" onclick="document.getElementById('foto_file').click()" class="text-xs px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+                  <i class="fas fa-camera mr-1"></i>{% if usuario.foto %}Alterar Foto{% else %}Adicionar Foto{% endif %}
+                </button>
+                {% if usuario.foto %}
+                <form method="POST" action="{% url 'meu_perfil_foto_remover' %}" class="inline">
+                  {% csrf_token %}
+                  <button type="submit" class="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors" onclick="return confirm('Tem certeza que deseja remover a foto?')">
+                    <i class="fas fa-trash mr-1"></i>Remover
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </form>
+            {% endif %}
           </div>
 
           {% if usuario.papel == 'Despachante Oficial' %}

@@ -484,16 +484,57 @@ def gerar_carteira_pdf(despachante, carteira, admin_nome='Administração CDOA')
             ),
         ])
 
-    dados_table = Table(dados_rows, colWidths=[5 * cm, 11 * cm])
-    dados_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 7),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-        ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
-        ('BACKGROUND', (0, 0), (-1, 0), COR_CINZA_CLARO),
-    ]))
+    # Verificar se despachante tem foto
+    foto_path = None
+    if despachante.foto:
+        from django.conf import settings
+        caminho_foto = os.path.join(settings.MEDIA_ROOT, str(despachante.foto))
+        if os.path.exists(caminho_foto):
+            foto_path = caminho_foto
+
+    if foto_path:
+        from reportlab.lib.utils import ImageReader
+        dados_table = Table(dados_rows, colWidths=[4.5 * cm, 9.5 * cm, 3 * cm])
+        try:
+            img = ImageReader(foto_path)
+            dados_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 7),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+                ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
+                ('BACKGROUND', (0, 0), (-1, 0), COR_CINZA_CLARO),
+                ('SPAN', (2, 0), (2, -1)),
+                ('ALIGN', (2, 0), (2, -1), 'CENTER'),
+                ('VALIGN', (2, 0), (2, -1), 'MIDDLE'),
+            ]))
+            from reportlab.platypus import Image as RLImage
+            foto_img = RLImage(foto_path, width=2.5 * cm, height=3 * cm, kind='proportional')
+            dados_rows[0].append(foto_img)
+        except Exception:
+            dados_table = Table(dados_rows, colWidths=[5 * cm, 11 * cm])
+            dados_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 7),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+                ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
+                ('BACKGROUND', (0, 0), (-1, 0), COR_CINZA_CLARO),
+            ]))
+    else:
+        dados_table = Table(dados_rows, colWidths=[5 * cm, 11 * cm])
+        dados_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+            ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
+            ('BACKGROUND', (0, 0), (-1, 0), COR_CINZA_CLARO),
+        ]))
+
     story.append(dados_table)
     story.append(Spacer(1, 0.5 * cm))
 
