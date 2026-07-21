@@ -434,33 +434,45 @@ def gerar_carteira_pdf(despachante, carteira, admin_nome='Administração CDOA')
         'Documento de Identificação do Despachante Oficial',
     ))
 
-    # ── Número e validade em destaque ──
-    num_validade_data = [[
+    # ══════════════════════════════════════════════════════════════════════
+    # BLOCO 1 — Banner destaque (Nº Carteira + Validade)
+    # ══════════════════════════════════════════════════════════════════════
+    banner_data = [[
         Paragraph(
             f'<font size="8" color="#94a3b8">Nº DA CARTEIRA</font><br/>'
-            f'<font size="16" color="#ffffff"><b>{_safe(carteira.numero_carteira)}</b></font>',
-            _st('num_cart', fontSize=16, textColor=COR_BRANCO)
+            f'<font size="18" color="#ffffff"><b>{_safe(carteira.numero_carteira)}</b></font>',
+            _st('num_cart_banner', fontSize=18, textColor=COR_BRANCO, leading=22)
         ),
         Paragraph(
             f'<font size="8" color="#94a3b8">VALIDADE</font><br/>'
-            f'<font size="14" color="#ffffff"><b>{carteira.data_validade.strftime("%d/%m/%Y")}</b></font>',
-            _st('validade_cart', fontSize=14, textColor=COR_BRANCO, alignment=TA_RIGHT)
+            f'<font size="15" color="#ffffff"><b>{carteira.data_validade.strftime("%d/%m/%Y")}</b></font>',
+            _st('validade_cart_banner', fontSize=15, textColor=COR_BRANCO, alignment=TA_RIGHT, leading=18)
         ),
     ]]
-    num_validade_box = Table(num_validade_data, colWidths=[10 * cm, 6 * cm])
-    num_validade_box.setStyle(TableStyle([
+    banner = Table(banner_data, colWidths=[10 * cm, 6 * cm])
+    banner.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), COR_PRIMARIO),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 14),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 16),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 16),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('ROUNDEDCORNERS', [6, 6, 6, 6]),
     ]))
-    story.append(num_validade_box)
-    story.append(Spacer(1, 0.5 * cm))
+    story.append(banner)
+    story.append(Spacer(1, 0.6 * cm))
 
-    # ── Dados do despachante ──
+    # ══════════════════════════════════════════════════════════════════════
+    # BLOCO 2 — Foto + Dados Pessoais (lado a lado)
+    # ══════════════════════════════════════════════════════════════════════
+    foto_path = None
+    if despachante.foto:
+        caminho_foto = os.path.join(settings.MEDIA_ROOT, str(despachante.foto))
+        if os.path.exists(caminho_foto):
+            foto_path = caminho_foto
+
+    # ── Coluna de dados ──
     dados_items = [
         ('NOME COMPLETO', despachante.nome.upper()),
         ('CÉDULA PROFISSIONAL', despachante.cedula or '—'),
@@ -472,56 +484,84 @@ def gerar_carteira_pdf(despachante, carteira, admin_nome='Administração CDOA')
     ]
 
     dados_rows = []
-    for label, valor in dados_items:
+    for i, (label, valor) in enumerate(dados_items):
+        # Cor da linha alternada
+        row_bg = COR_ALT_ROW if i % 2 == 0 else COR_BRANCO
+        # Estado com cor
+        if label == 'ESTADO':
+            estado_cor = '#059669' if carteira.status.upper() == 'ATIVO' else '#dc2626'
+            valor_html = f'<font size="10" color="{estado_cor}"><b>{_safe(str(valor))}</b></font>'
+        elif label == 'NOME COMPLETO':
+            valor_html = f'<font size="11" color="#0f172a"><b>{_safe(str(valor))}</b></font>'
+        else:
+            valor_html = f'<font size="10" color="#1e293b"><b>{_safe(str(valor))}</b></font>'
+
         dados_rows.append([
             Paragraph(
-                f'<font size="8" color="#64748b">{label}</font>',
-                _st(f'l_{label}', fontSize=8, textColor=COR_CINZA)
+                f'<font size="7.5" color="#64748b"><b>{label}</b></font>',
+                _st(f'l_{label}', fontSize=7.5, textColor=COR_CINZA, leading=10)
             ),
             Paragraph(
-                f'<font size="10" color="#0f172a"><b>{_safe(str(valor))}</b></font>',
-                _st(f'v_{label}', fontSize=10, textColor=COR_PRIMARIO)
+                valor_html,
+                _st(f'v_{label}', fontSize=10, textColor=COR_PRIMARIO, leading=13)
             ),
         ])
 
-    # Verificar se despachante tem foto
-    foto_path = None
-    if despachante.foto:
-        from django.conf import settings
-        caminho_foto = os.path.join(settings.MEDIA_ROOT, str(despachante.foto))
-        if os.path.exists(caminho_foto):
-            foto_path = caminho_foto
-
     if foto_path:
         from reportlab.lib.utils import ImageReader
-        dados_table = Table(dados_rows, colWidths=[4.5 * cm, 9.5 * cm, 3 * cm])
+        from reportlab.platypus import Image as RLImage
         try:
-            img = ImageReader(foto_path)
+            _img_check = ImageReader(foto_path)
+            # Adicionar coluna vazia a todas as linhas para a 3ª coluna
+            for row in dados_rows:
+                row.append('')
+            foto_img = RLImage(foto_path, width=2.8 * cm, height=3.4 * cm, kind='proportional')
+            dados_rows[0][-1] = foto_img
+            dados_table = Table(dados_rows, colWidths=[4.2 * cm, 10 * cm, 3 * cm])
             dados_table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 8),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 7),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-                ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
-                ('BACKGROUND', (0, 0), (-1, 0), COR_CINZA_CLARO),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('LINEBELOW', (0, 0), (-1, -2), 0.3, COR_BORDA),
+                # Fundo alternado
+                ('BACKGROUND', (0, 0), (-1, 0), COR_ALT_ROW),
+                ('BACKGROUND', (0, 1), (-1, 1), COR_BRANCO),
+                ('BACKGROUND', (0, 2), (-1, 2), COR_ALT_ROW),
+                ('BACKGROUND', (0, 3), (-1, 3), COR_BRANCO),
+                ('BACKGROUND', (0, 4), (-1, 4), COR_ALT_ROW),
+                ('BACKGROUND', (0, 5), (-1, 5), COR_BRANCO),
+                ('BACKGROUND', (0, 6), (-1, 6), COR_ALT_ROW),
+                # Borda sutil no bloco de dados
+                ('BOX', (0, 0), (1, -1), 0.5, COR_BORDA),
+                # Foto com borda e span
                 ('SPAN', (2, 0), (2, -1)),
                 ('ALIGN', (2, 0), (2, -1), 'CENTER'),
                 ('VALIGN', (2, 0), (2, -1), 'MIDDLE'),
+                ('BOX', (2, 0), (2, -1), 0.8, COR_PRIMARIO),
+                ('LEFTPADDING', (2, 0), (2, -1), 4),
+                ('RIGHTPADDING', (2, 0), (2, -1), 4),
+                ('TOPPADDING', (2, 0), (2, -1), 4),
+                ('BOTTOMPADDING', (2, 0), (2, -1), 4),
             ]))
-            from reportlab.platypus import Image as RLImage
-            foto_img = RLImage(foto_path, width=2.5 * cm, height=3 * cm, kind='proportional')
-            dados_rows[0].append(foto_img)
         except Exception:
             dados_table = Table(dados_rows, colWidths=[5 * cm, 11 * cm])
             dados_table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 8),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 7),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-                ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
-                ('BACKGROUND', (0, 0), (-1, 0), COR_CINZA_CLARO),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('LINEBELOW', (0, 0), (-1, -2), 0.3, COR_BORDA),
+                ('BACKGROUND', (0, 0), (-1, 0), COR_ALT_ROW),
+                ('BACKGROUND', (0, 1), (-1, 1), COR_BRANCO),
+                ('BACKGROUND', (0, 2), (-1, 2), COR_ALT_ROW),
+                ('BACKGROUND', (0, 3), (-1, 3), COR_BRANCO),
+                ('BACKGROUND', (0, 4), (-1, 4), COR_ALT_ROW),
+                ('BACKGROUND', (0, 5), (-1, 5), COR_BRANCO),
+                ('BACKGROUND', (0, 6), (-1, 6), COR_ALT_ROW),
+                ('BOX', (0, 0), (-1, -1), 0.5, COR_BORDA),
             ]))
     else:
         dados_table = Table(dados_rows, colWidths=[5 * cm, 11 * cm])
@@ -529,98 +569,130 @@ def gerar_carteira_pdf(despachante, carteira, admin_nome='Administração CDOA')
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (0, 0), (-1, -1), 8),
             ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 7),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-            ('LINEBELOW', (0, 0), (-1, -2), 0.5, COR_BORDA),
-            ('BACKGROUND', (0, 0), (-1, 0), COR_CINZA_CLARO),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LINEBELOW', (0, 0), (-1, -2), 0.3, COR_BORDA),
+            ('BACKGROUND', (0, 0), (-1, 0), COR_ALT_ROW),
+            ('BACKGROUND', (0, 1), (-1, 1), COR_BRANCO),
+            ('BACKGROUND', (0, 2), (-1, 2), COR_ALT_ROW),
+            ('BACKGROUND', (0, 3), (-1, 3), COR_BRANCO),
+            ('BACKGROUND', (0, 4), (-1, 4), COR_ALT_ROW),
+            ('BACKGROUND', (0, 5), (-1, 5), COR_BRANCO),
+            ('BACKGROUND', (0, 6), (-1, 6), COR_ALT_ROW),
+            ('BOX', (0, 0), (-1, -1), 0.5, COR_BORDA),
         ]))
 
     story.append(dados_table)
-    story.append(Spacer(1, 0.5 * cm))
+    story.append(Spacer(1, 0.6 * cm))
 
-    # ── Data de emissão e renovação ──
+    # ══════════════════════════════════════════════════════════════════════
+    # BLOCO 3 — Datas de Emissão / Renovação / Emissor
+    # ══════════════════════════════════════════════════════════════════════
     emissor_data = [
         [
             Paragraph(
-                f'<font size="8" color="#64748b">DATA DE EMISSÃO</font><br/>'
-                f'<font size="10" color="#0f172a"><b>{carteira.data_emissao.strftime("%d/%m/%Y")}</b></font>',
-                _st('emissao', fontSize=10)
+                f'<font size="7" color="#64748b">DATA DE EMISSÃO</font><br/>'
+                f'<font size="11" color="#0f172a"><b>{carteira.data_emissao.strftime("%d/%m/%Y")}</b></font>',
+                _st('emissao_cart', fontSize=11, leading=15)
             ),
             Paragraph(
-                f'<font size="8" color="#64748b">DATA DE RENOVAÇÃO</font><br/>'
-                f'<font size="10" color="#0f172a"><b>{carteira.data_renovacao.strftime("%d/%m/%Y") if carteira.data_renovacao else "—"}</b></font>',
-                _st('renovacao', fontSize=10)
+                f'<font size="7" color="#64748b">DATA DE RENOVAÇÃO</font><br/>'
+                f'<font size="11" color="#0f172a"><b>{carteira.data_renovacao.strftime("%d/%m/%Y") if carteira.data_renovacao else "—"}</b></font>',
+                _st('renovacao_cart', fontSize=11, leading=15)
             ),
             Paragraph(
-                f'<font size="8" color="#64748b">EMITIDO POR</font><br/>'
-                f'<font size="10" color="#0f172a"><b>{_safe(admin_nome)}</b></font>',
-                _st('emissor', fontSize=10)
+                f'<font size="7" color="#64748b">EMITIDO POR</font><br/>'
+                f'<font size="11" color="#0f172a"><b>{_safe(admin_nome)}</b></font>',
+                _st('emissor_cart', fontSize=11, leading=15)
             ),
         ]
     ]
     emissor_table = Table(emissor_data, colWidths=[5.3 * cm, 5.3 * cm, 5.4 * cm])
     emissor_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
         ('BOX', (0, 0), (-1, -1), 0.5, COR_BORDA),
         ('LINEBEFORE', (1, 0), (1, 0), 0.5, COR_BORDA),
+        ('LINEBEFORE', (2, 0), (2, 0), 0.5, COR_BORDA),
         ('BACKGROUND', (0, 0), (-1, -1), COR_CINZA_CLARO),
     ]))
     story.append(emissor_table)
-    story.append(Spacer(1, 0.5 * cm))
+    story.append(Spacer(1, 0.6 * cm))
 
-    # ── Assinatura ──
+    # ══════════════════════════════════════════════════════════════════════
+    # BLOCO 4 — Assinatura + QR Code lado a lado
+    # ══════════════════════════════════════════════════════════════════════
     assinatura_img = _carregar_assinatura_banca(banca)
-    if assinatura_img:
-        assinatura_data = [[
-            Paragraph('O Presidente da CDOA', _st('sig_label_cart', fontSize=8, textColor=COR_CINZA, alignment=TA_CENTER)),
-        ], [
-            assinatura_img,
-        ], [
-            Paragraph('(Assinatura e Carimbo)', _st('sig_sub_cart', fontSize=7, textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)),
-        ]]
-        assinatura_table = Table(assinatura_data, colWidths=[16 * cm])
-        assinatura_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        story.append(assinatura_table)
-        story.append(Spacer(1, 0.5 * cm))
-
-    # ── QR Code + Texto legal ──
     qr_img = _gerar_qr_code(qr_data)
 
+    # Coluna da assinatura
+    assinatura_bloc = []
+    assinatura_bloc.append(Paragraph(
+        'O Presidente da CDOA',
+        _st('sig_label_cart2', fontSize=8, textColor=COR_CINZA, alignment=TA_CENTER)
+    ))
+    if assinatura_img:
+        assinatura_bloc.append(Spacer(1, 0.2 * cm))
+        assinatura_bloc.append(assinatura_img)
+    assinatura_bloc.append(Spacer(1, 0.1 * cm))
+    assinatura_bloc.append(Paragraph(
+        '___________________________________',
+        _st('sig_line', fontSize=9, textColor=COR_BORDA, alignment=TA_CENTER)
+    ))
+    assinatura_bloc.append(Paragraph(
+        '(Assinatura e Carimbo)',
+        _st('sig_sub_cart2', fontSize=7, textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)
+    ))
+    assinatura_inner = Table([[assinatura_bloc]], colWidths=[8 * cm])
+    assinatura_inner.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+
+    # Coluna do QR + verificação
     legal_texto = (
-        '<font size="7.5" color="#64748b">'
-        'A presente Carteira Profissional é o documento de identificação do Despachante Oficial '
-        'devidamente habilitado a exercer a actividade de despachante aduaneiro em território nacional, '
-        'ao abrigo do Estatuto da CDOA e demais legislação aplicável.'
+        '<font size="7" color="#64748b">'
+        'Este documento é o de identificação do Despachante Oficial '
+        'habilitado a exercer a actividade aduaneira em território nacional, '
+        'ao abrigo do Estatuto da CDOA.'
         '<br/><br/>'
         f'<b>Código de Verificação:</b> {codigo_doc}<br/>'
         f'<b>Hash SHA-256:</b> {doc_hash[:32]}...<br/>'
-        'Para validar a autenticidade, acede ao portal da CDOA e introduza o código acima.'
+        'Validade no portal da CDOA.'
         '</font>'
     )
-
-    qr_legal_data = [[
+    qr_bloc = [
         qr_img,
-        Paragraph(legal_texto, _st('legal', fontSize=7.5, leading=10, textColor=COR_CINZA)),
-    ]]
-    qr_legal_table = Table(qr_legal_data, colWidths=[3 * cm, 13 * cm])
-    qr_legal_table.setStyle(TableStyle([
+        Spacer(1, 0.15 * cm),
+        Paragraph(legal_texto, _st('legal_cart2', fontSize=7, leading=9, textColor=COR_CINZA)),
+    ]
+    qr_inner = Table([[qr_bloc]], colWidths=[3.5 * cm])
+    qr_inner.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+
+    # Junta assinatura + QR lado a lado
+    bottom_row = Table([[assinatura_inner, qr_inner]], colWidths=[12.5 * cm, 3.5 * cm])
+    bottom_row.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
-    story.append(qr_legal_table)
+    story.append(bottom_row)
 
     # ── Rodapé ──
     _build_footer(story, doc_hash, carteira.numero_carteira)
