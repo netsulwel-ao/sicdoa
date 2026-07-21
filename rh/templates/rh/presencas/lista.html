@@ -490,6 +490,7 @@ function limparSelecaoFerias() {
 }
 
 /* ── Bulk submit ── */
+var _confTipo = '', _confEstado = '';
 function submeterMassa(tipo, estado) {
   var selector = tipo === 'ferias' ? '[data-ferias-check]:checked' : '[data-presenca-check]:checked';
   var cbs = document.querySelectorAll(selector);
@@ -498,7 +499,18 @@ function submeterMassa(tipo, estado) {
     abrirModalRejeicaoMassa(tipo, estado);
     return;
   }
-  if (!confirm('Tem certeza que deseja aprovar ' + cbs.length + ' registo(s)?')) return;
+  _confTipo = tipo; _confEstado = estado;
+  document.getElementById('confirmarAprovacaoMsg').textContent = 'Tem certeza que deseja aprovar ' + cbs.length + ' registo(s)?';
+  document.getElementById('modalConfirmarAprovacao').classList.remove('hidden');
+}
+function fecharModalConfirmar() {
+  document.getElementById('modalConfirmarAprovacao').classList.add('hidden');
+}
+function confirmarAprovacao() {
+  fecharModalConfirmar();
+  var selector = _confTipo === 'ferias' ? '[data-ferias-check]:checked' : '[data-presenca-check]:checked';
+  var cbs = document.querySelectorAll(selector);
+  if (cbs.length === 0) return;
   var form = document.createElement('form');
   form.method = 'POST';
   form.action = '{% url "rh_presenca_aprovar_massa" %}';
@@ -507,8 +519,8 @@ function submeterMassa(tipo, estado) {
   cbs.forEach(function(cb){
     var h = document.createElement('input'); h.type='hidden'; h.name='registos_ids'; h.value=cb.value; form.appendChild(h);
   });
-  var ht = document.createElement('input'); ht.type='hidden'; ht.name='tipo_massa'; ht.value=tipo; form.appendChild(ht);
-  var he = document.createElement('input'); he.type='hidden'; he.name='estado_massa'; he.value=estado; form.appendChild(he);
+  var ht = document.createElement('input'); ht.type='hidden'; ht.name='tipo_massa'; ht.value=_confTipo; form.appendChild(ht);
+  var he = document.createElement('input'); he.type='hidden'; he.name='estado_massa'; he.value=_confEstado; form.appendChild(he);
   document.body.appendChild(form);
   form.submit();
 }
@@ -611,6 +623,23 @@ function confirmarRejeicao() {
       <div><label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Motivo</label><textarea name="motivo" rows="2" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"></textarea></div>
       <div class="flex justify-end gap-3"><button type="button" onclick="document.getElementById('modalFerias').classList.add('hidden')" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button><button type="submit" class="px-6 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all">Submeter</button></div>
     </form>
+  </div>
+</div>
+
+<!-- Modal Confirmação Aprovação -->
+<div id="modalConfirmarAprovacao" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 class="font-bold text-gray-900 dark:text-white"><i class="fas fa-check-circle text-green-500 mr-2"></i>Confirmar Aprovação</h3>
+      <button onclick="fecharModalConfirmar()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="p-6 space-y-4">
+      <p id="confirmarAprovacaoMsg" class="text-gray-700 dark:text-gray-300"></p>
+      <div class="flex justify-end gap-3">
+        <button onclick="fecharModalConfirmar()" class="px-5 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all">Cancelar</button>
+        <button onclick="confirmarAprovacao()" class="px-6 py-2.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all"><i class="fas fa-check mr-1"></i>Aprovar</button>
+      </div>
+    </div>
   </div>
 </div>
 
