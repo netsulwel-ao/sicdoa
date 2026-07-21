@@ -1549,6 +1549,7 @@
 // Função para atualizar campos baseado no regime selecionado
 function atualizarCamposDestinatario() {
   const regimeSelect = document.getElementById('regime_aduaneiro');
+  if (!regimeSelect) return;
   const regimeCod = regimeSelect.value;
   
   // Campos do exportador
@@ -1569,6 +1570,12 @@ function atualizarCamposDestinatario() {
   const destinatarioEnderecoInput = document.getElementById('destinatario_endereco');
   const destinatarioTelefoneInput = document.getElementById('destinatario_telefone');
   const btnConsultarDestinatario = document.getElementById('btn_consultar_destinatario');
+  
+  if (!exportadorCodigoLabel || !exportadorNomeLabel || !exportadorEnderecoLabel ||
+      !exportadorNomeInput || !exportadorEnderecoInput || !exportadorCodigoInput ||
+      !destinatarioNifLabel || !destinatarioNomeLabel || !destinatarioEnderecoLabel ||
+      !destinatarioNifInput || !destinatarioNomeInput || !destinatarioEnderecoInput ||
+      !destinatarioTelefoneInput) return;
   
   // Verificar se é regime de importação (começa com IM) ou exportação (começa com EX)
   const isImportacao = regimeCod.startsWith('IM');
