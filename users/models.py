@@ -23,7 +23,7 @@ class Usuario(models.Model):
     password = models.CharField(max_length=255, null=True, blank=True)
     nome = models.CharField(max_length=100, db_index=True)
     email = models.EmailField(max_length=100, unique=True)
-    foto = models.ImageField(upload_to='usuarios/fotos/', max_length=255, null=True, blank=True)
+    foto = models.CharField(max_length=255, null=True, blank=True)
     telefone = models.CharField(max_length=20, null=True, blank=True, db_index=True)
     cedula = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     papel = models.CharField(max_length=50, choices=PAPEIS, default='Despachante Oficial', db_index=True)

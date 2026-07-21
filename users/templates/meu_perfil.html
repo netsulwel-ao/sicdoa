@@ -161,7 +161,7 @@
           <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-center">
             <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 relative group">
               {% if usuario.foto %}
-                <img src="{{ usuario.foto }}" alt="Foto" class="w-24 h-24 rounded-full object-cover" />
+                <img src="/media/{{ usuario.foto }}" alt="Foto" class="w-24 h-24 rounded-full object-cover" />
               {% else %}
                 <i class="fas fa-user text-primary" style="font-size:48px;"></i>
               {% endif %}

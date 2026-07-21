@@ -1460,7 +1460,7 @@ def meu_perfil_view(request):
             "nif": usuario.nif or "",
             "telefone": usuario.telefone or "",
             "cedula": usuario.cedula or "",
-            "foto": usuario.foto.url if usuario.foto else "",
+            "foto": usuario.foto or "",
             "status": usuario.status,
             "ultimo_acesso": usuario.ultimo_acesso,
             "assinatura": usuario.assinatura or "",
@@ -1718,12 +1718,30 @@ def meu_perfil_foto(request):
         if os.path.exists(caminho_antigo):
             os.remove(caminho_antigo)
 
-    usuario.foto = ficheiro
-    usuario.save(update_fields=['foto'])
+    # Guardar ficheiro manualmente
+    import os, uuid
+    from django.conf import settings
+    ext = os.path.splitext(ficheiro.name)[1].lower()
+    nome_ficheiro = f'{uuid.uuid4().hex[:12]}{ext}'
+    sub_pasta = 'usuarios/fotos'
+    caminho_completo = os.path.join(settings.MEDIA_ROOT, sub_pasta)
+    os.makedirs(caminho_completo, exist_ok=True)
+    caminho_ficheiro = os.path.join(caminho_completo, nome_ficheiro)
+    with open(caminho_ficheiro, 'wb') as dest:
+        for chunk in ficheiro.chunks():
+            dest.write(chunk)
+    caminho_relativo = f'{sub_pasta}/{nome_ficheiro}'
+
+    from django.db import connection as _conn
+    with _conn.cursor() as cur:
+        cur.execute(
+            "UPDATE usuarios SET foto=%s, updated_at=%s WHERE id=%s",
+            [caminho_relativo, timezone.now(), usuario.id],
+        )
 
     # Actualizar sessão
     sess = request.session.get("usuario", {})
-    sess["foto"] = usuario.foto.url if usuario.foto else ""
+    sess["foto"] = f'/media/{caminho_relativo}'
     request.session["usuario"] = sess
     request.session.modified = True
 
