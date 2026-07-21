@@ -1460,7 +1460,7 @@ def meu_perfil_view(request):
             "nif": usuario.nif or "",
             "telefone": usuario.telefone or "",
             "cedula": usuario.cedula or "",
-            "foto": usuario.foto or "",
+            "foto": usuario.foto.url if usuario.foto else "",
             "status": usuario.status,
             "ultimo_acesso": usuario.ultimo_acesso,
             "assinatura": usuario.assinatura or "",
