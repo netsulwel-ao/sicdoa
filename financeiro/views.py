@@ -275,14 +275,27 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
         usuario_data = self.request.session.get('usuario', {})
         form.instance.criado_por_nome = usuario_data.get('nome', '')
         banca_id = self.request.session.get('banca_id')
+        filial_id = self.request.session.get('colaborador_filial_id')
         if not banca_id:
-            from rh.models import Banca
-            uid = self.request.session.get('usuario_id')
-            if not Banca.objects.filter(usuario_id=uid).exists():
-                from django.core.exceptions import PermissionDenied
-                raise PermissionDenied('Não é possível criar requisições sem uma Banca registada.')
-        form.instance.banca_id = banca_id or getattr(form.instance.cliente, 'banca_id', None)
-        form.instance.filial_id = self.request.session.get('colaborador_filial_id')
+            from rh.models import Colaborador as _Col
+            tipo = self.request.session.get('tipo_usuario', '')
+            if tipo == 'colaborador':
+                cid = self.request.session.get('colaborador_id')
+                col = _Col.objects.select_related('banca', 'filial').filter(pk=cid).first()
+            else:
+                uid = self.request.session.get('usuario_id')
+                col = _Col.objects.select_related('banca', 'filial').filter(usuario_id=uid).first()
+            if col and col.banca_id:
+                banca_id = col.banca_id
+                self.request.session['banca_id'] = banca_id
+                if col.filial_id and not filial_id:
+                    filial_id = col.filial_id
+                    self.request.session['colaborador_filial_id'] = filial_id
+        if not banca_id:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('Não é possível criar requisições sem uma Banca registada.')
+        form.instance.banca_id = banca_id
+        form.instance.filial_id = filial_id
         if banca_id and form.instance.cliente and form.instance.cliente.banca_id != banca_id:
             from django.core.exceptions import PermissionDenied
             raise PermissionDenied('O cliente seleccionado não pertence à sua banca.')
@@ -5278,12 +5291,28 @@ def api_dados_usuario_banca(request):
     try:
         banca_id = request.session.get('banca_id')
         filial_id = request.session.get('colaborador_filial_id')
-        
+
+        if not banca_id:
+            from rh.models import Colaborador as _Col
+            tipo = request.session.get('tipo_usuario', '')
+            if tipo == 'colaborador':
+                cid = request.session.get('colaborador_id')
+                col = _Col.objects.select_related('banca', 'filial').filter(pk=cid).first()
+            else:
+                uid = request.session.get('usuario_id')
+                col = _Col.objects.select_related('banca', 'filial').filter(usuario_id=uid).first()
+            if col and col.banca_id:
+                banca_id = col.banca_id
+                request.session['banca_id'] = banca_id
+                if col.filial_id:
+                    filial_id = col.filial_id
+                    request.session['colaborador_filial_id'] = filial_id
+
         if not banca_id:
             return JsonResponse({'success': False, 'error': 'Usuário não tem banca associada'})
-        
+
         from rh.models import Banca, FilialBanca
-        
+
         try:
             banca = Banca.objects.get(id=banca_id)
             banca_data = {
@@ -5297,7 +5326,7 @@ def api_dados_usuario_banca(request):
             }
         except Banca.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Banca não encontrada'})
-        
+
         filial_data = None
         if filial_id:
             try:
@@ -5308,13 +5337,13 @@ def api_dados_usuario_banca(request):
                 }
             except FilialBanca.DoesNotExist:
                 pass
-        
+
         return JsonResponse({
             'success': True,
             'banca': banca_data,
             'filial': filial_data
         })
-        
+
     except Exception as e:
         return JsonResponse({'success': False, 'error': 'Erro interno. Tente novamente.'})
 

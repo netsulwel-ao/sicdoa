@@ -123,6 +123,21 @@ class RequisicaoFundoForm(forms.ModelForm):
         
         banca_id = request.session.get('banca_id') if request else None
         
+        if not banca_id and request:
+            from rh.models import Colaborador as _Col
+            tipo = request.session.get('tipo_usuario', '')
+            if tipo == 'colaborador':
+                cid = request.session.get('colaborador_id')
+                col = _Col.objects.filter(pk=cid).first()
+            else:
+                uid = request.session.get('usuario_id')
+                col = _Col.objects.filter(usuario_id=uid).first()
+            if col and col.banca_id:
+                banca_id = col.banca_id
+                request.session['banca_id'] = banca_id
+                if col.filial_id:
+                    request.session['colaborador_filial_id'] = col.filial_id
+        
         # Scope processo_aduaneiro to user's banca DUs
         du_qs = DeclaracaoUnica.objects.filter(status='Submetida')
         if banca_id:

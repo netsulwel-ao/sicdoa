@@ -120,6 +120,13 @@ def criar_sessao_usuario(request, usuario):
             banca = Banca.objects.filter(usuario_id=usuario.id).first()
             if banca:
                 request.session['banca_id'] = banca.id
+            if not request.session.get('banca_id'):
+                from rh.models import Colaborador as _Col
+                col = _Col.objects.select_related('banca', 'filial').filter(usuario_id=usuario.id).first()
+                if col and col.banca_id:
+                    request.session['banca_id'] = col.banca_id
+                    if col.filial_id:
+                        request.session['colaborador_filial_id'] = col.filial_id
 
     request.session['login_time'] = timezone.now().timestamp()
 
