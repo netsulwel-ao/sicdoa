@@ -164,8 +164,8 @@ function calcularIEC({ regimeCod, procedimento, codigoIsencao, aliquotaCol2, val
   //     ( (regime_aduaneiro EQ 'IM6' or regime_aduaneiro EQ 'IMS6') and ( Código_do_Procedimento EQ "6021" ) )
   // ) Then
   if (
-    ['IM4','IMS4'].includes(regimeCod) ||
-    (['IM6','IMS6'].includes(regimeCod) && procedimento === '6021')
+    ['IM4','IMS4','IMV4'].includes(regimeCod) ||
+    (['IM6','IMS6','IMV6'].includes(regimeCod) && procedimento === '6021')
   ) {
 
     // Action := DoTax ( "IEC" , "1" , Num02 , Num01 , Num03 )

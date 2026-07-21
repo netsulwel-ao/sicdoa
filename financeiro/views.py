@@ -128,6 +128,12 @@ def _pode_escrever(request):
     from users.permissoes import usuario_tem_permissao, _is_admin_ou_acesso_total
     if _is_admin_ou_acesso_total(request):
         return False
+    # Colaboradores Institucionais com permissões de escrita específicas NÃO são apenas auditores
+    if papel == 'Colaborador Institucional':
+        if usuario_tem_permissao(request, 'gerir_financeiro') or \
+           usuario_tem_permissao(request, 'gerir_financeiro_filial'):
+            return True
+    # Apenas acesso_auditoria (sem permissões de escrita) → apenas leitura
     if usuario_tem_permissao(request, 'acesso_auditoria'):
         return False
     return False

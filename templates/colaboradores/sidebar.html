@@ -62,16 +62,16 @@
     </ul>
     {% endif %}
 
-    {# ── Recursos Humanos ──────────────────────────────────────────── #}
+    {# ── Os Meus Dados (actividades pessoais) ─────────────────────── #}
     {% if 'gerir_filial' not in permissoes %}
-    <button type="button" data-collapse="rh-pessoal"
+    <button type="button" data-collapse="meus-dados"
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'RH' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-      <i class="fas fa-users flex-shrink-0"></i>
-      <span class="text-sm font-medium flex-1 truncate">Recursos Humanos</span>
+      <i class="fas fa-user flex-shrink-0"></i>
+      <span class="text-sm font-medium flex-1 truncate">Os Meus Dados</span>
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'RH' %}rotate-180{% endif %}"></i>
     </button>
-    <ul data-submenu="rh-pessoal" class="ml-4 space-y-0.5 {% if active != 'RH' %}hidden{% endif %}">
+    <ul data-submenu="meus-dados" class="ml-4 space-y-0.5 {% if active != 'RH' %}hidden{% endif %}">
       <li>
         <a href="{% url 'colaborador_presenca' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
@@ -142,6 +142,81 @@
         </a>
       </li>
     </ul>
+    {% endif %}
+
+    {# ── Recursos Humanos Institucional ──────────────────────────────── #}
+    {% if 'gerir_colaboradores_inst' in permissoes or 'processar_salarios_inst' in permissoes or 'gerir_recrutamento_inst' in permissoes or 'gerir_presencas_inst' in permissoes or 'gerir_ferias_inst' in permissoes or 'gerir_avaliacoes_inst' in permissoes or 'gerir_subsidios_inst' in permissoes or 'gerir_utilizadores' in permissoes %}
+    {% with e_rh_inst=True %}
+    <button type="button" data-collapse="rh-inst"
+            class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
+                   {% if active == 'RH_INST' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+      <i class="fas fa-building flex-shrink-0"></i>
+      <span class="text-sm font-medium flex-1 truncate">RH Institucional</span>
+      <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'RH_INST' %}rotate-180{% endif %}"></i>
+    </button>
+    <ul data-submenu="rh-inst" class="ml-4 space-y-0.5 {% if active != 'RH_INST' %}hidden{% endif %}">
+      {% if 'gerir_utilizadores' in permissoes %}
+      <li>
+        <a href="{% url 'governanca_gerir_utilizadores' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'gerir_utilizadores' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-user-shield text-base"></i>Utilizadores
+        </a>
+      </li>
+      {% endif %}
+      {% if 'gerir_utilizadores' in permissoes %}
+      <li>
+        <a href="{% url 'funcoes_lista' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'funcoes' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-user-tag text-base"></i>Funções
+        </a>
+      </li>
+      {% endif %}
+      <li>
+        <a href="{% url 'governanca_gerir_utilizadores' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'colaboradores_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-id-badge text-base"></i>Utilizadores
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_admin_presencas_inst' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'presencas_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-calendar-check text-base"></i>Presenças
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_admin_ferias_inst' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'ferias_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-umbrella-beach text-base"></i>Férias
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_admin_avaliacoes_inst' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'avaliacoes_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-trophy text-base"></i>Avaliações
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_admin_salarios_inst' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'salarios_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-credit-card text-base"></i>Processamento Salarial
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'rh_inst_vagas' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'recrutamento_inst' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-briefcase text-base"></i>Recrutamento
+        </a>
+      </li>
+    </ul>
+    {% endwith %}
     {% endif %}
 
     {# ── Gestão Financeira ──────────────────────────────────────────── #}

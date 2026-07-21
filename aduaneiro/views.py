@@ -162,12 +162,6 @@ def du_view(request, du_uuid=None):
                     'telefone': '',
                 }
 
-    cedula_vinheta = ''
-    if dono_du and dono_du.get('cedula'):
-        cedula_vinheta = dono_du['cedula']
-    else:
-        cedula_vinheta = request.session.get('usuario', {}).get('cedula', '')
-
     ctx = _ctx_base(request)
     ctx.update({
         'active_menu': 'Gestão Aduaneira',
@@ -177,7 +171,6 @@ def du_view(request, du_uuid=None):
         'is_admin_editando': is_admin_editando,
         'is_colaborador_operando': is_colaborador_operando,
         'dono_du': dono_du,
-        'cedula_vinheta': cedula_vinheta,
     })
     return render(request, 'du.html', ctx)
 
