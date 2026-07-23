@@ -1280,15 +1280,30 @@ function atualizarCamposRegime() {
     dataCampo54.value = new Date().toISOString().split('T')[0];
   }
 
-  // Regras para campos do exportador/destinatário — NIF e Nome sempre obrigatórios
+  // Regras para campos do exportador/destinatário — NIF obrigatório conforme regime
   const destinatarioNif = document.getElementById('destinatario_nif');
-  if (destinatarioNif) destinatarioNif.setAttribute('required', 'true');
-  if (nomeDestinatario) nomeDestinatario.setAttribute('required', 'true');
-  if (nifExportador) nifExportador.setAttribute('required', 'true');
+  const exportadorNifLabel = document.getElementById('exportador_codigo_label');
+  const destinatarioNifLabel = document.getElementById('destinatario_nif_label');
+
   if (nomeExportador) nomeExportador.setAttribute('required', 'true');
+  if (enderecoExportador) enderecoExportador.removeAttribute('required');
+  if (nomeDestinatario) nomeDestinatario.setAttribute('required', 'true');
+
+  function _setNifRequired(el, label, required) {
+    if (el) {
+      if (required) el.setAttribute('required', 'true');
+      else el.removeAttribute('required');
+    }
+    if (label) {
+      const asterisco = label.querySelector('.text-red-500');
+      if (asterisco) asterisco.style.display = required ? '' : 'none';
+    }
+  }
 
   if (regime.startsWith('IM')) {
-    if (enderecoExportador) enderecoExportador.removeAttribute('required');
+    // Importação → NIF do Exportador NÃO obrigatório, NIF do Destinatário obrigatório
+    _setNifRequired(nifExportador, exportadorNifLabel, false);
+    _setNifRequired(destinatarioNif, destinatarioNifLabel, true);
     if (paisDestinoAuto) {
       paisDestinoAuto.value = 'AO - Angola';
       paisDestinoAuto.readOnly = true;
@@ -1301,7 +1316,9 @@ function atualizarCamposRegime() {
       localCampo54.classList.add('calc-field');
     }
   } else if (regime.startsWith('EX')) {
-    if (enderecoExportador) enderecoExportador.removeAttribute('required');
+    // Exportação → NIF do Destinatário NÃO obrigatório, NIF do Exportador obrigatório
+    _setNifRequired(nifExportador, exportadorNifLabel, true);
+    _setNifRequired(destinatarioNif, destinatarioNifLabel, false);
     if (paisDestinoAuto) {
       paisDestinoAuto.value = '';
       paisDestinoAuto.readOnly = false;
@@ -1314,6 +1331,10 @@ function atualizarCamposRegime() {
       localCampo54.classList.remove('calc-field');
       localCampo54.placeholder = 'Informe o local de destino';
     }
+  } else {
+    // Outros regimes → ambos NIFs obrigatórios
+    _setNifRequired(nifExportador, exportadorNifLabel, true);
+    _setNifRequired(destinatarioNif, destinatarioNifLabel, true);
   }
 
   // Estância de destino = mesma estância selecionada (sempre editável)
@@ -2189,30 +2210,6 @@ function _submeterDU(submeter) {
       }
       hiddenUuid.value = d.uuid;
 
-      // Mostrar código de processo em destaque
-      if (d.codigo_processo) {
-        let cpEl = document.getElementById('du_codigo_processo_display');
-        if (!cpEl) {
-          cpEl = document.createElement('div');
-          cpEl.id = 'du_codigo_processo_display';
-          cpEl.style.cssText = [
-            'position:fixed', 'bottom:80px', 'right:24px',
-            'background:#0f172a', 'color:#fff',
-            'padding:12px 20px', 'border-radius:14px',
-            'font-size:0.85rem', 'z-index:9999',
-            'box-shadow:0 4px 24px rgba(0,0,0,0.35)',
-            'border:1px solid rgba(255,255,255,0.1)',
-          ].join(';');
-          document.body.appendChild(cpEl);
-        }
-        cpEl.innerHTML = `
-          <div style="opacity:0.6;font-size:0.7rem;margin-bottom:2px;">Código do Processo</div>
-          <div style="font-size:1.3rem;font-weight:800;letter-spacing:3px;font-family:monospace;">${d.codigo_processo}</div>
-          <div style="opacity:0.5;font-size:0.65rem;margin-top:2px;">Guarde este código para localizar a DU</div>`;
-        cpEl.style.display = 'block';
-        setTimeout(() => { if (cpEl) cpEl.style.display = 'none'; }, 8000);
-      }
-
       if (submeter) {
         showSuccess(`DU ${d.numero_du} submetida e aprovada!`);
         setTimeout(() => { window.location.href = '/du/lista/'; }, 1800);
@@ -2419,22 +2416,35 @@ function toggleContainerRadio(radioElement) {
 ============================================================ */
 
 /**
+ * Recalcular montante (CIF) de todas as adições:
+ *   montante_kz = fob_kz + seguro_kz + frete_kz
+ */
+function _recalcularMontantesAdicoes() {
+  const cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
+  cards.forEach(card => {
+    const n = card.dataset.adicao;
+    if (!n) return;
+    const fobKz    = parseFloat(document.getElementById(`fob_kz_${n}`)?.value)    || 0;
+    const seguroKz = parseFloat(document.getElementById(`seguro_kz_${n}`)?.value) || 0;
+    const freteKz  = parseFloat(document.getElementById(`frete_kz_${n}`)?.value)  || 0;
+    const montanteEl = document.getElementById(`montante_kz_${n}`);
+    if (montanteEl) montanteEl.value = (fobKz + seguroKz + freteKz).toFixed(2);
+  });
+}
+
+/**
  * Handle repartition mode change for freight or insurance
  * @param {string} tipo - 'frete' or 'seguro'
  * @param {string} modo - 'sem_reparticao', 'valor', or 'peso'
  */
-function handleReparticaoChange(tipo, modo) {
+async function handleReparticaoChange(tipo, modo) {
   console.log(`Repartição ${tipo} mudou para: ${modo}`);
   
   if (modo === 'sem_reparticao') {
-    // Habilitar campos em todas as adições
     habilitarCamposAdicao(tipo, true);
-    // Limpar valores calculados
     limparValoresRepartidos(tipo);
   } else {
-    // Calcular valores automaticamente PRIMEIRO
-    calcularReparticao(tipo, modo);
-    // DEPOIS desabilitar campos em todas as adições
+    await calcularReparticao(tipo, modo);
     habilitarCamposAdicao(tipo, false);
   }
 }
@@ -2528,8 +2538,11 @@ function limparValoresRepartidos(tipo) {
       campoKz.disabled = false;
     }
   });
-  
-  }
+
+  // Recalcular montantes e agregar Step 1 após limpar
+  _recalcularMontantesAdicoes();
+  if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
+}
 
 /**
  * Obter taxa de câmbio com fallback e cache
@@ -2714,46 +2727,55 @@ async function calcularReparticao(tipo, modo) {
 
   console.log(`📊 Total da base (${modo}): ${totalBase} ${modo === 'peso' ? 'kg' : 'KZ'}`);
 
-  if (totalBase <= 0) {
-    console.log(`❌ Base total inválida para repartição por ${modo}`);
-    
-    if (typeof showError === 'function') {
-      const tipoBase = modo === 'peso' ? 'peso líquido' : 'valor FOB';
-      showError(`Não é possível repartir ${tipo} por ${tipoBase}: valores não preenchidos ou inválidos.`);
-    }
-    return;
+  const usarDistribuicaoIgualitaria = totalBase <= 0;
+  if (usarDistribuicaoIgualitaria) {
+    console.log(`⚠️ Base total zero — usando distribuição igualitária entre ${adicoes.length} adições`);
   }
 
-  // Repartir proporcionalmente
+  // Repartir proporcionalmente (ou igualmente se base = 0)
   let totalRepartido = 0;
+  const numAdicoes = adicoes.length;
   
   adicoes.forEach((adicao, index) => {
-    const valorBase = valoresBase[index];
-    const proporcao = valorBase / totalBase;
-    const valorRepartido = valorTotal * proporcao;
+    let valorRepartido;
     
-    // Encontrar campo de destino
+    if (usarDistribuicaoIgualitaria) {
+      valorRepartido = valorTotal / numAdicoes;
+    } else {
+      const valorBase = valoresBase[index];
+      const proporcao = valorBase / totalBase;
+      valorRepartido = valorTotal * proporcao;
+    }
+    
     const campoDestino = adicao.querySelector(`[name$="_${tipo}_kz"]`);
     if (campoDestino) {
       campoDestino.value = valorRepartido.toFixed(2);
       totalRepartido += valorRepartido;
       
-      console.log(`  ✅ Adição ${index + 1}: ${valorBase} ${modo === 'peso' ? 'kg' : 'KZ'} (${(proporcao * 100).toFixed(1)}%) → ${valorRepartido.toFixed(2)} KZ`);
-      
-      // Disparar evento de mudança para recalcular impostos
-      campoDestino.dispatchEvent(new Event('input', { bubbles: true }));
+      const baseInfo = usarDistribuicaoIgualitaria
+        ? `igualitária`
+        : `${valoresBase[index]} ${modo === 'peso' ? 'kg' : 'KZ'} (${(valoresBase[index] / totalBase * 100).toFixed(1)}%)`;
+      console.log(`  ✅ Adição ${index + 1}: ${baseInfo} → ${valorRepartido.toFixed(2)} KZ`);
     } else {
       console.log(`❌ Campo ${tipo}_kz não encontrado na adição ${index + 1}`);
     }
   });
 
   console.log(`📊 Total repartido: ${totalRepartido.toFixed(2)} KZ (diferença: ${Math.abs(valorTotal - totalRepartido).toFixed(2)} KZ)`);
+
+  // ── Recalcular montante (CIF) de todas as adições ──────────────────────
+  _recalcularMontantesAdicoes();
+
+  // ── Agregar totais no Step 1 ───────────────────────────────────────────
+  if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
+
   console.log(`=== FIM CÁLCULO REPARTIÇÃO ${tipo.toUpperCase()} ===`);
   
-  // Mostrar sucesso ao usuário
+  const tipoBase = usarDistribuicaoIgualitaria
+    ? 'divisão igualitária'
+    : (modo === 'peso' ? 'peso líquido' : 'valor FOB');
   if (typeof showSuccess === 'function') {
-    const tipoBase = modo === 'peso' ? 'peso líquido' : 'valor FOB';
-    showSuccess(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} repartido por ${tipoBase}: ${valorTotal.toFixed(2)} KZ entre ${adicoes.length} adições`);
+    showSuccess(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} repartido por ${tipoBase}: ${valorTotal.toFixed(2)} KZ entre ${numAdicoes} adições`);
   }
 }
 
