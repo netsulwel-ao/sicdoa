@@ -1,5 +1,8 @@
 function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, valorCIF }) {
 
+  // Normalização: garante que procedimento é sempre uma string para comparações seguras
+  const procedimentoStr = String(procedimento || '');
+
   // If (
   //     (regime_aduaneiro EQ 'IM4' or regime_aduaneiro EQ 'IMS4' or regime_aduaneiro EQ 'IMV4') or
   //     (regime_aduaneiro EQ 'IM5' or regime_aduaneiro EQ 'IMS5' or regime_aduaneiro EQ 'IMV5') or
@@ -16,7 +19,7 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
   const aplicaRegime = (
     isRegime4 ||
     isRegime5 ||
-    (isRegime6 && procedimento === '6021') ||
+    (isRegime6 && procedimentoStr === '6021') ||
     isRegime7 ||
     isRegime8
   );
@@ -41,10 +44,10 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
     //     (regime_aduaneiro EQ 'IM6' or regime_aduaneiro EQ 'IMS6' or regime_aduaneiro EQ 'IMV6') or
     //     ( (regime_aduaneiro EQ 'IM5' or regime_aduaneiro EQ 'IMS5' or regime_aduaneiro EQ 'IMV5') and ( Código_do_Procedimento EQ "5200" ) )
     // ) Then
-    if (isRegime4 || isRegime6 || (isRegime5 && procedimento === '5200')) {
+    if (isRegime4 || isRegime6 || (isRegime5 && procedimentoStr === '5200')) {
 
       // If ( Código_do_Procedimento <> "4400" ) Then
-      if (procedimento !== '4400') {
+      if (procedimentoStr !== '4400') {
 
         // Action := DoTax ( "02K" , "1" , Num02 , Num01 , Num03 )
         // ✅ DEVE PAGAR — Registo do imposto de importação (02K) com crédito "1"
@@ -68,7 +71,7 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
     //     (regime_aduaneiro EQ 'IM7' or regime_aduaneiro EQ 'IMS7' or regime_aduaneiro EQ 'IMV7') or
     //     (regime_aduaneiro EQ 'IM8' or regime_aduaneiro EQ 'IMS8' or regime_aduaneiro EQ 'IMV8')
     // ) Then
-    if ((isRegime5 && procedimento !== '5200') || isRegime7 || isRegime8) {
+    if ((isRegime5 && procedimentoStr !== '5200') || isRegime7 || isRegime8) {
 
       // Action := DoTax ( "02K" , "0" , Num02 , Num01 , Num03 )
       // ⏸️ REGISTO EM SUSPENSÃO — Imposto calculado mas NÃO pago imediatamente.
@@ -92,7 +95,7 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
   // If ( (regime_aduaneiro EQ 'IM6' or regime_aduaneiro EQ 'IMS6' or regime_aduaneiro EQ 'IMV6')
   //      and Código_do_Procedimento EQ "6021"
   //      and Código da Isenção EQ "003" ) Then
-  if (isRegime6 && procedimento === '6021' && codigoIsencao === '003') {
+  if (isRegime6 && procedimentoStr === '6021' && codigoIsencao === '003') {
 
     // Action := RelTax ( "02K" , "1" , Num02 , Num01 , 0 )
     // 🟡 ISENTO COM REGISTO — NÃO PAGA, mas o imposto fica registado no sistema.
@@ -106,7 +109,7 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
   // Endif
 
   // If ( regime_aduaneiro EQ 'IMS6' and Código_do_Procedimento EQ "6022" ) Then
-  if (regimeCod === 'IMS6' && procedimento === '6022') {
+  if (regimeCod === 'IMS6' && procedimentoStr === '6022') {
 
     // Action := DelTax ( "02K" )
     // 🔴 ANULAÇÃO TOTAL — NÃO PAGA e o registo do imposto é completamente eliminado.
@@ -121,7 +124,7 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
 
   // If ( (regime_aduaneiro EQ 'IM7' or regime_aduaneiro EQ 'IMS7' or regime_aduaneiro EQ 'IMV7')
   //      and ( Código_do_Procedimento EQ "7100" ) ) Then
-  if (isRegime7 && procedimento === '7100') {
+  if (isRegime7 && procedimentoStr === '7100') {
 
     // Action := RelTax ( "02K" , "1" , Num02 , Num01 , 0 )
     // 🟡 ISENTO COM REGISTO — NÃO PAGA, mas o imposto fica registado no sistema.
@@ -160,12 +163,12 @@ function calcularIEC({ regimeCod, procedimento, codigoIsencao, aliquotaCol2, val
   const Num03 = (Num01 * Num02) / 100;
 
   // If (
-  //     (regime_aduaneiro EQ 'IM4' or regime_aduaneiro EQ 'IMS4') or
-  //     ( (regime_aduaneiro EQ 'IM6' or regime_aduaneiro EQ 'IMS6') and ( Código_do_Procedimento EQ "6021" ) )
+  //     (regime_aduaneiro EQ 'IM4' or regime_aduaneiro EQ 'IMV4' or regime_aduaneiro EQ 'IMS4') or
+  //     ( (regime_aduaneiro EQ 'IM6' or regime_aduaneiro EQ 'IMV6' or regime_aduaneiro EQ 'IMS6') and ( Código_do_Procedimento EQ "6021" ) )
   // ) Then
   if (
-    ['IM4','IMS4','IMV4'].includes(regimeCod) ||
-    (['IM6','IMS6','IMV6'].includes(regimeCod) && procedimento === '6021')
+    ['IM4','IMV4','IMS4'].includes(regimeCod) ||
+    (['IM6','IMV6','IMS6'].includes(regimeCod) && procedimento === '6021')
   ) {
 
     // Action := DoTax ( "IEC" , "1" , Num02 , Num01 , Num03 )
@@ -181,6 +184,8 @@ function calcularIEC({ regimeCod, procedimento, codigoIsencao, aliquotaCol2, val
     //   IMS4 = importação definitiva simplificada
     //   IM6 + proc=6021  = reimportação definitiva
     //   IMS6 + proc=6021 = reimportação definitiva simplificada
+    // NOTA: IMV4 e IMV6 são incluídos — a regra original do sistema aduaneiro
+    //       aplica IEC apenas a IM4,IMV4 IMS4, IM6 IMV6 e IMS6.
     return { valor: Num03, acao: 'DoTax', credito: '1', base: Num02, taxa: Num01 };
   }
   // Endif
@@ -433,7 +438,8 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
       // Action := DoTax ( "05M" , "1" , Num02 , Num01 , Num03 )
       // ✅ DEVE PAGAR — Emolumentos de 2% sobre o CIF para importação temporária (IM5).
       // Crédito "1" = pagamento imediato e definitivo.
-      // NOTA: apenas IM5 puro — IMS5 e IMV5 não estão cobertos por esta condição.
+      // NOTA: apenas IM5 puro — IMS5 e IMV5 não estão cobertos por esta condição
+      //       e retornam N/A (valor inicial do resultado).
       // Valor = 2% × CIF
       return { valor: Num03, acao: 'DoTax', credito: '1', taxa: Num01, base: Num02 };
     }
@@ -445,17 +451,15 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
       // If ( Código_do_Procedimento EQ "6021" ) Then
       if (procedimento === '6021') {
 
-        const Num01 = Num02_CIF; // CIF como Num01 (ordem trocada no original)
-        const Num02 = 2;
+        const Num01 = 2;
+        const Num02 = Num02_CIF;
         const Num03 = (Num01 * Num02) / 100;
 
         // Action := DoTax ( "05M" , "1" , Num02 , Num01 , Num03 )
         // ✅ DEVE PAGAR — Emolumentos de 2% sobre o CIF para reimportação definitiva (IM6+6021).
         // Crédito "1" = pagamento imediato e definitivo.
-        // NOTA: na regra original Num01=CIF e Num02=2 (ordem trocada na atribuição),
-        // mas o cálculo Num03 = (CIF × 2) / 100 está correcto.
         // Valor = 2% × CIF
-        return { valor: Num03, acao: 'DoTax', credito: '1', taxa: Num02, base: Num01 };
+        return { valor: Num03, acao: 'DoTax', credito: '1', taxa: Num01, base: Num02 };
 
       } else {
 
@@ -809,6 +813,25 @@ function calcularIVA({ codigoIsencao, aliquotaCol3, valorFOB,
     '064','067','068','070','071','400','401','423','435','453','461',
   ]);
 
+  // ── Verificação de Exclusão/Eliminação do Imposto (DelTax) ───────────
+  // If (
+  //     ( Código da Isenção EQ "012" ) or ( Código da Isenção EQ "031" ) or
+  //     ( Código da Isenção EQ "405" ) or ( Código da Isenção EQ "470" ) or
+  //     ( Código da Isenção EQ "471" ) or ( Código da Isenção EQ "472" ) or
+  //     ( Código da Isenção EQ "473" ) or ( Código da Isenção EQ "474" )
+  // ) Then
+  const ISENCOES_DELTAX = new Set([
+    '012','031','405','470','471','472','473','474'
+  ]);
+
+  // Validação: os conjuntos RelTax e DelTax não devem ter sobreposição.
+  // Se houver sobreposição, DelTax tem prioridade (é avaliado depois).
+  for (const cod of ISENCOES_DELTAX) {
+    if (ISENCOES_RELTAX.has(cod)) {
+      console.warn(`IVA: Código de isenção "${cod}" encontrado em ambos RelTax e DelTax. DelTax tem prioridade.`);
+    }
+  }
+
   if (ISENCOES_RELTAX.has(codigoIsencao)) {
 
     // Action := RelTax ( "02I" , Código da Isenção , Num01 , Num02 , 0 )
@@ -825,20 +848,11 @@ function calcularIVA({ codigoIsencao, aliquotaCol3, valorFOB,
     //   044 = Isenção zona franca
     //   400/401/423/435/453/461 = Regimes especiais
     // Aplica-se a qualquer regime desde que o código de isenção esteja nesta lista.
+    // NOTA: Se o código estiver em AMBOS os conjuntos (RelTax e DelTax),
+    //       o DelTax abaixo sobrescreve este RelTax (DelTax tem prioridade).
     resultado = { valor: 0, acao: 'RelTax', credito: codigoIsencao, base: Num01, taxa: Num02 };
   }
   // Endif
-
-  // ── Verificação de Exclusão/Eliminação do Imposto (DelTax) ───────────
-  // If (
-  //     ( Código da Isenção EQ "012" ) or ( Código da Isenção EQ "031" ) or
-  //     ( Código da Isenção EQ "405" ) or ( Código da Isenção EQ "470" ) or
-  //     ( Código da Isenção EQ "471" ) or ( Código da Isenção EQ "472" ) or
-  //     ( Código da Isenção EQ "473" ) or ( Código da Isenção EQ "474" )
-  // ) Then
-  const ISENCOES_DELTAX = new Set([
-    '012','031','405','470','471','472','473','474'
-  ]);
 
   if (ISENCOES_DELTAX.has(codigoIsencao)) {
 
