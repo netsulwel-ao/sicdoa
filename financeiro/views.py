@@ -1185,7 +1185,9 @@ def requisicao_pdf(request, pk):
     # IMPOSTO/IVA + REFERÊNCIA DO PROCESSO (esquerda) | SUMÁRIO (direita)
     # ══════════════════════════════════════════════════════════════════
     iva_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
+    iva_val = requisicao.iva_honorarios or Decimal('0')
     sttl = requisicao.subtotal_geral or Decimal('0')
+    ret_pct = iva_pct
     ret_val = requisicao.retencao or Decimal('0')
     total = requisicao.total_geral or Decimal('0')
 
