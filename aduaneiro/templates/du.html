@@ -263,6 +263,11 @@
   background: #1e293b !important;
   color: #f1f5f9 !important;
   border-color: #334155 !important;
+}
+
+/* Esconder asterisco vermelho quando label não tem classe 'required' */
+label.form-label:not(.required) > .text-red-500 {
+  display: none;
 }</style>
   <!-- Header Section -->
   <div class="max-w-7xl mx-auto">
@@ -2651,25 +2656,9 @@ function adicionarNovaAdicao(dadosExistentes) {
   console.log(`Adição ${n} criada com sucesso`);
   sincronizarAdicoesContainers();
   
-  // Adicionar event listeners para recalcular repartição quando FOB mudar
-  const fobField = document.getElementById(`fob_${n}`);
-  if (fobField) {
-    fobField.addEventListener('input', function() {
-      clearTimeout(fobField._reparticaoTimer);
-      fobField._reparticaoTimer = setTimeout(() => {
-        // Verificar se repartição por valor está ativa para frete ou seguro
-        const reparticaoFrete = document.getElementById('reparticao_frete')?.value;
-        const reparticaoSeguro = document.getElementById('reparticao_seguro')?.value;
-        
-        if (reparticaoFrete === 'valor') calcularReparticao('frete', 'valor');
-        if (reparticaoSeguro === 'valor') calcularReparticao('seguro', 'valor');
-      }, 500);
-    });
-  }
-  
   // Verificar se precisa aplicar repartição existente na nova adição
-  const reparticaoFrete = document.getElementById('reparticao_frete')?.value;
-  const reparticaoSeguro = document.getElementById('reparticao_seguro')?.value;
+  var reparticaoFrete = (document.getElementById('reparticao_frete') || {}).value || 'sem_reparticao';
+  var reparticaoSeguro = (document.getElementById('reparticao_seguro') || {}).value || 'sem_reparticao';
   
   if (reparticaoFrete && reparticaoFrete !== 'sem_reparticao') {
     habilitarCamposAdicao('frete', false);
@@ -3038,7 +3027,6 @@ async function calcularValoresConvertidos() {
    depois agrega todos os valores no passo 1 (Geral).
 ---------------------------------------------------------- */
 async function calcularAdicaoFinanceiro(n) {
-  // Usa obterTaxaCambioDinamica do script.js (tem cache + fallback)
   async function obterTaxa(moeda, inputCambioEl) {
     if (!inputCambioEl) return 0;
     if (moeda === 'AOA' || moeda === 'KZ') { inputCambioEl.value = 1; return 1; }
@@ -3061,18 +3049,47 @@ async function calcularAdicaoFinanceiro(n) {
     return kz;
   }
 
-  const [fobKz, seguroKz, freteKz] = await Promise.all([
-    calcularLinha(`fob_${n}`,    `moeda_fob_${n}`,    `cambio_fob_${n}`,    `fob_kz_${n}`),
-    calcularLinha(`seguro_${n}`, `moeda_seguro_${n}`, `cambio_seguro_${n}`, `seguro_kz_${n}`),
-    calcularLinha(`frete_${n}`,  `moeda_frete_${n}`,  `cambio_frete_${n}`,  `frete_kz_${n}`),
-  ]);
+  var repFrete  = (document.getElementById('reparticao_frete')  || {}).value || 'sem_reparticao';
+  var repSeguro = (document.getElementById('reparticao_seguro') || {}).value || 'sem_reparticao';
 
-  // Montante desta adição = FOB_kz + Seguro_kz + Frete_kz
-  const montanteEl = document.getElementById(`montante_kz_${n}`);
+  var fobKz = await calcularLinha('fob_' + n, 'moeda_fob_' + n, 'cambio_fob_' + n, 'fob_kz_' + n);
+
+  var seguroKz;
+  if (repSeguro !== 'sem_reparticao') {
+    seguroKz = parseFloat(document.getElementById('seguro_kz_' + n)?.value) || 0;
+  } else {
+    seguroKz = await calcularLinha('seguro_' + n, 'moeda_seguro_' + n, 'cambio_seguro_' + n, 'seguro_kz_' + n);
+  }
+
+  var freteKz;
+  if (repFrete !== 'sem_reparticao') {
+    freteKz = parseFloat(document.getElementById('frete_kz_' + n)?.value) || 0;
+  } else {
+    freteKz = await calcularLinha('frete_' + n, 'moeda_frete_' + n, 'cambio_frete_' + n, 'frete_kz_' + n);
+  }
+
+  var montanteEl = document.getElementById('montante_kz_' + n);
   if (montanteEl) montanteEl.value = (fobKz + seguroKz + freteKz).toFixed(2);
 
-  // Agregar no passo 1
   agregarValoresGeral();
+
+  var promessas = [];
+  if (repFrete  !== 'sem_reparticao') promessas.push(calcularReparticao('frete',  repFrete));
+  if (repSeguro !== 'sem_reparticao') promessas.push(calcularReparticao('seguro', repSeguro));
+  if (promessas.length) {
+    await Promise.all(promessas);
+    var cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
+    cards.forEach(function(card) {
+      var m = card.dataset.adicao;
+      if (!m) return;
+      var fkz = parseFloat(document.getElementById('fob_kz_' + m)?.value)    || 0;
+      var skz = parseFloat(document.getElementById('seguro_kz_' + m)?.value) || 0;
+      var rtkz = parseFloat(document.getElementById('frete_kz_' + m)?.value)  || 0;
+      var mel = document.getElementById('montante_kz_' + m);
+      if (mel) mel.value = (fkz + skz + rtkz).toFixed(2);
+    });
+    agregarValoresGeral();
+  }
 }
 
 /* ----------------------------------------------------------
@@ -3081,30 +3098,40 @@ async function calcularAdicaoFinanceiro(n) {
    preenche os campos do passo 1 (Geral).
 ---------------------------------------------------------- */
 function agregarValoresGeral() {
-  const cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
+  var cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
 
-  let totalFobKz = 0, totalSeguroKz = 0, totalFreteKz = 0;
+  var totalFobKz = 0, totalSeguroKz = 0, totalFreteKz = 0;
 
-  cards.forEach(card => {
-    const n = card.dataset.adicao;
+  cards.forEach(function(card) {
+    var n = card.dataset.adicao;
     if (!n) return;
-    totalFobKz    += parseFloat(document.getElementById(`fob_kz_${n}`)?.value)    || 0;
-    totalSeguroKz += parseFloat(document.getElementById(`seguro_kz_${n}`)?.value) || 0;
-    totalFreteKz  += parseFloat(document.getElementById(`frete_kz_${n}`)?.value)  || 0;
+    totalFobKz    += parseFloat(document.getElementById('fob_kz_' + n)?.value)    || 0;
+    totalSeguroKz += parseFloat(document.getElementById('seguro_kz_' + n)?.value) || 0;
+    totalFreteKz  += parseFloat(document.getElementById('frete_kz_' + n)?.value)  || 0;
   });
 
-  // Preencher campos do passo 1 (readonly — calculados pelas adições)
-  const setVal = (id, val) => {
-    const el = document.getElementById(id);
+  var repFrete  = (document.getElementById('reparticao_frete')  || {}).value || 'sem_reparticao';
+  var repSeguro = (document.getElementById('reparticao_seguro') || {}).value || 'sem_reparticao';
+
+  var setVal = function(id, val) {
+    var el = document.getElementById(id);
     if (el) el.value = val.toFixed(2);
   };
 
-  setVal('valor_fob_kz',    totalFobKz);
-  setVal('valor_seguro_kz', totalSeguroKz);
-  setVal('valor_frete_kz',  totalFreteKz);
+  setVal('valor_fob_kz', totalFobKz);
 
-  const total = totalFobKz + totalSeguroKz + totalFreteKz;
-  setVal('montante_aduaneiro_kz', total);
+  if (repSeguro === 'sem_reparticao') {
+    setVal('valor_seguro_kz', totalSeguroKz);
+  }
+
+  if (repFrete === 'sem_reparticao') {
+    setVal('valor_frete_kz', totalFreteKz);
+  }
+
+  var fobStep1    = parseFloat(document.getElementById('valor_fob_kz')?.value)    || 0;
+  var seguroStep1 = parseFloat(document.getElementById('valor_seguro_kz')?.value) || 0;
+  var freteStep1  = parseFloat(document.getElementById('valor_frete_kz')?.value)  || 0;
+  setVal('montante_aduaneiro_kz', fobStep1 + seguroStep1 + freteStep1);
 }
 // Função para carregar regimes aduaneiros da API
 async function carregarRegimesAduaneiros() {
@@ -3163,6 +3190,11 @@ async function carregarRegimesAduaneiros() {
     
     // Esconder mensagem de erro se estava visível
     errorDiv.classList.add('hidden');
+
+    // Aplicar regras de campos consoante o regime já seleccionado (edição)
+    if (typeof atualizarCamposDestinatario === 'function') {
+      atualizarCamposDestinatario();
+    }
     
     console.log('Regimes aduaneiros carregados com sucesso!');
     

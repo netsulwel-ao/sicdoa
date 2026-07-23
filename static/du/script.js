@@ -2416,23 +2416,6 @@ function toggleContainerRadio(radioElement) {
 ============================================================ */
 
 /**
- * Recalcular montante (CIF) de todas as adições:
- *   montante_kz = fob_kz + seguro_kz + frete_kz
- */
-function _recalcularMontantesAdicoes() {
-  const cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
-  cards.forEach(card => {
-    const n = card.dataset.adicao;
-    if (!n) return;
-    const fobKz    = parseFloat(document.getElementById(`fob_kz_${n}`)?.value)    || 0;
-    const seguroKz = parseFloat(document.getElementById(`seguro_kz_${n}`)?.value) || 0;
-    const freteKz  = parseFloat(document.getElementById(`frete_kz_${n}`)?.value)  || 0;
-    const montanteEl = document.getElementById(`montante_kz_${n}`);
-    if (montanteEl) montanteEl.value = (fobKz + seguroKz + freteKz).toFixed(2);
-  });
-}
-
-/**
  * Handle repartition mode change for freight or insurance
  * @param {string} tipo - 'frete' or 'seguro'
  * @param {string} modo - 'sem_reparticao', 'valor', or 'peso'
@@ -2441,12 +2424,30 @@ async function handleReparticaoChange(tipo, modo) {
   console.log(`Repartição ${tipo} mudou para: ${modo}`);
   
   if (modo === 'sem_reparticao') {
+    // Habilitar campos em todas as adições
     habilitarCamposAdicao(tipo, true);
+    // Limpar valores calculados
     limparValoresRepartidos(tipo);
   } else {
+    // Calcular valores automaticamente PRIMEIRO
     await calcularReparticao(tipo, modo);
+    // DEPOIS desabilitar campos em todas as adições
     habilitarCamposAdicao(tipo, false);
   }
+
+  // Recalcular montantes de todas as adições
+  var cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
+  cards.forEach(function(card) {
+    var m = card.dataset.adicao;
+    if (!m) return;
+    var fkz = parseFloat(document.getElementById('fob_kz_' + m)?.value)    || 0;
+    var skz = parseFloat(document.getElementById('seguro_kz_' + m)?.value) || 0;
+    var rtkz = parseFloat(document.getElementById('frete_kz_' + m)?.value)  || 0;
+    var mel = document.getElementById('montante_kz_' + m);
+    if (mel) mel.value = (fkz + skz + rtkz).toFixed(2);
+  });
+
+  if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
 }
 
 /**
@@ -2538,11 +2539,8 @@ function limparValoresRepartidos(tipo) {
       campoKz.disabled = false;
     }
   });
-
-  // Recalcular montantes e agregar Step 1 após limpar
-  _recalcularMontantesAdicoes();
-  if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
-}
+  
+  }
 
 /**
  * Obter taxa de câmbio com fallback e cache
@@ -2626,157 +2624,68 @@ async function obterTaxaCambioDinamica(moeda) {
  * @param {string} modo - 'valor' or 'peso'
  */
 async function calcularReparticao(tipo, modo) {
-  // Busca o valor TOTAL do frete ou seguro já convertido para KZ do STEP 1 (Geral)
   const campoTotalKz = document.getElementById(`valor_${tipo}_kz`);
   const valorTotal = parseFloat(campoTotalKz?.value) || 0;
-  
-  console.log(`=== INÍCIO CÁLCULO REPARTIÇÃO ${tipo.toUpperCase()} ===`);
-  console.log(`Modo: ${modo}`);
-  console.log(`Campo encontrado: valor_${tipo}_kz =`, campoTotalKz ? 'SIM' : 'NÃO');
-  console.log(`Valor do campo: "${campoTotalKz?.value}"`);
-  console.log(`Valor Total (${tipo}_kz): ${valorTotal}`);
-  
-  // Tentar buscar dos campos originais também para debug
-  const campoOriginal = document.getElementById(`valor_${tipo}`);
-  const valorOriginal = parseFloat(campoOriginal?.value) || 0;
-  const campoMoeda = document.getElementById(`moeda_${tipo}`);
-  const moeda = campoMoeda?.value || 'USD';
-  
-  console.log(`Campo original: valor_${tipo} =`, campoOriginal ? 'SIM' : 'NÃO');
-  console.log(`Valor original: "${campoOriginal?.value}"`);
-  console.log(`Valor Original parseado: ${valorOriginal}`);
-  console.log(`Moeda: ${moeda}`);
-  
+
   if (valorTotal <= 0) {
-    console.log(`VALOR TOTAL INVÁLIDO, CANCELANDO CÁLCULO`);
-    console.log(`Tentando converter valor original usando API dinâmica...`);
+    const campoOriginal = document.getElementById(`valor_${tipo}`);
+    const valorOriginal = parseFloat(campoOriginal?.value) || 0;
+    const campoMoeda = document.getElementById(`moeda_${tipo}`);
+    const moeda = campoMoeda?.value || 'USD';
+
     if (valorOriginal > 0) {
       try {
-        // Buscar taxa de câmbio dinamicamente da API
         const taxaCambio = await obterTaxaCambioDinamica(moeda);
-        
         if (taxaCambio > 0) {
           const valorConvertido = valorOriginal * taxaCambio;
           if (campoTotalKz) {
             campoTotalKz.value = valorConvertido.toFixed(2);
-            console.log(`✅ Campo ${tipo}_kz preenchido com API: ${valorOriginal} ${moeda} × ${taxaCambio} = ${valorConvertido.toFixed(2)} KZ`);
-            
-            // Atualizar campo de câmbio também
             const campoCambio = document.getElementById(`cambio_${tipo}`);
-            if (campoCambio) {
-              campoCambio.value = taxaCambio.toFixed(4);
-              console.log(`📡 Taxa de câmbio atualizada: ${taxaCambio.toFixed(4)}`);
-            }
-            
-            // Chamar novamente com o valor convertido
-            setTimeout(() => calcularReparticao(tipo, modo), 100);
+            if (campoCambio) campoCambio.value = taxaCambio.toFixed(4);
+            await calcularReparticao(tipo, modo);
             return;
-          }
-        } else {
-          console.log(`❌ Taxa de câmbio inválida para ${moeda}`);
-          
-          // Mostrar erro específico ao usuário
-          if (typeof showError === 'function') {
-            showError(`Erro na conversão de ${moeda} para KZ. Verifique a conexão ou contacte o suporte.`);
           }
         }
       } catch (error) {
-        console.error(`❌ Erro ao converter valor via API:`, error);
-        
-        // Mostrar erro ao usuário
-        if (typeof showError === 'function') {
-          showError(`Erro na conversão de moeda. Verifique a conexão com a internet.`);
-        }
+        console.error(`Erro ao converter ${tipo} via API:`, error);
       }
     }
-    
-    // Se chegou aqui, não há valor válido para repartir
-    console.log(`❌ CANCELANDO REPARTIÇÃO: Valor total de ${tipo} é 0 ou inválido`);
     return;
   }
 
-  // Buscar todas as adições
   const adicoes = document.querySelectorAll('.adicao-card-wrapper');
-  if (adicoes.length === 0) {
-    console.log(`❌ Nenhuma adição encontrada para repartir ${tipo}`);
-    return;
-  }
-
-  console.log(`📊 Repartindo ${valorTotal.toFixed(2)} KZ de ${tipo} entre ${adicoes.length} adições`);
+  if (adicoes.length === 0) return;
 
   let totalBase = 0;
   const valoresBase = [];
 
-  // Calcular base total (peso ou valor FOB)
-  adicoes.forEach((adicao, index) => {
+  adicoes.forEach((adicao) => {
     let valorBase = 0;
-    
     if (modo === 'peso') {
-      const campoBase = adicao.querySelector('[name$="_peso_liquido"]');
+      const campoBase = adicao.querySelector('[id^="peso_liquido_"]');
       valorBase = parseFloat(campoBase?.value) || 0;
     } else if (modo === 'valor') {
-      const campoBase = adicao.querySelector('[name$="_fob_kz"]');
+      const campoBase = adicao.querySelector('[id^="fob_kz_"]');
       valorBase = parseFloat(campoBase?.value) || 0;
     }
-    
     valoresBase.push(valorBase);
     totalBase += valorBase;
-    
-    console.log(`  Adição ${index + 1}: Base = ${valorBase} ${modo === 'peso' ? 'kg' : 'KZ'}`);
   });
 
-  console.log(`📊 Total da base (${modo}): ${totalBase} ${modo === 'peso' ? 'kg' : 'KZ'}`);
+  if (totalBase <= 0) return;
 
-  const usarDistribuicaoIgualitaria = totalBase <= 0;
-  if (usarDistribuicaoIgualitaria) {
-    console.log(`⚠️ Base total zero — usando distribuição igualitária entre ${adicoes.length} adições`);
-  }
-
-  // Repartir proporcionalmente (ou igualmente se base = 0)
-  let totalRepartido = 0;
-  const numAdicoes = adicoes.length;
-  
   adicoes.forEach((adicao, index) => {
-    let valorRepartido;
-    
-    if (usarDistribuicaoIgualitaria) {
-      valorRepartido = valorTotal / numAdicoes;
-    } else {
-      const valorBase = valoresBase[index];
-      const proporcao = valorBase / totalBase;
-      valorRepartido = valorTotal * proporcao;
-    }
-    
-    const campoDestino = adicao.querySelector(`[name$="_${tipo}_kz"]`);
+    const valorBase = valoresBase[index];
+    const proporcao = valorBase / totalBase;
+    const valorRepartido = valorTotal * proporcao;
+
+    const nAdicao = adicao.dataset.adicao || (index + 1);
+    const campoDestino = adicao.querySelector(`#${tipo}_kz_${nAdicao}`) || adicao.querySelector(`[id^="${tipo}_kz_"]`);
     if (campoDestino) {
       campoDestino.value = valorRepartido.toFixed(2);
-      totalRepartido += valorRepartido;
-      
-      const baseInfo = usarDistribuicaoIgualitaria
-        ? `igualitária`
-        : `${valoresBase[index]} ${modo === 'peso' ? 'kg' : 'KZ'} (${(valoresBase[index] / totalBase * 100).toFixed(1)}%)`;
-      console.log(`  ✅ Adição ${index + 1}: ${baseInfo} → ${valorRepartido.toFixed(2)} KZ`);
-    } else {
-      console.log(`❌ Campo ${tipo}_kz não encontrado na adição ${index + 1}`);
+      campoDestino.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
-
-  console.log(`📊 Total repartido: ${totalRepartido.toFixed(2)} KZ (diferença: ${Math.abs(valorTotal - totalRepartido).toFixed(2)} KZ)`);
-
-  // ── Recalcular montante (CIF) de todas as adições ──────────────────────
-  _recalcularMontantesAdicoes();
-
-  // ── Agregar totais no Step 1 ───────────────────────────────────────────
-  if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
-
-  console.log(`=== FIM CÁLCULO REPARTIÇÃO ${tipo.toUpperCase()} ===`);
-  
-  const tipoBase = usarDistribuicaoIgualitaria
-    ? 'divisão igualitária'
-    : (modo === 'peso' ? 'peso líquido' : 'valor FOB');
-  if (typeof showSuccess === 'function') {
-    showSuccess(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} repartido por ${tipoBase}: ${valorTotal.toFixed(2)} KZ entre ${numAdicoes} adições`);
-  }
 }
 
 // ── Código legado removido (duplicado) ──────────────────────────────────────
@@ -2829,14 +2738,30 @@ document.addEventListener('DOMContentLoaded', function() {
         campoPeso._reparticaoTimer = setTimeout(function() {
           console.log(`⚡ Peso alterado na adição ${n} - recalculando repartição`);
           
-          // Verificar se o modo de repartição está em "peso" para frete ou seguro
-          ['frete', 'seguro'].forEach(tipo => {
-            const modoReparticao = document.getElementById(`reparticao_${tipo}`)?.value;
+          var promessas = [];
+          ['frete', 'seguro'].forEach(function(tipo) {
+            var modoReparticao = (document.getElementById('reparticao_' + tipo) || {}).value;
             if (modoReparticao === 'peso') {
               console.log(`🔄 Recalculando ${tipo} em modo peso`);
-              calcularReparticao(tipo, 'peso');
+              promessas.push(calcularReparticao(tipo, 'peso'));
             }
           });
+
+          if (promessas.length) {
+            Promise.all(promessas).then(function() {
+              var cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
+              cards.forEach(function(card) {
+                var m = card.dataset.adicao;
+                if (!m) return;
+                var fkz = parseFloat(document.getElementById('fob_kz_' + m)?.value)    || 0;
+                var skz = parseFloat(document.getElementById('seguro_kz_' + m)?.value) || 0;
+                var rtkz = parseFloat(document.getElementById('frete_kz_' + m)?.value)  || 0;
+                var mel = document.getElementById('montante_kz_' + m);
+                if (mel) mel.value = (fkz + skz + rtkz).toFixed(2);
+              });
+              if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
+            });
+          }
         }, 500); // Debounce de 500ms
       });
     }
