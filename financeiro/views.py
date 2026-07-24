@@ -1237,8 +1237,6 @@ def requisicao_pdf(request, pk):
         [Spacer(1, 0.15 * cm)],
         [Paragraph(f'<font size="7">Subtotal (Direitos + Despesas): <b>{fmt_kz(sttl)} KZ</b></font>',
                    st('sum_l', fontSize=7, leading=10))],
-        [Paragraph(f'<font size="7">IVA ({iva_pct*100:.0f}%): <b>{fmt_kz(iva_val)} KZ</b></font>',
-                   st('sum_l', fontSize=7, leading=10))],
         [Paragraph(f'<font size="7">Retenção ({ret_pct*100:.1f}%): <b>{fmt_kz(ret_val)} KZ</b></font>',
                    st('sum_l', fontSize=7, leading=10))],
         [Spacer(1, 0.15 * cm)],
