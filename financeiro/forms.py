@@ -47,7 +47,8 @@ class RequisicaoFundoForm(forms.ModelForm):
             }),
             'pessoa_contacto': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'placeholder': 'Nome da pessoa de contacto'
+                'placeholder': 'Nome da pessoa de contacto',
+                'disabled': True
             }),
             'numero_bl_awb': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
@@ -392,8 +393,8 @@ class ReciboClienteForm(forms.ModelForm):
         model = ReciboCliente
         fields = ['cliente', 'factura', 'valor_recebido', 'forma_pagamento', 'data_pagamento', 'referencia_bancaria']
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
-            'factura': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
+            'cliente': forms.Select(attrs={'id': 'id_cliente_recibo', 'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
+            'factura': forms.Select(attrs={'id': 'id_factura_recibo', 'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'valor_recebido': forms.TextInput(attrs={'class': 'moeda w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'inputmode': 'decimal', 'placeholder': '0,00'}),
             'forma_pagamento': forms.Select(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm'}),
             'data_pagamento': forms.DateInput(attrs={'class': 'w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm', 'type': 'date'}, format='%Y-%m-%d'),
@@ -403,6 +404,7 @@ class ReciboClienteForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         banca_id = kwargs.pop('banca_id', None)
         super().__init__(*args, **kwargs)
+        self._banca_id = banca_id
         if banca_id:
             self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True, banca_id=banca_id).order_by('nome')
         else:
@@ -410,7 +412,10 @@ class ReciboClienteForm(forms.ModelForm):
         if self.is_bound and self.data.get('cliente'):
             try:
                 cliente_id = int(self.data.get('cliente'))
-                qs_factura = FacturaCliente.objects.filter(cliente_id=cliente_id)
+                qs_factura = FacturaCliente.objects.filter(
+                    cliente_id=cliente_id,
+                    estado__in=['Pendente', 'Parcialmente Paga']
+                )
                 if banca_id:
                     qs_factura = qs_factura.filter(banca_id=banca_id)
                 self.fields['factura'].queryset = qs_factura
@@ -442,6 +447,9 @@ class ReciboClienteForm(forms.ModelForm):
 
         if factura and cliente and factura.cliente != cliente:
             self.add_error('factura', 'A factura selecionada não pertence ao cliente escolhido.')
+
+        if factura and factura.estado == 'Paga':
+            self.add_error('factura', 'Esta factura já foi totalmente paga.')
 
         if factura and valor_recebido:
             if valor_recebido <= 0:

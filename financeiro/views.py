@@ -5681,7 +5681,8 @@ def api_dados_processo(request):
 @requer_sessao_ativa
 @require_http_methods(["GET"])
 def api_facturas_por_cliente(request):
-    """API: Retorna facturas de um cliente para filtrar dropdown de NC/ND"""
+    """API: Retorna facturas de um cliente para filtrar dropdown de NC/ND/Recibos.
+    Parametro opcional: apenas_nao_pagas=1 — filtra apenas facturas nao totalmente pagas."""
     try:
         cliente_id = request.GET.get('cliente_id')
         if not cliente_id:
@@ -5704,13 +5705,13 @@ def api_facturas_por_cliente(request):
             if not cliente_existe:
                 return JsonResponse({'success': True, 'facturas': []})
 
-        facturas = (
-            FacturaCliente.objects
-            .filter(cliente_id=cliente_id)
-            .exclude(estado='Cancelada')
-            .order_by('-data_emissao')
-            .values('id', 'numero_factura', 'valor_total', 'estado')
-        )
+        qs = FacturaCliente.objects.filter(cliente_id=cliente_id).exclude(estado='Cancelada')
+
+        apenas_nao_pagas = request.GET.get('apenas_nao_pagas') in ('1', 'true', 'True')
+        if apenas_nao_pagas:
+            qs = qs.filter(estado__in=['Pendente', 'Parcialmente Paga'])
+
+        facturas = qs.order_by('-data_emissao').values('id', 'numero_factura', 'valor_total', 'valor_pago', 'estado')
         return JsonResponse({
             'success': True,
             'facturas': list(facturas)

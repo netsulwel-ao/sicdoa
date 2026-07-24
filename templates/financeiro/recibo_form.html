@@ -1,8 +1,9 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
     <div class="max-w-xl mx-auto w-full">
 
-      <!-- ── Cabeçalho ── -->
+      <!-- Cabeçalho -->
       <div class="mb-5 flex items-center justify-between">
         <div>
           <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2">
@@ -18,7 +19,7 @@
         </a>
       </div>
 
-      <!-- ── Formulário ── -->
+      <!-- Formulário -->
       <form method="post" class="space-y-6">
         {% csrf_token %}
 
@@ -89,4 +90,77 @@
       </form>
 
     </div>
+
+<script src="{% static 'du/searchable-dropdown.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var selCliente = document.getElementById('id_cliente_recibo');
+  var selFactura = document.getElementById('id_factura_recibo');
+
+  if (!selCliente || !selFactura) return;
+
+  var selectedFactura = selFactura.value;
+
+  if (!selCliente.value) {
+    selFactura.innerHTML = '<option value="">Selecione um cliente primeiro</option>';
+    selFactura.disabled = true;
+  }
+
+  if (typeof autocompleteSelect === 'function') {
+    autocompleteSelect(selCliente, {
+      placeholder: 'Digite o NIF ou nome do cliente...',
+      ajax: function(query, callback) {
+        fetch('/financeiro/api/buscar-cliente/?q=' + encodeURIComponent(query))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            callback(data.success ? data.clientes : []);
+          })
+          .catch(function() { callback([]); });
+      }
+    });
+  }
+
+  function carregarFacturasNaoPagas() {
+    var clienteId = selCliente.value;
+    if (!clienteId) {
+      selFactura.innerHTML = '<option value="">Selecione um cliente primeiro</option>';
+      selFactura.disabled = true;
+      return;
+    }
+    selFactura.innerHTML = '<option value="">Carregando facturas...</option>';
+    selFactura.disabled = true;
+    fetch('{% url "financeiro:api_facturas_por_cliente" %}?cliente_id=' + clienteId + '&apenas_nao_pagas=1')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var html = '<option value="">Selecione uma factura</option>';
+        if (data.success && data.facturas && data.facturas.length > 0) {
+          var fmt = new Intl.NumberFormat('pt-AO', {minimumFractionDigits: 2});
+          data.facturas.forEach(function(f) {
+            var pendente = parseFloat(f.valor_total) - parseFloat(f.valor_pago || 0);
+            var label = f.numero_factura + ' - Pendente: ' + fmt.format(pendente) + ' KZ (' + f.estado + ')';
+            var sel = (String(f.id) === String(selectedFactura)) ? ' selected' : '';
+            html += '<option value="' + f.id + '"' + sel + '>' + label + '</option>';
+          });
+        } else {
+          html = '<option value="">Nenhuma factura pendente encontrada</option>';
+        }
+        selFactura.innerHTML = html;
+        selFactura.disabled = false;
+      })
+      .catch(function() {
+        selFactura.innerHTML = '<option value="">Erro ao carregar facturas</option>';
+        selFactura.disabled = false;
+      });
+  }
+
+  selCliente.addEventListener('change', function() {
+    selectedFactura = '';
+    carregarFacturasNaoPagas();
+  });
+
+  if (selCliente.value) {
+    carregarFacturasNaoPagas();
+  }
+});
+</script>
 {% endblock %}
