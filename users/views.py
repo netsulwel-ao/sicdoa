@@ -639,6 +639,14 @@ def _dashboard_inner(request):
         usuario_id=uid, lida=False
     ).count()
 
+    # ── 8. Bancas (apenas administradores) ─────────────────────────────────
+    if e_admin:
+        stats_bancas_total = Banca.objects.count()
+        stats_bancas_ativas = Banca.objects.filter(ativa=True).count()
+    else:
+        stats_bancas_total = 0
+        stats_bancas_ativas = 0
+
     # ── Pendentes de Aprovação (NC + ND + Requisições de Fundos) ──────────
     if e_gestor:
         nc_pend = NotaCredito.objects.filter(estado='Pendente').count()
@@ -690,6 +698,8 @@ def _dashboard_inner(request):
         "stats_colab_ativos": stats_colab_ativos,
         "stats_utilizadores_total": stats_utilizadores_total,
         "stats_utilizadores_ativos": stats_utilizadores_ativos,
+        "stats_bancas_total": stats_bancas_total,
+        "stats_bancas_ativas": stats_bancas_ativas,
         "stats_notificacoes": stats_notificacoes,
         "stats_nc_pendentes": stats_nc_pendentes,
         "stats_nd_pendentes": stats_nd_pendentes,
