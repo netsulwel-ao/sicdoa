@@ -344,7 +344,10 @@
       input.value = label || val;
       input.dataset.value = val;
       input.classList.add('has-value');
-      if (originalSelect) { originalSelect.value = val; }
+      if (originalSelect) {
+        originalSelect.value = val;
+        originalSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     }
 
     /* Preencher se select já tiver um valor */
