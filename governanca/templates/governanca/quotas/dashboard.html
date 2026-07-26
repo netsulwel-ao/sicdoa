@@ -1,111 +1,243 @@
 {% extends 'governanca/base_governanca.html' %}
 {% block content %}
 {% csrf_token %}
-  <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-    <div>
-      <h1 class="text-[#111418] dark:text-gray-200 text-2xl md:text-3xl font-black">Gestão Financeira de Quotas</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1 text-sm">Gerir quotas, pagamentos e certidões</p>
+
+  <!-- Breadcrumbs -->
+  <div class="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mb-2 flex-wrap">
+    <span>Governança</span>
+    <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+    <span class="text-primary font-semibold">Quotas</span>
+  </div>
+
+  <!-- Header -->
+  <div class="mb-6">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white">Gestão Financeira de Quotas</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Gerir quotas, pagamentos e certidões</p>
+      </div>
     </div>
-    {% if papel == 'Administrador' or 'gerir_quotas' in user_permissoes %}
-    <a href="{% url 'governanca_quotas_admin' %}" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shrink-0">
-      <i class="fas fa-cog"></i> Administrar
+  </div>
+
+  <!-- Estado Financeiro -->
+  {% if estado_financeiro %}
+  <div class="mb-6 rounded-2xl border p-5 flex items-center gap-4
+    {% if estado_financeiro.estado == 'Regular' %}bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-900/20 dark:to-emerald-900/10 border-emerald-200 dark:border-emerald-800{% else %}bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10 border-red-200 dark:border-red-800{% endif %}">
+    <div class="p-3 rounded-xl
+      {% if estado_financeiro.estado == 'Regular' %}bg-emerald-100 dark:bg-emerald-900/30{% else %}bg-red-100 dark:bg-red-900/30{% endif %}">
+      <i class="fas text-2xl
+        {% if estado_financeiro.estado == 'Regular' %}fa-check-circle text-emerald-600 dark:text-emerald-400
+        {% else %}fa-exclamation-triangle text-red-600 dark:text-red-400{% endif %}"></i>
+    </div>
+    <div class="flex-1">
+      <p class="text-base font-extrabold
+        {% if estado_financeiro.estado == 'Regular' %}text-emerald-800 dark:text-emerald-200{% else %}text-red-800 dark:text-red-200{% endif %}">
+        Estado {{ estado_financeiro.estado }}
+      </p>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+        {% if estado_financeiro.estado == 'Regular' %}Está em dia com todas as suas quotas{% else %}Tem {{ quotas_pendentes }} quota{{ quotas_pendentes|pluralize:"s" }} pendente{{ quotas_pendentes|pluralize:"s" }}{% endif %}
+      </p>
+    </div>
+    {% if quotas_pendentes > 0 %}
+    <a href="{% url 'governanca_quotas_faturas' %}" class="px-4 py-2 rounded-xl text-sm font-semibold
+      {% if estado_financeiro.estado == 'Regular' %}bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20{% else %}bg-red-600 text-white hover:bg-red-700 shadow-sm shadow-red-600/20{% endif %} transition-all active:scale-[0.97]">
+      <i class="fas fa-eye mr-1.5"></i> Ver Faturas
     </a>
     {% endif %}
   </div>
+  {% endif %}
 
-  {% if estado_financeiro and papel == 'Despachante Oficial' %}
-  <div class="mb-6 p-4 rounded-xl flex items-center gap-3 {% if estado_financeiro.estado == 'Regular' %}bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800{% else %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800{% endif %}">
-    <i class="fas {% if estado_financeiro.estado == 'Regular' %}fa-check-circle text-green-600{% else %}fa-exclamation-triangle text-red-600{% endif %} text-xl"></i>
-    <div>
-      <span class="text-sm font-bold {% if estado_financeiro.estado == 'Regular' %}text-green-800 dark:text-green-200{% else %}text-red-800 dark:text-red-200{% endif %}">
-        {{ estado_financeiro.estado }}
-      </span>
-      <span class="text-sm text-gray-600 dark:text-gray-400 ml-2">
-        {% if estado_financeiro.estado == 'Regular' %}Sem dívidas pendentes{% else %}{{ quotas_pendentes }} quota{{ quotas_pendentes|pluralize:"s" }} pendente{{ quotas_pendentes|pluralize:"s" }}{% endif %}
-      </span>
+  <!-- Config Vigente -->
+  {% if config %}
+  <div class="mb-6 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 dark:from-primary/10 dark:via-primary/5 dark:to-primary/10 rounded-2xl border border-primary/20 dark:border-primary/30 p-5">
+    <div class="flex items-center gap-4">
+      <div class="p-3 rounded-xl bg-primary/15">
+        <i class="fas fa-coins text-primary text-xl"></i>
+      </div>
+      <div class="flex-1">
+        <p class="text-[11px] font-semibold text-primary/60 dark:text-primary/70 uppercase tracking-wider">Valor da Quota Vigente</p>
+        <p class="text-xl font-extrabold text-primary mt-0.5">Kz {{ config.valor|fmtkz }}</p>
+      </div>
+      <div class="text-right hidden sm:block">
+        <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Período</p>
+        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mt-0.5">{{ config.mes|stringformat:"02d" }}/{{ config.ano }}</p>
+      </div>
+      <div class="text-right hidden sm:block">
+        <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Vencimento</p>
+        <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mt-0.5">{{ config.data_vencimento|date:"d/m/Y" }}</p>
+      </div>
     </div>
   </div>
   {% endif %}
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 hover:shadow-md transition-shadow">
       <div class="flex items-center gap-3">
-        <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg"><i class="fas fa-check-circle text-green-600 text-xl"></i></div>
+        <div class="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 shrink-0">
+          <i class="fas fa-file-invoice-dollar text-blue-600 dark:text-blue-400 text-lg"></i>
+        </div>
         <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total de Quotas</p>
-          <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{{ total_quotas|default:"0" }}</p>
+          <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Total</p>
+          <p class="text-xl font-extrabold text-gray-900 dark:text-white">{{ total_quotas }}</p>
         </div>
       </div>
     </div>
-    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 hover:shadow-md transition-shadow">
       <div class="flex items-center gap-3">
-        <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg"><i class="fas fa-clock text-yellow-600 text-xl"></i></div>
+        <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 shrink-0">
+          <i class="fas fa-clock text-amber-500 dark:text-amber-400 text-lg"></i>
+        </div>
         <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pendentes</p>
-          <p class="text-2xl font-bold mt-1 text-yellow-600 dark:text-yellow-400">{{ quotas_pendentes }}</p>
+          <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Pendentes</p>
+          <p class="text-xl font-extrabold text-amber-600 dark:text-amber-400">{{ quotas_pendentes }}</p>
         </div>
       </div>
     </div>
-    <div class="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 hover:shadow-md transition-shadow">
       <div class="flex items-center gap-3">
-        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><i class="fas fa-id-card text-blue-600 text-xl"></i></div>
+        <div class="p-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 shrink-0">
+          <i class="fas fa-exclamation-triangle text-red-500 dark:text-red-400 text-lg"></i>
+        </div>
         <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</p>
-          <p class="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">
-            {% if carteira %}{{ carteira.numero_carteira }}{% else %}—{% endif %}
-          </p>
+          <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Atrasadas</p>
+          <p class="text-xl font-extrabold text-red-600 dark:text-red-400">{{ atrasadas }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 shrink-0">
+          <i class="fas fa-check-circle text-emerald-600 dark:text-emerald-400 text-lg"></i>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Pagas</p>
+          <p class="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{{ pagas }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 rounded-xl bg-violet-50 dark:bg-violet-900/20 shrink-0">
+          <i class="fas fa-coins text-violet-600 dark:text-violet-400 text-lg"></i>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Em Dívida</p>
+          <p class="text-lg font-extrabold text-gray-900 dark:text-white">Kz {{ valor_pendente|fmtkz }}</p>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
-      <div class="p-5 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
-        <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200">Últimas Quotas</h2>
-        {% include 'includes/view-toggle.html' %}
-        <a href="{% url 'governanca_quotas_faturas' %}" class="text-primary text-sm hover:underline">Ver todas</a>
+  <!-- Main Content -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Últimas Quotas (2/3) -->
+    <div class="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div class="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+        <h2 class="text-base font-extrabold text-gray-900 dark:text-white">Últimas Quotas</h2>
+        <div class="flex items-center gap-3">
+          {% include 'includes/view-toggle.html' %}
+          <a href="{% url 'governanca_quotas_faturas' %}"
+             class="text-xs font-semibold text-primary hover:underline">Ver todas <i class="fas fa-arrow-right ml-0.5 text-[10px]"></i></a>
+        </div>
       </div>
       <div data-view-container>
-        <div data-grid-view class="divide-y divide-gray-100 dark:divide-gray-800">
-          {% for q in ultimas_quotas %}
-          <a href="{% url 'governanca_quota_detalhe' q.fatura_uuid %}" class="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-            <div class="w-10 h-10 rounded-lg {% if q.status == 'Paga' %}bg-green-50{% else %}bg-yellow-50{% endif %} flex items-center justify-center">
-              <i class="fas {% if q.status == 'Paga' %}fa-check text-green-600{% else %}fa-hourglass text-yellow-600{% endif %}"></i>
+        <!-- Grid View -->
+        <div data-grid-view>
+          <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            {% for q in ultimas_quotas %}
+            <a href="{% url 'governanca_quota_detalhe' q.fatura_uuid %}"
+               class="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0
+                {% if q.status == 'Paga' %}bg-emerald-50 dark:bg-emerald-900/20
+                {% elif q.status == 'Atrasada' %}bg-red-50 dark:bg-red-900/20
+                {% elif q.status == 'Pendente Confirmacao' %}bg-orange-50 dark:bg-orange-900/20
+                {% else %}bg-amber-50 dark:bg-amber-900/20{% endif %}">
+                <i class="fas text-lg
+                  {% if q.status == 'Paga' %}fa-check-circle text-emerald-500
+                  {% elif q.status == 'Atrasada' %}fa-exclamation-circle text-red-500
+                  {% elif q.status == 'Pendente Confirmacao' %}fa-hourglass-half text-orange-500
+                  {% else %}fa-clock text-amber-500{% endif %}"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <p class="text-base font-bold text-gray-900 dark:text-white">{{ q.mes|stringformat:"02d" }}/{{ q.ano }}</p>
+                  {% if q.tipo %}
+                  <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-primary/10 text-primary">{{ q.tipo.nome }}</span>
+                  {% endif %}
+                </div>
+                <div class="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <span><i class="fas fa-coins mr-1 text-emerald-400"></i>Kz {{ q.valor|fmtkz }}</span>
+                  <span><i class="fas fa-calendar mr-1 text-blue-400"></i>Vence {{ q.data_vencimento|date:"d/m/Y" }}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <span class="px-2.5 py-1 text-xs font-bold rounded-full
+                  {% if q.status == 'Paga' %}bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400
+                  {% elif q.status == 'Atrasada' %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400
+                  {% elif q.status == 'Pendente Confirmacao' %}bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400
+                  {% else %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400{% endif %}">
+                  {{ q.status }}
+                </span>
+                <i class="fas fa-chevron-right text-gray-300 dark:text-gray-600 text-xs group-hover:text-primary transition-colors"></i>
+              </div>
+            </a>
+            {% empty %}
+            <div class="flex flex-col items-center justify-center py-16 text-center">
+              <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                <i class="fas fa-file-invoice text-3xl text-gray-300 dark:text-gray-600"></i>
+              </div>
+              <p class="text-base font-semibold text-gray-500 dark:text-gray-400">Nenhuma quota encontrada</p>
+              <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">As suas quotas aparecerão aqui quando forem geradas.</p>
             </div>
-            <div class="flex-1">
-              <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ q.mes|stringformat:"02d" }}/{{ q.ano }}</p>
-              <p class="text-xs text-gray-500">Kz {{ q.valor|fmtkz }}</p>
-            </div>
-            <span class="px-2 py-1 text-xs font-medium rounded-full {% if q.status == 'Paga' %}bg-green-100 text-green-700{% elif q.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ q.status }}</span>
-          </a>
-          {% empty %}
-          <p class="p-4 text-sm text-gray-500 text-center">Nenhuma quota encontrada</p>
-          {% endfor %}
+            {% endfor %}
+          </div>
         </div>
+        <!-- List View -->
         <div data-list-view class="hidden">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Período</th>
-                <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Valor</th>
-                <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-              {% for q in ultimas_quotas %}
-              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" onclick="window.location='{% url 'governanca_quota_detalhe' q.fatura_uuid %}'">
-                <td class="px-4 py-3 text-sm font-semibold text-[#111418] dark:text-gray-200">{{ q.mes|stringformat:"02d" }}/{{ q.ano }}</td>
-                <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">Kz {{ q.valor|fmtkz }}</td>
-                <td class="px-4 py-3">
-                  <span class="px-2 py-1 text-xs font-medium rounded-full {% if q.status == 'Paga' %}bg-green-100 text-green-700{% elif q.status == 'Atrasada' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ q.status }}</span>
-                </td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="3" class="px-4 py-8 text-center text-sm text-gray-500">Nenhuma quota encontrada</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Período</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Valor</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Vencimento</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                {% for q in ultimas_quotas %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
+                    onclick="window.location='{% url 'governanca_quota_detalhe' q.fatura_uuid %}'">
+                  <td class="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">{{ q.mes|stringformat:"02d" }}/{{ q.ano }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ q.tipo.nome|default:"Mensal" }}</td>
+                  <td class="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">Kz {{ q.valor|fmtkz }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ q.data_vencimento|date:"d/m/Y" }}</td>
+                  <td class="px-4 py-3">
+                    <span class="px-2 py-1 text-xs font-bold rounded-full
+                      {% if q.status == 'Paga' %}bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400
+                      {% elif q.status == 'Atrasada' %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400
+                      {% elif q.status == 'Pendente Confirmacao' %}bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400
+                      {% else %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400{% endif %}">
+                      {{ q.status }}
+                    </span>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-16 text-center">
+                  <div class="flex flex-col items-center">
+                    <div class="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
+                      <i class="fas fa-file-invoice text-2xl text-gray-300 dark:text-gray-600"></i>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-500 dark:text-gray-400">Nenhuma quota encontrada</p>
+                  </div>
+                </td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
         {% if page_obj.has_other_pages %}
         <div class="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
@@ -115,27 +247,72 @@
       </div>
     </div>
 
+    <!-- Quick Links (1/3) -->
     <div class="space-y-4">
-      <a href="{% url 'governanca_quotas_faturas' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+      <a href="{% url 'governanca_quotas_faturas' %}"
+         class="group block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-primary/30 dark:hover:border-primary/30 transition-all">
         <div class="flex items-center gap-4">
-          <div class="p-3 bg-primary/10 rounded-lg"><i class="fas fa-file-invoice text-primary text-2xl"></i></div>
-          <div><p class="font-bold text-[#111418] dark:text-gray-200">Minhas Faturas</p><p class="text-sm text-gray-500">Ver e pagar quotas</p></div>
+          <div class="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/15 transition-colors">
+            <i class="fas fa-file-invoice text-primary text-xl"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="font-bold text-gray-900 dark:text-gray-200 text-sm">Minhas Faturas</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Ver e pagar quotas</p>
+          </div>
+          <i class="fas fa-chevron-right text-gray-300 dark:text-gray-600 text-xs ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all"></i>
         </div>
       </a>
-      <a href="{% url 'governanca_quotas_certidao' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+
+      <a href="{% url 'governanca_quotas_certidao' %}"
+         class="group block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-700 transition-all">
         <div class="flex items-center gap-4">
-          <div class="p-3 bg-green-50 rounded-lg"><i class="fas fa-file-pdf text-green-600 text-2xl"></i></div>
-          <div><p class="font-bold text-[#111418] dark:text-gray-200">Certidão de Regularidade</p><p class="text-sm text-gray-500">Emitir certidão</p></div>
+          <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 transition-colors">
+            <i class="fas fa-file-pdf text-emerald-600 dark:text-emerald-400 text-xl"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="font-bold text-gray-900 dark:text-gray-200 text-sm">Certidão de Regularidade</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Emitir certidão</p>
+          </div>
+          <i class="fas fa-chevron-right text-gray-300 dark:text-gray-600 text-xs ml-auto group-hover:text-emerald-600 group-hover:translate-x-1 transition-all"></i>
         </div>
       </a>
-      <a href="{% url 'governanca_quotas_carteira' %}" class="block bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition">
+
+      <a href="{% url 'governanca_quotas_carteira' %}"
+         class="group block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all">
         <div class="flex items-center gap-4">
-          <div class="p-3 bg-blue-50 rounded-lg"><i class="fas fa-id-card text-blue-600 text-2xl"></i></div>
-          <div><p class="font-bold text-[#111418] dark:text-gray-200">Carteira Profissional</p><p class="text-sm text-gray-500">Ver e renovar</p></div>
+          <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
+            <i class="fas fa-id-card text-blue-600 dark:text-blue-400 text-xl"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="font-bold text-gray-900 dark:text-gray-200 text-sm">Carteira Profissional</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {% if carteira %}
+                {% if carteira.status == 'Activa' %}{{ carteira.numero_carteira }} — Activa{% else %}{{ carteira.status }}{% endif %}
+              {% else %}Sem carteira{% endif %}
+            </p>
+          </div>
+          <i class="fas fa-chevron-right text-gray-300 dark:text-gray-600 text-xs ml-auto group-hover:text-blue-600 group-hover:translate-x-1 transition-all"></i>
         </div>
       </a>
+
+      <!-- Resumo Rápido -->
+      {% if quotas_pendentes > 0 %}
+      <div class="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/50 p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30">
+            <i class="fas fa-info-circle text-amber-600 dark:text-amber-400"></i>
+          </div>
+          <h3 class="font-bold text-amber-800 dark:text-amber-200 text-sm">Atenção</h3>
+        </div>
+        <p class="text-sm text-amber-700 dark:text-amber-300">
+          Tem <strong>{{ quotas_pendentes }}</strong> quota{{ quotas_pendentes|pluralize:"s" }} pendente{{ quotas_pendentes|pluralize:"s" }}.
+          {% if atrasadas > 0 %}<br><span class="text-red-600 dark:text-red-400 font-semibold">{{ atrasadas }} atrasada{{ atrasadas|pluralize:"s" }}</span> — pode haver multa.{% endif %}
+        </p>
+        {% if valor_pendente %}
+        <p class="text-xs text-amber-600 dark:text-amber-400 mt-2 font-semibold">Total em dívida: Kz {{ valor_pendente|fmtkz }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
   </div>
-</main>
-</div>
 {% endblock %}

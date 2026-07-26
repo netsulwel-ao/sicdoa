@@ -1188,6 +1188,7 @@ function removerContainer(containerId) {
       textoCancelar: 'Cancelar',
       onConfirm: function() {
         containerDiv.remove();
+        renumerarContainers();
         atualizarContadorContainers();
         showSuccess('Container #' + containerId + ' removido');
       }
@@ -1257,6 +1258,17 @@ function atualizarContadorContainers() {
     const count = containerList.querySelectorAll('.container-item').length;
     counterElement.textContent = `(${count} container${count !== 1 ? 'es' : ''})`;
   }
+}
+
+function renumerarContainers() {
+  const containerList = document.getElementById('container_list');
+  if (!containerList) return;
+  const containers = containerList.querySelectorAll('.container-item');
+  containers.forEach((c, idx) => {
+    const novoNum = idx + 1;
+    const h6 = c.querySelector('h6');
+    if (h6) h6.textContent = `Container #${novoNum}`;
+  });
 }
 
 // Função para atualizar campos baseados no regime aduaneiro (inclui destino)
@@ -1371,16 +1383,28 @@ function calcularTaxas() {
   let totalDEREXP  = 0;
   let totalIVA     = 0;
 
-  // Valores brutos para exibição na tabela (incluindo suspensos/isentos)
-  let ultimaValBrutaDERIMP = 0, ultimaTaxaDERIMP = 0, ultimaBaseDERIMP = 0;
-  let ultimaValBrutaIEC    = 0, ultimaTaxaIEC    = 0, ultimaBaseIEC    = 0;
-  let ultimaValBrutaEMGEAD = 0, ultimaTaxaEMGEAD = 0, ultimaBaseEMGEAD = 0;
-  let ultimaValBrutaDEREXP = 0, ultimaTaxaDEREXP = 0, ultimaBaseDEREXP = 0;
-  let ultimaValBrutaIVA    = 0, ultimaTaxaIVA    = 0, ultimaBaseIVA    = 0;
+  // Acumuladores por estado para exibição na tabela
+  // 'pagar': soma de valores com ação DoTax + crédito 1
+  // 'suspenso': soma de valores com crédito 0
+  // 'isento': soma de valores com ação RelTax ou DelTax
+  let somaPagarDERIMP = 0, somaSuspensoDERIMP = 0, somaIsentoDERIMP = 0;
+  let somaPagarIEC    = 0, somaSuspensoIEC    = 0, somaIsentoIEC    = 0;
+  let somaPagarEMGEAD = 0, somaSuspensoEMGEAD = 0, somaIsentoEMGEAD = 0;
+  let somaPagarDEREXP = 0, somaSuspensoDEREXP = 0, somaIsentoDEREXP = 0;
+  let somaPagarIVA    = 0, somaSuspensoIVA    = 0, somaIsentoIVA    = 0;
+
+  // Contadores de adições isentas (RelTax/DelTax retornam valor=0,
+  // logo somaIsento é sempre 0 — precisamos de contadores para
+  // detectar se alguma adição foi isenta)
+  let countIsentoDERIMP = 0, countIsentoIEC = 0, countIsentoEMGEAD = 0;
+  let countIsentoDEREXP = 0, countIsentoIVA = 0;
 
   // Estado de cada imposto para badge visual
   let estadoDERIMP = 'zero', estadoIEC = 'zero', estadoEMGEAD = 'zero';
   let estadoDEREXP = 'zero', estadoIVA = 'zero';
+
+  // Taxa IVA para exibição no label da tabela
+  let taxaIVADisplay = 14;
 
   // ── Implementação de inListTar ────────────────────────────────────────────
   // Retorna 0 se o código pautal pertence à lista, diferente de 0 caso contrário.
@@ -1655,16 +1679,13 @@ function calcularTaxas() {
     console.log('  IVA     → ação:', resIVA.acao,     '| crédito:', resIVA.credito,     '| valor:', resIVA.valor.toFixed(2),     'KZ | taxa:', resIVA.taxa,     '% | base:', (resIVA.base||0).toFixed(2));
     console.groupEnd();
 
-    // ── Acumular totais — só DoTax com crédito "1" entra no total a pagar ──
-    // Suspensões (crédito "0"), isenções (RelTax) e anulações (DelTax) ficam separadas
-    if (resDERIMP.acao  === 'DoTax' && resDERIMP.credito  === '1') totalDERIMP  += resDERIMP.valor;
-    if (resIEC.acao     === 'DoTax' && resIEC.credito     === '1') totalIEC     += resIEC.valor;
-    if (resEMGEAD.acao  === 'DoTax' && resEMGEAD.credito  === '1') totalEMGEAD += resEMGEAD.valor;
-    if (resDEREXP.acao !== 'N/A'   && resDEREXP.credito  === '1') totalDEREXP  += resDEREXP.valor;
-    if (resIVA.acao     === 'DoTax' && resIVA.credito     === '1') totalIVA     += resIVA.valor;
+    // ── Acumular totais e valores por estado ──────────────────────────────
+    // 'DoTax' + crédito "1" = pagar (entra no total a pagar)
+    // crédito "0" = suspenso (calculado mas não pago)
+    // RelTax/DelTax = isento (não paga, registo para auditoria)
 
     // Rastrear estado de cada imposto para exibição visual
-    // Estado: 'pagar' | 'suspenso' | 'isento' | 'zero'
+    // Estado agregado: 'pagar' tem prioridade > 'suspenso' > 'isento' > 'zero'
     function _estado(res) {
       if (res.acao === 'N/A')     return 'zero';
       if (res.acao === 'DelTax')  return 'isento';
@@ -1672,18 +1693,33 @@ function calcularTaxas() {
       if (res.credito === '0')    return 'suspenso';
       return 'pagar';
     }
-    estadoDERIMP  = _estado(resDERIMP);
-    estadoIEC     = _estado(resIEC);
-    estadoEMGEAD  = _estado(resEMGEAD);
-    estadoDEREXP  = _estado(resDEREXP);
-    estadoIVA     = _estado(resIVA);
 
-    // Guardar valor bruto (incluindo suspensos) para exibir na tabela
-    if (resDERIMP.valor > 0 || estadoDERIMP !== 'zero')  { ultimaValBrutaDERIMP = resDERIMP.valor; ultimaTaxaDERIMP = resDERIMP.taxa || 0; ultimaBaseDERIMP = resDERIMP.base || 0; }
-    if (resIEC.valor > 0    || estadoIEC     !== 'zero')  { ultimaValBrutaIEC    = resIEC.valor;    ultimaTaxaIEC    = resIEC.taxa    || 0; ultimaBaseIEC    = resIEC.base    || 0; }
-    if (resEMGEAD.valor > 0 || estadoEMGEAD !== 'zero')  { ultimaValBrutaEMGEAD = resEMGEAD.valor; ultimaTaxaEMGEAD = resEMGEAD.taxa || 0; ultimaBaseEMGEAD = resEMGEAD.base || 0; }
-    if (resDEREXP.valor > 0 || estadoDEREXP !== 'zero')  { ultimaValBrutaDEREXP = resDEREXP.valor; ultimaTaxaDEREXP = resDEREXP.taxa || 0; ultimaBaseDEREXP = resDEREXP.base || 0; }
-    if (resIVA.valor > 0    || estadoIVA     !== 'zero')  { ultimaValBrutaIVA    = resIVA.valor;    ultimaTaxaIVA    = resIVA.taxa    || 0; ultimaBaseIVA    = resIVA.base    || 0; }
+    function _acumular(res, total, somaPagar, somaSuspenso, somaIsento, countIsento) {
+      const e = _estado(res);
+      if (e === 'pagar')    { total += res.valor; somaPagar += res.valor; }
+      if (e === 'suspenso') { somaSuspenso += res.valor; }
+      if (e === 'isento')   { somaIsento += res.valor; countIsento++; }
+      return { total, somaPagar, somaSuspenso, somaIsento, countIsento };
+    }
+
+    var r;
+    r = _acumular(resDERIMP, totalDERIMP, somaPagarDERIMP, somaSuspensoDERIMP, somaIsentoDERIMP, countIsentoDERIMP);
+    totalDERIMP = r.total; somaPagarDERIMP = r.somaPagar; somaSuspensoDERIMP = r.somaSuspenso; somaIsentoDERIMP = r.somaIsento; countIsentoDERIMP = r.countIsento;
+
+    r = _acumular(resIEC, totalIEC, somaPagarIEC, somaSuspensoIEC, somaIsentoIEC, countIsentoIEC);
+    totalIEC = r.total; somaPagarIEC = r.somaPagar; somaSuspensoIEC = r.somaSuspenso; somaIsentoIEC = r.somaIsento; countIsentoIEC = r.countIsento;
+
+    r = _acumular(resEMGEAD, totalEMGEAD, somaPagarEMGEAD, somaSuspensoEMGEAD, somaIsentoEMGEAD, countIsentoEMGEAD);
+    totalEMGEAD = r.total; somaPagarEMGEAD = r.somaPagar; somaSuspensoEMGEAD = r.somaSuspenso; somaIsentoEMGEAD = r.somaIsento; countIsentoEMGEAD = r.countIsento;
+
+    r = _acumular(resDEREXP, totalDEREXP, somaPagarDEREXP, somaSuspensoDEREXP, somaIsentoDEREXP, countIsentoDEREXP);
+    totalDEREXP = r.total; somaPagarDEREXP = r.somaPagar; somaSuspensoDEREXP = r.somaSuspenso; somaIsentoDEREXP = r.somaIsento; countIsentoDEREXP = r.countIsento;
+
+    r = _acumular(resIVA, totalIVA, somaPagarIVA, somaSuspensoIVA, somaIsentoIVA, countIsentoIVA);
+    totalIVA = r.total; somaPagarIVA = r.somaPagar; somaSuspensoIVA = r.somaSuspenso; somaIsentoIVA = r.somaIsento; countIsentoIVA = r.countIsento;
+
+    // Guardar taxa IVA para label na tabela (última adição com valor > 0)
+    if (resIVA.valor > 0 || _estado(resIVA) !== 'zero') taxaIVADisplay = resIVA.taxa || 0;
 
     // ── Persistir resultados por adição em campo hidden ───────────────────
     // Garante que _submeterDU inclui o breakdown completo de impostos por adição
@@ -1704,6 +1740,25 @@ function calcularTaxas() {
     }
     hiddenImpostos.value = JSON.stringify(impostosAdicao);
   });
+
+  // ── 3b. Determinar estado agregado de cada imposto ─────────────────────────
+  // Prioridade: 'pagar' > 'suspenso' > 'isento' > 'zero'
+  // Se QUALQUER adição tem estado 'pagar', o agregado é 'pagar'.
+  // Só usa 'suspenso' se NENHUMA adição for 'pagar' mas houver 'suspenso'.
+  // Para 'isento', usa countIsento porque RelTax/DelTax retornam valor=0
+  // (somaIsento seria sempre 0, tornando 'isento' inalcançável).
+  function _estadoAgregado(somaPagar, somaSuspenso, somaIsento, countIsento) {
+    if (somaPagar    > 0) return 'pagar';
+    if (somaSuspenso > 0) return 'suspenso';
+    if (countIsento  > 0) return 'isento';
+    return 'zero';
+  }
+
+  estadoDERIMP = _estadoAgregado(somaPagarDERIMP, somaSuspensoDERIMP, somaIsentoDERIMP, countIsentoDERIMP);
+  estadoIEC    = _estadoAgregado(somaPagarIEC,    somaSuspensoIEC,    somaIsentoIEC,    countIsentoIEC);
+  estadoEMGEAD = _estadoAgregado(somaPagarEMGEAD, somaSuspensoEMGEAD, somaIsentoEMGEAD, countIsentoEMGEAD);
+  estadoDEREXP = _estadoAgregado(somaPagarDEREXP, somaSuspensoDEREXP, somaIsentoDEREXP, countIsentoDEREXP);
+  estadoIVA    = _estadoAgregado(somaPagarIVA,    somaSuspensoIVA,    somaIsentoIVA,    countIsentoIVA);
 
   // ── 4. Totais finais ──────────────────────────────────────────────────────
   const totalGeral = totalDERIMP + totalIEC + totalEMGEAD + totalDEREXP + totalIVA;
@@ -1740,20 +1795,6 @@ function calcularTaxas() {
 
   // ── 5. Atualizar campos do Step 4 ─────────────────────────────────────────
   const fmtKZ = v => v.toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' KZ';
-  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-  const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-
-  // Campos hidden (taxa/base)
-  setVal('taxa_direitos',    ultimaTaxaDERIMP.toFixed(2));
-  setVal('base_direitos',    ultimaBaseDERIMP.toFixed(2));
-  setVal('taxa_iec',         ultimaTaxaIEC.toFixed(2));
-  setVal('base_iec',         ultimaBaseIEC.toFixed(2));
-  setVal('taxa_emolumentos', ultimaTaxaEMGEAD.toFixed(2));
-  setVal('base_emolumentos', ultimaBaseEMGEAD.toFixed(2));
-  setVal('taxa_direxp',      ultimaTaxaDEREXP.toFixed(2));
-  setVal('base_direxp',      ultimaBaseDEREXP.toFixed(2));
-  setVal('taxa_iva',         ultimaTaxaIVA.toFixed(2));
-  setVal('base_iva',         ultimaBaseIVA.toFixed(2));
 
   // Helper: renderiza valor + badge de estado na célula da tabela
   function _renderCelula(idSpanValor, idRow, valorBruto, valorPagar, estado) {
@@ -1788,15 +1829,23 @@ function calcularTaxas() {
     }
   }
 
-  _renderCelula('valor_direitos',   'row_derimp',   ultimaValBrutaDERIMP, totalDERIMP,  estadoDERIMP);
-  _renderCelula('valor_iec',        'row_iec',       ultimaValBrutaIEC,    totalIEC,     estadoIEC);
-  _renderCelula('valor_emolumentos','row_emgead',    ultimaValBrutaEMGEAD, totalEMGEAD,  estadoEMGEAD);
-  _renderCelula('valor_direxp',     'row_direxp',    ultimaValBrutaDEREXP, totalDEREXP,  estadoDEREXP);
-  _renderCelula('valor_iva',        'row_iva',       ultimaValBrutaIVA,    totalIVA,     estadoIVA);
+  // Calcular valor bruto por estado para exibição
+  function _bruto(estado, somaPagar, somaSuspenso, somaIsento) {
+    if (estado === 'suspenso') return somaSuspenso;
+    if (estado === 'isento')   return somaIsento;
+    if (estado === 'pagar')    return somaPagar;
+    return 0;
+  }
+
+  _renderCelula('valor_direitos',   'row_derimp',   _bruto(estadoDERIMP, somaPagarDERIMP, somaSuspensoDERIMP, somaIsentoDERIMP), totalDERIMP,  estadoDERIMP);
+  _renderCelula('valor_iec',        'row_iec',       _bruto(estadoIEC,    somaPagarIEC,    somaSuspensoIEC,    somaIsentoIEC),    totalIEC,     estadoIEC);
+  _renderCelula('valor_emolumentos','row_emgead',    _bruto(estadoEMGEAD, somaPagarEMGEAD, somaSuspensoEMGEAD, somaIsentoEMGEAD), totalEMGEAD,  estadoEMGEAD);
+  _renderCelula('valor_direxp',     'row_direxp',    _bruto(estadoDEREXP, somaPagarDEREXP, somaSuspensoDEREXP, somaIsentoDEREXP), totalDEREXP,  estadoDEREXP);
+  _renderCelula('valor_iva',        'row_iva',       _bruto(estadoIVA,    somaPagarIVA,    somaSuspensoIVA,    somaIsentoIVA),    totalIVA,     estadoIVA);
 
   // Label da taxa IVA na tabela
   const labelTaxaIva = document.getElementById('label_taxa_iva_tabela');
-  if (labelTaxaIva) labelTaxaIva.textContent = ultimaTaxaIVA;
+  if (labelTaxaIva) labelTaxaIva.textContent = taxaIVADisplay;
 
   // Total geral (span destacado — só valores a pagar)
   const totalGeralEl    = document.getElementById('total_geral');
@@ -1824,7 +1873,7 @@ function calcularTaxas() {
 
   // Atualizar label IVA com a taxa real
   const labelIva = document.getElementById('label_painel_iva');
-  if (labelIva) labelIva.textContent = `IVA (${ultimaTaxaIVA}%)`;
+  if (labelIva) labelIva.textContent = `IVA (${taxaIVADisplay}%)`;
 
   console.log('=== CÁLCULO CONCLUÍDO ===');
   showSuccess('Cálculos atualizados com sucesso!');
@@ -1833,94 +1882,6 @@ function calcularTaxas() {
 // Função auxiliar para atualizar resumo
 function atualizarResumo() {
   calcularTaxas();
-}
-
-// Funções auxiliares para cálculo de taxas
-function obterTaxaDireitos(regime, procedimento) {
-  // Simulação de taxas de direitos baseadas no regime e procedimento
-  const taxasPorRegime = {
-    'IM4': 5.0,  // Importação definitiva
-    'IM5': 0.0,  // Importação temporária
-    'IM6': 2.5,  // Trânsito
-    'EX1': 2.0,  // Exportação definitiva
-    'EX2': 0.0   // Exportação temporária
-  };
-  
-  return taxasPorRegime[regime] || 5.0; // Taxa padrão
-}
-
-function obterTaxaIEC(regime) {
-  // Taxa IEC baseada no tipo de produto (simulação)
-  return 2.0; // Taxa padrão de 2%
-}
-
-function isProdutoAlimentar() {
-  // Verificar se o código pautal corresponde a produto alimentar
-  const codigoPautal = document.getElementById('codigo_pautal')?.value || '';
-  // Simulação - códigos que começam com 01-24 são geralmente alimentares
-  return codigoPautal.startsWith('01') || codigoPautal.startsWith('02') || 
-         codigoPautal.startsWith('03') || codigoPautal.startsWith('04');
-}
-
-function isInsumoAgricola() {
-  // Verificar se é insumo agrícola
-  const codigoPautal = document.getElementById('codigo_pautal')?.value || '';
-  return codigoPautal.startsWith('31'); // Fertilizantes
-}
-
-function isIsentoIVA(natureza) {
-  // Naturezas isentas de IVA
-  const naturezasIsentas = [
-    '001', '002', '003', '004', '006', '007', '009', '011', '016', '017', '018', '019',
-    '020', '021', '024', '025', '026', '028', '029', '033', '034', '035', '036', '037',
-    '038', '040', '044', '045', '046', '050', '051', '055', '057', '058', '061', '063',
-    '064', '067', '068', '070', '071', '400', '401', '423', '435', '453', '461'
-  ];
-  
-  return naturezasIsentas.includes(natureza);
-}
-
-function formatarMoeda(valor) {
-  return new Intl.NumberFormat('pt-AO', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(valor);
-}
-
-function mostrarStatusCalculos(sucesso) {
-  const statusElements = document.querySelectorAll('.calculation-status');
-  statusElements.forEach(element => {
-    element.className = `calculation-status ${sucesso ? 'success' : 'pending'}`;
-    element.textContent = sucesso ? 'Calculado' : 'Pendente';
-  });
-}
-
-function atualizarCampoResumo(fieldId, value) {
-  const field = document.getElementById(fieldId);
-  if (field) {
-    field.textContent = value;
-  }
-}
-
-// Função para atualizar resumo completo
-function atualizarResumo() {
-  // Coletar dados dos passos anteriores
-  const dadosResumo = {
-    regime: document.getElementById('regime_aduaneiro')?.value || '',
-    vinheta: document.getElementById('vinheta_input')?.value || '',
-    exportador: document.getElementById('nome_exportador')?.value || '',
-    fob: document.getElementById('valor_fob')?.value || '0',
-    cif: document.getElementById('valor_cif')?.value || '0',
-    moeda: document.getElementById('moeda')?.value || 'USD'
-  };
-  
-  // Atualizar campos do resumo
-  Object.keys(dadosResumo).forEach(key => {
-    const element = document.getElementById(`resumo_${key}`);
-    if (element) {
-      element.textContent = dadosResumo[key];
-    }
-  });
 }
 
 // Função para minimizar/maximizar painel lateral
@@ -2457,58 +2418,38 @@ async function handleReparticaoChange(tipo, modo) {
  */
 function habilitarCamposAdicao(tipo, habilitar) {
   const cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
-  
+  const cambioId = tipo === 'seguro' ? 'cambio_seguro' : 'cambio_frete';
+
   cards.forEach(card => {
     const n = card.dataset.adicao;
     if (!n) return;
-    
+
     const campoValor = document.getElementById(`${tipo}_${n}`);
     const campoMoeda = document.getElementById(`moeda_${tipo}_${n}`);
+    const campoCambio = document.getElementById(`${cambioId}_${n}`);
     const campoKz = document.getElementById(`${tipo}_kz_${n}`);
-    
-    if (campoValor) {
-      campoValor.disabled = !habilitar;
-      campoValor.classList.toggle('calc-field', !habilitar);
-      // Adicionar feedback visual
+
+    function aplicarEstado(campo) {
+      if (!campo) return;
+      campo.disabled = !habilitar;
+      campo.classList.toggle('calc-field', !habilitar);
       if (!habilitar) {
-        campoValor.style.backgroundColor = '#f3f4f6';
-        campoValor.style.cursor = 'not-allowed';
-        campoValor.readOnly = true;  // Adicionar readOnly para garantir
+        campo.style.backgroundColor = '#f3f4f6';
+        campo.style.cursor = 'not-allowed';
+        campo.readOnly = true;
       } else {
-        campoValor.style.backgroundColor = '';
-        campoValor.style.cursor = '';
-        campoValor.readOnly = false;
+        campo.style.backgroundColor = '';
+        campo.style.cursor = '';
+        campo.readOnly = false;
       }
     }
-    if (campoMoeda) {
-      campoMoeda.disabled = !habilitar;
-      if (!habilitar) {
-        campoMoeda.style.backgroundColor = '#f3f4f6';
-        campoMoeda.style.cursor = 'not-allowed';
-        campoMoeda.readOnly = true;
-      } else {
-        campoMoeda.style.backgroundColor = '';
-        campoMoeda.style.cursor = '';
-        campoMoeda.readOnly = false;
-      }
-    }
-    if (campoKz) {
-      campoKz.disabled = !habilitar;
-      campoKz.classList.toggle('calc-field', !habilitar);
-      // Adicionar feedback visual para campo KZ também
-      if (!habilitar) {
-        campoKz.style.backgroundColor = '#f3f4f6';
-        campoKz.style.cursor = 'not-allowed';
-        campoKz.readOnly = true;
-      } else {
-        campoKz.style.backgroundColor = '';
-        campoKz.style.cursor = '';
-        campoKz.readOnly = false;
-      }
-    }
+
+    aplicarEstado(campoValor);
+    aplicarEstado(campoMoeda);
+    aplicarEstado(campoCambio);
+    aplicarEstado(campoKz);
   });
-  
-  }
+}
 
 /**
  * Clear repartitioned values from all adições
@@ -2516,31 +2457,37 @@ function habilitarCamposAdicao(tipo, habilitar) {
  */
 function limparValoresRepartidos(tipo) {
   const cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
-  
+  const cambioId = tipo === 'seguro' ? 'cambio_seguro' : 'cambio_frete';
+
   cards.forEach(card => {
     const n = card.dataset.adicao;
     if (!n) return;
-    
+
     const campoValor = document.getElementById(`${tipo}_${n}`);
+    const campoMoeda = document.getElementById(`moeda_${tipo}_${n}`);
+    const campoCambio = document.getElementById(`${cambioId}_${n}`);
     const campoKz = document.getElementById(`${tipo}_kz_${n}`);
-    
-    if (campoValor) {
-      campoValor.value = '';
-      campoValor.style.backgroundColor = '';
-      campoValor.style.cursor = '';
-      campoValor.classList.remove('calc-field');
-      campoValor.disabled = false;
+
+    function limpar(campo) {
+      if (!campo) return;
+      campo.value = '';
+      campo.style.backgroundColor = '';
+      campo.style.cursor = '';
+      campo.classList.remove('calc-field');
+      campo.disabled = false;
     }
-    if (campoKz) {
-      campoKz.value = '';
-      campoKz.style.backgroundColor = '';
-      campoKz.style.cursor = '';
-      campoKz.classList.remove('calc-field');
-      campoKz.disabled = false;
+
+    limpar(campoValor);
+    limpar(campoCambio);
+    limpar(campoKz);
+    if (campoMoeda) {
+      campoMoeda.value = 'AOA';
+      campoMoeda.style.backgroundColor = '';
+      campoMoeda.style.cursor = '';
+      campoMoeda.disabled = false;
     }
   });
-  
-  }
+}
 
 /**
  * Obter taxa de câmbio com fallback e cache
@@ -2674,16 +2621,40 @@ async function calcularReparticao(tipo, modo) {
 
   if (totalBase <= 0) return;
 
+  const moedaStep1 = (document.getElementById(`moeda_${tipo}`) || {}).value || 'AOA';
+  const cambioStep1El = document.getElementById(`cambio_${tipo}`);
+  const cambioStep1 = parseFloat(cambioStep1El?.value) || (moedaStep1 === 'AOA' || moedaStep1 === 'KZ' ? 1 : 0);
+
   adicoes.forEach((adicao, index) => {
     const valorBase = valoresBase[index];
     const proporcao = valorBase / totalBase;
     const valorRepartido = valorTotal * proporcao;
 
     const nAdicao = adicao.dataset.adicao || (index + 1);
-    const campoDestino = adicao.querySelector(`#${tipo}_kz_${nAdicao}`) || adicao.querySelector(`[id^="${tipo}_kz_"]`);
-    if (campoDestino) {
-      campoDestino.value = valorRepartido.toFixed(2);
-      campoDestino.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const campoKz = adicao.querySelector(`#${tipo}_kz_${nAdicao}`) || adicao.querySelector(`[id^="${tipo}_kz_"]`);
+    if (campoKz) {
+      campoKz.value = valorRepartido.toFixed(2);
+      campoKz.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    const campoMoeda = adicao.querySelector(`#moeda_${tipo}_${nAdicao}`) || adicao.querySelector(`[id^="moeda_${tipo}_"]`);
+    if (campoMoeda) {
+      campoMoeda.value = moedaStep1;
+    }
+
+    const campoCambio = adicao.querySelector(`#${tipo === 'seguro' ? 'cambio_seguro' : 'cambio_frete'}_${nAdicao}`) || adicao.querySelector(`[id^="${tipo === 'seguro' ? 'cambio_seguro' : 'cambio_frete'}_"]`);
+    if (campoCambio) {
+      campoCambio.value = (moedaStep1 === 'AOA' || moedaStep1 === 'KZ') ? '1.0000' : (cambioStep1 > 0 ? cambioStep1.toFixed(4) : '');
+    }
+
+    const campoValor = adicao.querySelector(`#${tipo}_${nAdicao}`) || adicao.querySelector(`[id^="${tipo}_"]`);
+    if (campoValor && campoValor.id !== campoKz?.id) {
+      if (moedaStep1 === 'AOA' || moedaStep1 === 'KZ') {
+        campoValor.value = valorRepartido.toFixed(2);
+      } else if (cambioStep1 > 0) {
+        campoValor.value = (valorRepartido / cambioStep1).toFixed(2);
+      }
     }
   });
 }
@@ -2760,6 +2731,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (mel) mel.value = (fkz + skz + rtkz).toFixed(2);
               });
               if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
+              if (currentStep === 4 && typeof calcularTaxas === 'function') calcularTaxas();
             });
           }
         }, 500); // Debounce de 500ms

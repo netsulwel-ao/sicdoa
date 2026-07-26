@@ -5,7 +5,7 @@ from collections import OrderedDict
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
@@ -281,13 +281,8 @@ def _calcular_indicadores(movimentos, saldo_inicial=0):
 
 @method_decorator(requer_sessao_ativa, name='dispatch')
 class ContaCorrenteHomeView(BaseContextMixin, TemplateView):
-    template_name = 'financeiro/conta_corrente_home.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['active_menu'] = 'Financeiro'
-        context['active_sub'] = 'conta_corrente'
-        return context
+    def get(self, request, *args, **kwargs):
+        return redirect('financeiro:conta_corrente_geral')
 
 
 # ─── 3.1 Conta Corrente por Cliente ──────────────────────────────────────────

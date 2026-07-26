@@ -2144,23 +2144,43 @@ def _atualizar_estado_financeiro(despachante_id, registar_historico=False, reque
 @_requer_login
 def quotas_dashboard(request):
     from users.permissoes import usuario_tem_permissao
+    from django.db.models import Sum, Count, Q
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = _usuario_papel(request)
-    if papel not in ('Administrador', 'Despachante Oficial') and not (usuario_tem_permissao(request, 'gerir_quotas') or usuario_tem_permissao(request, 'ver_quotas')):
+    if papel == 'Administrador' or usuario_tem_permissao(request, 'gerir_quotas'):
+        return redirect('governanca_quotas_admin')
+    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'ver_quotas'):
         return redirect('governanca_index')
     ef = _get_estado_financeiro(usuario_id)
-    quotas_pendentes = QuotaGerada.objects.filter(despachante_id=usuario_id, status__in=['Pendente','Atrasada','Pendente Confirmacao']).count()
-    total_quotas = QuotaGerada.objects.filter(despachante_id=usuario_id).count()
-    ultimas_quotas_qs = QuotaGerada.objects.filter(despachante_id=usuario_id).order_by('-ano','-mes')
+    base_qs = QuotaGerada.objects.filter(despachante_id=usuario_id)
+    stats = base_qs.aggregate(
+        total=Count('id'),
+        pendentes=Count('id', filter=Q(status__in=['Pendente','Atrasada','Pendente Confirmacao'])),
+        pagas=Count('id', filter=Q(status='Paga')),
+        atrasadas=Count('id', filter=Q(status='Atrasada')),
+        por_confirmar=Count('id', filter=Q(status='Pendente Confirmacao')),
+        valor_pendente=Sum('valor', filter=Q(status__in=['Pendente','Atrasada','Pendente Confirmacao'])),
+    )
+    quotas_pendentes = stats['pendentes'] or 0
+    total_quotas = stats['total'] or 0
+    pagas = stats['pagas'] or 0
+    atrasadas = stats['atrasadas'] or 0
+    por_confirmar = stats['por_confirmar'] or 0
+    valor_pendente = stats['valor_pendente'] or 0
+    ultimas_quotas_qs = base_qs.order_by('-ano','-mes')
     paginator = Paginator(ultimas_quotas_qs, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     carteira = CarteiraProfissional.objects.filter(despachante_id=usuario_id).first()
+    config = QuotaConfig.objects.filter(ativa=True).order_by('-ano','-mes').first()
     context = {
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': papel, 'active_menu': 'Governanca', 'active_sub': 'quotas',
         'estado_financeiro': ef, 'quotas_pendentes': quotas_pendentes,
-        'total_quotas': total_quotas, 'ultimas_quotas': page_obj, 'page_obj': page_obj, 'carteira': carteira,
+        'total_quotas': total_quotas, 'pagas': pagas, 'atrasadas': atrasadas,
+        'por_confirmar': por_confirmar, 'valor_pendente': valor_pendente,
+        'ultimas_quotas': page_obj, 'page_obj': page_obj, 'carteira': carteira,
+        'config': config,
     }
     return render(request, 'governanca/quotas/dashboard.html', context)
 
@@ -2169,11 +2189,24 @@ def quotas_dashboard(request):
 def quotas_faturas(request):
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = _usuario_papel(request)
+    from django.db.models import Sum, Count, Q
     from users.permissoes import _is_admin_ou_acesso_total
     if papel == 'Administrador':
-        quotas = QuotaGerada.objects.all().select_related('despachante').order_by('-ano','-mes')
+        base_qs = QuotaGerada.objects.all()
     else:
-        quotas = QuotaGerada.objects.filter(despachante_id=usuario_id).order_by('-ano','-mes')
+        base_qs = QuotaGerada.objects.filter(despachante_id=usuario_id)
+    stats = base_qs.aggregate(
+        total=Count('id'),
+        pagas=Count('id', filter=Q(status='Paga')),
+        pendentes=Count('id', filter=Q(status='Pendente')),
+        atrasadas=Count('id', filter=Q(status='Atrasada')),
+        por_confirmar=Count('id', filter=Q(status='Pendente Confirmacao')),
+        isentas=Count('id', filter=Q(status='Isenta')),
+        canceladas=Count('id', filter=Q(status='Cancelada')),
+        valor_total=Sum('valor'),
+        valor_pendente=Sum('valor', filter=Q(status__in=['Pendente', 'Atrasada', 'Pendente Confirmacao'])),
+    )
+    quotas = base_qs.select_related('despachante','tipo').order_by('-ano','-mes')
     paginator = Paginator(quotas, 8)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -2181,6 +2214,7 @@ def quotas_faturas(request):
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': papel, 'active_menu': 'Governanca', 'active_sub': 'quotas',
         'quotas': page_obj, 'page_obj': page_obj, 'is_admin': papel == 'Administrador',
+        'stats': stats,
     }
     return render(request, 'governanca/quotas/faturas.html', context)
 
@@ -2312,7 +2346,6 @@ def quotas_admin_config(request):
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'configs': page_obj, 'page_obj': page_obj,
-        'categorias': CategoriaMembro.objects.filter(usuario__papel='Despachante Oficial', usuario__status='Ativo').distinct(),
         'tipos_quota': TipoQuota.objects.all(),
     }
     return render(request, 'governanca/quotas/admin_config.html', context)

@@ -1195,13 +1195,6 @@ label.form-label:not(.required) > .text-red-500 {
                   .total-pagar-row .tax-amount { color: #fff !important; font-size: 1.25rem; font-weight: 800; }
                 </style>
 
-                <!-- Inputs hidden para manter compatibilidade com script.js -->
-                <input type="hidden" id="taxa_direitos" /><input type="hidden" id="base_direitos" />
-                <input type="hidden" id="taxa_iec" /><input type="hidden" id="base_iec" />
-                <input type="hidden" id="taxa_emolumentos" /><input type="hidden" id="base_emolumentos" />
-                <input type="hidden" id="taxa_direxp" /><input type="hidden" id="base_direxp" />
-                <input type="hidden" id="taxa_iva" /><input type="hidden" id="base_iva" />
-
                 <table class="tax-summary-table">
                   <tbody>
                     <tr id="row_derimp">
@@ -2669,6 +2662,8 @@ function adicionarNovaAdicao(dadosExistentes) {
     habilitarCamposAdicao('seguro', false);
     calcularReparticao('seguro', reparticaoSeguro);
   }
+
+  agregarValoresGeral();
 }
 
 
@@ -2729,6 +2724,8 @@ function removerAdicao(n) {
     if (reparticaoSeguro && reparticaoSeguro !== 'sem_reparticao') {
       calcularReparticao('seguro', reparticaoSeguro);
     }
+
+    agregarValoresGeral();
   };
 }
 
@@ -2752,19 +2749,61 @@ function duplicarAdicao(n) {
 
 
 /* ----------------------------------------------------------
-   renumerarAdicoes — actualiza badges e títulos após remoção
+   renumerarAdicoes — actualiza badges, títulos, IDs e names
+   após remoção para manter sequência 1,2,3,...
 ---------------------------------------------------------- */
 function renumerarAdicoes() {
   const cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
   cards.forEach((card, i) => {
     const num = i + 1;
-    const badge = card.querySelector('.adicao-badge');
-    const title = card.querySelector('.adicao-card-title');
-    if (badge) badge.textContent = num;
-    if (title) title.textContent = `Adição Nº ${num}`;
-    // Actualizar o campo num_adicao (readonly)
+
+    // ── Obter número antigo ────────────────────────────────────
+    const velhoNum = parseInt(card.dataset.adicao, 10);
+    if (velhoNum === num) return; // nada a fazer
+
+    const vs = String(velhoNum);
+    const ns = String(num);
+
+    // ── 1. Wrapper: data-adicao + id ──────────────────────────
+    card.dataset.adicao = num;
+    card.id = `adicao_wrapper_${num}`;
+
+    // ── 2. Badge + título + num_adicao ────────────────────────
+    const badge    = card.querySelector('.adicao-badge');
+    const title    = card.querySelector('.adicao-card-title');
     const inputNum = card.querySelector('[name*="num_adicao"]');
+    if (badge)    badge.textContent = num;
+    if (title)    title.textContent = `Adição Nº ${num}`;
     if (inputNum) inputNum.value = num;
+
+    // ── 3. Todos os IDs internos ──────────────────────────────
+    // IDs sempre no formato *_N* (N = número exacto, sem dígitos à volta)
+    const reId = new RegExp(`(_${vs})(?=[^0-9]|$)`, 'g');
+    card.querySelectorAll('[id]').forEach(el => {
+      if (reId.test(el.id)) {
+        el.id = el.id.replace(reId, `_${ns}`);
+      }
+      reId.lastIndex = 0; // reset regex state
+    });
+
+    // ── 4. Todos os name="adicao[N][...]" ─────────────────────
+    const reName = new RegExp(`\\[${vs}\\]`, 'g');
+    card.querySelectorAll('[name]').forEach(el => {
+      if (el.name.includes(`[${vs}]`)) {
+        el.name = el.name.replace(reName, `[${ns}]`);
+      }
+    });
+
+    // ── 5. Onclick / oninput / onchange ───────────────────────
+    const reCall = new RegExp(`\\(${vs}\\)`, 'g');
+    ['onclick', 'oninput', 'onchange'].forEach(attr => {
+      card.querySelectorAll(`[${attr}]`).forEach(el => {
+        const val = el.getAttribute(attr);
+        if (val && val.includes(`(${vs})`)) {
+          el.setAttribute(attr, val.replace(reCall, `(${ns})`));
+        }
+      });
+    });
   });
   sincronizarAdicoesContainers();
 }
@@ -3094,44 +3133,18 @@ async function calcularAdicaoFinanceiro(n) {
 
 /* ----------------------------------------------------------
    agregarValoresGeral()
-   Soma FOB/Seguro/Frete (em KZ) de todas as adições e
-   preenche os campos do passo 1 (Geral).
+   Lê os valores FOB/Seguro/Frete do passo 1 (Geral) e
+   calcula o montante aduaneiro. Os valores do Step 1 NÃO
+   são sobrescritos — são os valores declarados pelo
+   utilizador e devem ser iguais à soma das adições (Step 2).
 ---------------------------------------------------------- */
 function agregarValoresGeral() {
-  var cards = document.querySelectorAll('#adicoes_wrapper .adicao-card-wrapper');
-
-  var totalFobKz = 0, totalSeguroKz = 0, totalFreteKz = 0;
-
-  cards.forEach(function(card) {
-    var n = card.dataset.adicao;
-    if (!n) return;
-    totalFobKz    += parseFloat(document.getElementById('fob_kz_' + n)?.value)    || 0;
-    totalSeguroKz += parseFloat(document.getElementById('seguro_kz_' + n)?.value) || 0;
-    totalFreteKz  += parseFloat(document.getElementById('frete_kz_' + n)?.value)  || 0;
-  });
-
-  var repFrete  = (document.getElementById('reparticao_frete')  || {}).value || 'sem_reparticao';
-  var repSeguro = (document.getElementById('reparticao_seguro') || {}).value || 'sem_reparticao';
-
-  var setVal = function(id, val) {
-    var el = document.getElementById(id);
-    if (el) el.value = val.toFixed(2);
-  };
-
-  setVal('valor_fob_kz', totalFobKz);
-
-  if (repSeguro === 'sem_reparticao') {
-    setVal('valor_seguro_kz', totalSeguroKz);
-  }
-
-  if (repFrete === 'sem_reparticao') {
-    setVal('valor_frete_kz', totalFreteKz);
-  }
-
   var fobStep1    = parseFloat(document.getElementById('valor_fob_kz')?.value)    || 0;
   var seguroStep1 = parseFloat(document.getElementById('valor_seguro_kz')?.value) || 0;
   var freteStep1  = parseFloat(document.getElementById('valor_frete_kz')?.value)  || 0;
-  setVal('montante_aduaneiro_kz', fobStep1 + seguroStep1 + freteStep1);
+
+  var el = document.getElementById('montante_aduaneiro_kz');
+  if (el) el.value = (fobStep1 + seguroStep1 + freteStep1).toFixed(2);
 }
 // Função para carregar regimes aduaneiros da API
 async function carregarRegimesAduaneiros() {

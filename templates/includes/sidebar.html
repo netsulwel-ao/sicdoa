@@ -391,9 +391,9 @@
       <li class="border-t border-gray-100 dark:border-gray-700/60 my-1 pt-1"></li>
       {% if papel == 'Administrador' or papel == 'Despachante Oficial' or 'gerir_financeiro' in user_permissoes or 'ver_conta_corrente' in user_permissoes %}
       <li>
-        <a href="{% url 'financeiro:conta_corrente_home' %}"
+        <a href="{% url 'financeiro:conta_corrente_geral' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
-                  {% if sub == 'conta_corrente' or sub == 'conta_corrente_cliente' or sub == 'conta_corrente_geral' or sub == 'conta_corrente_mensal' or sub == 'conta_corrente_periodica' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+                  {% if sub == 'conta_corrente' or sub == 'conta_corrente_cliente' or sub == 'conta_corrente_geral' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
           <i class="fas fa-exchange-alt text-base"></i>Conta Corrente
         </a>
       </li>

@@ -16,6 +16,20 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
   const isRegime7 = ['IM7','IMS7','IMV7'].includes(regimeCod);
   const isRegime8 = ['IM8','IMS8','IMV8'].includes(regimeCod);
 
+  // IMS6 + proc=6022: DelTax — avaliado ANTES do guard porque o guard
+  // original do sistema aduaneiro só permite regime6 com proc=6021,
+  // mas o DelTax para anulação (proc=6022) é uma excepção específica.
+  if (regimeCod === 'IMS6' && procedimentoStr === '6022') {
+    // Action := DelTax ( "02K" )
+    // 🔴 ANULAÇÃO TOTAL — NÃO PAGA e o registo do imposto é completamente eliminado.
+    // DelTax = deletar: ao contrário do RelTax (que guarda o registo com valor 0),
+    // o DelTax apaga completamente o imposto 02K como se nunca tivesse sido calculado.
+    // Usado em declarações de anulação/rectificação (IMS6 + proc=6022):
+    // quando uma reimportação simplificada é anulada, o imposto anterior é removido.
+    // NOTA: só se aplica a IMS6 (declaração simplificada), não a IM6 nem IMV6.
+    return { valor: 0, acao: 'DelTax', credito: '0' };
+  }
+
   const aplicaRegime = (
     isRegime4 ||
     isRegime5 ||
@@ -36,8 +50,8 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
   // If ( Num01 > 0 ) Then
   if (Num01 > 0) {
 
-    // Num03 := ( Num01 * Num02 ) Div 100
-    const Num03 = (Num01 * Num02) / 100;
+  // Num03 := ( Num01 * Num02 ) Div 100
+  const Num03 = Math.floor((Num01 * Num02) / 100);
 
     // If (
     //     (regime_aduaneiro EQ 'IM4' or regime_aduaneiro EQ 'IMS4' or regime_aduaneiro EQ 'IMV4') or
@@ -108,20 +122,6 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
   }
   // Endif
 
-  // If ( regime_aduaneiro EQ 'IMS6' and Código_do_Procedimento EQ "6022" ) Then
-  if (regimeCod === 'IMS6' && procedimentoStr === '6022') {
-
-    // Action := DelTax ( "02K" )
-    // 🔴 ANULAÇÃO TOTAL — NÃO PAGA e o registo do imposto é completamente eliminado.
-    // DelTax = deletar: ao contrário do RelTax (que guarda o registo com valor 0),
-    // o DelTax apaga completamente o imposto 02K como se nunca tivesse sido calculado.
-    // Usado em declarações de anulação/rectificação (IMS6 + proc=6022):
-    // quando uma reimportação simplificada é anulada, o imposto anterior é removido.
-    // NOTA: só se aplica a IMS6 (declaração simplificada), não a IM6 nem IMV6.
-    resultado = { valor: 0, acao: 'DelTax', credito: '0' };
-  }
-  // Endif
-
   // If ( (regime_aduaneiro EQ 'IM7' or regime_aduaneiro EQ 'IMS7' or regime_aduaneiro EQ 'IMV7')
   //      and ( Código_do_Procedimento EQ "7100" ) ) Then
   if (isRegime7 && procedimentoStr === '7100') {
@@ -153,6 +153,8 @@ function calcularDERIMP({ regimeCod, procedimento, codigoIsencao, aliquotaCol1, 
 
 function calcularIEC({ regimeCod, procedimento, codigoIsencao, aliquotaCol2, valorCIF }) {
 
+  const procedimentoStr = String(procedimento || '');
+
   // Num01 := RateCol(ComCod, 2)
   const Num01 = parseFloat(aliquotaCol2) || 0;
 
@@ -160,58 +162,66 @@ function calcularIEC({ regimeCod, procedimento, codigoIsencao, aliquotaCol2, val
   const Num02 = parseFloat(valorCIF) || 0;
 
   // Num03 := ( Num01 * Num02 ) Div 100
-  const Num03 = (Num01 * Num02) / 100;
+  const Num03 = Math.floor((Num01 * Num02) / 100);
 
-  // If (
-  //     (regime_aduaneiro EQ 'IM4' or regime_aduaneiro EQ 'IMV4' or regime_aduaneiro EQ 'IMS4') or
-  //     ( (regime_aduaneiro EQ 'IM6' or regime_aduaneiro EQ 'IMV6' or regime_aduaneiro EQ 'IMS6') and ( Código_do_Procedimento EQ "6021" ) )
-  // ) Then
-  if (
-    ['IM4','IMV4','IMS4'].includes(regimeCod) ||
-    (['IM6','IMV6','IMS6'].includes(regimeCod) && procedimento === '6021')
-  ) {
+  // If ( Num01 > 0 ) Then
+  if (Num01 > 0) {
 
-    // Action := DoTax ( "IEC" , "1" , Num02 , Num01 , Num03 )
-    // ✅ DEVE PAGAR — Registo do Imposto Especial de Consumo (IEC) com crédito "1".
-    // Crédito "1" = liquidação imediata, o declarante PAGA o IEC na íntegra
-    // no momento do desalfandegamento da mercadoria.
-    // A alíquota vem da coluna 2 da pauta aduaneira (direito de consumo),
-    // que é específica para produtos sujeitos a IEC (tabaco, álcool, veículos, etc).
-    // Valor a pagar = Num03 = (alíquota_col2 × CIF) / 100
-    // Exemplo: CIF = 2.000.000 KZ, alíquota col2 = 30% → IEC = 600.000 KZ a pagar
-    // Aplica-se a:
-    //   IM4  = importação definitiva normal
-    //   IMS4 = importação definitiva simplificada
-    //   IM6 + proc=6021  = reimportação definitiva
-    //   IMS6 + proc=6021 = reimportação definitiva simplificada
-    // NOTA: IMV4 e IMV6 são incluídos — a regra original do sistema aduaneiro
-    //       aplica IEC apenas a IM4,IMV4 IMS4, IM6 IMV6 e IMS6.
-    return { valor: Num03, acao: 'DoTax', credito: '1', base: Num02, taxa: Num01 };
+    // If (
+    //     (regime_aduaneiro EQ 'IM4' or regime_aduaneiro EQ 'IMV4' or regime_aduaneiro EQ 'IMS4') or
+    //     ( (regime_aduaneiro EQ 'IM6' or regime_aduaneiro EQ 'IMV6' or regime_aduaneiro EQ 'IMS6') and ( Código_do_Procedimento EQ "6021" ) )
+    // ) Then
+    if (
+      ['IM4','IMV4','IMS4'].includes(regimeCod) ||
+      (['IM6','IMV6','IMS6'].includes(regimeCod) && procedimentoStr === '6021')
+    ) {
+
+      // Action := DoTax ( "IEC" , "1" , Num02 , Num01 , Num03 )
+      // ✅ DEVE PAGAR — Registo do Imposto Especial de Consumo (IEC) com crédito "1".
+      // Crédito "1" = liquidação imediata, o declarante PAGA o IEC na íntegra
+      // no momento do desalfandegamento da mercadoria.
+      // A alíquota vem da coluna 2 da pauta aduaneira (direito de consumo),
+      // que é específica para produtos sujeitos a IEC (tabaco, álcool, veículos, etc).
+      // Valor a pagar = Num03 = (alíquota_col2 × CIF) / 100
+      // Exemplo: CIF = 2.000.000 KZ, alíquota col2 = 30% → IEC = 600.000 KZ a pagar
+      // Aplica-se a:
+      //   IM4  = importação definitiva normal
+      //   IMS4 = importação definitiva simplificada
+      //   IM6 + proc=6021  = reimportação definitiva
+      //   IMS6 + proc=6021 = reimportação definitiva simplificada
+      // NOTA: IMV4 e IMV6 são incluídos — a regra original do sistema aduaneiro
+      //       aplica IEC apenas a IM4,IMV4 IMS4, IM6 IMV6 e IMS6.
+      return { valor: Num03, acao: 'DoTax', credito: '1', base: Num02, taxa: Num01 };
+    }
+    // Endif
+
+    // If (
+    //     ( regime_aduaneiro EQ 'IM8' ) and
+    //     ( ( Código_do_Procedimento EQ "8000" or Código_do_Procedimento EQ "8100" ) and ( Código da Isenção EQ "000" ) )
+    // ) Then
+    if (
+      regimeCod === 'IM8' &&
+      (procedimentoStr === '8000' || procedimentoStr === '8100') &&
+      codigoIsencao === '000'
+    ) {
+
+      // Action := DoTax ( "IEC" , "1" , Num02 , Num01 , Num03 )
+      // ✅ DEVE PAGAR — Registo do IEC com crédito "1" para regime especial IM8.
+      // Crédito "1" = liquidação imediata, o declarante PAGA o IEC na íntegra.
+      // Condição adicional: codigoIsencao = "000" significa SEM isenção aplicada —
+      // se houvesse um código de isenção diferente de "000", o IEC não seria cobrado.
+      // Aplica-se a:
+      //   IM8 + proc=8000 = trânsito e transbordo sem isenção
+      //   IM8 + proc=8100 = trânsito e transbordo sem isenção (variante)
+      // Nota: proc=8300 não está incluído nesta condição — IM8+8300 não paga IEC.
+      return { valor: Num03, acao: 'DoTax', credito: '1', base: Num02, taxa: Num01 };
+    }
+    // Endif
+
   }
   // Endif
-
-  // If (
-  //     ( regime_aduaneiro EQ 'IM8' ) and
-  //     ( ( Código_do_Procedimento EQ "8000" or Código_do_Procedimento EQ "8100" ) and ( Código da Isenção EQ "000" ) )
-  // ) Then
-  if (
-    regimeCod === 'IM8' &&
-    (procedimento === '8000' || procedimento === '8100') &&
-    codigoIsencao === '000'
-  ) {
-
-    // Action := DoTax ( "IEC" , "1" , Num02 , Num01 , Num03 )
-    // ✅ DEVE PAGAR — Registo do IEC com crédito "1" para regime especial IM8.
-    // Crédito "1" = liquidação imediata, o declarante PAGA o IEC na íntegra.
-    // Condição adicional: codigoIsencao = "000" significa SEM isenção aplicada —
-    // se houvesse um código de isenção diferente de "000", o IEC não seria cobrado.
-    // Aplica-se a:
-    //   IM8 + proc=8000 = trânsito e transbordo sem isenção
-    //   IM8 + proc=8100 = trânsito e transbordo sem isenção (variante)
-    // Nota: proc=8300 não está incluído nesta condição — IM8+8300 não paga IEC.
-    return { valor: Num03, acao: 'DoTax', credito: '1', base: Num02, taxa: Num01 };
-  }
-  // Endif
+  // ℹ️ Se alíquota = 0: o código pautal tem taxa zero na pauta aduaneira,
+  //    nenhum DoTax é executado — o IEC não é cobrado.
 
   // ⛔ NÃO PAGA — Nenhuma das condições se aplicou.
   // O IEC não é cobrado quando:
@@ -235,6 +245,7 @@ function calcularIEC({ regimeCod, procedimento, codigoIsencao, aliquotaCol2, val
 function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
                            valorCIF, valorFatura, itemNumber }) {
 
+  const procedimentoStr = String(procedimento || '');
   const Num02_CIF = parseFloat(valorCIF)    || 0;
   const Num02_FOB = parseFloat(valorFatura) || 0;
   const cp        = String(codigoPautal || '').replace(/\./g, '');
@@ -319,7 +330,7 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
         // Valor fixo = 88 (UCF) × 240 = 21.120 KZ — independente do valor da mercadoria.
         // Crédito "1" = pagamento imediato e definitivo.
         // Só se aplica ao primeiro item (ItmNber=1) — os itens seguintes não pagam.
-        // NOTA: só EX2 puro — EXS2 e EXV2 têm condições próprias abaixo.
+        // NOTA: só EX2 puro — EXS2 tem condições próprias abaixo; EXV2 não tem handler (retorna N/A).
         return { valor: Num03, acao: 'DoTax', credito: '1', taxa: Num01, base: Num02 };
       }
       // Endif
@@ -328,7 +339,7 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
     // Endif (EX2)
 
     // If ( regime_aduaneiro EQ 'EXS2' and Código_do_Procedimento EQ "2200" ) Then
-    if (regimeCod === 'EXS2' && procedimento === '2200') {
+    if (regimeCod === 'EXS2' && procedimentoStr === '2200') {
 
       // If ( ItmNber EQ 1 ) Then
       if (itemNumber === 1) {
@@ -392,7 +403,7 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
   if (isRegime4 || isRegime5 || isRegime6 || isRegime7) {
 
     // If ( (IM4 or IMS4 or IMV4) and Código_do_Procedimento <> "4400" ) Then
-    if (isRegime4 && procedimento !== '4400') {
+    if (isRegime4 && procedimentoStr !== '4400') {
 
       const Num01_base = 2;
       const Num02_base = Num02_CIF;
@@ -444,12 +455,14 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
       return { valor: Num03, acao: 'DoTax', credito: '1', taxa: Num01, base: Num02 };
     }
     // Endif (IM5)
+    // ℹ️ IMS5 e IMV5: não estão cobertos por nenhuma condição interna — retornam N/A.
+    // ℹ️ IMV6: entra no bloco IM6 mas não coincide com nenhuma condição interna — retorna N/A.
 
     // If ( regime_aduaneiro EQ 'IM6' ) Then
     if (regimeCod === 'IM6') {
 
       // If ( Código_do_Procedimento EQ "6021" ) Then
-      if (procedimento === '6021') {
+      if (procedimentoStr === '6021') {
 
         const Num01 = 2;
         const Num02 = Num02_CIF;
@@ -487,7 +500,7 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
 
       // Else (regime ≠ IM6) — avalia IMS6
       // If ( regime_aduaneiro EQ 'IMS6' and Código_do_Procedimento EQ "6022" ) Then
-      if (regimeCod === 'IMS6' && procedimento === '6022') {
+      if (regimeCod === 'IMS6' && procedimentoStr === '6022') {
 
         // If ( ItmNber EQ 1 ) Then
         if (itemNumber === 1) {
@@ -522,7 +535,7 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
         const Num03 = Num01 * Num02; // 88 × 240 = 21.120 KZ
 
         // If ( Código_do_Procedimento <> "7100" ) Then
-        if (procedimento !== '7100') {
+        if (procedimentoStr !== '7100') {
 
           // Action := DoTax ( "05M" , "1" , Num02 , Num01 , Num03 )
           // ✅ DEVE PAGAR — Taxa fixa de emolumentos para armazenagem/entreposto (IM7/IMS7/IMV7).
@@ -563,7 +576,7 @@ function calcularEMGEAD({ regimeCod, procedimento, codigoPautal, paisOrigem,
       const Num01 = 1;
 
       // If ( Código_do_Procedimento EQ "8100" or Código_do_Procedimento EQ "8300" ) Then
-      if (procedimento === '8100' || procedimento === '8300') {
+      if (procedimentoStr === '8100' || procedimentoStr === '8300') {
 
         const Num02 = 56200;
         const Num03 = Num01 * Num02; // 1 × 56.200 = 56.200 KZ
@@ -670,7 +683,7 @@ function calcularDEREXP({ regimeCod, procedimento, codigoPautal, paisOrigem,
 
     // ── Bloco PRODUTOEXPORTACAO ───────────────────────────────────
     // If ( ( InListTar ( "PRODUTOEXPORTACAO" ) EQ 0 ) and ( cod_pais_de_Origem <> "AO" ) ) Then
-    if (inListTar("PRODUTOEXPORTACAO") === 0 && paisOrigem !== "AO") {
+    if (inListTar("PRODUTOEXPORTACAO") === 0 && paisOrigem !== "AO" && codigoPautal !== "49070010") {
 
       const Num04 = 70;
       const Num05 = (Num01 * Num04) / 100;
@@ -729,7 +742,7 @@ function calcularDEREXP({ regimeCod, procedimento, codigoPautal, paisOrigem,
 
     // ── Bloco CPEXDMB ─────────────────────────────────────────────
     // If ( InListTar ( "CPEXDMB" ) EQ 0 ) Then
-    if (inListTar("CPEXDMB") === 0) {
+    if (inListTar("CPEXDMB") === 0 && codigoPautal !== "49070010") {
 
       const Num08 = 5;
       const Num09 = (Num01 * Num08) / 100;
@@ -777,7 +790,8 @@ function calcularIVA({ codigoIsencao, aliquotaCol3, valorFOB,
 
   // Num01 := ItmFobNcy + TaxAmt("02K") + TaxAmt("IEC") + TaxAmt("05M") + TaxAmt("01K")
   // Base de cálculo: FOB + Direitos de Importação + IEC + Emolumentos Gerais + Direitos de Exportação
-  // NOTA: TaxAmt("03M") desconsiderado conforme instrução
+  // NOTA: TaxAmt("03M") desconsiderado conforme instrução — 03M (Emolumentos de Fronteira)
+  //       não faz parte da base de cálculo do IVA, apenas 02K, IEC, 05M e 01K.
   const Num01 = (parseFloat(valorFOB)    || 0) +
                 (parseFloat(valorDERIMP) || 0) +
                 (parseFloat(valorIEC)    || 0) +
@@ -789,7 +803,7 @@ function calcularIVA({ codigoIsencao, aliquotaCol3, valorFOB,
   const Num02 = parseFloat(aliquotaCol3) || 0;
 
   // Num03 := ( Num01 * Num02 ) Div 100
-  const Num03 = (Num01 * Num02) / 100;
+  const Num03 = Math.floor((Num01 * Num02) / 100);
 
   // Action := DoTax ( "02I" , "1" , Num01 , Num02 , Num03 )
   // ✅ DEVE PAGAR — Registo do IVA (02I) com crédito "1".
