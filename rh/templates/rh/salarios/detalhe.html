@@ -432,7 +432,7 @@
           <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">Link do PDF</label>
           <div class="flex gap-2">
             <input type="text" id="linkPDF" readonly
-                   value="{{ request.scheme }}://{{ request.get_host }}{% url 'rh_salario_download' proc.pk %}"
+                   value="{% url 'rh_salario_download' proc.pk %}"
                    class="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 focus:outline-none" />
             <button onclick="copiarLink()"
                     class="px-3 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-all text-sm font-semibold"
@@ -564,19 +564,45 @@
     recalcularTotal();
     var pdfUrl = document.getElementById('linkPDF');
     var whatsappBtn = document.getElementById('btnWhatsApp');
-    if (pdfUrl && whatsappBtn) {
-      var texto = 'Comprovante de Processamento Salarial - PDF em anexo:';
-      whatsappBtn.href = 'https://wa.me/?text=' + encodeURIComponent(texto + '\n' + pdfUrl.value);
+    if (pdfUrl) {
+      var absUrl = window.location.origin + pdfUrl.value;
+      pdfUrl.value = absUrl;
+      if (whatsappBtn) {
+        var texto = 'Comprovante de Processamento Salarial - PDF em anexo:';
+        whatsappBtn.href = 'https://wa.me/?text=' + encodeURIComponent(texto + '\n' + absUrl);
+      }
     }
   });
 
   function copiarLink() {
     var input = document.getElementById('linkPDF');
     if (!input) return;
-    navigator.clipboard.writeText(input.value).then(function() {
-      var fb = document.getElementById('copyFeedback');
-      if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 2000); }
-    });
+    var texto = input.value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto).then(function() {
+        mostrarFeedback();
+      }, function() {
+        fallbackCopiar(texto);
+      });
+    } else {
+      fallbackCopiar(texto);
+    }
+  }
+
+  function fallbackCopiar(texto) {
+    var ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); mostrarFeedback(); } catch(e) {}
+    document.body.removeChild(ta);
+  }
+
+  function mostrarFeedback() {
+    var fb = document.getElementById('copyFeedback');
+    if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 2000); }
   }
 })();
 </script>
