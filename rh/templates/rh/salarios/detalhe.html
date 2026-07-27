@@ -445,15 +445,17 @@
 
         <!-- Botões de compartilhamento -->
         <div class="flex gap-3">
-          <a id="btnWhatsApp" href="#" target="_blank" rel="noopener"
-             class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#25D366] text-white font-semibold hover:bg-[#1da851] transition-all text-sm">
+          <button type="button" onclick="compartilharPDF('whatsapp')"
+                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#25D366] text-white font-semibold hover:bg-[#1da851] transition-all text-sm">
             <i class="fab fa-whatsapp text-lg"></i>WhatsApp
-          </a>
-          <button onclick="navigator.share && navigator.share({title: 'Processamento Salarial', url: document.getElementById('linkPDF').value})"
+          </button>
+          <button type="button" onclick="compartilharPDF('outro')"
                   class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-            <i class="fas fa-share-alt"></i>Mais
+            <i class="fas fa-share-alt"></i>Partilhar PDF
           </button>
         </div>
+        <p id="shareFeedback" class="text-xs text-green-600 mt-2 text-center hidden">PDF pronto para partilhar!</p>
+        <p id="shareError" class="text-xs text-amber-600 mt-2 text-center hidden">PDF descarregado. Partilhe-o manualmente.</p>
       </div>
     </div>
     {% endif %}
@@ -563,14 +565,8 @@
   document.addEventListener('DOMContentLoaded', function() {
     recalcularTotal();
     var pdfUrl = document.getElementById('linkPDF');
-    var whatsappBtn = document.getElementById('btnWhatsApp');
     if (pdfUrl) {
-      var absUrl = window.location.origin + pdfUrl.value;
-      pdfUrl.value = absUrl;
-      if (whatsappBtn) {
-        var texto = 'Comprovante de Processamento Salarial - PDF em anexo:';
-        whatsappBtn.href = 'https://wa.me/?text=' + encodeURIComponent(texto + '\n' + absUrl);
-      }
+      pdfUrl.value = window.location.origin + pdfUrl.value;
     }
   });
 
@@ -603,6 +599,58 @@
   function mostrarFeedback() {
     var fb = document.getElementById('copyFeedback');
     if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 2000); }
+  }
+
+  window.compartilharPDF = function(origem) {
+    var input = document.getElementById('linkPDF');
+    if (!input) return;
+    var url = input.value;
+    var nome = 'processamento_salarial.pdf';
+
+    fetch(url, { credentials: 'same-origin' })
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.blob();
+      })
+      .then(function(blob) {
+        var file = new File([blob], nome, { type: 'application/pdf' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({
+            title: 'Processamento Salarial',
+            text: 'Comprovante de Processamento Salarial em PDF',
+            files: [file]
+          }).catch(function() {});
+        } else if (origem === 'whatsapp') {
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = nome;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          var fb = document.getElementById('shareError');
+          if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 4000); }
+        } else {
+          var a2 = document.createElement('a');
+          a2.href = url;
+          a2.download = nome;
+          document.body.appendChild(a2);
+          a2.click();
+          document.body.removeChild(a2);
+          var fb2 = document.getElementById('shareError');
+          if (fb2) { fb2.classList.remove('hidden'); setTimeout(function() { fb2.classList.add('hidden'); }, 4000); }
+        }
+      })
+      .catch(function() {
+        var a3 = document.createElement('a');
+        a3.href = url;
+        a3.download = nome;
+        document.body.appendChild(a3);
+        a3.click();
+        document.body.removeChild(a3);
+        var fb3 = document.getElementById('shareError');
+        if (fb3) { fb3.classList.remove('hidden'); setTimeout(function() { fb3.classList.add('hidden'); }, 4000); }
+      });
   }
 })();
 </script>
