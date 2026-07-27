@@ -443,17 +443,11 @@
           <p id="copyFeedback" class="text-xs text-green-600 mt-1 hidden">Link copiado!</p>
         </div>
 
-        <!-- Botões de compartilhamento -->
-        <div class="flex gap-3">
-          <button type="button" onclick="compartilharPDF('whatsapp')"
-                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#25D366] text-white font-semibold hover:bg-[#1da851] transition-all text-sm">
-            <i class="fab fa-whatsapp text-lg"></i>WhatsApp
-          </button>
-          <button type="button" onclick="compartilharPDF('outro')"
-                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-            <i class="fas fa-share-alt"></i>Partilhar PDF
-          </button>
-        </div>
+        <!-- Botão de compartilhamento -->
+        <button type="button" onclick="compartilharPDF()"
+                class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all text-sm">
+          <i class="fas fa-share-alt text-lg"></i>Partilhar PDF
+        </button>
         <p id="shareFeedback" class="text-xs text-green-600 mt-2 text-center hidden">PDF pronto para partilhar!</p>
         <p id="shareError" class="text-xs text-amber-600 mt-2 text-center hidden">PDF descarregado. Partilhe-o manualmente.</p>
       </div>
@@ -601,7 +595,7 @@
     if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 2000); }
   }
 
-  window.compartilharPDF = function(origem) {
+  window.compartilharPDF = function() {
     var input = document.getElementById('linkPDF');
     if (!input) return;
     var url = input.value;
@@ -620,8 +614,11 @@
             title: 'Processamento Salarial',
             text: 'Comprovante de Processamento Salarial em PDF',
             files: [file]
+          }).then(function() {
+            var fb = document.getElementById('shareFeedback');
+            if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 2000); }
           }).catch(function() {});
-        } else if (origem === 'whatsapp') {
+        } else {
           var a = document.createElement('a');
           a.href = url;
           a.download = nome;
@@ -630,26 +627,17 @@
           document.body.removeChild(a);
           var fb = document.getElementById('shareError');
           if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 4000); }
-        } else {
-          var a2 = document.createElement('a');
-          a2.href = url;
-          a2.download = nome;
-          document.body.appendChild(a2);
-          a2.click();
-          document.body.removeChild(a2);
-          var fb2 = document.getElementById('shareError');
-          if (fb2) { fb2.classList.remove('hidden'); setTimeout(function() { fb2.classList.add('hidden'); }, 4000); }
         }
       })
       .catch(function() {
-        var a3 = document.createElement('a');
-        a3.href = url;
-        a3.download = nome;
-        document.body.appendChild(a3);
-        a3.click();
-        document.body.removeChild(a3);
-        var fb3 = document.getElementById('shareError');
-        if (fb3) { fb3.classList.remove('hidden'); setTimeout(function() { fb3.classList.add('hidden'); }, 4000); }
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = nome;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        var fb = document.getElementById('shareError');
+        if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 4000); }
       });
   }
 })();
