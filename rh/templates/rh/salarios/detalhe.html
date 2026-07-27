@@ -415,41 +415,24 @@
     <!-- Modal Compartilhar -->
     {% if proc.estado == 'Pago' or proc.estado == 'Processado' %}
     <div id="modalCompartilhar" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center justify-between mb-5">
-          <h3 class="text-lg font-bold text-gray-900 dark:text-white">Compartilhar Processamento</h3>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-gray-900 dark:text-white">Partilhar PDF</h3>
           <button onclick="document.getElementById('modalCompartilhar').classList.add('hidden')"
                   class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <i class="fas fa-times text-gray-500"></i>
           </button>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
           Processamento {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}
         </p>
-
-        <!-- Link do PDF -->
-        <div class="mb-4">
-          <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">Link do PDF</label>
-          <div class="flex gap-2">
-            <input type="text" id="linkPDF" readonly
-                   value="{% url 'rh_salario_download' proc.pk %}"
-                   class="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 focus:outline-none" />
-            <button onclick="copiarLink()"
-                    class="px-3 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-all text-sm font-semibold"
-                    title="Copiar link">
-              <i class="fas fa-copy"></i>
-            </button>
-          </div>
-          <p id="copyFeedback" class="text-xs text-green-600 mt-1 hidden">Link copiado!</p>
-        </div>
-
-        <!-- Botão de compartilhamento -->
+        <input type="hidden" id="linkPDF" value="{% url 'rh_salario_download' proc.pk %}" />
         <button type="button" onclick="compartilharPDF()"
-                class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all text-sm">
-          <i class="fas fa-share-alt text-lg"></i>Partilhar PDF
+                class="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-all text-sm shadow-sm">
+          <i class="fas fa-share-alt text-base"></i>Partilhar PDF
         </button>
-        <p id="shareFeedback" class="text-xs text-green-600 mt-2 text-center hidden">PDF pronto para partilhar!</p>
-        <p id="shareError" class="text-xs text-amber-600 mt-2 text-center hidden">PDF descarregado. Partilhe-o manualmente.</p>
+        <p id="shareFeedback" class="text-xs text-green-600 mt-3 hidden">PDF pronto para partilhar!</p>
+        <p id="shareError" class="text-xs text-amber-600 mt-3 hidden">PDF descarregado. Partilhe-o manualmente.</p>
       </div>
     </div>
     {% endif %}
@@ -558,47 +541,12 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     recalcularTotal();
-    var pdfUrl = document.getElementById('linkPDF');
-    if (pdfUrl) {
-      pdfUrl.value = window.location.origin + pdfUrl.value;
-    }
   });
-
-  window.copiarLink = function() {
-    var input = document.getElementById('linkPDF');
-    if (!input) return;
-    var texto = input.value;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(texto).then(function() {
-        mostrarFeedback();
-      }, function() {
-        fallbackCopiar(texto);
-      });
-    } else {
-      fallbackCopiar(texto);
-    }
-  }
-
-  function fallbackCopiar(texto) {
-    var ta = document.createElement('textarea');
-    ta.value = texto;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); mostrarFeedback(); } catch(e) {}
-    document.body.removeChild(ta);
-  }
-
-  function mostrarFeedback() {
-    var fb = document.getElementById('copyFeedback');
-    if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 2000); }
-  }
 
   window.compartilharPDF = function() {
     var input = document.getElementById('linkPDF');
     if (!input) return;
-    var url = input.value;
+    var url = window.location.origin + input.value;
     var nome = 'processamento_salarial.pdf';
 
     fetch(url, { credentials: 'same-origin' })
