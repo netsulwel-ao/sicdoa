@@ -23,5 +23,7 @@ jobs:
             source venv/bin/activate
             pip install -r requirements-prod.txt
             python manage.py migrate --noinput
+            python manage.py recalcular_requisicoes || true
+            python manage.py recalcular_facturas || true
             python manage.py collectstatic --noinput
             sudo systemctl restart sicdoa-daphne

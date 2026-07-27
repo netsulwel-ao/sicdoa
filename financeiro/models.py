@@ -56,6 +56,8 @@ class RequisicaoFundo(models.Model):
                                 verbose_name='Taxa de Retenção')
     subtotal_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
                                         verbose_name='Subtotal Geral')
+    iva_honorarios = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                         verbose_name='IVA (Honorários)')
     retencao = models.DecimalField(max_digits=15, decimal_places=2, default=0,
                                    verbose_name='Retenção')
     total_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
@@ -135,7 +137,7 @@ class RequisicaoFundo(models.Model):
         self._gerar_codigo_qr()
         
         # Salvar novamente com totais recalculados
-        super().save(update_fields=['subtotal_geral', 'retencao', 'total_geral', 
+        super().save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral', 
                                     'assinatura_digital', 'codigo_qr'])
 
     def _recalcular_totais(self):
@@ -146,6 +148,9 @@ class RequisicaoFundo(models.Model):
         self.subtotal_geral = sum(
             (linha.valor or 0) for linha in linhas
         )
+        
+        # Sem IVA nos Custos Orçados
+        self.iva_honorarios = Decimal('0.00')
         
         # Retenção = taxa_retenção% sobre Honorários do Despachante
         retencao_pct = Decimal(self.taxa_iva or '14') / Decimal('100')
@@ -391,7 +396,7 @@ class RequisicaoFundoLinha(models.Model):
         super().save(*args, **kwargs)
         # Recalcular totais da requisição
         self.requisicao._recalcular_totais()
-        self.requisicao.save(update_fields=['subtotal_geral', 'retencao', 'total_geral'])
+        self.requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
 
     def __str__(self):
         return f"{self.requisicao.numero_requisicao} - {self.descricao}"

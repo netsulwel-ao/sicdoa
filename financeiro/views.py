@@ -307,7 +307,7 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
         self.object._recalcular_totais()
         self.object._gerar_assinatura_digital()
         self.object.save(update_fields=[
-            'subtotal_geral', 'retencao', 'total_geral',
+            'subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral',
             'assinatura_digital',
         ])
         registrar_historico(
@@ -470,7 +470,7 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
         self.object._recalcular_totais()
         self.object._gerar_assinatura_digital()
         self.object.save(update_fields=[
-            'subtotal_geral', 'retencao', 'total_geral',
+            'subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral',
             'assinatura_digital',
         ])
 
@@ -665,7 +665,7 @@ def adicionar_linha_requisicao(request, pk):
         linha.save()
 
         requisicao._recalcular_totais()
-        requisicao.save(update_fields=['subtotal_geral', 'retencao', 'total_geral'])
+        requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
 
         if is_ajax:
             doc_linhas = requisicao.linhas.filter(documentada=True)
@@ -685,6 +685,7 @@ def adicionar_linha_requisicao(request, pk):
                 },
                 'totais': {
                     'subtotal_geral': float(requisicao.subtotal_geral),
+                    'iva_honorarios': float(requisicao.iva_honorarios),
                     'retencao': float(requisicao.retencao),
                     'total_geral': float(requisicao.total_geral),
                     'subtotal_documentadas': float(sum((l.valor or 0) for l in doc_linhas)),
@@ -752,7 +753,7 @@ def eliminar_linha_requisicao(request, pk, linha_id):
     
     # Recalcular totais
     requisicao._recalcular_totais()
-    requisicao.save(update_fields=['subtotal_geral', 'retencao', 'total_geral'])
+    requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
     
     messages.success(request, 'Linha removida com sucesso.')
     return redirect('financeiro:requisicao_detalhe', pk=pk)
