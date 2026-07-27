@@ -307,7 +307,7 @@ class RequisicaoFundoCreateView(BaseContextMixin, SuccessMessageMixin, CreateVie
         self.object._recalcular_totais()
         self.object._gerar_assinatura_digital()
         self.object.save(update_fields=[
-            'subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral',
+            'subtotal_geral', 'retencao', 'total_geral',
             'assinatura_digital',
         ])
         registrar_historico(
@@ -470,10 +470,10 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
         self.object._recalcular_totais()
         self.object._gerar_assinatura_digital()
         self.object.save(update_fields=[
-            'subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral',
+            'subtotal_geral', 'retencao', 'total_geral',
             'assinatura_digital',
         ])
-        return response
+
 
     def _salvar_custos(self, requisicao):
         import re
@@ -665,7 +665,7 @@ def adicionar_linha_requisicao(request, pk):
         linha.save()
 
         requisicao._recalcular_totais()
-        requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
+        requisicao.save(update_fields=['subtotal_geral', 'retencao', 'total_geral'])
 
         if is_ajax:
             doc_linhas = requisicao.linhas.filter(documentada=True)
@@ -685,7 +685,6 @@ def adicionar_linha_requisicao(request, pk):
                 },
                 'totais': {
                     'subtotal_geral': float(requisicao.subtotal_geral),
-                    'iva_honorarios': float(requisicao.iva_honorarios),
                     'retencao': float(requisicao.retencao),
                     'total_geral': float(requisicao.total_geral),
                     'subtotal_documentadas': float(sum((l.valor or 0) for l in doc_linhas)),
@@ -753,7 +752,7 @@ def eliminar_linha_requisicao(request, pk, linha_id):
     
     # Recalcular totais
     requisicao._recalcular_totais()
-    requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
+    requisicao.save(update_fields=['subtotal_geral', 'retencao', 'total_geral'])
     
     messages.success(request, 'Linha removida com sucesso.')
     return redirect('financeiro:requisicao_detalhe', pk=pk)
@@ -1182,21 +1181,83 @@ def requisicao_pdf(request, pk):
     story.append(Spacer(1, 0.2 * cm))
 
     # ══════════════════════════════════════════════════════════════════
-    # IMPOSTO/IVA + REFERÊNCIA DO PROCESSO (esquerda) | SUMÁRIO (direita)
+    # REFERÊNCIAS DO PROCESSO ADUANEIRO (CARGA)
+    # ══════════════════════════════════════════════════════════════════
+    ref_interna = processo.id if processo else '—'
+    bl_awb = requisicao.numero_bl_awb or '—'
+    transporte = requisicao.meio_transporte or (processo.meio_transporte if processo else '—')
+    origem = requisicao.origem or (
+        f"{getattr(processo, 'pais_origem', '') or ''} / {getattr(processo, 'porto_embarque', '') or ''}".strip(' /') or '—'
+    )
+    destino = requisicao.destino or (getattr(processo, 'porto_desembarque', '') or '—')
+    merc_desc = requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else '—')
+    v_cif_proc = fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else (
+        fmt_kz(processo.valor_cif) if processo and processo.valor_cif else '—'
+    )
+    valor_aduaneiro = fmt_kz(processo.total_geral) if processo and processo.total_geral else '—'
+
+    processo_rows = [
+        [Paragraph('<b>Referências do Processo Aduaneiro (Carga)</b>',
+                   st('sec_h_proc', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_PRIMARIO)), '', ''],
+        [Paragraph('<font size="7"><b>Ref. Interna:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{ref_interna}</font>', st('pr')),
+         Paragraph('<font size="7"><b>Nr DU:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{nr_du}</font>', st('pr'))],
+        [Paragraph('<font size="7"><b>Documento Transporte:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{bl_awb}</font>', st('pr')),
+         Paragraph('<font size="7"><b>Navio/Voo:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{transporte}</font>', st('pr'))],
+        [Paragraph('<font size="7"><b>Origem:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{origem}</font>', st('pr')),
+         Paragraph('<font size="7"><b>Destino:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{destino}</font>', st('pr'))],
+        [Paragraph('<font size="7"><b>Mercadoria:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{merc_desc[:60]}</font>', st('pr')),
+         Paragraph('<font size="7"><b>Valor CIF:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{v_cif_proc}</font>', st('pr'))],
+        [Paragraph('<font size="7"><b>Valor Aduaneiro:</b></font>', st('pr', fontName='Helvetica-Bold')),
+         Paragraph(f'<font size="7">{valor_aduaneiro} KZ</font>', st('pr')),
+         Paragraph('', st('pr')), Paragraph('', st('pr'))],
+    ]
+    t_processo = Table(processo_rows, colWidths=[W * 0.16, W * 0.34, W * 0.13, W * 0.37])
+    t_processo.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('TEXTCOLOR', (0, 0), (-1, 0), COR_PRIMARIO),
+        ('SPAN', (0, 0), (-1, 0)),
+        ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
+    ]))
+    story.append(t_processo)
+    story.append(Spacer(1, 0.2 * cm))
+
+    # ══════════════════════════════════════════════════════════════════
+    # IMPOSTO/IVA + SUMÁRIO
     # ══════════════════════════════════════════════════════════════════
     iva_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
-    iva_val = requisicao.iva_honorarios or Decimal('0')
     sttl = requisicao.subtotal_geral or Decimal('0')
     ret_pct = iva_pct
     ret_val = requisicao.retencao or Decimal('0')
     total = requisicao.total_geral or Decimal('0')
+
+    # Incidência da retenção = soma dos honorários (tipo_custo == 'Honorários do Despachante')
+    incidencia_ret = sum(
+        (linha.valor or Decimal('0')) for linha in requisicao.linhas.all()
+        if linha.tipo_custo == 'Honorários do Despachante'
+    )
+    if incidencia_ret <= 0:
+        incidencia_ret = sttl
 
     imposto_rows = [
         [Paragraph('<b>Impostos</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
          Paragraph('<b>Incidência</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
          Paragraph('<b>Valor</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_RIGHT))],
         [Paragraph(f'Retenção - {iva_pct*100:.1f}%', st('imc', fontSize=7)),
-         Paragraph(f'{fmt_kz(sttl)} KZ', st('imc', fontSize=7)),
+         Paragraph(f'{fmt_kz(incidencia_ret)} KZ', st('imc', fontSize=7)),
          Paragraph(f'{fmt_kz(ret_val)} KZ', st('imc', fontSize=7, alignment=TA_RIGHT))],
     ]
     t_imposto = Table(imposto_rows, colWidths=[W * 0.55 * 0.30, W * 0.55 * 0.40, W * 0.55 * 0.30])
@@ -1212,16 +1273,8 @@ def requisicao_pdf(request, pk):
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
     ]))
 
-    ref_texto = (
-        f'<font size="7.5"><b>Referência do Processo</b></font><br/>'
-        f'<font size="7" color="#334155">Nr DU: {nr_du}</font><br/>'
-        f'<font size="7" color="#334155">Peso bruto/líquido: {peso_bruto} / {peso_liq}</font><br/>'
-        f'<font size="7" color="#334155">Total do processo: {processo_total} KZ</font>'
-    )
     bloco_esquerdo = [
         [t_imposto],
-        [Spacer(1, 0.25 * cm)],
-        [Paragraph(ref_texto, st('ref_proc', fontSize=7, leading=10))],
     ]
     t_bloco_esquerdo = Table(bloco_esquerdo, colWidths=[W * 0.55])
     t_bloco_esquerdo.setStyle(TableStyle([
@@ -1231,7 +1284,9 @@ def requisicao_pdf(request, pk):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
 
-    valor_extenso = valor_por_extenso(total)
+    # Total = Subtotal (todos os custos) + Retenção (apenas sobre honorários)
+    total_calc = sttl + ret_val
+    valor_extenso = valor_por_extenso(total_calc)
     sumario_rows = [
         [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO))],
         [Spacer(1, 0.15 * cm)],
@@ -1240,7 +1295,7 @@ def requisicao_pdf(request, pk):
         [Paragraph(f'<font size="7">Retenção ({ret_pct*100:.1f}%): <b>{fmt_kz(ret_val)} KZ</b></font>',
                    st('sum_l', fontSize=7, leading=10))],
         [Spacer(1, 0.15 * cm)],
-        [Paragraph(f'<font size="10" color="#0f172a"><b>Total: {fmt_kz(total)} KZ</b></font>',
+        [Paragraph(f'<font size="10" color="#0f172a"><b>Total: {fmt_kz(total_calc)} KZ</b></font>',
                    st('sum_total', fontSize=10, leading=12))],
         [Spacer(1, 0.1 * cm)],
         [Paragraph(f'<font size="6.5" color="#64748b"><i>{valor_extenso}</i></font>',
@@ -1289,58 +1344,38 @@ def requisicao_pdf(request, pk):
     story.append(Spacer(1, 0.15 * cm))
 
     # ══════════════════════════════════════════════════════════════════
-    # DESPACHANTE RESPONSÁVEL
-    # ══════════════════════════════════════════════════════════════════
-    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
-    story.append(Spacer(1, 0.15 * cm))
-    desp_box = Table([[
-        Paragraph('<b>Despachante Responsável</b>', st('desp_h', fontSize=7.5, textColor=COR_PRIMARIO)),
-    ]], colWidths=[W])
-    desp_box.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('TOPPADDING', (0, 0), (-1, 0), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
-        ('LEFTPADDING', (0, 0), (-1, 0), 6),
-    ]))
-    story.append(desp_box)
-    story.append(Spacer(1, 0.1 * cm))
-    story.append(Paragraph(
-        f'{responsavel_nome} &nbsp;|&nbsp; NIF: {responsavel_nif} &nbsp;|&nbsp; '
-        f'Cédula CDOA: {responsavel_cedula}',
-        st('desp_l1', fontSize=7.5, textColor=COR_PRIMARIO)
-    ))
-    story.append(Paragraph(
-        f'Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}',
-        st('desp_l2', fontSize=7, textColor=COR_CINZA)
-    ))
-    story.append(Spacer(1, 0.15 * cm))
-
-    # ══════════════════════════════════════════════════════════════════
-    # ASSINATURA
+    # ASSINATURA + OPERADOR
     # ══════════════════════════════════════════════════════════════════
     story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
     story.append(Spacer(1, 0.1 * cm))
-    ass_data = [
-        [Paragraph('<b>Recebido por:</b>', st('ass_lab', fontSize=8)),
-         Paragraph('', st('ass_spc', fontSize=8))],
-        [Spacer(1, 0.2 * cm), Spacer(1, 0.2 * cm)],
-        [HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA),
-         HRFlowable(width=5.5 * cm, thickness=0.8, color=COR_CINZA)],
-        [Paragraph('<font size="7.5"><b>Data:</b> _____/_____/______</font>', st('ass_data', fontSize=7.5)),
-         Paragraph('<font size="7.5"><b>O Cliente</b></font>', st('ass_cli', fontSize=7.5, alignment=TA_CENTER))],
-        [Paragraph('', st('ass_spc', fontSize=3)),
-         Paragraph(f'<font size="7"><b>{cli_nome}</b></font>',
-                   st('ass_nome', fontSize=7, fontName='Helvetica-Bold', alignment=TA_CENTER))],
-    ]
-    assinatura = Table(ass_data, colWidths=[W / 2, W / 2])
+    _ass_img = _carregar_assinatura(banca.usuario_id if banca else None)
+    if _ass_img:
+        ass_data = [
+            ['', Table([
+                [_ass_img],
+                [Paragraph('<font size="7.5"><b>Assinatura do Despachante</b></font>',
+                            st('ass', fontSize=7.5, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+                [Spacer(1, 0.08*cm)],
+                [Paragraph(f'<font size="7.5"><b>Operador:</b> {requisicao.criado_por_nome or "—"}</font>',
+                            st('op', fontSize=7.5, alignment=TA_CENTER))],
+            ], colWidths=[4.5*cm])],
+        ]
+    else:
+        ass_data = [
+            ['', Table([
+                [HRFlowable(width=4.5*cm, thickness=0.5, color=COR_BORDA)],
+                [Paragraph('<font size="7.5"><b>Assinatura do Despachante</b></font>',
+                            st('ass', fontSize=7.5, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
+                [Spacer(1, 0.15*cm)],
+                [HRFlowable(width=4.5*cm, thickness=0.5, color=COR_BORDA)],
+                [Paragraph(f'<font size="7.5"><b>Operador:</b> {requisicao.criado_por_nome or "—"}</font>',
+                            st('op', fontSize=7.5, alignment=TA_CENTER))],
+            ], colWidths=[4.5*cm])],
+        ]
+    assinatura = Table(ass_data, colWidths=[W - 4.5*cm, 4.5*cm])
     assinatura.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('ALIGN',  (1, 0), (1, 0),  'CENTER'),
     ]))
     story.append(assinatura)
     story.append(Spacer(1, 0.15 * cm))
@@ -1679,7 +1714,7 @@ def criar_factura_de_requisicao(request, pk):
         
         subtotal = honorarios + taxas_aduaneiras + emolumentos + despesas_operacionais
         iva = Decimal('0.00')
-        valor_total = subtotal - retencao
+        valor_total = subtotal + retencao
         
         return honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, valor_total
     
@@ -3907,11 +3942,9 @@ def factura_pdf(request, pk):
     # BLOCO 3 — Barra do número da fatura
     # ══════════════════════════════════════════════════════════════════════════
     t_num = Table([[
-        Paragraph(f'<b>FACTURA FT {factura.numero_factura}</b>',
+        Paragraph(f'<b>FACTURA FT — {factura.numero_factura}</b>',
                   st('num_ft', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
-        Paragraph(f'<font size="9" color="#0f172a">Fatura Nº: {factura.numero_factura}</font>',
-                  st('num_ft2', fontSize=9, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
-    ]], colWidths=[W * 0.6, W * 0.4])
+    ]], colWidths=[W])
     t_num.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), COR_HEADER),
         ('TOPPADDING',    (0, 0), (-1, -1), 5),
@@ -4283,94 +4316,66 @@ def factura_pdf(request, pk):
         outros_total = factura.outros_encargos or Decimal('0')
 
     # ══════════════════════════════════════════════════════════════════════════
-    # BLOCO 6 — Resumo IVA (esquerda) + Totalizadores (direita)
+    # BLOCO 6 — Sumário (tabela única alinhada)
     # ══════════════════════════════════════════════════════════════════════════
-    iva_header = [
-        Paragraph('<b>Resumo IVA</b>', st('iva_t', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
-        '', '', ''
+    v_cif_val = Decimal('0')
+    if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo and factura.requisicao_fundo.valor_cif:
+        v_cif_val = factura.requisicao_fundo.valor_cif
+    elif processo and processo.valor_cif:
+        v_cif_val = processo.valor_cif
+
+    s_lbl = st('sum_lbl', fontSize=8, fontName='Helvetica', textColor=COR_PRIMARIO, alignment=TA_LEFT)
+    s_lbl_b = st('sum_lbl_b', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_LEFT)
+    s_val = st('sum_val', fontSize=8, fontName='Helvetica', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
+    s_val_b = st('sum_val_b', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
+    s_tot_lbl = st('sum_tot_lbl', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_LEFT)
+    s_tot_val = st('sum_tot_val', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
+
+    sum_rows = [
+        [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=9, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
+         '', ''],
+        [Paragraph('Mercadorias', s_lbl),
+         Paragraph(f'({fmt_kz(v_cif_val)} CIF)', st('sum_det', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         Paragraph(fmt_kz(v_cif_val) if v_cif_val > 0 else '0,00', s_val)],
+        [Paragraph('Serviços (Honorários)', s_lbl),
+         Paragraph(f'({fmt_kz(honor_total)})', st('sum_det2', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         Paragraph(fmt_kz(honor_total), s_val)],
+        [Paragraph(f'Retenção ({factura_iva_pct:.1f}%)', s_lbl),
+         Paragraph(f's/ honorários', st('sum_det3', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         Paragraph(fmt_kz(factura.retencao) if factura.retencao > 0 else '0,00', s_val)],
     ]
-    iva_sub = [
-        Paragraph('<b>Cód. IVA</b>', s_th),
-        Paragraph('<b>Incidência</b>', s_th),
-        Paragraph('<b>%IVA</b>', s_th),
-        Paragraph('<b>Valor Motivo</b>', s_th),
-    ]
-    iva_rows = [
-        iva_header,
-        iva_sub,
-        [f'{factura_iva_pct}%',
-         Paragraph(fmt_kz(factura.honorarios_despachante), s_td_right),
-         Paragraph(f'{factura_iva_pct:.2f}'.replace('.', ','), s_td_right),
-         Paragraph(f'{fmt_kz(factura.iva)} IVA', s_td)],
-        ['', Paragraph('<b>0,00</b>', s_td_right), Paragraph('<b>0,00</b>', s_td_right), ''],
-    ]
-    t_iva = Table(iva_rows, colWidths=[1.4*cm, 2.0*cm, 1.2*cm, W*0.35 - 4.6*cm])
-    t_iva.setStyle(TableStyle([
+    if factura.ajuste_nota_credito and factura.ajuste_nota_credito > 0:
+        sum_rows.append([Paragraph('Nota Crédito', s_lbl), '', Paragraph(f'-{fmt_kz(factura.ajuste_nota_credito)}', s_val)])
+    if factura.ajuste_nota_debito and factura.ajuste_nota_debito > 0:
+        sum_rows.append([Paragraph('Nota Débito', s_lbl), '', Paragraph(f'+{fmt_kz(factura.ajuste_nota_debito)}', s_val)])
+    sum_rows.append(['', '', ''])
+    sum_rows.append([
+        Paragraph('<b>Total (AKZ):</b>', s_tot_lbl),
+        '',
+        Paragraph(f'<b>{fmt_kz(factura.valor_total)}</b>', s_tot_val),
+    ])
+
+    cw_sum = [W * 0.32, W * 0.33, W * 0.32]
+    t_sum = Table(sum_rows, colWidths=cw_sum)
+    t_sum.setStyle(TableStyle([
         ('SPAN',          (0, 0), (-1, 0)),
         ('BACKGROUND',    (0, 0), (-1, 0), COR_HEADER),
-        ('BACKGROUND',    (0, 1), (-1, 1), colors.HexColor('#f1f5f9')),
-        ('TEXTCOLOR',     (0, 0), (-1, 1), COR_PRIMARIO),
-        ('GRID',          (0, 1), (-1, -1), 0.3, COR_BORDA),
-        ('BOX',           (0, 0), (-1, -1), 0.5, COR_BORDA),
+        ('TOPPADDING',    (0, 0), (-1, 0), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+        ('LEFTPADDING',   (0, 0), (-1, 0), 6),
+        ('GRID',          (0, 1), (-1, -3), 0.3, COR_BORDA),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -3), [COR_BRANCO, COR_CINZA_CLARO]),
+        ('LINEABOVE',     (0, -1), (-1, -1), 1.5, COR_PRIMARIO),
+        ('BACKGROUND',    (0, -1), (-1, -1), COR_CLARO),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
-        ('TOPPADDING',    (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
-        ('ALIGN',         (0, 2), (2, -1), 'CENTER'),
+        ('TOPPADDING',    (0, 1), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
+        ('LEFTPADDING',   (0, 1), (-1, -1), 6),
+        ('RIGHTPADDING',  (0, 1), (-1, -1), 6),
         ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
     ]))
 
-    # Totalizadores direita
-    def _tot_row(label, valor, bold=False, big=False):
-        fn = 'Helvetica-Bold' if bold else 'Helvetica'
-        fs = 10 if big else 8
-        tc = COR_PRIMARIO if bold else COR_PRIMARIO
-        return [
-            Paragraph(f'<font size="{fs}" name="{fn}">{label}</font>',
-                       st(f'tot_{label}', fontSize=fs, fontName=fn, alignment=TA_LEFT, textColor=tc)),
-            Paragraph(f'<font size="{fs}" name="{fn}">{valor}</font>',
-                       st(f'totv_{label}', fontSize=fs, fontName=fn, alignment=TA_RIGHT, textColor=tc)),
-        ]
-
-    tot_rows = [
-        _tot_row('Mercadorias',  fmt_kz(taxas_total + emol_total + oper_total + outros_total)),
-        _tot_row('Serviços',     fmt_kz(honor_total)),
-        _tot_row('Outros',       fmt_kz(factura.outros_encargos)),
-        _tot_row('IEC',          '0,00'),
-        _tot_row('Retenção',     fmt_kz(factura.retencao) if factura.retencao > 0 else '0,00'),
-        _tot_row('Nota Crédito', f'-{fmt_kz(factura.ajuste_nota_credito)}' if factura.ajuste_nota_credito > 0 else '0,00'),
-        _tot_row('Nota Débito',  f'+{fmt_kz(factura.ajuste_nota_debito)}' if factura.ajuste_nota_debito > 0 else '0,00'),
-        _tot_row(f'Total IVA ({factura_iva_pct:.0f}%)',    fmt_kz(factura.iva)),
-        [Paragraph(f'<font size="10" name="Helvetica-Bold"><b>Total (AKZ):</b></font>',
-                    st('tot_final', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
-         Paragraph(f'<font size="10" name="Helvetica-Bold" color="#0f172a"><b>{fmt_kz(factura.valor_total)}</b></font>',
-                    st('totv_final', fontSize=10, fontName='Helvetica-Bold', alignment=TA_RIGHT, textColor=COR_PRIMARIO))],
-    ]
-
-    t_tot = Table(tot_rows, colWidths=[W * 0.35, W * 0.2])
-    t_tot.setStyle(TableStyle([
-        ('GRID',          (0, 0), (-1, -2), 0.3, COR_BORDA),
-        ('LINEABOVE',     (0, 7), (-1, 7), 1.5, COR_CINZA),
-        ('BACKGROUND',    (0, 7), (-1, 7), COR_CLARO),
-        ('FONTSIZE',      (0, 0), (-1, -1), 8),
-        ('TOPPADDING',    (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
-        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
-
-    t_bottom = Table(
-        [[t_iva, '', t_tot]],
-        colWidths=[W * 0.42, W * 0.03, W * 0.55],
-    )
-    t_bottom.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING',  (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    story.append(t_bottom)
+    story.append(t_sum)
     story.append(Spacer(1, 0.08 * cm))
 
     # ══════════════════════════════════════════════════════════════════════════

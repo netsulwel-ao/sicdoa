@@ -16,13 +16,13 @@ class RequisicaoFundoAdmin(admin.ModelAdmin):
     list_display = ('numero_requisicao', 'cliente', 'total_geral', 'estado', 'criado_por_nome', 'data_emissao')
     list_filter = ('estado', 'data_emissao', 'data_validade')
     search_fields = ('numero_requisicao', 'cliente__nome', 'criado_por_nome')
-    readonly_fields = ('numero_requisicao', 'data_emissao', 'subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral')
+    readonly_fields = ('numero_requisicao', 'data_emissao', 'subtotal_geral', 'retencao', 'total_geral')
     ordering = ('-data_emissao',)
     inlines = [RequisicaoFundoLinhaInline]
     fieldsets = (
         ('Documento', {'fields': ('numero_requisicao', 'data_emissao', 'data_validade', 'moeda_referencia', 'cambio_referencia')}),
         ('Cliente', {'fields': ('cliente', 'pessoa_contacto', 'processo_aduaneiro')}),
-        ('Totalizações', {'fields': ('subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral', 'valor_pago')}),
+        ('Totalizações', {'fields': ('subtotal_geral', 'retencao', 'total_geral', 'valor_pago')}),
         ('Status', {'fields': ('estado',)}),
         ('Metadados', {'fields': ('criado_por_id', 'criado_por_nome', 'observacoes')}),
     )

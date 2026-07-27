@@ -704,7 +704,7 @@
     if (p.handRaised && !existingHand) {
       var hand = document.createElement('div');
       hand.className = 'tile-raise-hand';
-      hand.textContent = '🖐️';
+      hand.innerHTML = '<i class="fas fa-hand-paper" style="font-size:14px;"></i>';
       tile.appendChild(hand);
     } else if (!p.handRaised && existingHand) {
       existingHand.remove();
@@ -1183,7 +1183,7 @@
     }
     abrirSidePanel('voting');
     mostrarBannerVotacao(msg.titulo, msg.pauta_id);
-    mostrarToast('📊 Votação aberta: ' + (msg.titulo || 'Pauta'), '#22c55e');
+    mostrarToast('<i class="fas fa-chart-bar"></i> Vota\u00e7\u00e3o aberta: ' + (msg.titulo || 'Pauta'), '#22c55e');
     if (DOM.btnVoting) {
       var badge = DOM.btnVoting.querySelector('.btn-badge');
       if (badge) { badge.classList.remove('hidden'); badge.textContent = '!'; }
@@ -1198,7 +1198,7 @@
   function encerrarVotacao(msg) {
     state.votacaoAtiva = null;
     esconderBannerVotacao();
-    mostrarToast('✅ Votação encerrada', '#f59e0b');
+    mostrarToast('<i class="fas fa-check-circle"></i> Votação encerrada', '#f59e0b');
     if (DOM.btnVoting) {
       var badge = DOM.btnVoting.querySelector('.btn-badge');
       if (badge) badge.classList.add('hidden');
@@ -1231,7 +1231,7 @@
     state.votacaoAtiva = msg;
     abrirSidePanel('voting');
     mostrarBannerVotacao(msg.titulo, msg.pauta_id);
-    mostrarToast('🔄 Votação reaberta: ' + (msg.titulo || ''), '#22c55e');
+    mostrarToast('<i class="fas fa-sync-alt"></i> Votação reaberta: ' + (msg.titulo || ''), '#22c55e');
   }
 
   function adicionarVotoRegistado(msg) {
@@ -1266,7 +1266,7 @@
     var isAberta = state.votacaoAtiva && state.votacaoAtiva.tipo_votacao !== 'Secreta';
     votos.forEach(function(v) {
       if (isAberta && v.opcao) {
-        var icone = v.opcao === 'Favor' ? '✅' : v.opcao === 'Contra' ? '❌' : '⬜';
+        var icone = v.opcao === 'Favor' ? '<i class="fas fa-check-circle" style="color:#22c55e;"></i>' : v.opcao === 'Contra' ? '<i class="fas fa-times-circle" style="color:#ef4444;"></i>' : '<i class="far fa-square" style="color:#94a3b8;"></i>';
         html += '<div class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-800/40 border border-gray-700/30 text-sm">' +
           '<span class="text-gray-200">' + escapeHtml(v.nome || '***') + '</span>' +
           '<span>' + icone + ' <span class="' + (v.opcao === 'Favor' ? 'text-green-400' : v.opcao === 'Contra' ? 'text-red-400' : 'text-yellow-400') + '">' + v.opcao + '</span></span>' +
@@ -1274,7 +1274,7 @@
       } else if (!isAberta) {
         html += '<div class="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-800/40 border border-gray-700/30 text-sm">' +
           '<span class="text-gray-400 text-xs">Voto registado</span>' +
-          '<span class="text-gray-500">🔒</span>' +
+          '<span class="text-gray-500"><i class="fas fa-lock"></i></span>' +
         '</div>';
       }
     });
@@ -1523,8 +1523,8 @@
 
   function mostrarAvisoForcado(tipo, by) {
     var texto = tipo === 'mic'
-      ? '🔇 O anfitrião desligou o teu microfone'
-      : '📷 O anfitrião desligou a tua câmara';
+      ? '<i class="fas fa-microphone-slash"></i> O anfitrião desligou o teu microfone'
+      : '<i class="fas fa-video-slash"></i> O anfitrião desligou a tua câmara';
     // Toast de aviso
     mostrarToast(texto, '#f59e0b');
     // Banner persistente com opção de reativar
@@ -1548,7 +1548,7 @@
       '">Reativar</button>' +
       '<button onclick="document.getElementById(\'' + bannerId + '\').remove()" style="' +
         'background:none;border:none;cursor:pointer;font-size:16px;color:#1c1009;padding:0 4px;' +
-      '">✕</button>';
+      '"><i class="fas fa-times"></i></button>';
     document.body.appendChild(banner);
     // Handler do botão reativar
     document.getElementById('btn-reativar-' + tipo)?.addEventListener('click', async function() {
@@ -1566,7 +1566,7 @@
           if (DOM.btnCam) DOM.btnCam.classList.remove('meet-btn-danger');
         }
         banner.remove();
-        mostrarToast(tipo === 'mic' ? '🎙️ Microfone reativado' : '📷 Câmara reativada', '#22c55e');
+        mostrarToast(tipo === 'mic' ? '<i class="fas fa-microphone"></i> Microfone reativado' : '<i class="fas fa-video"></i> Câmara reativada', '#22c55e');
       } catch(e) {
         mostrarToast('Não foi possível reativar', '#ef4444');
       }
@@ -1616,7 +1616,7 @@
         (!p.videoMuted
           ? '<i class="fas fa-video" style="color:#22c55e;font-size:12px;" title="Câmara ativa"></i>'
           : '<i class="fas fa-video-slash" style="color:#6b7280;font-size:12px;" title="Câmara desligada"></i>') +
-        (p.handRaised ? '<span style="font-size:13px;">🖐️</span>' : '');
+        (p.handRaised ? '<span style="font-size:13px;"><i class="fas fa-hand-paper"></i></span>' : '');
 
       // Botões de controlo (só admin, só para outros)
       var adminBtns = (isAdmin && !isMe)
@@ -1678,7 +1678,7 @@
       DOM.panelBody.querySelectorAll('.btn-force-mute').forEach(function(btn) {
         btn.addEventListener('click', function() {
           enviarWS({ action: 'force_mute', target: this.dataset.identity });
-          mostrarToast('🔇 Microfone desligado', '#f59e0b');
+          mostrarToast('<i class="fas fa-microphone-slash"></i> Microfone desligado', '#f59e0b');
         });
         btn.addEventListener('mouseenter', function() { this.style.background = 'rgba(239,68,68,0.15)'; this.style.color = '#fca5a5'; });
         btn.addEventListener('mouseleave', function() { this.style.background = 'rgba(255,255,255,0.05)'; this.style.color = '#94a3b8'; });
@@ -1686,7 +1686,7 @@
       DOM.panelBody.querySelectorAll('.btn-force-cam').forEach(function(btn) {
         btn.addEventListener('click', function() {
           enviarWS({ action: 'force_cam_off', target: this.dataset.identity });
-          mostrarToast('📷 Câmara desligada', '#f59e0b');
+          mostrarToast('<i class="fas fa-video-slash"></i> Câmara desligada', '#f59e0b');
         });
         btn.addEventListener('mouseenter', function() { this.style.background = 'rgba(239,68,68,0.15)'; this.style.color = '#fca5a5'; });
         btn.addEventListener('mouseleave', function() { this.style.background = 'rgba(255,255,255,0.05)'; this.style.color = '#94a3b8'; });
@@ -1694,12 +1694,12 @@
       var btnMuteAll = document.getElementById('btn-mute-all');
       if (btnMuteAll) btnMuteAll.addEventListener('click', function() {
         enviarWS({ action: 'force_mute', target: null });
-        mostrarToast('🔇 Todos os microfones desligados', '#f59e0b');
+        mostrarToast('<i class="fas fa-microphone-slash"></i> Todos os microfones desligados', '#f59e0b');
       });
       var btnCamAll = document.getElementById('btn-cam-all');
       if (btnCamAll) btnCamAll.addEventListener('click', function() {
         enviarWS({ action: 'force_cam_off', target: null });
-        mostrarToast('📷 Todas as câmaras desligadas', '#f59e0b');
+        mostrarToast('<i class="fas fa-video-slash"></i> Todas as câmaras desligadas', '#f59e0b');
       });
     }
   }
@@ -1781,7 +1781,7 @@
   function atualizarQuorum(msg) {
     state.quorum = msg;
     if (DOM.quorumText) {
-      DOM.quorumText.textContent = 'Quórum: ' + (msg.presentes || 0) + '/' + (msg.quorum_minimo || 0) + ' ' + (msg.atingido ? '✔️' : '⏳');
+      DOM.quorumText.innerHTML = 'Quórum: ' + (msg.presentes || 0) + '/' + (msg.quorum_minimo || 0) + ' ' + (msg.atingido ? '<i class="fas fa-check"></i>' : '<i class="fas fa-hourglass-half"></i>');
       DOM.quorumText.className = 'text-sm ' + (msg.atingido ? 'text-green-400' : 'text-yellow-400');
     }
   }
@@ -1839,7 +1839,7 @@
     var el = document.createElement('div');
     el.className = 'meet-toast-item';
     el.style.background = cor || '#333';
-    el.textContent = msg;
+    el.innerHTML = msg;
     DOM.toastContainer.appendChild(el);
     setTimeout(function() {
       el.classList.add('leave');

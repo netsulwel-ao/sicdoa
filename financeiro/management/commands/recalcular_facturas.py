@@ -27,7 +27,7 @@ class Command(BaseCommand):
                 novo_retencao = ft.requisicao_fundo.retencao or Decimal('0')
             else:
                 novo_retencao = Decimal('0')
-            novo_total = subtotal - novo_retencao
+            novo_total = subtotal + novo_retencao
 
             if dry_run:
                 self.stdout.write(

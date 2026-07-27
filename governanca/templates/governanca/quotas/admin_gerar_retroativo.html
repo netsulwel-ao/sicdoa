@@ -175,7 +175,7 @@ function buscarConfig() {
     detailsEl.innerHTML += '<div><span class="block text-xs text-gray-500">' + f.label + '</span><span class="block font-semibold text-gray-800 dark:text-gray-200">' + f.value + '</span></div>';
   });
 
-  var estadoLabel = config.ativa ? '✅ Activa' : '❌ Inactiva';
+  var estadoLabel = config.ativa ? '<i class="fas fa-check"></i> Activa' : '<i class="fas fa-times"></i> Inactiva';
   detailsEl.innerHTML += '<div><span class="block text-xs text-gray-500">Estado</span><span class="block font-semibold ' + (config.ativa ? 'text-emerald-600' : 'text-red-500') + '">' + estadoLabel + '</span></div>';
 
   previewEl.classList.remove('hidden');

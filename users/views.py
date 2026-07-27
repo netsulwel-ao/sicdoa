@@ -275,7 +275,7 @@ def login_view(request):
         else:
             cache.set(attempts_key, attempts, lockout_timeout)
             remaining = max_attempts - attempts
-            messages.error(request, f"❌ Credenciais inválidas. Verifique o seu email e senha. ({remaining} tentativa(s) restante(s))")
+            messages.error(request, f"[ERRO] Credenciais inválidas. Verifique o seu email e senha. ({remaining} tentativa(s) restante(s))")
         return render(request, "login.html")
 
     # ── Colaborador Institucional sem função → modo limitado (como colaborador banca) ──
@@ -878,11 +878,11 @@ def testar_email_view(_request):
             srv.ehlo()
             srv.starttls(context=ctx)
             srv.ehlo()
-            linhas.append("✅ STARTTLS: OK")
+            linhas.append("[OK] STARTTLS: OK")
             srv.login(settings.EMAIL_HOST_USER, pwd)
-            linhas.append("✅ LOGIN: OK")
+            linhas.append("[OK] LOGIN: OK")
     except smtplib.SMTPAuthenticationError as e:
-        linhas.append(f"❌ LOGIN FALHOU: {e}")
+        linhas.append(f"[ERRO] LOGIN FALHOU: {e}")
         linhas.append("")
         linhas.append("SOLUÇÃO:")
         linhas.append("1. Aceda a https://myaccount.google.com/security")
@@ -891,7 +891,7 @@ def testar_email_view(_request):
         linhas.append("4. Copie os 16 caracteres SEM espaços para settings.py")
         return HttpResponse("<pre>" + "\n".join(linhas) + "</pre>", status=500)
     except Exception as exc:  # noqa: BLE001
-        linhas.append(f"❌ ERRO DE LIGAÇÃO: {exc}")
+        linhas.append(f"[ERRO] ERRO DE LIGAÇÃO: {exc}")
         return HttpResponse("<pre>" + "\n".join(linhas) + "</pre>", status=500)
 
     # 3. Enviar email de teste via Django
@@ -903,10 +903,10 @@ def testar_email_view(_request):
             to=[settings.EMAIL_HOST_USER],
         )
         msg.send(fail_silently=False)
-        linhas.append("✅ EMAIL ENVIADO com sucesso!")
+        linhas.append("[OK] EMAIL ENVIADO com sucesso!")
         linhas.append(f"   Verifique a caixa de entrada de {settings.EMAIL_HOST_USER}")
     except Exception as exc:  # noqa: BLE001
-        linhas.append(f"❌ ERRO AO ENVIAR: {exc}")
+        linhas.append(f"[ERRO] ERRO AO ENVIAR: {exc}")
 
     return HttpResponse("<pre>" + "\n".join(linhas) + "</pre>")
 

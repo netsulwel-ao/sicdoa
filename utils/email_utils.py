@@ -299,6 +299,7 @@ Equipa de Recrutamento — SICDOA
 """
     html = f"""
 <!DOCTYPE html><html lang="pt">
+<head><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></head>
 <body style="margin:0;padding:0;background:#f6f7f8;font-family:'Segoe UI',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0">
   <tr><td align="center" style="padding:40px 20px;">
@@ -316,10 +317,10 @@ Equipa de Recrutamento — SICDOA
           <tr><td style="padding:20px 24px;">
             <p style="margin:0 0 14px;font-size:13px;color:#1d4ed8;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Detalhes da Entrevista</p>
             <table cellpadding="0" cellspacing="0">
-              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;width:130px;">📅 Data e Hora</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">{data_fmt}</td></tr>
-              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">🎯 Tipo</td><td style="padding:4px 0;font-size:14px;color:#111827;">{tipo_label}</td></tr>
-              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">📍 Local / Link</td><td style="padding:4px 0;font-size:14px;color:#111827;">{local_info}</td></tr>
-              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;">👤 Entrevistador</td><td style="padding:4px 0;font-size:14px;color:#111827;">{entrevistador_info}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;width:130px;"><i class="fa-regular fa-calendar" style="margin-right:6px;"></i> Data e Hora</td><td style="padding:4px 0;font-size:14px;color:#111827;font-weight:600;">{data_fmt}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;"><i class="fas fa-bullseye" style="margin-right:6px;"></i> Tipo</td><td style="padding:4px 0;font-size:14px;color:#111827;">{tipo_label}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;"><i class="fas fa-map-marker-alt" style="margin-right:6px;"></i> Local / Link</td><td style="padding:4px 0;font-size:14px;color:#111827;">{local_info}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;color:#6b7280;"><i class="fas fa-user" style="margin-right:6px;"></i> Entrevistador</td><td style="padding:4px 0;font-size:14px;color:#111827;">{entrevistador_info}</td></tr>
             </table>
           </td></tr>
         </table>
@@ -367,7 +368,7 @@ Atenciosamente,
 Equipa de Recrutamento — SICDOA
 """
         cor_header = "linear-gradient(135deg,#16a34a,#15803d)"
-        icone = ""
+        icone = '<i class="fas fa-check-circle"></i>'
         titulo_header = "Candidatura Aprovada"
         corpo_html = f"""
         <p style="margin:0 0 16px;color:#374151;font-size:15px;">Prezado(a) <strong>{candidatura.nome}</strong>,</p>
@@ -375,7 +376,7 @@ Equipa de Recrutamento — SICDOA
           Temos o prazer de informar que a sua candidatura para a vaga <strong>{candidatura.vaga.titulo}</strong> foi <strong style="color:#16a34a;">APROVADA</strong>.
         </p>
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
-          <p style="margin:0;font-size:14px;color:#15803d;">🎉 Parabéns! Entraremos em contacto brevemente para os próximos passos do processo de integração.</p>
+          <p style="margin:0;font-size:14px;color:#15803d;"><i class="fas fa-trophy" style="margin-right:6px;color:#15803d;"></i> Parabéns! Entraremos em contacto brevemente para os próximos passos do processo de integração.</p>
         </div>
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
           <tr><td align="center">
@@ -398,7 +399,7 @@ Atenciosamente,
 Equipa de Recrutamento — SICDOA
 """
         cor_header = "linear-gradient(135deg,#6b7280,#4b5563)"
-        icone = "📋"
+        icone = '<i class="fas fa-clipboard-list"></i>'
         titulo_header = "Resultado da Candidatura"
         corpo_html = f"""
         <p style="margin:0 0 16px;color:#374151;font-size:15px;">Prezado(a) <strong>{candidatura.nome}</strong>,</p>
@@ -412,6 +413,7 @@ Equipa de Recrutamento — SICDOA
 
     html = f"""
 <!DOCTYPE html><html lang="pt">
+<head><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></head>
 <body style="margin:0;padding:0;background:#f6f7f8;font-family:'Segoe UI',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0">
   <tr><td align="center" style="padding:40px 20px;">

@@ -52,7 +52,7 @@
             </label>
             <div class="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
               <p class="text-sm font-semibold text-gray-900 dark:text-white" id="banca-display">
-                {% if form.instance.pk and form.instance.banca %}{{ form.instance.banca.nome }}{% else %}⏳ Carregando...{% endif %}
+                {% if form.instance.pk and form.instance.banca %}{{ form.instance.banca.nome }}{% else %}<i class="fas fa-spinner fa-spin"></i> Carregando...{% endif %}
               </p>
             </div>
             <!-- Info extra da Banca -->
@@ -642,7 +642,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // ════════════════════════════════════════════════════════════════════════════════
 
   // ────────────────────────────────────────────────────────────────────────────────
-  // 0️⃣ CAMPO CLIENTE — AUTOCOMPLETE SEARCHABLE
+  // 0. CAMPO CLIENTE — AUTOCOMPLETE SEARCHABLE
   // ────────────────────────────────────────────────────────────────────────────────
 
   const clienteSelect = document.getElementById('id_cliente');
@@ -661,39 +661,39 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   // ────────────────────────────────────────────────────────────────────────────────
-  // 1️⃣ AUTO-PREENCHER BANCA/FILIAL DO USUÁRIO LOGADO (ao carregar página)
+  // 1. AUTO-PREENCHER BANCA/FILIAL DO USUÁRIO LOGADO (ao carregar página)
   // ────────────────────────────────────────────────────────────────────────────────
   
   function initBancaFilial() {
     const bancaSelect = document.getElementById('id_banca');
     const bancaDisplay = document.getElementById('banca-display');
     
-    console.log('🔍 initBancaFilial() iniciando...');
-    console.log('📍 bancaSelect encontrado:', !!bancaSelect);
-    console.log('📍 bancaDisplay encontrado:', !!bancaDisplay);
+    console.log('initBancaFilial() iniciando...');
+    console.log('bancaSelect encontrado:', !!bancaSelect);
+    console.log('bancaDisplay encontrado:', !!bancaDisplay);
     
     // ┌─ Se estamos editando, carregar valor da banca que já existe ─────┐
     if (bancaSelect && bancaSelect.value && bancaSelect.value.trim()) {
-      console.log('✏️ Modo edição detectado - banca_id:', bancaSelect.value);
+      console.log('Modo edição detectado - banca_id:', bancaSelect.value);
       const selectedOption = bancaSelect.querySelector(`option[value="${bancaSelect.value}"]`);
       if (selectedOption && bancaDisplay) {
         const bancaNome = selectedOption.textContent || selectedOption.value;
         bancaDisplay.textContent = bancaNome;
-        console.log('✏️ Banca exibida (modo edição):', bancaNome);
+        console.log('Banca exibida (modo edição):', bancaNome);
       }
     }
     
     // ┌─ Carregar banca/filial do servidor ───────────────────────────┐
     fetch('/financeiro/api/usuario-banca/')
       .then(response => {
-        console.log('📡 API resposta status:', response.status);
+        console.log('API resposta status:', response.status);
         return response.json();
       })
       .then(data => {
-        console.log('📡 API resposta data:', data);
+        console.log('API resposta data:', data);
         
         if (data.success && data.banca) {
-          console.log('✅ Banca recebida:', data.banca.nome);
+          console.log('Banca recebida:', data.banca.nome);
           
           // Garantir que o select existe e tem a opção
           if (bancaSelect) {
@@ -710,7 +710,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Selecionar a opção
             bancaSelect.value = data.banca.id;
-            console.log('✅ Select preenchido com banca:', data.banca.nome);
+            console.log('Select preenchido com banca:', data.banca.nome);
             
             bancaSelect.dispatchEvent(new Event('change', { bubbles: true }));
             highlightField(bancaSelect, 'filled');
@@ -719,7 +719,7 @@ document.addEventListener('DOMContentLoaded', function() {
           // Atualizar o display da Banca
           if (bancaDisplay) {
             bancaDisplay.textContent = data.banca.nome;
-            console.log('✅ Display atualizado:', data.banca.nome);
+            console.log('Display atualizado:', data.banca.nome);
           }
           
           // Preencher Filial (se houver)
@@ -728,7 +728,7 @@ document.addEventListener('DOMContentLoaded', function() {
             filialSelect.value = data.filial.id;
             filialSelect.dispatchEvent(new Event('change', { bubbles: true }));
             highlightField(filialSelect, 'filled');
-            console.log('✅ Filial preenchida:', data.filial.nome);
+            console.log('Filial preenchida:', data.filial.nome);
           }
           
           // Preencher info extra da Banca
@@ -747,9 +747,9 @@ document.addEventListener('DOMContentLoaded', function() {
             badge.style.display = 'inline-flex';
           }
           
-          showToast('✅ Instituição carregada automaticamente', 'success');
+          showToast('<i class="fas fa-check-circle text-green-600"></i> Instituição carregada automaticamente', 'success');
         } else {
-          console.warn('❌ Erro na resposta da API:', data.error);
+          console.warn('Erro na resposta da API:', data.error);
           if (bancaDisplay) {
             bancaDisplay.textContent = 'Nenhuma banca encontrada';
             bancaDisplay.classList.add('text-red-600', 'dark:text-red-400');
@@ -772,7 +772,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       })
       .catch(err => {
-        console.error('❌ Erro ao carregar dados da banca:', err);
+        console.error('Erro ao carregar dados da banca:', err);
         if (bancaDisplay) {
           bancaDisplay.textContent = 'Erro de conexão ao carregar banca';
           bancaDisplay.classList.add('text-red-600', 'dark:text-red-400');
@@ -793,7 +793,7 @@ document.addEventListener('DOMContentLoaded', function() {
   updateCargoDisplay();
   
   // ────────────────────────────────────────────────────────────────────────────────
-  // 2️⃣ QUANDO CLIENTE É SELECIONADO → AUTO-PREENCHER DADOS E FILTRAR PROCESSOS
+  // 2. QUANDO CLIENTE É SELECIONADO → AUTO-PREENCHER DADOS E FILTRAR PROCESSOS
   // ────────────────────────────────────────────────────────────────────────────────
   
   const processoSelect = document.getElementById('id_processo_aduaneiro');
@@ -849,41 +849,41 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(err => console.error('Erro ao carregar dados do cliente:', err));
       
       // ┌─ Carregar e filtrar processos do cliente ──────────────────────────────┐
-      processoSelect.innerHTML = '<option value="">⏳ Carregando processos...</option>';
+      processoSelect.innerHTML = '<option value="">Carregando processos...</option>';
       processoSelect.disabled = true;
       
       fetch(`/financeiro/api/processos-cliente/?cliente_id=${clienteId}`)
         .then(response => response.json())
         .then(data => {
-          processoSelect.innerHTML = '<option value="">📋 Selecione um processo</option>';
+          processoSelect.innerHTML = '<option value="">Selecione um processo</option>';
           
           if (data.success && data.processos && data.processos.length > 0) {
             // Mostrar feedback de filtro no console (para debugging)
-            console.log(`✅ Filtrando processos para: ${data.cliente_nome}`);
-            console.log(`✅ Total encontrado: ${data.total_encontrados} processo(s)`);
+            console.log(`Filtrando processos para: ${data.cliente_nome}`);
+            console.log(`Total encontrado: ${data.total_encontrados} processo(s)`);
             
             data.processos.forEach(processo => {
               const option = document.createElement('option');
               option.value = processo.id;
               
               // Formatar texto com ícone de status
-              let statusIcon = '📄';
-              if (processo.status === 'Submetida') statusIcon = '✅';
-              else if (processo.status === 'Finalizada') statusIcon = '🔒';
-              else if (processo.status === 'Rejeitada') statusIcon = '❌';
-              else if (processo.status === 'Em Análise') statusIcon = '🔄';
-              else if (processo.status === 'Aprovada') statusIcon = '✓';
+              let statusIcon = '';
+              if (processo.status === 'Submetida') statusIcon = '[OK]';
+              else if (processo.status === 'Finalizada') statusIcon = '[LCK]';
+              else if (processo.status === 'Rejeitada') statusIcon = '[X]';
+              else if (processo.status === 'Em Análise') statusIcon = '[~]';
+              else if (processo.status === 'Aprovada') statusIcon = '[OK]';
               
               option.textContent = `${statusIcon} ${processo.numero_du || 'DU-' + processo.id} - ${processo.ref_despachante || 'Sem ref.'} (${processo.status})`;
               processoSelect.appendChild(option);
             });
             
             // Toast com info detalhada
-            const msg = `✅ ${data.total_encontrados} processo(s) encontrado(s) para "${data.cliente_nome}"`;
+            const msg = `<i class="fas fa-check-circle text-green-600"></i> ${data.total_encontrados} processo(s) encontrado(s) para "${data.cliente_nome}"`;
             showToast(msg, 'success');
           } else {
-            processoSelect.innerHTML = '<option value="">ℹ️ Nenhum processo encontrado</option>';
-            const msg = `ℹ️ Nenhum processo aduaneiro cadastrado para este cliente`;
+            processoSelect.innerHTML = '<option value="">Nenhum processo encontrado</option>';
+            const msg = `<i class="fas fa-info-circle"></i> Nenhum processo aduaneiro cadastrado para este cliente`;
             showToast(msg, 'info');
           }
           
@@ -891,16 +891,16 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(err => {
           console.error('Erro ao carregar processos:', err);
-          processoSelect.innerHTML = '<option value="">❌ Erro ao carregar processos</option>';
+          processoSelect.innerHTML = '<option value="">Erro ao carregar processos</option>';
           processoSelect.disabled = false;
-          showToast('❌ Erro ao carregar processos do cliente', 'error');
+          showToast('<i class="fas fa-times-circle text-red-600"></i> Erro ao carregar processos do cliente', 'error');
         });
       
       highlightField(clienteSelect, 'selected');
     });
     
     // ────────────────────────────────────────────────────────────────────────────────
-    // 3️⃣ QUANDO PROCESSO É SELECIONADO → AUTO-PREENCHER CAMPOS DA CARGA
+    // 3. QUANDO PROCESSO É SELECIONADO → AUTO-PREENCHER CAMPOS DA CARGA
     // ────────────────────────────────────────────────────────────────────────────────
     
     processoSelect.addEventListener('change', function() {
@@ -916,26 +916,26 @@ document.addEventListener('DOMContentLoaded', function() {
       // Limpar campos anteriores antes de preencher com novos dados
       clearCargoFields();
       
-      console.log('🔍 Processo selecionado:', processoId);
+      console.log('Processo selecionado:', processoId);
       
       // Mostrar loading
-      showToast('⏳ Carregando dados do processo...', 'info');
+      showToast('<i class="fas fa-spinner fa-spin"></i> Carregando dados do processo...', 'info');
       
       // Buscar dados completos do processo
       fetch(`/financeiro/api/dados-processo/?processo_id=${processoId}`)
         .then(response => {
-          console.log('📡 API resposta status:', response.status);
+          console.log('API resposta status:', response.status);
           return response.json();
         })
         .then(data => {
-          console.log('📡 API resposta completa:', data);
+          console.log('API resposta completa:', data);
           
           if (data.success && data.processo) {
             const p = data.processo;
             let camposPreencher = 0;
             
             // Log detalhado dos dados recebidos
-            console.log('✅ Dados do processo carregados:');
+            console.log('Dados do processo carregados:');
             console.log('  - numero_du:', p.numero_du);
             console.log('  - numero_bl_awb:', p.numero_bl_awb);
             console.log('  - meio_transporte:', p.meio_transporte);
@@ -951,49 +951,49 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Auto-preencher campos da Secção 3 (Processo Aduaneiro)
             if (setFieldValue('id_numero_bl_awb', p.numero_bl_awb)) {
-              console.log('✅ Campo id_numero_bl_awb preenchido');
+              console.log('Campo id_numero_bl_awb preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_meio_transporte', p.meio_transporte)) {
-              console.log('✅ Campo id_meio_transporte preenchido');
+              console.log('Campo id_meio_transporte preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_origem', p.origem)) {
-              console.log('✅ Campo id_origem preenchido');
+              console.log('Campo id_origem preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_destino', p.destino)) {
-              console.log('✅ Campo id_destino preenchido');
+              console.log('Campo id_destino preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_mercadoria_descricao', p.mercadoria_descricao)) {
-              console.log('✅ Campo id_mercadoria_descricao preenchido');
+              console.log('Campo id_mercadoria_descricao preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_peso_bruto_kg', p.peso_bruto_kg)) {
-              console.log('✅ Campo id_peso_bruto_kg preenchido');
+              console.log('Campo id_peso_bruto_kg preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_peso_liquido_kg', p.peso_liquido_kg)) {
-              console.log('✅ Campo id_peso_liquido_kg preenchido');
+              console.log('Campo id_peso_liquido_kg preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_quantidade_volumes', p.quantidade_volumes)) {
-              console.log('✅ Campo id_quantidade_volumes preenchido');
+              console.log('Campo id_quantidade_volumes preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_valor_cif', p.valor_cif)) {
-              console.log('✅ Campo id_valor_cif preenchido');
+              console.log('Campo id_valor_cif preenchido');
               camposPreencher++;
             }
             
             // ── Moeda e Câmbio (Seção 5 - Válidade e Referências) ──
             if (setFieldValue('id_moeda_referencia', p.moeda_du)) {
-              console.log('✅ Campo id_moeda_referencia preenchido');
+              console.log('Campo id_moeda_referencia preenchido');
               camposPreencher++;
             }
             if (setFieldValue('id_cambio_referencia', p.cambio_du)) {
-              console.log('✅ Campo id_cambio_referencia preenchido');
+              console.log('Campo id_cambio_referencia preenchido');
               camposPreencher++;
             }
             
@@ -1020,23 +1020,23 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Mostrar feedback visual
             if (camposPreencher > 0) {
-              showToast(`✅ ${camposPreencher} campo(s) preenchido(s) automaticamente!`, 'success');
+              showToast(`<i class="fas fa-check-circle text-green-600"></i> ${camposPreencher} campo(s) preenchido(s) automaticamente!`, 'success');
               // Mostrar badge
               document.getElementById('cargo-auto-badge').style.display = 'inline-flex';
               highlightField(processoSelect, 'filled');
-              console.log(`📊 Total de campos preenchidos: ${camposPreencher}`);
+              console.log(`Total de campos preenchidos: ${camposPreencher}`);
             } else {
-              showToast('ℹ️ Processo carregado, mas sem dados para preencher', 'info');
-              console.warn('⚠️ Nenhum campo foi preenchido - verifique dados_json');
+              showToast('<i class="fas fa-info-circle"></i> Processo carregado, mas sem dados para preencher', 'info');
+              console.warn('Nenhum campo foi preenchido - verifique dados_json');
             }
           } else {
-            showToast(`❌ ${data.error || 'Erro ao carregar processo'}`, 'error');
-            console.error('❌ Erro da API:', data);
+            showToast(`<i class="fas fa-times-circle text-red-600"></i> ${data.error || 'Erro ao carregar processo'}`, 'error');
+            console.error('Erro da API:', data);
           }
         })
         .catch(err => {
-          console.error('❌ Erro ao carregar dados do processo:', err);
-          showToast('❌ Erro ao carregar dados do processo', 'error');
+          console.error('Erro ao carregar dados do processo:', err);
+          showToast('<i class="fas fa-times-circle text-red-600"></i> Erro ao carregar dados do processo', 'error');
         });
         
         // Tornar campos da carga disabled (não editáveis pelo utilizador)
@@ -1362,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const docVal = custoDocumentada.value;
     const despesaTipo = custoDespesaTipo.value;
     if (!despesaTipo) {
-      showToast('⚠️ Selecione o tipo de despesa', 'error');
+      showToast('<i class="fas fa-exclamation-triangle"></i> Selecione o tipo de despesa', 'error');
       custoDespesaTipo.focus();
       return;
     }
@@ -1384,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Honorários do Despachante: mínimo 45.000 KZ
     if (despesaTipo === 'Honorários' && valorNum < 45000) {
         valorNum = 45000;
-        showToast('🔔 O valor mínimo para Honorários do Despachante é 45.000 KZ — o valor foi ajustado automaticamente.', 'warning');
+        showToast('<i class="fas fa-bell"></i> O valor mínimo para Honorários do Despachante é 45.000 KZ — o valor foi ajustado automaticamente.', 'warning');
     }
 
     const idx = custoCounter++;
@@ -1456,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     alternarEstadoVazio();
     actualizarTotal();
-    showToast('✅ Custo adicionado: ' + despesaTipo, 'success');
+    showToast('<i class="fas fa-check-circle text-green-600"></i> Custo adicionado: ' + despesaTipo, 'success');
   });
 
   // Delegar evento de remover
@@ -1477,7 +1477,7 @@ document.addEventListener('DOMContentLoaded', function() {
       inputs.forEach(function(inp) { inp.remove(); });
       alternarEstadoVazio();
       actualizarTotal();
-      showToast('🗑️ Custo removido', 'info');
+      showToast('<i class="fas fa-trash"></i> Custo removido', 'info');
     }
   });
 

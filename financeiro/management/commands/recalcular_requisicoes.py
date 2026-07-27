@@ -28,12 +28,11 @@ class Command(BaseCommand):
             req._recalcular_totais()
             
             if not dry_run:
-                req.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
+                req.save(update_fields=['subtotal_geral', 'retencao', 'total_geral'])
             
             self.stdout.write(
                 f'{req.numero_requisicao}: '
                 f'Subtotal={req.subtotal_geral} | '
-                f'IVA={req.iva_honorarios} | '
                 f'Retenção={req.retencao} | '
                 f'Total={req.total_geral}'
             )

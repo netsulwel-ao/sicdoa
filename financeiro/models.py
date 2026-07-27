@@ -56,8 +56,6 @@ class RequisicaoFundo(models.Model):
                                 verbose_name='Taxa de Retenção')
     subtotal_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
                                         verbose_name='Subtotal Geral')
-    iva_honorarios = models.DecimalField(max_digits=15, decimal_places=2, default=0,
-                                        verbose_name='IVA (Honorários)')
     retencao = models.DecimalField(max_digits=15, decimal_places=2, default=0,
                                    verbose_name='Retenção')
     total_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
@@ -137,7 +135,7 @@ class RequisicaoFundo(models.Model):
         self._gerar_codigo_qr()
         
         # Salvar novamente com totais recalculados
-        super().save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral', 
+        super().save(update_fields=['subtotal_geral', 'retencao', 'total_geral', 
                                     'assinatura_digital', 'codigo_qr'])
 
     def _recalcular_totais(self):
@@ -149,9 +147,6 @@ class RequisicaoFundo(models.Model):
             (linha.valor or 0) for linha in linhas
         )
         
-        # Sem IVA nos Custos Orçados
-        self.iva_honorarios = Decimal('0.00')
-        
         # Retenção = taxa_retenção% sobre Honorários do Despachante
         retencao_pct = Decimal(self.taxa_iva or '14') / Decimal('100')
         valor_honorarios = sum(
@@ -161,8 +156,8 @@ class RequisicaoFundo(models.Model):
         
         self.retencao = (valor_honorarios * retencao_pct).quantize(Decimal('0.01'))
         
-        # Total = Subtotal - Retenção
-        self.total_geral = (self.subtotal_geral - self.retencao).quantize(Decimal('0.01'))
+        # Total = Subtotal + Retenção (retenção é um custo adicional ao cliente)
+        self.total_geral = (self.subtotal_geral + self.retencao).quantize(Decimal('0.01'))
 
     def _gerar_assinatura_digital(self):
         """Gera assinatura digital HMAC-SHA256 Base64 da requisição"""
@@ -396,7 +391,7 @@ class RequisicaoFundoLinha(models.Model):
         super().save(*args, **kwargs)
         # Recalcular totais da requisição
         self.requisicao._recalcular_totais()
-        self.requisicao.save(update_fields=['subtotal_geral', 'iva_honorarios', 'retencao', 'total_geral'])
+        self.requisicao.save(update_fields=['subtotal_geral', 'retencao', 'total_geral'])
 
     def __str__(self):
         return f"{self.requisicao.numero_requisicao} - {self.descricao}"
@@ -497,7 +492,7 @@ class FacturaCliente(models.Model):
                 self.emolumentos + 
                 self.despesas_operacionais + 
                 self.iva + 
-                self.outros_encargos -
+                self.outros_encargos +
                 self.retencao -
                 self.ajuste_nota_credito +
                 self.ajuste_nota_debito

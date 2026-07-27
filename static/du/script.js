@@ -493,10 +493,10 @@ async function carregarPautas() {
     _pautaCallbacks.forEach(cb => cb(_pautaCache));
     _pautaCallbacks = [];
 
-    console.log(`✅ Pauta aduaneira carregada: ${_pautaCache.length} itens`);
+    console.log(`Pauta aduaneira carregada: ${_pautaCache.length} itens`);
     return _pautaCache;
   } catch (e) {
-    console.error('❌ Falha ao carregar pauta aduaneira:', e);
+    console.error('Falha ao carregar pauta aduaneira:', e);
     _pautaCallbacks.forEach(cb => cb([]));
     _pautaCallbacks = [];
     return [];
@@ -544,14 +544,14 @@ function preCarregarPauta() {
       indicador.style.background = '#14532d';
       indicador.style.color = '#86efac';
       indicador.innerHTML = `
-        <span style="font-size:14px;">✓</span>
+        <i class="fas fa-check" style="font-size:14px;"></i>
         Pauta pronta (${pautas.length} itens)
       `;
     } else {
       indicador.style.background = '#7f1d1d';
       indicador.style.color = '#fca5a5';
       indicador.innerHTML = `
-        <span style="font-size:14px;">✗</span>
+        <i class="fas fa-times" style="font-size:14px;"></i>
         Erro ao carregar pauta
       `;
     }
@@ -1994,7 +1994,7 @@ function validarTotaisStep1VsAdicoes(submeter = false) {
   }
 
   if (erros.length === 0) {
-    console.log('✅ Validação de totais: PASSOU');
+    console.log('Validação de totais: PASSOU');
   }
 
   return erros;
@@ -2231,7 +2231,7 @@ function iniciarAutoSave() {
   // Auto-save a cada 2 minutos se houver alterações
   autoSaveTimer = setInterval(function() {
     if (formChanged && !isSubmitting) {
-      console.log('🔄 Auto-save: Guardando rascunho automaticamente...');
+      console.log('Auto-save: Guardando rascunho automaticamente...');
       guardarRascunho();
       formChanged = false;
     }
@@ -2506,7 +2506,7 @@ async function obterTaxaCambioDinamica(moeda) {
     const umaHora = 60 * 60 * 1000; // 1 hora em ms
     
     if (agora - timestamp < umaHora) {
-      console.log(`💾 Taxa de câmbio do cache: ${moeda} → AOA = ${taxa}`);
+      console.log(`Taxa de câmbio do cache: ${moeda} → AOA = ${taxa}`);
       return taxa;
     }
   }
@@ -2534,17 +2534,17 @@ async function obterTaxaCambioDinamica(moeda) {
         timestamp: Date.now()
       }));
       
-      console.log(`📡 Taxa de câmbio obtida via API: ${moeda} → AOA = ${taxa}`);
+      console.log(`Taxa de câmbio obtida via API: ${moeda} → AOA = ${taxa}`);
       return taxa;
     } else {
       throw new Error('Taxa inválida da API');
     }
   } catch (error) {
-    console.warn(`⚠️ API de câmbio falhou para ${moeda}, usando fallback:`, error);
+    console.warn(`API de câmbio falhou para ${moeda}, usando fallback:`, error);
     
     const taxaFallback = taxasFallback[moeda] || 0;
     if (taxaFallback > 0) {
-      console.log(`🔄 Usando taxa de fallback: ${moeda} → AOA = ${taxaFallback}`);
+      console.log(`Usando taxa de fallback: ${moeda} → AOA = ${taxaFallback}`);
       
       // Mostrar aviso ao usuário
       if (typeof showWarning === 'function') {
@@ -2553,7 +2553,7 @@ async function obterTaxaCambioDinamica(moeda) {
       
       return taxaFallback;
     } else {
-      console.error(`❌ Nenhuma taxa disponível para ${moeda}`);
+      console.error(`Nenhuma taxa disponível para ${moeda}`);
       
       // Mostrar erro ao usuário
       if (typeof showError === 'function') {
@@ -2702,18 +2702,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const campoPeso = adicaoCard.querySelector(`#peso_liquido_${n}`);
     
     if (campoPeso) {
-      console.log(`🔧 Configurando listener para peso_liquido_${n}`);
+      console.log(`Configurando listener para peso_liquido_${n}`);
       
       campoPeso.addEventListener('input', function() {
         clearTimeout(campoPeso._reparticaoTimer);
         campoPeso._reparticaoTimer = setTimeout(function() {
-          console.log(`⚡ Peso alterado na adição ${n} - recalculando repartição`);
+          console.log(`Peso alterado na adição ${n} - recalculando repartição`);
           
           var promessas = [];
           ['frete', 'seguro'].forEach(function(tipo) {
             var modoReparticao = (document.getElementById('reparticao_' + tipo) || {}).value;
             if (modoReparticao === 'peso') {
-              console.log(`🔄 Recalculando ${tipo} em modo peso`);
+              console.log(`Recalculando ${tipo} em modo peso`);
               promessas.push(calcularReparticao(tipo, 'peso'));
             }
           });
