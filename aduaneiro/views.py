@@ -163,6 +163,9 @@ def du_view(request, du_uuid=None):
                 }
 
     ctx = _ctx_base(request)
+    dus_recentes = escopo_du(request, DeclaracaoUnica.objects.all()).exclude(
+        status='Rascunho'
+    ).order_by('-data_submissao')[:5]
     ctx.update({
         'active_menu': 'Gestão Aduaneira',
         'active_sub': 'du',
@@ -171,6 +174,7 @@ def du_view(request, du_uuid=None):
         'is_admin_editando': is_admin_editando,
         'is_colaborador_operando': is_colaborador_operando,
         'dono_du': dono_du,
+        'dus_recentes': dus_recentes,
     })
     return render(request, 'du.html', ctx)
 
