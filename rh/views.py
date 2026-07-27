@@ -971,7 +971,7 @@ def _gerar_pdf_processamento(processamento, request):
     story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
     story.append(Spacer(1, 0.15 * cm))
     desp_box = Table([[
-        Paragraph('<b>Despachante Responsavel</b>', st('desp_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+        Paragraph('<b>Despachante</b>', st('desp_h', fontSize=7.5, textColor=COR_PRIMARIO)),
     ]], colWidths=[W])
     desp_box.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
