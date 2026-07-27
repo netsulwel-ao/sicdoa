@@ -1394,7 +1394,7 @@ label.form-label:not(.required) > .text-red-500 {
                 </div>
                 <div class="guide-item">
                   <i class="fas fa-check-circle"></i>
-                  <span>Código Pautal: 10 dígitos (0000.00.00.00)</span>
+                  <span>Código Pautal: 8 dígitos (00000000)</span>
                 </div>
                 <div class="guide-item">
                   <i class="fas fa-check-circle"></i>
@@ -1415,29 +1415,28 @@ label.form-label:not(.required) > .text-red-500 {
               <h3>DUs Recentes</h3>
             </div>
             <div class="sidebar-content">
+              {% if dus_recentes %}
               <div class="recent-list">
-                <div class="recent-item">
+                {% for d in dus_recentes %}
+                <a href="{% url 'aduaneiro:du_detalhe' d.du_uuid %}" class="recent-item" style="text-decoration:none;color:inherit">
                   <div class="recent-info">
-                    <div class="recent-number">DU-2024-1234</div>
-                    <div class="recent-date">28/11/2024</div>
+                    <div class="recent-number">{{ d.numero_du|default:d.du_uuid|truncatechars:18 }}</div>
+                    <div class="recent-date">{{ d.data_submissao|date:"d/m/Y H:i" }}</div>
                   </div>
-                  <div class="recent-status approved">Aprovada</div>
-                </div>
-                <div class="recent-item">
-                  <div class="recent-info">
-                    <div class="recent-number">DU-2024-1233</div>
-                    <div class="recent-date">27/11/2024</div>
+                  <div class="recent-status
+                    {% if d.status == 'Aprovada' or d.status == 'Finalizada' %}approved
+                    {% elif d.status == 'Rejeitada' %}rejected
+                    {% else %}pending{% endif %}">
+                    {{ d.status }}
                   </div>
-                  <div class="recent-status pending">Em Análise</div>
-                </div>
-                <div class="recent-item">
-                  <div class="recent-info">
-                    <div class="recent-number">DU-2024-1232</div>
-                    <div class="recent-date">26/11/2024</div>
-                  </div>
-                  <div class="recent-status rejected">Rejeitada</div>
-                </div>
+                </a>
+                {% endfor %}
               </div>
+              {% else %}
+              <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+                Nenhuma DU submetida ainda.
+              </p>
+              {% endif %}
             </div>
           </div>
         </div>
