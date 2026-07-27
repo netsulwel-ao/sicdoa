@@ -996,8 +996,8 @@ def admin_salario_inst_download_view(request, pk):
     from django.http import HttpResponse
 
     proc = get_object_or_404(ProcessamentoSalarialInstitucional, pk=pk)
-    if proc.estado != 'Pago':
-        messages.error(request, 'PDF disponível apenas para processamentos "Pago".')
+    if proc.estado not in ('Pago', 'Processado'):
+        messages.error(request, 'PDF disponivel apenas para processamentos "Processado" ou "Pago".')
         return redirect('rh_admin_salario_inst_detalhe', pk=proc.pk)
     try:
         from .views_institucional import _gerar_pdf_processamento_inst

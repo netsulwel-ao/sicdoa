@@ -968,11 +968,11 @@ def inst_salario_apagar_view(request, pk):
 @_requer_inst_modulo('salarios')
 def inst_salario_download_view(request, pk):
     proc = get_object_or_404(ProcessamentoSalarialInstitucional, pk=pk)
-    if proc.estado != 'Pago':
+    if proc.estado not in ('Pago', 'Processado'):
         return render(request, 'rh/institucional/salario_erro_download.html',
                       _ctx_inst(request, 'salarios_inst', {
                           'proc': proc,
-                          'erro': 'PDF disponivel apenas para processamentos "Pago".',
+                          'erro': 'PDF disponivel apenas para processamentos "Processado" ou "Pago".',
                       }))
     try:
         buffer = _gerar_pdf_processamento_inst(proc, request)

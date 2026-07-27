@@ -14,63 +14,86 @@
       <span class="text-gray-700 dark:text-gray-300">Apagar</span>
     </div>
 
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Apagar Processamento</h1>
-        <p class="text-gray-500 mt-1 text-sm">{{ proc.mes|stringformat:"02d" }}/{{ proc.ano }} · {{ proc.estado }}</p>
-      </div>
-      <a href="{% url 'rh_inst_salario_detalhe' proc.pk %}"
-         class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-        <i class="fas fa-arrow-left text-base"></i>Voltar
-      </a>
-    </div>
-
-    <div class="max-w-lg">
-      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 mb-6 flex items-start gap-4">
-        <i class="fas fa-exclamation-triangle text-red-600 dark:text-red-400 text-2xl flex-shrink-0"></i>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div class="flex items-center gap-3">
+        <a href="{% url 'rh_inst_salario_detalhe' proc.pk %}"
+           class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all flex-shrink-0">
+          <i class="fas fa-arrow-left"></i>
+        </a>
         <div>
-          <p class="font-bold text-red-800 dark:text-red-300 mb-1">Esta acção é irreversível</p>
-          <p class="text-red-700 dark:text-red-400 text-sm">
-            O processamento <strong>{{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}</strong> e todos os seus
-            {{ proc.recibos.count }} recibo{{ proc.recibos.count|pluralize }} serão permanentemente apagados.
+          <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+            Apagar Processamento
+          </h1>
+          <p class="text-gray-500 mt-1 text-sm">
+            {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }} &middot;
+            {% if proc.estado == 'Pago' %}<span class="inline-flex items-center gap-1 font-semibold text-green-600"><i class="fas fa-check-circle"></i> Pago</span>
+            {% elif proc.estado == 'Processado' %}<span class="inline-flex items-center gap-1 font-semibold text-blue-600"><i class="fas fa-clock"></i> Processado</span>
+            {% else %}<span class="inline-flex items-center gap-1 font-semibold text-amber-600"><i class="fas fa-pencil"></i> Rascunho</span>{% endif %}
+            &middot; {{ proc.recibos.count }} recibo{{ proc.recibos.count|pluralize:"s" }}
           </p>
         </div>
       </div>
+    </div>
 
-      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 mb-6">
-        <div class="flex justify-between text-sm mb-3">
-          <span class="text-gray-500 dark:text-gray-400">Período</span>
-          <span class="font-semibold text-gray-800 dark:text-gray-200">{{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}</span>
-        </div>
-        <div class="flex justify-between text-sm mb-3">
-          <span class="text-gray-500 dark:text-gray-400">Estado</span>
-          <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold
-            {% if proc.estado == 'Processado' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
-            {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">
-            {{ proc.estado }}
-          </span>
-        </div>
-        <div class="flex justify-between text-sm mb-3">
-          <span class="text-gray-500 dark:text-gray-400">Recibos</span>
-          <span class="font-semibold text-gray-800 dark:text-gray-200">{{ proc.recibos.count }}</span>
-        </div>
-        <div class="flex justify-between text-sm pt-3 border-t border-gray-100 dark:border-gray-800">
-          <span class="text-gray-500 dark:text-gray-400">Total Líquido</span>
-          <span class="font-bold text-gray-800 dark:text-gray-200">{{ proc.total_liquido|fmtkz }} KZ</span>
+    <div class="max-w-2xl mx-auto">
+
+      <div class="bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10 border border-red-200 dark:border-red-800 rounded-2xl p-6 mb-6">
+        <div class="flex items-start gap-4">
+          <div class="flex-shrink-0 w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-xl flex items-center justify-center">
+            <i class="fas fa-exclamation-triangle text-red-600 dark:text-red-400 text-xl"></i>
+          </div>
+          <div>
+            <p class="font-bold text-red-800 dark:text-red-300 mb-1">Esta ação é irreversível</p>
+            <p class="text-red-700 dark:text-red-400 text-sm leading-relaxed">
+              O processamento <strong>{{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}</strong> e todos os seus
+              <strong>{{ proc.recibos.count }}</strong> recibo{{ proc.recibos.count|pluralize:"s" }} serão
+              <strong>permanentemente apagados</strong>. Esta ação não pode ser desfeita.
+            </p>
+          </div>
         </div>
       </div>
 
-      <form method="POST" class="flex gap-3">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden mb-6">
+        <div class="px-5 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Detalhes do Processamento</p>
+        </div>
+        <div class="p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Período</span>
+            <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Estado</span>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold
+              {% if proc.estado == 'Pago' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+              {% elif proc.estado == 'Processado' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+              {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">
+              {{ proc.estado }}
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Recibos</span>
+            <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ proc.recibos.count }}</span>
+          </div>
+          <div class="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
+            <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Total Líquido</span>
+            <span class="text-lg font-black text-gray-900 dark:text-white">{{ proc.total_liquido|fmtkz }} KZ</span>
+          </div>
+        </div>
+      </div>
+
+      <form method="POST">
         {% csrf_token %}
-        <a href="{% url 'rh_inst_salario_detalhe' proc.pk %}"
-           class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
-          Cancelar
-        </a>
-        <button type="submit"
-                class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all shadow-sm">
-          <i class="fas fa-trash text-base"></i>
-          Apagar Definitivamente
-        </button>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <a href="{% url 'rh_inst_salario_detalhe' proc.pk %}"
+             class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+            <i class="fas fa-times"></i>Cancelar
+          </a>
+          <button type="submit"
+                  class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all shadow-sm text-sm">
+            <i class="fas fa-trash"></i>Apagar Definitivamente
+          </button>
+        </div>
       </form>
     </div>
 
