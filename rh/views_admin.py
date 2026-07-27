@@ -759,7 +759,7 @@ def admin_salario_inst_novo_view(request):
         ReciboSalarialInstitucional, SubsidioInstitucional,
         SubsidioReciboInstitucional, PresencaInstitucional,
     )
-    from .tax_utils import _calcular_irt, MESES, _dec
+    from .tax_utils import _calcular_irt, MESES, _dec, DIAS_UTEIS_MES
     from decimal import Decimal
 
     if request.method == 'POST':
@@ -787,7 +787,7 @@ def admin_salario_inst_novo_view(request):
                 colaborador=col, data__month=mes, data__year=ano,
                 tipo__in=['Falta', 'Falta_Justificada'], estado='Aprovado',
             ).count()
-            dias_uteis = Decimal('22')
+            dias_uteis = DIAS_UTEIS_MES
             desconto_faltas = (salario / dias_uteis * faltas).quantize(Decimal('0.01')) if faltas > 0 else Decimal('0')
             salario_apos_faltas = max(salario - desconto_faltas, Decimal('0'))
             irt = _calcular_irt(salario_apos_faltas)
@@ -863,7 +863,7 @@ def admin_salario_inst_detalhe_view(request, pk):
         ProcessamentoSalarialInstitucional, SubsidioInstitucional,
         SubsidioReciboInstitucional,
     )
-    from .tax_utils import _calcular_irt, MESES, _dec
+    from .tax_utils import _calcular_irt, MESES, _dec, DIAS_UTEIS_MES
     from decimal import Decimal
 
     proc = get_object_or_404(ProcessamentoSalarialInstitucional, pk=pk)
@@ -906,7 +906,8 @@ def admin_salario_inst_detalhe_view(request, pk):
                 r.subsidio_alimentacao = Decimal('0')
                 r.subsidio_transporte = Decimal('0')
                 faltas_count = int(request.POST.get(f'{p}faltas', '0') or '0')
-                r.outros_descontos = (r.salario_base / Decimal('22') * faltas_count).quantize(Decimal('0.01')) if faltas_count > 0 else Decimal('0')
+                faltas_count = max(0, min(faltas_count, int(DIAS_UTEIS_MES)))
+                r.outros_descontos = (r.salario_base / DIAS_UTEIS_MES * faltas_count).quantize(Decimal('0.01')) if faltas_count > 0 else Decimal('0')
                 base_impostos = r.base_calculo_impostos
                 r.irt = _calcular_irt(base_impostos)
                 r.inss_trabalhador = (base_impostos * Decimal('0.03')).quantize(Decimal('0.01'))

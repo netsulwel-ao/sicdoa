@@ -16,7 +16,7 @@ from utils.format_kz import fmt_kz
 from utils.email_utils import gerar_senha_aleatoria, enviar_senha_colaborador
 from utils.email_utils import enviar_resultado_candidatura, enviar_convocatoria_entrevista
 from utils.validators import email_ja_existe
-from .tax_utils import _dec, _hash_password, _calcular_irt, MESES
+from .tax_utils import _dec, _hash_password, _calcular_irt, MESES, DIAS_UTEIS_MES
 from .acesso import obter_acesso_inst, obter_acesso_inst_modulo
 from users.models import (
     ColaboradorInstitucional, PresencaInstitucional, FeriasInstitucional,
@@ -756,7 +756,7 @@ def inst_salario_novo_view(request):
                 colaborador=col, data__month=mes, data__year=ano,
                 tipo__in=['Falta', 'Falta_Justificada'], estado='Aprovado',
             ).count()
-            dias_uteis = Decimal('22')
+            dias_uteis = DIAS_UTEIS_MES
             desconto_faltas = (salario / dias_uteis * faltas).quantize(Decimal('0.01')) if faltas > 0 else Decimal('0')
             salario_apos_faltas = max(salario - desconto_faltas, Decimal('0'))
             irt = _calcular_irt(salario_apos_faltas)
@@ -881,7 +881,8 @@ def inst_salario_detalhe_view(request, pk):
                 r.subsidio_alimentacao = Decimal('0')
                 r.subsidio_transporte = Decimal('0')
                 faltas_count = int(request.POST.get(f'{p}faltas', '0') or '0')
-                r.outros_descontos = (r.salario_base / Decimal('22') * faltas_count).quantize(Decimal('0.01')) if faltas_count > 0 else Decimal('0')
+                faltas_count = max(0, min(faltas_count, int(DIAS_UTEIS_MES)))
+                r.outros_descontos = (r.salario_base / DIAS_UTEIS_MES * faltas_count).quantize(Decimal('0.01')) if faltas_count > 0 else Decimal('0')
                 base_impostos = r.base_calculo_impostos
                 r.irt = _calcular_irt(base_impostos)
                 r.inss_trabalhador = (base_impostos * Decimal('0.03')).quantize(Decimal('0.01'))

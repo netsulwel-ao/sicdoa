@@ -2300,7 +2300,7 @@ function gerarHTMLAdicao(n, dados) {
                 <span class="field-code">Campo 37</span>
               </label>
               <select name="adicao[${n}][codigo_procedimento]" required id="codigo_procedimento_${n}"
-                class="form-input" onchange="atualizarCodigoIsencaoDinamico(${n})">
+                class="form-input">
                 <option value="">A carregar...</option>
               </select>
               <p class="field-hint">Digite para pesquisar o procedimento</p>
@@ -2912,6 +2912,9 @@ async function atualizarCodigoIsencaoDinamico(n) {
   const isencaoSelect = document.getElementById(`codigo_isencao_${n}`);
   if (!isencaoSelect) return;
 
+  // Capturar valor ATUAL antes de reconstruir (preservar selecção do utilizador)
+  const valorAtualIsencao = isencaoSelect.value || '';
+
   isencaoSelect.innerHTML = '<option value="">A carregar...</option>';
 
   // Carregar cache uma vez
@@ -2925,8 +2928,6 @@ async function atualizarCodigoIsencaoDinamico(n) {
       _isencaoCache = [];
     }
   }
-
-  const valorAtualIsencao = isencaoSelect.dataset.valorInicial || '';
 
   isencaoSelect.innerHTML = '';
 

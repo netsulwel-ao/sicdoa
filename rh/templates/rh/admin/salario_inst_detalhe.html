@@ -180,7 +180,7 @@
                 </td>
                 <td class="px-4 py-3 text-right bg-red-50/50 dark:bg-red-900/10">
                   {% if proc.estado == 'Rascunho' %}
-                  <input type="number" inputmode="numeric" min="0" step="1"
+                  <input type="number" inputmode="numeric" min="0" max="22" step="1"
                          name="rec_{{ r.pk }}_faltas"
                          value="{{ r.faltas_count }}"
                          class="faltas w-20 px-2 py-1.5 rounded-lg border-2 border-red-200 bg-white dark:bg-gray-800 dark:border-red-700 text-right text-sm text-red-600 dark:text-red-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 transition-all"
@@ -285,7 +285,9 @@ function recalcularLinha(inputEl) {
   });
   
   const faltasInput = row.querySelector('.faltas');
-  const faltasCount = parseInt(faltasInput ? faltasInput.value : '0') || 0;
+  let faltasCount = parseInt(faltasInput ? faltasInput.value : '0') || 0;
+  faltasCount = Math.max(0, Math.min(faltasCount, 22));
+  if (faltasInput && parseInt(faltasInput.value) !== faltasCount) faltasInput.value = faltasCount;
   const descontoFaltas = faltasCount > 0 ? (salarioBase / 22 * faltasCount) : 0;
   const baseImpostos = Math.max(0, salarioBase - descontoFaltas);
   const bruto = salarioBase + totalSubsidios;

@@ -11,66 +11,77 @@
 
     <!-- Cabeçalho -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
-          Processamento {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}
-        </h1>
-        <p class="text-gray-500 mt-1 text-sm">
-          Estado:
-          {% if proc.estado == 'Pago' %}<span class="inline-flex items-center gap-1 font-semibold text-green-600"><i class="fas fa-check-circle"></i> Pago</span>
-          {% elif proc.estado == 'Processado' %}<span class="inline-flex items-center gap-1 font-semibold text-blue-600"><i class="fas fa-clock"></i> Processado</span>
-          {% else %}<span class="inline-flex items-center gap-1 font-semibold text-amber-600"><i class="fas fa-pencil"></i> Rascunho</span>{% endif %}
-          &middot; {{ recibos|length }} recibo{{ recibos|length|pluralize:"s" }}
-          {% if subsidios_ativos %}
-          &middot; {{ subsidios_ativos|length }} subsídio{{ subsidios_ativos|length|pluralize:"s" }} ativo{{ subsidios_ativos|length|pluralize:"s" }}
-          {% endif %}
-        </p>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
+      <div class="flex items-center gap-3">
         <a href="{% url 'rh_salarios' %}"
-           class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
-           <i class="fas fa-arrow-left text-base"></i>Voltar
+           class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all flex-shrink-0">
+          <i class="fas fa-arrow-left"></i>
         </a>
-        {% if proc.estado == 'Pago' %}
+        <div>
+          <h1 class="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">
+            Processamento {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}
+          </h1>
+          <p class="text-gray-500 mt-1 text-sm">
+            Estado:
+            {% if proc.estado == 'Pago' %}<span class="inline-flex items-center gap-1 font-semibold text-green-600"><i class="fas fa-check-circle"></i> Pago</span>
+            {% elif proc.estado == 'Processado' %}<span class="inline-flex items-center gap-1 font-semibold text-blue-600"><i class="fas fa-clock"></i> Processado</span>
+            {% else %}<span class="inline-flex items-center gap-1 font-semibold text-amber-600"><i class="fas fa-pencil"></i> Rascunho</span>{% endif %}
+            &middot; {{ recibos|length }} recibo{{ recibos|length|pluralize:"s" }}
+            {% if subsidios_ativos %}
+            &middot; {{ subsidios_ativos|length }} subsídio{{ subsidios_ativos|length|pluralize:"s" }} ativo{{ subsidios_ativos|length|pluralize:"s" }}
+            {% endif %}
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 flex-wrap justify-end">
+        {# ── Grupo: Documento ── #}
+        {% if proc.estado == 'Pago' or proc.estado == 'Processado' %}
         <a href="{% url 'rh_salario_download' proc.pk %}"
-           class="px-4 py-2.5 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all flex items-center gap-2 shadow-sm">
-          <i class="fas fa-file-pdf"></i>
-          Baixar Comprovante PDF
+           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all shadow-sm text-sm h-10">
+          <i class="fas fa-file-pdf"></i>Baixar PDF
         </a>
+        <button type="button" onclick="document.getElementById('modalCompartilhar').classList.remove('hidden')"
+                class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm h-10">
+          <i class="fas fa-share-alt"></i>Compartilhar
+        </button>
+        <span class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block"></span>
         {% endif %}
+
+        {# ── Grupo: Configuração (Rascunho) ── #}
         {% if proc.estado == 'Rascunho' %}
         <button type="button" onclick="document.getElementById('modalColabs').classList.remove('hidden')"
-                class="px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">
-          <i class="fas fa-user-edit"></i>
-          Colaboradores
+                class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm h-10">
+          <i class="fas fa-user-edit"></i>Colaboradores
         </button>
         <a href="{% url 'rh_subsidios' %}"
-           class="px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all flex items-center gap-2 text-sm">
-          <i class="fas fa-cog"></i>
-          Subsídios
+           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm h-10">
+          <i class="fas fa-cog"></i>Subsídios
         </a>
+        <span class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block"></span>
         {% endif %}
+
+        {# ── Grupo: Estado ── #}
         {% if proc.estado != 'Pago' %}
-        <form method="POST" id="formEstado" class="inline">
+        <form method="POST" id="formEstado" class="contents">
           {% csrf_token %}
           {% if proc.estado == 'Rascunho' %}
           <button type="submit" name="action" value="processar"
-                  class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-sm">
-            <i class="fas fa-check-circle text-base"></i>Processar
+                  class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all shadow-sm text-sm h-10">
+            <i class="fas fa-check-circle"></i>Processar
           </button>
           {% elif proc.estado == 'Processado' %}
           <button type="submit" name="action" value="reabrir"
-                  class="px-4 py-2.5 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-400 font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all flex items-center gap-2 text-sm">
-            <i class="fas fa-edit text-base"></i>Reabrir
+                  class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-400 font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all text-sm h-10">
+            <i class="fas fa-edit"></i>Reabrir
           </button>
           <button type="submit" name="action" value="pagar"
-                  class="px-5 py-2.5 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all flex items-center gap-2 shadow-sm">
-            <i class="fas fa-credit-card text-base"></i>Marcar como Pago
+                  class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all shadow-sm text-sm h-10">
+            <i class="fas fa-credit-card"></i>Marcar como Pago
           </button>
           {% endif %}
         </form>
+        <span class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 hidden sm:block"></span>
         <a href="{% url 'rh_salario_apagar' proc.pk %}"
-           class="p-2.5 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+           class="inline-flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
            title="Apagar processamento">
           <i class="fas fa-trash"></i>
         </a>
@@ -271,7 +282,7 @@
                   {% if not r.colaborador.email %}
                   <span class="text-xs text-gray-400 font-medium">Isento</span>
                   {% elif proc.estado == 'Rascunho' %}
-                  <input type="number" inputmode="numeric" min="0" step="1"
+                  <input type="number" inputmode="numeric" min="0" max="22" step="1"
                          name="rec_{{ r.pk }}_faltas"
                          value="{{ r.faltas_count }}"
                          class="faltas w-20 px-2.5 py-1.5 rounded-lg border-2 border-red-200 dark:border-red-700 bg-white dark:bg-gray-800 text-right text-sm text-red-600 dark:text-red-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 dark:focus:ring-red-800 transition-all"
@@ -401,6 +412,52 @@
     </div>
     {% endif %}
 
+    <!-- Modal Compartilhar -->
+    {% if proc.estado == 'Pago' or proc.estado == 'Processado' %}
+    <div id="modalCompartilhar" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-lg font-bold text-gray-900 dark:text-white">Compartilhar Processamento</h3>
+          <button onclick="document.getElementById('modalCompartilhar').classList.add('hidden')"
+                  class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <i class="fas fa-times text-gray-500"></i>
+          </button>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Processamento {{ proc.mes|stringformat:"02d" }}/{{ proc.ano }}
+        </p>
+
+        <!-- Link do PDF -->
+        <div class="mb-4">
+          <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">Link do PDF</label>
+          <div class="flex gap-2">
+            <input type="text" id="linkPDF" readonly
+                   value="{{ request.build_absolute_uri }}{% url 'rh_salario_download' proc.pk %}"
+                   class="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 focus:outline-none" />
+            <button onclick="copiarLink()"
+                    class="px-3 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-all text-sm font-semibold"
+                    title="Copiar link">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+          <p id="copyFeedback" class="text-xs text-green-600 mt-1 hidden">Link copiado!</p>
+        </div>
+
+        <!-- Botões de compartilhamento -->
+        <div class="flex gap-3">
+          <a id="btnWhatsApp" href="#" target="_blank" rel="noopener"
+             class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#25D366] text-white font-semibold hover:bg-[#1da851] transition-all text-sm">
+            <i class="fab fa-whatsapp text-lg"></i>WhatsApp
+          </a>
+          <button onclick="navigator.share && navigator.share({title: 'Processamento Salarial', url: document.getElementById('linkPDF').value})"
+                  class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm">
+            <i class="fas fa-share-alt"></i>Mais
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
 <script>
 (function() {
   function parseKZ(s) {
@@ -443,6 +500,8 @@
 
     var faltasInput = row.querySelector('.faltas');
     var faltasCount = parseInt(faltasInput ? faltasInput.value : '0') || 0;
+    faltasCount = Math.max(0, Math.min(faltasCount, 22));
+    if (faltasInput && parseInt(faltasInput.value) !== faltasCount) faltasInput.value = faltasCount;
     var descontoFaltas = faltasCount > 0 ? (salarioBase / 22 * faltasCount) : 0;
     var baseImpostos = Math.max(0, salarioBase - descontoFaltas);
     var bruto = salarioBase + totalSubsidios;
@@ -503,7 +562,22 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     recalcularTotal();
+    var pdfUrl = document.getElementById('linkPDF');
+    var whatsappBtn = document.getElementById('btnWhatsApp');
+    if (pdfUrl && whatsappBtn) {
+      var texto = 'Comprovante de Processamento Salarial - PDF em anexo:';
+      whatsappBtn.href = 'https://wa.me/?text=' + encodeURIComponent(texto + '\n' + pdfUrl.value);
+    }
   });
+
+  function copiarLink() {
+    var input = document.getElementById('linkPDF');
+    if (!input) return;
+    navigator.clipboard.writeText(input.value).then(function() {
+      var fb = document.getElementById('copyFeedback');
+      if (fb) { fb.classList.remove('hidden'); setTimeout(function() { fb.classList.add('hidden'); }, 2000); }
+    });
+  }
 })();
 </script>
 

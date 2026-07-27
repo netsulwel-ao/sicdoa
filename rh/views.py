@@ -2831,11 +2831,11 @@ def salario_download_view(request, pk):
 
     proc = get_object_or_404(ProcessamentoSalarial, pk=pk, banca=banca)
 
-    if proc.estado != 'Pago':
+    if proc.estado not in ('Pago', 'Processado'):
         return render(request, 'rh/salarios/erro_download.html',
                       _ctx(request, 'salarios', {
                           'banca': banca, 'proc': proc,
-                          'erro': 'O PDF so esta disponivel para processamentos marcados como "Pago".'
+                          'erro': 'O PDF so esta disponivel para processamentos com estado "Processado" ou "Pago".'
                       }))
 
     try:
@@ -2919,7 +2919,8 @@ def salario_detalhe_view(request, pk):
 
                 # Ler faltas (contagem) do formulário e converter para valor monetário
                 faltas_count = int(request.POST.get(f'{p}faltas', '0') or '0')
-                r.outros_descontos = (r.salario_base / Decimal('22') * faltas_count).quantize(Decimal('0.01')) if faltas_count > 0 else Decimal('0')
+                faltas_count = max(0, min(faltas_count, int(DIAS_UTEIS_MES)))
+                r.outros_descontos = (r.salario_base / DIAS_UTEIS_MES * faltas_count).quantize(Decimal('0.01')) if faltas_count > 0 else Decimal('0')
 
                 # Recalcular IRT e INSS com base no salário base subtraído das faltas
                 base_impostos = r.base_calculo_impostos
