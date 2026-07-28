@@ -1801,7 +1801,7 @@ def colaboradores_view(request):
     papel = request.session.get('usuario', {}).get('papel', '')
     from users.permissoes import _is_admin_ou_acesso_total
     # Administrador vê todos os colaboradores da banca
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         cols = banca.colaboradores.all().select_related('filial', 'cargo_banca').prefetch_related('documentos')
         filiais = list(banca.filiais.all())
     else:

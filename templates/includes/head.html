@@ -155,40 +155,34 @@ html.dark .dark-hide-in-dark { display: none !important; }
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display">
 
-{# ── Loading bar no topo (não afeta sidebar, header nem conteúdo) ───── #}
+{# ── Loading overlay global (substitui a barra fina) ───────────────── #}
 <div id="page-loader">
-  <div id="loader-bar" class="fixed top-0 left-0 w-0 h-[3px] z-[99999]
-       bg-gradient-to-r from-blue-500 via-blue-400 to-blue-600
-       shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+  <div id="page-spinner" class="fixed inset-0 z-[99999] flex flex-col items-center justify-center
+       bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+    <p class="text-sm text-gray-400 dark:text-gray-500 font-medium mt-4">A carregar...</p>
+  </div>
 </div>
-
-<style>
-#loader-bar.loading {
-  animation: loader-progress 1.2s ease-in-out forwards;
-}
-#loader-bar.done {
-  width: 100% !important;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-@keyframes loader-progress {
-  0%   { width: 0%; }
-  20%  { width: 20%; }
-  50%  { width: 50%; }
-  80%  { width: 78%; }
-  100% { width: 90%; }
-}
-</style>
 
 <script>
 (function() {
-  var bar = document.getElementById('loader-bar');
-  if (!bar) return;
+  var spinner = document.getElementById('page-spinner');
+  if (!spinner) return;
 
-  function startLoader() {
-    bar.classList.remove('loading');
-    void bar.offsetWidth;
-    bar.classList.add('loading');
+  var showTimer = null;
+
+  function showLoader() {
+    clearTimeout(showTimer);
+    showTimer = setTimeout(function() {
+      spinner.classList.remove('opacity-0', 'pointer-events-none');
+      spinner.classList.add('opacity-100');
+    }, 150);
+  }
+
+  function hideLoader() {
+    clearTimeout(showTimer);
+    spinner.classList.remove('opacity-100');
+    spinner.classList.add('opacity-0', 'pointer-events-none');
   }
 
   document.addEventListener('click', function(e) {
@@ -201,24 +195,23 @@ html.dark .dark-hide-in-dark { display: none !important; }
         e.ctrlKey || e.metaKey || e.shiftKey) return;
     var href = link.getAttribute('href');
     if (href && href !== '#' && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
-      startLoader();
+      showLoader();
+    }
+  });
+
+  document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (form.method && form.method.toUpperCase() === 'GET') {
+      showLoader();
     }
   });
 
   window.addEventListener('beforeunload', function() {
-    startLoader();
+    showLoader();
   });
 
-  if (document.readyState === 'complete') {
-    bar.classList.remove('loading');
-    bar.classList.add('done');
-  } else {
-    window.addEventListener('load', function() {
-      bar.classList.remove('loading');
-      bar.classList.add('done');
-      setTimeout(function() { bar.style.display = 'none'; }, 400);
-    });
-  }
+  hideLoader();
+  window.addEventListener('load', hideLoader);
 })();
 </script>
 

@@ -93,7 +93,7 @@ class SessionExpirationMiddleware:
                         return redirect('login')
 
                     # Verificar se a Banca está ativa (apenas para não-admin)
-                    if u.papel != 'Administrador':
+                    if u.papel not in ('Administrador', 'Super Administrador'):
                         from rh.models import Banca
                         banca = Banca.objects.filter(usuario_id=usuario_id).first()
                         if banca and not banca.ativa:

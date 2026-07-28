@@ -16,11 +16,11 @@
           Sala
         </a>
         {% endif %}
-        {% if assembleia.status == 'Agendada' and papel == 'Administrador' or assembleia.status == 'Agendada' and 'gerir_assembleia' in user_permissoes %}
+        {% if assembleia.status == 'Agendada' and papel == 'Administrador' or papel == 'Super Administrador' or assembleia.status == 'Agendada' and 'gerir_assembleia' in user_permissoes %}
         <button id="btn-iniciar" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1 cursor-pointer">
           <i class="fas fa-play text-base"></i> Iniciar Assembleia
         </button>
-        {% elif assembleia.status == 'Em Curso' and papel == 'Administrador' or assembleia.status == 'Em Curso' and 'gerir_assembleia' in user_permissoes %}
+        {% elif assembleia.status == 'Em Curso' and papel == 'Administrador' or papel == 'Super Administrador' or assembleia.status == 'Em Curso' and 'gerir_assembleia' in user_permissoes %}
         <button id="btn-concluir" class="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-1 cursor-pointer">
           <i class="fas fa-stop text-base"></i> Concluir Assembleia
         </button>
@@ -65,7 +65,7 @@
                 </span>
               </div>
               <div class="pauta-actions">
-                {% if pauta.status == 'Pendente' and assembleia.status == 'Em Curso' and papel == 'Administrador' or pauta.status == 'Pendente' and assembleia.status == 'Em Curso' and 'gerir_votacoes' in user_permissoes %}
+                {% if pauta.status == 'Pendente' and assembleia.status == 'Em Curso' and papel == 'Administrador' or papel == 'Super Administrador' or pauta.status == 'Pendente' and assembleia.status == 'Em Curso' and 'gerir_votacoes' in user_permissoes %}
                 <button class="btn-iniciar-votacao px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                         data-pauta-id="{{ pauta.id }}">
                   <i class="fas fa-vote-yea text-base align-text-bottom"></i>
@@ -78,7 +78,7 @@
                     <span class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
                     Votação em curso
                   </span>
-                  {% if papel == 'Administrador' or 'gerir_votacoes' in user_permissoes %}
+                  {% if papel == 'Administrador' or papel == 'Super Administrador' or 'gerir_votacoes' in user_permissoes %}
                   <button class="btn-encerrar-votacao px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600 transition-colors cursor-pointer"
                           data-pauta-id="{{ pauta.id }}">
                     Encerrar Votação
@@ -88,7 +88,7 @@
                 {% endif %}
                 {% if pauta.status == 'Concluida' %}
                 <div class="mt-2 flex items-center gap-4 text-sm pauta-resultados">
-                  {% if assembleia.status == 'Em Curso' and papel == 'Administrador' or assembleia.status == 'Em Curso' and 'gerir_votacoes' in user_permissoes %}
+                  {% if assembleia.status == 'Em Curso' and papel == 'Administrador' or papel == 'Super Administrador' or assembleia.status == 'Em Curso' and 'gerir_votacoes' in user_permissoes %}
                   <button class="btn-reabrir-votacao px-2 py-1 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors cursor-pointer"
                           data-pauta-id="{{ pauta.id }}">
                     <i class="fas fa-redo text-xs mr-1"></i> Reabrir

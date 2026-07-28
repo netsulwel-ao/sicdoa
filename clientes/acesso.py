@@ -12,7 +12,7 @@ def escopo_cliente(request, queryset):
     - Despachante (sessão) → vê clientes da sua banca
     """
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         return queryset
     tipo = request.session.get('tipo_usuario')
     if tipo == 'colaborador':

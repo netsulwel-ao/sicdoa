@@ -123,7 +123,7 @@
       {% endif %}
 
       <!-- Admin: Ações -->
-      {% if papel == 'Administrador' or 'gerir_quotas' in user_permissoes and quota.status != 'Paga' and quota.status != 'Cancelada' %}
+      {% if papel == 'Administrador' or papel == 'Super Administrador' or 'gerir_quotas' in user_permissoes and quota.status != 'Paga' and quota.status != 'Cancelada' %}
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-6 mb-4">
         <h2 class="text-lg font-bold text-[#111418] dark:text-gray-200 mb-4 flex items-center gap-2"><i class="fas fa-user-shield text-primary"></i> Administração</h2>
         <div class="space-y-3">

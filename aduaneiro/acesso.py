@@ -16,7 +16,7 @@ def escopo_du(request, queryset):
     - Despachante (sessão) → vê DU da sua banca
     """
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         return queryset
     tipo = request.session.get('tipo_usuario')
     if tipo == 'colaborador':

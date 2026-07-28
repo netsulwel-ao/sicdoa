@@ -162,9 +162,9 @@ PERMISSOES_AUTO_DESPACHANTE = ['alterar_perfil']
 
 
 def _is_admin_ou_acesso_total(request):
-    """True se papel=Administrador ou tiver permissão 'admin' (direta, via função, ou via cargo_banca)."""
+    """True se papel=Administrador/Super Administrador ou tiver permissão 'admin'."""
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         return True
     usuario_id = request.session.get('usuario_id')
     if not usuario_id:
@@ -287,7 +287,7 @@ def usuario_obj_tem_permissao(usuario, codigo):
     """Verifica se um objecto Usuario tem uma permissão específica."""
     if not usuario:
         return False
-    if usuario.papel == 'Administrador':
+    if usuario.papel in ('Administrador', 'Super Administrador'):
         return True
     if usuario.permissoes_diretas.filter(codigo='admin').exists():
         return True

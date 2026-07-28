@@ -42,7 +42,7 @@ class Command(BaseCommand):
                 gerado_por=None,
             )
 
-            _notificar_para_papel('Administrador', 'resultado_publicado',
+            _notificar_para_papel(['Super Administrador', 'Administrador'], 'resultado_publicado',
                                   f'Assembleia Encerrada por Inactividade: {a.titulo}',
                                   'A assembleia foi encerrada automaticamente por falta de actividade durante 20 minutos.',
                                   f'/governanca/assembleia/{a.pk}/')

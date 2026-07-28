@@ -18,7 +18,7 @@
         <p class="text-gray-500 mt-1 text-sm">
           Utilizador: <strong>{{ user_obj.nome }}</strong>
           <span class="ml-2 text-xs font-semibold
-            {% if user_obj.papel == 'Administrador' %}text-purple-500
+            {% if user_obj.papel == 'Administrador' or user_obj.papel == 'Super Administrador' %}text-purple-500
             {% elif user_obj.papel == 'Despachante Oficial' %}text-blue-500
             {% elif user_obj.papel == 'Colaborador Institucional' %}text-green-600
             {% elif user_obj.papel == 'Visualizador' and user_obj.cargo_personalizado %}text-indigo-500

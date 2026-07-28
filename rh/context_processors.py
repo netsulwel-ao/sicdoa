@@ -39,7 +39,7 @@ def cargos_mesa(request):
         else:
             data['tem_banca'] = False
 
-        if papel_sessao == 'Administrador':
+        if papel_sessao in ('Administrador', 'Super Administrador'):
             from .models import BancaCentral
             data['tem_banca_central'] = BancaCentral.objects.filter(ativa=True).exists()
     return data

@@ -12,7 +12,7 @@ def _get_banca_filial(request):
     independentemente das permissões (scoping inteligente).
     """
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         return None, None, None, True
     perm_set = get_usuario_permissoes(request)
     tipo = request.session.get('tipo_usuario')

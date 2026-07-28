@@ -26,7 +26,7 @@
         <i class="fas fa-users text-primary text-lg"></i>
       </div>
       <div>
-        <p class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_total }}</p>
+        <p id="stat-total" class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_total }}</p>
         <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">Total</p>
       </div>
     </div>
@@ -35,7 +35,7 @@
         <i class="fas fa-user-check text-emerald-500 text-lg"></i>
       </div>
       <div>
-        <p class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_ativos }}</p>
+        <p id="stat-ativos" class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_ativos }}</p>
         <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">Activos</p>
       </div>
     </div>
@@ -44,7 +44,7 @@
         <i class="fas fa-user-slash text-red-400 text-lg"></i>
       </div>
       <div>
-        <p class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_inativos }}</p>
+        <p id="stat-inativos" class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ stats_inativos }}</p>
         <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">Inactivos</p>
       </div>
     </div>
@@ -53,7 +53,7 @@
         <i class="fas fa-user-clock text-amber-500 text-lg"></i>
       </div>
       <div>
-        <p class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ page_obj.paginator.count }}</p>
+        <p id="stat-count" class="text-2xl font-black text-gray-900 dark:text-white leading-none">{{ page_obj.paginator.count }}</p>
         <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-0.5">Nesta lista</p>
       </div>
     </div>
@@ -63,24 +63,35 @@
   <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
     <!-- Tabs de tipo -->
     <div class="flex border-b border-gray-100 dark:border-gray-800">
-      <a href="?tipo=Despachante+Oficial{% if q %}&q={{ q }}{% endif %}"
-         class="flex-1 sm:flex-none px-5 py-3 text-sm font-semibold text-center transition-all border-b-2
+      {% if e_super_admin %}
+      <button type="button" data-tab-tipo="Administrador"
+         class="tab-tipo flex-1 sm:flex-none px-5 py-3 text-sm font-semibold text-center transition-all border-b-2 cursor-pointer
+                {% if tipo == 'Administrador' %}
+                  border-primary text-primary bg-primary/5
+                {% else %}
+                  border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50
+                {% endif %}">
+        <i class="fas fa-crown mr-1.5 text-xs"></i>Administradores
+      </button>
+      {% endif %}
+      <button type="button" data-tab-tipo="Despachante Oficial"
+         class="tab-tipo flex-1 sm:flex-none px-5 py-3 text-sm font-semibold text-center transition-all border-b-2 cursor-pointer
                 {% if tipo == 'Despachante Oficial' %}
                   border-primary text-primary bg-primary/5
                 {% else %}
                   border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50
                 {% endif %}">
         <i class="fas fa-briefcase mr-1.5 text-xs"></i>Despachantes
-      </a>
-      <a href="?tipo=Colaborador+Institucional{% if q %}&q={{ q }}{% endif %}"
-         class="flex-1 sm:flex-none px-5 py-3 text-sm font-semibold text-center transition-all border-b-2
+      </button>
+      <button type="button" data-tab-tipo="Colaborador Institucional"
+         class="tab-tipo flex-1 sm:flex-none px-5 py-3 text-sm font-semibold text-center transition-all border-b-2 cursor-pointer
                 {% if tipo == 'Colaborador Institucional' %}
                   border-primary text-primary bg-primary/5
                 {% else %}
                   border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50
                 {% endif %}">
         <i class="fas fa-building mr-1.5 text-xs"></i>Colaboradores
-      </a>
+      </button>
       <div class="flex-1"></div>
       <div class="flex items-center gap-1 px-3">
         {% include 'includes/view-toggle.html' %}
@@ -89,393 +100,37 @@
 
     <!-- Barra de pesquisa -->
     <div class="p-4">
-      <form method="GET" class="flex flex-col sm:flex-row gap-3">
+      <form id="form-pesquisa" method="GET" class="flex flex-col sm:flex-row gap-3">
         <input type="hidden" name="tipo" value="{{ tipo }}">
         <div class="relative flex-1">
           <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-          <input type="text" name="q" value="{{ q }}" placeholder="Pesquisar por nome, email..."
+          <input type="text" name="q" id="input-pesquisa" value="{{ q }}" placeholder="Pesquisar por nome, email..."
                  class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary focus:bg-white dark:focus:bg-gray-800 transition-all">
-          {% if q %}
-          <a href="?tipo={{ tipo }}" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+          <a href="#" id="btn-limpar-pesquisa" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" style="{% if not q %}display:none{% endif %}">
             <i class="fas fa-times text-xs"></i>
           </a>
-          {% endif %}
         </div>
         <button type="submit"
                 class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 shadow-sm transition-all active:scale-[0.97]">
           <i class="fas fa-search text-xs"></i> Filtrar
         </button>
-        {% if q %}
-        <a href="?tipo={{ tipo }}"
-           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+        <a href="#" id="btn-limpar-tudo"
+           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all" style="{% if not q %}display:none{% endif %}">
           <i class="fas fa-times text-xs"></i> Limpar
         </a>
-        {% endif %}
       </form>
     </div>
   </div>
 
-  <!-- ═══════ RESULTADOS ═══════ -->
-  <div class="flex items-center justify-between">
-    <p class="text-xs text-gray-400 dark:text-gray-500">
-      <i class="fas fa-list-ul mr-1"></i>
-      {% if page_obj.paginator.num_pages > 1 %}
-        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
-        <span class="mx-1.5">·</span>
-      {% endif %}
-      {{ page_obj.paginator.count }} utilizador{{ page_obj.paginator.count|pluralize:'es' }}
-    </p>
-  </div>
-
-  <div data-view-container>
-
-    <!-- ═══════ GRID VIEW ═══════ -->
-    <div id="utilizadores-grid" data-grid-view class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {% for u in utilizadores %}
-      <div class="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg hover:border-primary/30 transition-all duration-300 overflow-hidden">
-
-        <!-- Card header com gradiente -->
-        <div class="relative px-5 pt-5 pb-4">
-          <div class="flex items-start gap-3.5">
-            <!-- Avatar -->
-            <div class="relative shrink-0">
-              <div class="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 duration-300
-                {% if u.papel == 'Despachante Oficial' %}bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/10
-                {% elif u.papel == 'Colaborador Institucional' %}bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-900/10
-                {% elif u.papel == 'Administrador' %}bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-900/10
-                {% else %}bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700{% endif %}">
-                {% if u.papel == 'Despachante Oficial' %}
-                  <i class="fas fa-briefcase text-blue-500 dark:text-blue-400 text-xl"></i>
-                {% elif u.papel == 'Colaborador Institucional' %}
-                  <i class="fas fa-building text-emerald-500 dark:text-emerald-400 text-xl"></i>
-                {% elif u.papel == 'Administrador' %}
-                  <i class="fas fa-crown text-purple-500 dark:text-purple-400 text-xl"></i>
-                {% else %}
-                  <i class="fas fa-eye text-gray-500 dark:text-gray-400 text-xl"></i>
-                {% endif %}
-              </div>
-              <!-- Status dot -->
-              <div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center
-                {% if u.status == 'Ativo' %}bg-emerald-400{% else %}bg-red-400{% endif %}">
-              </div>
-            </div>
-
-            <!-- Nome + papel -->
-            <div class="min-w-0 flex-1">
-              <h3 class="text-sm font-bold text-gray-900 dark:text-white truncate leading-snug">{{ u.nome }}</h3>
-              <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{{ u.email }}</p>
-              <div class="flex items-center gap-1.5 mt-2">
-                <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full
-                  {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400
-                  {% elif u.papel == 'Colaborador Institucional' %}bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400
-                  {% elif u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400
-                  {% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400{% endif %}">
-                  {% if u.papel == 'Despachante Oficial' %}<i class="fas fa-briefcase text-[9px]"></i>
-                  {% elif u.papel == 'Colaborador Institucional' %}<i class="fas fa-building text-[9px]"></i>
-                  {% elif u.papel == 'Administrador' %}<i class="fas fa-crown text-[9px]"></i>
-                  {% else %}<i class="fas fa-eye text-[9px]"></i>
-                  {% endif %}
-                  {% if u.papel == 'Visualizador' and u.cargo_personalizado %}{{ u.cargo_personalizado }}{% else %}{{ u.papel }}{% endif %}
-                </span>
-                {% if u.status != 'Ativo' %}
-                <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                  {{ u.status }}
-                </span>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Info section -->
-        <div class="px-5 pb-3 space-y-2">
-          <!-- Contacto -->
-          <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <i class="fas fa-phone w-3.5 text-center text-gray-400 dark:text-gray-500 shrink-0"></i>
-            <span>{{ u.telefone|default:'Sem telefone' }}</span>
-          </div>
-          {% if u.nif %}
-          <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <i class="fas fa-id-card w-3.5 text-center text-gray-400 dark:text-gray-500 shrink-0"></i>
-            <span>NIF {{ u.nif }}</span>
-          </div>
-          {% endif %}
-
-          <!-- Banca (Despachante) -->
-          {% if u.papel == 'Despachante Oficial' %}
-          <div class="pt-1">
-            {% if u.bancas_total > 0 %}
-              <div class="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">
-                <i class="fas fa-store text-[10px]"></i>
-                {{ u.bancas_total }} banca{{ u.bancas_total|pluralize:"s" }}
-              </div>
-              <div class="flex flex-wrap gap-1">
-                {% for b in u.bancas_list|slice:":3" %}
-                <a href="{% url 'admin_banca_detalhe' b.id %}"
-                   class="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
-                  {{ b.nome|truncatechars:22 }}
-                </a>
-                {% endfor %}
-                {% if u.bancas_total > 3 %}
-                <span class="text-[11px] text-gray-400 dark:text-gray-500 self-center">+{{ u.bancas_total|add:"-3" }}</span>
-                {% endif %}
-              </div>
-            {% else %}
-              <span class="text-[11px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1">
-                <i class="fas fa-store text-gray-300 dark:text-gray-600"></i> Sem banca associada
-              </span>
-            {% endif %}
-          </div>
-          {% endif %}
-
-          <!-- Função (Colaborador) -->
-          {% if u.papel == 'Colaborador Institucional' %}
-          <div class="pt-1">
-            <div class="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
-              <i class="fas fa-user-tag text-[10px]"></i> Função
-            </div>
-            <select class="select-atribuir-funcao w-full px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer
-                      {% if u.funcao %}
-                        bg-primary/5 border-primary/20 text-primary hover:border-primary/40
-                      {% else %}
-                        bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:border-red-300
-                      {% endif %}"
-                    data-usuario-id="{{ u.id }}"
-                    data-usuario-nome="{{ u.nome }}"
-                    data-funcao-atual="{{ u.funcao_id|default:'' }}">
-              <option value="" {% if not u.funcao %}selected{% endif %}>Sem função</option>
-              {% for f in funcoes %}
-              <option value="{{ f.id }}" {% if u.funcao_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          {% endif %}
-        </div>
-
-        <!-- Footer actions -->
-        <div class="flex items-center justify-between px-5 py-3 mt-1 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
-          <span class="text-[11px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
-            <i class="far fa-clock"></i>
-            {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y" }}{% else %}<span class="italic">Nunca</span>{% endif %}
-          </span>
-          <div class="flex items-center gap-1">
-            <a href="{% url 'governanca_utilizador_editar' u.id %}"
-               class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
-               title="Editar">
-              <i class="fas fa-pen text-xs"></i>
-            </a>
-            {% if pode_executar_acoes %}
-            <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent border-none"
-                    data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
-              <i class="fas fa-paper-plane text-xs"></i>
-            </button>
-            <button class="btn-toggle-status w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer border-none
-                    {% if u.status == 'Ativo' %}text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20
-                    {% else %}text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20{% endif %}"
-                    data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}"
-                    title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
-              {% if u.status == 'Ativo' %}
-                <i class="fas fa-circle-pause text-sm"></i>
-              {% else %}
-                <i class="fas fa-circle-play text-sm"></i>
-              {% endif %}
-            </button>
-            {% endif %}
-            {% if usuario.papel == 'Administrador' and u.papel != 'Despachante Oficial' %}
-            <button class="btn-eliminar w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer bg-transparent border-none"
-                    data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}"
-                    title="Eliminar utilizador">
-              <i class="fas fa-trash-can text-xs"></i>
-            </button>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-      {% empty %}
-      <div class="col-span-full text-center py-20">
-        <div class="w-24 h-24 rounded-3xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-5">
-          <i class="fas fa-users-slash text-4xl text-gray-300 dark:text-gray-600"></i>
-        </div>
-        <h3 class="text-gray-700 dark:text-gray-300 font-bold text-lg mb-1.5">Nenhum utilizador encontrado</h3>
-        <p class="text-gray-400 dark:text-gray-500 text-sm max-w-sm mx-auto">
-          {% if q or tipo %}
-            Nenhum resultado para os filtros aplicados.
-          {% else %}
-            Ainda não existem utilizadores deste tipo registados.
-          {% endif %}
-        </p>
-        {% if q or tipo %}
-        <a href="?tipo={{ tipo }}" class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-primary/10 text-primary text-sm font-bold rounded-xl hover:bg-primary/20 transition-all">
-          <i class="fas fa-undo"></i> Limpar filtros
-        </a>
-        {% endif %}
-      </div>
-      {% endfor %}
+  <!-- ═══════ CONTEUDO AJAX ═══════ -->
+  <div id="ajax-container" class="relative">
+    <!-- Spinner de loading -->
+    <div id="ajax-spinner" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl min-h-[300px]">
+      <div class="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+      <p class="text-sm text-gray-400 dark:text-gray-500 font-medium mt-4">A carregar utilizadores...</p>
     </div>
-
-    <!-- ═══════ TABLE VIEW ═══════ -->
-    <div id="view-table" data-list-view class="hidden overflow-x-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-            <th class="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Utilizador</th>
-            <th class="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Perfil</th>
-            <th class="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">{% if tipo == 'Despachante Oficial' %}Banca{% else %}Função{% endif %}</th>
-            <th class="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Contacto</th>
-            <th class="text-center px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Estado</th>
-            <th class="text-center px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Último Acesso</th>
-            <th class="text-right px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">Acções</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-          {% for u in utilizadores %}
-          <tr class="hover:bg-gray-50/80 dark:hover:bg-gray-800/30 transition-colors">
-            <td class="px-5 py-3.5">
-              <div class="flex items-center gap-3">
-                <div class="relative shrink-0">
-                  <div class="w-10 h-10 rounded-xl flex items-center justify-center
-                    {% if u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/20
-                    {% elif u.papel == 'Colaborador Institucional' %}bg-emerald-50 dark:bg-emerald-900/20
-                    {% elif u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/20
-                    {% else %}bg-gray-100 dark:bg-gray-800{% endif %}">
-                    {% if u.papel == 'Despachante Oficial' %}
-                      <i class="fas fa-briefcase {% if u.status == 'Ativo' %}text-blue-500 dark:text-blue-400{% else %}text-gray-400{% endif %} text-sm"></i>
-                    {% elif u.papel == 'Colaborador Institucional' %}
-                      <i class="fas fa-building {% if u.status == 'Ativo' %}text-emerald-500 dark:text-emerald-400{% else %}text-gray-400{% endif %} text-sm"></i>
-                    {% elif u.papel == 'Administrador' %}
-                      <i class="fas fa-crown {% if u.status == 'Ativo' %}text-purple-500 dark:text-purple-400{% else %}text-gray-400{% endif %} text-sm"></i>
-                    {% else %}
-                      <i class="fas fa-eye {% if u.status == 'Ativo' %}text-gray-500 dark:text-gray-400{% else %}text-gray-400{% endif %} text-sm"></i>
-                    {% endif %}
-                  </div>
-                </div>
-                <div>
-                  <span class="font-bold text-gray-900 dark:text-white text-sm">{{ u.nome }}</span>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ u.email }}</p>
-                </div>
-              </div>
-            </td>
-            <td class="px-5 py-3.5">
-              <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full
-                {% if u.papel == 'Administrador' %}bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400
-                {% elif u.papel == 'Despachante Oficial' %}bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400
-                {% elif u.papel == 'Colaborador Institucional' %}bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400
-                {% elif u.papel == 'Visualizador' and u.cargo_personalizado %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400
-                {% else %}bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400{% endif %}">
-                {% if u.papel == 'Administrador' %}<i class="fas fa-crown text-[9px]"></i>
-                {% elif u.papel == 'Despachante Oficial' %}<i class="fas fa-briefcase text-[9px]"></i>
-                {% elif u.papel == 'Colaborador Institucional' %}<i class="fas fa-building text-[9px]"></i>
-                {% elif u.papel == 'Visualizador' %}<i class="fas fa-eye text-[9px]"></i>
-                {% endif %}
-                {% if u.papel == 'Visualizador' and u.cargo_personalizado %}{{ u.cargo_personalizado }}{% else %}{{ u.papel }}{% endif %}
-              </span>
-            </td>
-            <td class="px-5 py-3.5">
-              {% if u.papel == 'Despachante Oficial' %}
-                {% if u.bancas_total > 0 %}
-                <div class="flex flex-wrap gap-1">
-                  {% for b in u.bancas_list|slice:":2" %}
-                  <a href="{% url 'admin_banca_detalhe' b.id %}"
-                     class="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors whitespace-nowrap">
-                    {{ b.nome|truncatechars:18 }}
-                  </a>
-                  {% endfor %}
-                  {% if u.bancas_total > 2 %}
-                  <span class="text-[11px] text-gray-400 self-center">+{{ u.bancas_total|add:"-2" }}</span>
-                  {% endif %}
-                </div>
-                {% else %}
-                <span class="text-gray-300 dark:text-gray-600 text-xs italic">Sem banca</span>
-                {% endif %}
-              {% elif u.papel == 'Colaborador Institucional' %}
-              <select class="select-atribuir-funcao px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer max-w-[150px]
-                        {% if u.funcao %}
-                          bg-primary/5 border-primary/20 text-primary hover:border-primary/40
-                        {% else %}
-                          bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:border-red-300
-                        {% endif %}"
-                      data-usuario-id="{{ u.id }}"
-                      data-usuario-nome="{{ u.nome }}"
-                      data-funcao-atual="{{ u.funcao_id|default:'' }}">
-                <option value="" {% if not u.funcao %}selected{% endif %}>Sem função</option>
-                {% for f in funcoes %}
-                <option value="{{ f.id }}" {% if u.funcao_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
-                {% endfor %}
-              </select>
-              {% else %}
-              <span class="text-gray-300 dark:text-gray-600 text-xs">—</span>
-              {% endif %}
-            </td>
-            <td class="px-5 py-3.5 text-gray-600 dark:text-gray-400 text-xs">{{ u.telefone|default:'—' }}</td>
-            <td class="px-5 py-3.5 text-center">
-              {% if u.status == 'Ativo' %}
-              <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-full">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Activo
-              </span>
-              {% else %}
-              <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2.5 py-1 rounded-full">
-                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> {{ u.status }}
-              </span>
-              {% endif %}
-            </td>
-            <td class="px-5 py-3.5 text-center text-xs text-gray-500 dark:text-gray-400">
-              {% if u.ultimo_acesso %}{{ u.ultimo_acesso|date:"d/m/Y H:i" }}{% else %}<span class="text-gray-300 dark:text-gray-600 italic">Nunca</span>{% endif %}
-            </td>
-            <td class="px-5 py-3.5 text-right">
-              <div class="flex items-center justify-end gap-1">
-                <a href="{% url 'governanca_utilizador_editar' u.id %}"
-                   class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
-                   title="Editar">
-                  <i class="fas fa-pen text-xs"></i>
-                </a>
-                {% if pode_executar_acoes %}
-                <button class="btn-enviar-credenciais w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-all cursor-pointer bg-transparent border-none"
-                        data-usuario-id="{{ u.id }}" title="Reenviar credenciais">
-                  <i class="fas fa-paper-plane text-xs"></i>
-                </button>
-                <button class="btn-toggle-status w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer border-none
-                        {% if u.status == 'Ativo' %}text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20
-                        {% else %}text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20{% endif %}"
-                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}" data-status="{{ u.status }}"
-                        title="{% if u.status == 'Ativo' %}Suspender{% else %}Activar{% endif %}">
-                  {% if u.status == 'Ativo' %}
-                    <i class="fas fa-circle-pause text-sm"></i>
-                  {% else %}
-                    <i class="fas fa-circle-play text-sm"></i>
-                  {% endif %}
-                </button>
-                {% endif %}
-                {% if usuario.papel == 'Administrador' and u.papel != 'Despachante Oficial' %}
-                <button class="btn-eliminar w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all cursor-pointer bg-transparent border-none"
-                        data-usuario-id="{{ u.id }}" data-usuario-nome="{{ u.nome }}"
-                        title="Eliminar utilizador">
-                  <i class="fas fa-trash-can text-xs"></i>
-                </button>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="7" class="text-center py-16">
-              <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">
-                <i class="fas fa-users-slash text-2xl text-gray-300 dark:text-gray-600"></i>
-              </div>
-              <p class="text-gray-500 dark:text-gray-400 font-semibold text-sm">Nenhum utilizador encontrado</p>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
+    {% include 'governanca/gerir_utilizadores_lista.html' %}
   </div>
-
-  {% if page_obj.has_other_pages %}
-  <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
-    {% include 'includes/pagination.html' with extra_params=extra_params %}
-  </div>
-  {% endif %}
 
   {% include 'includes/confirm-modal.html' %}
 
@@ -486,128 +141,334 @@
   const apiCredenciais = '{% url "governanca_api_utilizador_credenciais" %}';
   const apiAtribuirFuncao = '{% url "governanca_api_utilizador_atribuir_funcao" %}';
   const apiEliminar = '{% url "governanca_api_utilizador_eliminar" %}';
+  const apiLista = '{% url "governanca_api_utilizador_lista" %}';
+
+  var currentTipo = '{{ tipo|escapejs }}';
+  var currentQ = '{{ q|escapejs }}';
 
   var funcoesData = {};
   {% for f in funcoes %}
   funcoesData[{{ f.id }}] = { id: {{ f.id }}, nome: '{{ f.nome|escapejs }}', permissoes_count: {{ f.permissoes.count }} };
   {% endfor %}
 
-  document.querySelectorAll('.select-atribuir-funcao').forEach(function(sel) {
-    sel.addEventListener('change', async function() {
-      var usuarioId = parseInt(this.dataset.usuarioId);
-      var usuarioNome = this.dataset.usuarioNome;
-      var funcaoId = this.value || null;
-      var funcaoNome = funcaoId ? (funcoesData[funcaoId]?.nome || '') : null;
+  /* ── AJAX loading ────────────────────────────────────────────────────── */
+  var spinner = document.getElementById('ajax-spinner');
+  var container = document.getElementById('ajax-container');
 
-      if (funcaoId && funcaoId === this.dataset.funcaoAtual) return;
+  function showSpinner() {
+    if (spinner) spinner.classList.remove('hidden');
+  }
+  function hideSpinner() {
+    if (spinner) spinner.classList.add('hidden');
+  }
 
-      var msg = funcaoId
-        ? 'Atribuir a função "' + funcaoNome + '" a "' + usuarioNome + '"?'
-        : 'Remover a função de "' + usuarioNome + '"? Ele ficará sem acesso ao sistema.';
-      var ok = await showConfirm('Atribuir Função', msg, funcaoId ? 'Atribuir' : 'Remover');
-      if (!ok) {
-        this.value = this.dataset.funcaoAtual || '';
-        return;
+  async function loadLista(tipo, q, page) {
+    showSpinner();
+    var params = new URLSearchParams();
+    params.set('tipo', tipo || currentTipo);
+    if (q !== undefined && q !== null) params.set('q', q);
+    if (page) params.set('page', page);
+    try {
+      var res = await fetch(apiLista + '?' + params.toString(), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      var data = await res.json();
+      if (data.html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = data.html;
+        var newCount = tmp.querySelector('#lista-count');
+        var newGrid = tmp.querySelector('#utilizadores-grid');
+        var newTable = tmp.querySelector('#view-table');
+        var newPag = tmp.querySelector('#lista-pagination');
+        var oldCount = container.querySelector('#lista-count');
+        var oldGrid = container.querySelector('#utilizadores-grid');
+        var oldTable = container.querySelector('#view-table');
+        var oldPag = container.querySelector('#lista-pagination');
+        if (newCount && oldCount) oldCount.replaceWith(newCount);
+        if (newGrid && oldGrid) oldGrid.replaceWith(newGrid);
+        if (newTable && oldTable) oldTable.replaceWith(newTable);
+        if (newPag) {
+          if (oldPag) oldPag.replaceWith(newPag);
+        } else if (oldPag) {
+          oldPag.remove();
+        }
+        if (data.stats_total !== undefined) {
+          var el = document.getElementById('stat-total');
+          if (el) el.textContent = data.stats_total;
+        }
+        if (data.stats_ativos !== undefined) {
+          var el2 = document.getElementById('stat-ativos');
+          if (el2) el2.textContent = data.stats_ativos;
+        }
+        if (data.stats_inativos !== undefined) {
+          var el3 = document.getElementById('stat-inativos');
+          if (el3) el3.textContent = data.stats_inativos;
+        }
+        var elCount = document.getElementById('stat-count');
+        if (elCount && data.count !== undefined) elCount.textContent = data.count;
+        reattachListeners();
+        reinitViewToggle();
       }
+    } catch(e) {
+      console.error('Erro ao carregar lista:', e);
+    }
+    hideSpinner();
+  }
 
-      this.disabled = true;
-      try {
-        var res = await fetch(apiAtribuirFuncao, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-          body: JSON.stringify({ usuario_id: usuarioId, funcao_id: funcaoId })
-        });
-        var data = await res.json();
-        if (data.status === 'ok') {
-          document.querySelectorAll('.select-atribuir-funcao[data-usuario-id="' + usuarioId + '"]').forEach(function(s) {
-            s.dataset.funcaoAtual = funcaoId || '';
-            s.value = funcaoId || '';
-            if (funcaoId) {
-              s.classList.remove('bg-red-50', 'dark:bg-red-900/30', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
-              s.classList.add('bg-primary/5', 'border-primary/20', 'text-primary');
-            } else {
-              s.classList.remove('bg-primary/5', 'border-primary/20', 'text-primary');
-              s.classList.add('bg-red-50', 'dark:bg-red-900/30', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
-            }
+  function updateUrl(tipo, q) {
+    var params = new URLSearchParams();
+    params.set('tipo', tipo);
+    if (q) params.set('q', q);
+    var url = '?' + params.toString();
+    history.pushState({tipo: tipo, q: q}, '', url);
+  }
+
+  window.addEventListener('popstate', function(e) {
+    if (e.state && e.state.tipo) {
+      currentTipo = e.state.tipo;
+      currentQ = e.state.q || '';
+      updateTabUI(currentTipo);
+      loadLista(currentTipo, currentQ);
+    }
+  });
+
+  /* ── Tab clicks ──────────────────────────────────────────────────────── */
+  function updateTabUI(tipo) {
+    document.querySelectorAll('.tab-tipo').forEach(function(btn) {
+      var isActive = btn.getAttribute('data-tab-tipo') === tipo;
+      btn.classList.toggle('border-primary', isActive);
+      btn.classList.toggle('text-primary', isActive);
+      btn.classList.toggle('bg-primary/5', isActive);
+      btn.classList.toggle('border-transparent', !isActive);
+      btn.classList.toggle('text-gray-500', !isActive);
+      btn.classList.toggle('dark:text-gray-400', !isActive);
+    });
+  }
+
+  document.querySelectorAll('.tab-tipo').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var tipo = this.getAttribute('data-tab-tipo');
+      if (tipo === currentTipo) return;
+      currentTipo = tipo;
+      currentQ = '';
+      var input = document.getElementById('input-pesquisa');
+      if (input) input.value = '';
+      updateSearchUI('');
+      updateTabUI(tipo);
+      updateUrl(tipo, '');
+      loadLista(tipo, '');
+    });
+  });
+
+  /* ── Search ──────────────────────────────────────────────────────────── */
+  var searchTimer = null;
+  var inputPesquisa = document.getElementById('input-pesquisa');
+  var btnLimpar = document.getElementById('btn-limpar-pesquisa');
+  var btnLimparTudo = document.getElementById('btn-limpar-tudo');
+  var formPesquisa = document.getElementById('form-pesquisa');
+
+  function updateSearchUI(q) {
+    if (btnLimpar) btnLimpar.style.display = q ? 'flex' : 'none';
+    if (btnLimparTudo) btnLimparTudo.style.display = q ? 'flex' : 'none';
+  }
+
+  if (formPesquisa) {
+    formPesquisa.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var q = inputPesquisa ? inputPesquisa.value.trim() : '';
+      currentQ = q;
+      updateUrl(currentTipo, q);
+      updateSearchUI(q);
+      loadLista(currentTipo, q);
+    });
+  }
+
+  if (inputPesquisa) {
+    inputPesquisa.addEventListener('input', function() {
+      var q = this.value.trim();
+      updateSearchUI(q);
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function() {
+        currentQ = q;
+        updateUrl(currentTipo, q);
+        loadLista(currentTipo, q);
+      }, 400);
+    });
+    inputPesquisa.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        this.value = '';
+        currentQ = '';
+        updateSearchUI('');
+        updateUrl(currentTipo, '');
+        loadLista(currentTipo, '');
+      }
+    });
+  }
+
+  if (btnLimpar) {
+    btnLimpar.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (inputPesquisa) inputPesquisa.value = '';
+      currentQ = '';
+      updateSearchUI('');
+      updateUrl(currentTipo, '');
+      loadLista(currentTipo, '');
+    });
+  }
+  if (btnLimparTudo) {
+    btnLimparTudo.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (inputPesquisa) inputPesquisa.value = '';
+      currentQ = '';
+      updateSearchUI('');
+      updateUrl(currentTipo, '');
+      loadLista(currentTipo, '');
+    });
+  }
+
+  /* ── Pagination via AJAX ─────────────────────────────────────────────── */
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('#lista-pagination a');
+    if (!link) return;
+    e.preventDefault();
+    var href = link.getAttribute('href');
+    if (!href) return;
+    var pageMatch = href.match(/[?&]page=(\d+)/);
+    var page = pageMatch ? pageMatch[1] : '1';
+    loadLista(currentTipo, currentQ, page);
+  });
+
+  /* ── Re-attach dynamic listeners after AJAX reload ───────────────────── */
+  function reattachListeners() {
+    document.querySelectorAll('.select-atribuir-funcao').forEach(function(sel) {
+      if (sel._hasListener) return;
+      sel._hasListener = true;
+      sel.addEventListener('change', async function() {
+        var usuarioId = parseInt(this.dataset.usuarioId);
+        var usuarioNome = this.dataset.usuarioNome;
+        var funcaoId = this.value || null;
+        var funcaoNome = funcaoId ? (funcoesData[funcaoId]?.nome || '') : null;
+        if (funcaoId && funcaoId === this.dataset.funcaoAtual) return;
+        var msg = funcaoId
+          ? 'Atribuir a funcao "' + funcaoNome + '" a "' + usuarioNome + '"?'
+          : 'Remover a funcao de "' + usuarioNome + '"? Ele ficara sem acesso ao sistema.';
+        var ok = await showConfirm('Atribuir Funcao', msg, funcaoId ? 'Atribuir' : 'Remover');
+        if (!ok) { this.value = this.dataset.funcaoAtual || ''; return; }
+        this.disabled = true;
+        try {
+          var res = await fetch(apiAtribuirFuncao, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+            body: JSON.stringify({ usuario_id: usuarioId, funcao_id: funcaoId })
           });
-          if (window.toast) window.toast.success(data.message || 'Função atribuída com sucesso!');
-        } else {
+          var data = await res.json();
+          if (data.status === 'ok') {
+            document.querySelectorAll('.select-atribuir-funcao[data-usuario-id="' + usuarioId + '"]').forEach(function(s) {
+              s.dataset.funcaoAtual = funcaoId || '';
+              s.value = funcaoId || '';
+              if (funcaoId) {
+                s.classList.remove('bg-red-50', 'dark:bg-red-900/30', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
+                s.classList.add('bg-primary/5', 'border-primary/20', 'text-primary');
+              } else {
+                s.classList.remove('bg-primary/5', 'border-primary/20', 'text-primary');
+                s.classList.add('bg-red-50', 'dark:bg-red-900/30', 'border-red-200', 'dark:border-red-800', 'text-red-600', 'dark:text-red-400');
+              }
+            });
+            if (window.toast) window.toast.success(data.message || 'Funcao atribuida com sucesso!');
+          } else {
+            this.value = this.dataset.funcaoAtual || '';
+            if (window.toast) window.toast.error(data.erro || 'Erro ao atribuir funcao.');
+          }
+        } catch(e) {
           this.value = this.dataset.funcaoAtual || '';
-          if (window.toast) window.toast.error(data.erro || 'Erro ao atribuir função.');
+          if (window.toast) window.toast.error('Erro de conexao.');
         }
-      } catch(e) {
-        this.value = this.dataset.funcaoAtual || '';
-        if (window.toast) window.toast.error('Erro de conexão.');
-      }
-      this.disabled = false;
+        this.disabled = false;
+      });
     });
-  });
 
-  document.querySelectorAll('.btn-toggle-status').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      const nome = this.dataset.usuarioNome;
-      const ativo = this.dataset.status === 'Ativo';
-      const acao = ativo ? 'suspender' : 'ativar';
-      const ok = await showConfirm('Confirmar', acao.charAt(0).toUpperCase() + acao.slice(1) + ' utilizador "' + nome + '"?', acao.charAt(0).toUpperCase() + acao.slice(1));
-      if (!ok) return;
-      try {
-        const res = await fetch(apiToggle, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-          body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
-        });
-        const data = await res.json();
-        if (data.status === 'ok') {
-          if (window.toast) window.toast.success('Utilizador ' + (ativo ? 'suspenso' : 'ativado') + ' com sucesso.');
-          setTimeout(function() { location.reload(); }, 800);
-        }
-        else { if (window.toast) window.toast.error(data.erro || 'Erro.'); }
-      } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
+    document.querySelectorAll('.btn-toggle-status').forEach(function(btn) {
+      if (btn._hasListener) return;
+      btn._hasListener = true;
+      btn.addEventListener('click', async function() {
+        const nome = this.dataset.usuarioNome;
+        const ativo = this.dataset.status === 'Ativo';
+        const acao = ativo ? 'suspender' : 'ativar';
+        const ok = await showConfirm('Confirmar', acao.charAt(0).toUpperCase() + acao.slice(1) + ' utilizador "' + nome + '"?', acao.charAt(0).toUpperCase() + acao.slice(1));
+        if (!ok) return;
+        try {
+          const res = await fetch(apiToggle, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+            body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
+          });
+          const data = await res.json();
+          if (data.status === 'ok') {
+            if (window.toast) window.toast.success('Utilizador ' + (ativo ? 'suspenso' : 'ativado') + ' com sucesso.');
+            loadLista(currentTipo, currentQ);
+          }
+          else { if (window.toast) window.toast.error(data.erro || 'Erro.'); }
+        } catch(e) { if (window.toast) window.toast.error('Erro de conexao.'); }
+      });
     });
-  });
 
-  document.querySelectorAll('.btn-enviar-credenciais').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      const ok = await showConfirm('Reenviar Credenciais', 'Reenviar credenciais de acesso por email?', 'Enviar');
-      if (!ok) return;
-      try {
-        const res = await fetch(apiCredenciais, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-          body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
-        });
-        const data = await res.json();
-        if (data.status === 'ok') {
-          if (window.toast) window.toast.success('Credenciais enviadas com sucesso.');
-        } else {
-          if (window.toast) window.toast.error(data.erro || 'Erro.');
-        }
-      } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
+    document.querySelectorAll('.btn-enviar-credenciais').forEach(function(btn) {
+      if (btn._hasListener) return;
+      btn._hasListener = true;
+      btn.addEventListener('click', async function() {
+        const ok = await showConfirm('Reenviar Credenciais', 'Reenviar credenciais de acesso por email?', 'Enviar');
+        if (!ok) return;
+        try {
+          const res = await fetch(apiCredenciais, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+            body: JSON.stringify({ usuario_id: parseInt(this.dataset.usuarioId) })
+          });
+          const data = await res.json();
+          if (data.status === 'ok') {
+            if (window.toast) window.toast.success('Credenciais enviadas com sucesso.');
+          } else {
+            if (window.toast) window.toast.error(data.erro || 'Erro.');
+          }
+        } catch(e) { if (window.toast) window.toast.error('Erro de conexao.'); }
+      });
     });
-  });
 
-  document.querySelectorAll('.btn-eliminar').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      const usuarioId = parseInt(this.dataset.usuarioId);
-      const nome = this.dataset.usuarioNome;
-      const ok = await showConfirm('Eliminar Utilizador', 'Tem certeza que deseja eliminar o utilizador "' + nome + '"? Esta acção não pode ser desfeita.', 'Eliminar');
-      if (!ok) return;
-      try {
-        const res = await fetch(apiEliminar, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-          body: JSON.stringify({ usuario_id: usuarioId })
-        });
-        const data = await res.json();
-        if (data.status === 'ok') {
-          if (window.toast) window.toast.success(data.message || 'Utilizador eliminado com sucesso.');
-          location.reload();
-        } else {
-          if (window.toast) window.toast.error(data.erro || 'Erro ao eliminar utilizador.');
-        }
-      } catch(e) { if (window.toast) window.toast.error('Erro de conexão.'); }
+    document.querySelectorAll('.btn-eliminar').forEach(function(btn) {
+      if (btn._hasListener) return;
+      btn._hasListener = true;
+      btn.addEventListener('click', async function() {
+        const usuarioId = parseInt(this.dataset.usuarioId);
+        const nome = this.dataset.usuarioNome;
+        const ok = await showConfirm('Eliminar Utilizador', 'Tem certeza que deseja eliminar o utilizador "' + nome + '"? Esta accao nao pode ser desfeita.', 'Eliminar');
+        if (!ok) return;
+        try {
+          const res = await fetch(apiEliminar, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+            body: JSON.stringify({ usuario_id: usuarioId })
+          });
+          const data = await res.json();
+          if (data.status === 'ok') {
+            if (window.toast) window.toast.success(data.message || 'Utilizador eliminado com sucesso.');
+            loadLista(currentTipo, currentQ);
+          } else {
+            if (window.toast) window.toast.error(data.erro || 'Erro ao eliminar utilizador.');
+          }
+        } catch(e) { if (window.toast) window.toast.error('Erro de conexao.'); }
+      });
     });
-  });
+  }
+
+  function reinitViewToggle() {
+    try {
+      var saved = localStorage.getItem('listView') || 'grid';
+      if (typeof setView === 'function') setView(saved);
+    } catch(e) {}
+  }
+
+  reattachListeners();
+  reinitViewToggle();
 
 })();
 </script>

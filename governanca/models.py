@@ -81,7 +81,7 @@ class Assembleia(models.Model):
         return self.presencas.filter(
             presente_em__isnull=False
         ).filter(
-            Q(usuario__papel__in=['Administrador', 'Despachante Oficial']) |
+            Q(usuario__papel__in=['Super Administrador', 'Administrador', 'Despachante Oficial']) |
             (
                 Q(usuario__papel='Colaborador Institucional') & (
                     Q(usuario__permissoes_diretas__codigo='gerir_assembleia') |

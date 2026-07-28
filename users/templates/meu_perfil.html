@@ -25,39 +25,96 @@
                 <i class="fas fa-user text-primary"></i>
                 Dados Pessoais
               </h2>
-              {% if pode_editar_perfil %}
-              <button onclick="abrirModal('modalEditarDados')"
+              {% if papel == 'Administrador' or papel == 'Super Administrador' %}
+              <button type="button" onclick="toggleEditarPerfil()"
+                id="btnEditarPerfil"
                 class="flex items-center gap-1 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors">
-                <i class="fas fa-edit text-sm"></i> Editar
+                <i class="fas fa-edit text-sm"></i> Editar Perfil
               </button>
               {% endif %}
             </div>
-            <div class="grid grid-cols-2 gap-5">
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome Completo</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white" id="display_nome">{{ usuario.nome }}</p>
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">NIF</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white" id="display_nif">{{ usuario.nif|default:"—" }}</p>
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.email }}</p>
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Telefone</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white" id="display_telefone">{{ usuario.telefone|default:"—" }}</p>
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Username</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.username }}</p>
-              </div>
-              <div>
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nº Cédula / Licença</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.cedula|default:"—" }}</p>
+
+            <!-- Modo Visualização -->
+            <div id="perfilView">
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome Completo</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.nome }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">NIF</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.nif|default:"—" }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.email }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Telefone</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.telefone|default:"—" }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Username</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.username }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nº Cédula / Licença</p>
+                  <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ usuario.cedula|default:"—" }}</p>
+                </div>
               </div>
             </div>
+
+            <!-- Modo Edição (Admin/Super Admin) -->
+            {% if papel == 'Administrador' or papel == 'Super Administrador' %}
+            <div id="perfilEdit" class="hidden">
+              <form method="POST" action="{% url 'meu_perfil_guardar' %}" class="space-y-5">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome Completo *</label>
+                    <input type="text" name="nome" value="{{ usuario.nome }}" required
+                      class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">NIF</label>
+                    <input type="text" name="nif" value="{{ usuario.nif }}"
+                      class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email *</label>
+                    <input type="email" name="email" value="{{ usuario.email }}" required
+                      class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Telefone</label>
+                    <input type="text" name="telefone" value="{{ usuario.telefone }}"
+                      class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Username *</label>
+                    <input type="text" name="username" value="{{ usuario.username }}" required
+                      class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Apenas letras, números e underscore.</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nº Cédula / Licença</label>
+                    <input type="text" name="cedula" value="{{ usuario.cedula }}"
+                      class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                  </div>
+                </div>
+                <div class="flex gap-3 justify-end pt-2">
+                  <button type="submit"
+                    class="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors active:scale-[0.98] flex items-center gap-2">
+                    <i class="fas fa-save"></i> Guardar Alterações
+                  </button>
+                  <button type="button" onclick="toggleEditarPerfil()"
+                    class="px-6 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+            {% endif %}
           </div>
 
           <!-- Dados Profissionais -->
@@ -70,14 +127,16 @@
               <div>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Papel / Função</p>
                 <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
-                  {% if usuario.papel == 'Administrador' %}bg-red-100 text-red-700
+                  {% if usuario.papel == 'Administrador' or usuario.papel == 'Super Administrador' %}bg-red-100 text-red-700
                   {% elif usuario.papel == 'Despachante Oficial' %}bg-blue-100 text-blue-700
                   {% else %}bg-gray-100 text-gray-700{% endif %}">
-                  <i class="fas fa-xs">
-                    {% if usuario.papel == 'Administrador' %}fa-user-shield
-                    {% elif usuario.papel == 'Despachante Oficial' %}fa-truck
-                    {% else %}fa-eye{% endif %}
-                  </i>
+                  {% if usuario.papel == 'Administrador' or usuario.papel == 'Super Administrador' %}
+                  <i class="fas fa-user-shield text-[10px]"></i>
+                  {% elif usuario.papel == 'Despachante Oficial' %}
+                  <i class="fas fa-truck text-[10px]"></i>
+                  {% else %}
+                  <i class="fas fa-eye text-[10px]"></i>
+                  {% endif %}
                   {{ usuario.papel }}
                 </span>
               </div>
@@ -85,9 +144,11 @@
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status da Conta</p>
                 <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold
                   {% if usuario.status == 'Ativo' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
-                  <i class="fas fa-xs">
-                    {% if usuario.status == 'Ativo' %}fa-check-circle{% else %}fa-times-circle{% endif %}
-                  </i>
+                  {% if usuario.status == 'Ativo' %}
+                  <i class="fas fa-check-circle text-[10px]"></i>
+                  {% else %}
+                  <i class="fas fa-times-circle text-[10px]"></i>
+                  {% endif %}
                   {{ usuario.status }}
                 </span>
               </div>
@@ -103,42 +164,100 @@
           {% if pode_editar_perfil %}
           <!-- Segurança -->
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
-              <i class="fas fa-lock text-primary"></i>
-              Segurança
-            </h2>
-            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-              <div>
-                <p class="text-sm font-medium text-gray-900 dark:text-white">Senha de Acesso</p>
-                {% if not tem_senha %}
-                <div class="flex items-center gap-1 mt-1">
-                  <i class="fas fa-exclamation-triangle text-amber-500 text-sm"></i>
-                  <p class="text-xs text-amber-600 dark:text-amber-400">Senha não definida — defina para usar o login tradicional</p>
-                </div>
-                {% else %}
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Altere a sua senha regularmente para maior segurança</p>
-                {% endif %}
-              </div>
-              <button onclick="abrirModal('modalAlterarSenha')"
-                class="px-4 py-2 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors font-medium whitespace-nowrap">
-                {% if not tem_senha %}Definir{% else %}Alterar{% endif %}
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <i class="fas fa-lock text-primary"></i>
+                Segurança
+              </h2>
+              <button type="button" onclick="toggleAlterarSenha()"
+                id="btnAlterarSenha"
+                data-label="{% if not tem_senha %}Definir{% else %}Alterar{% endif %} Senha"
+                class="flex items-center gap-1 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                <i class="fas fa-key text-sm"></i> {% if not tem_senha %}Definir{% else %}Alterar{% endif %} Senha
               </button>
             </div>
-            
-            {% if not tem_senha %}
-            <!-- Informação adicional para utilizadores sem senha (criados via portal) -->
-            <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <div class="flex gap-2">
-                <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 text-base"></i>
+
+            <!-- Modo Visualização -->
+            <div id="senhaView">
+              <div class="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-lock text-primary"></i>
+                </div>
                 <div>
-                  <p class="text-xs font-medium text-blue-900 dark:text-blue-100">Conta criada via Portal CDO</p>
-                  <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    Pode continuar a usar o Portal CDO para entrar, ou definir uma senha para usar o login tradicional do SICDOA.
-                  </p>
+                  <p class="text-sm font-medium text-gray-900 dark:text-white">Senha de Acesso</p>
+                  {% if not tem_senha %}
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <i class="fas fa-exclamation-triangle text-amber-500 text-xs"></i>
+                    <p class="text-xs text-amber-600 dark:text-amber-400">Senha não definida — defina para usar o login tradicional</p>
+                  </div>
+                  {% else %}
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Altere a sua senha regularmente para maior segurança</p>
+                  {% endif %}
                 </div>
               </div>
+              {% if not tem_senha %}
+              <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div class="flex gap-2">
+                  <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 text-base"></i>
+                  <div>
+                    <p class="text-xs font-medium text-blue-900 dark:text-blue-100">Conta criada via Portal CDO</p>
+                    <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                      Pode continuar a usar o Portal CDO para entrar, ou definir uma senha para usar o login tradicional do SICDOA.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
             </div>
-            {% endif %}
+
+            <!-- Modo Edição -->
+            <div id="senhaEdit" class="hidden">
+              <form method="POST" action="{% url 'meu_perfil_senha' %}" class="space-y-4" id="formAlterarSenha">
+                {% csrf_token %}
+
+                {% if not tem_senha %}
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                  <div class="flex gap-3">
+                    <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 text-xl mt-0.5"></i>
+                    <div>
+                      <p class="text-sm font-medium text-blue-900 dark:text-blue-100">Primeira Definição de Senha</p>
+                      <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                        A sua conta foi criada via Portal CDO. Defina uma senha para poder usar o login tradicional do SICDOA.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                {% else %}
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha Actual *</label>
+                  <input type="password" name="senha_atual" required
+                    class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                </div>
+                {% endif %}
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nova Senha *</label>
+                  <input type="password" name="nova_senha" required minlength="4"
+                    class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mínimo de 4 caracteres</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmar Nova Senha *</label>
+                  <input type="password" name="confirmar_senha" required minlength="4"
+                    class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all" />
+                </div>
+                <div class="flex gap-3 justify-end pt-2">
+                  <button type="submit"
+                    class="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors active:scale-[0.98] flex items-center gap-2">
+                    <i class="fas fa-save"></i> {% if not tem_senha %}Definir Senha{% else %}Alterar Senha{% endif %}
+                  </button>
+                  <button type="button" onclick="toggleAlterarSenha()"
+                    class="px-6 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
           {% endif %}
         </div>
@@ -248,7 +367,7 @@
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Ações Rápidas</h3>
             <div class="space-y-1">
-              {% if papel != 'Administrador' and papel != 'Colaborador Institucional' %}
+              {% if papel != 'Administrador' and papel != 'Super Administrador' and papel != 'Colaborador Institucional' %}
               <a href="{% url 'aduaneiro:du' %}"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <i class="fas fa-plus-circle text-primary text-base"></i>
@@ -271,115 +390,6 @@
       </div>
     </div>
 
-{% if pode_editar_perfil %}
-<!-- ── Modal Editar Dados Pessoais ── -->
-<div id="modalEditarDados" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-  <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-2xl">
-    <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Editar Dados Pessoais</h2>
-      <button onclick="fecharModal('modalEditarDados')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <form method="POST" action="{% url 'meu_perfil_guardar' %}" class="p-6 space-y-4">
-      {% csrf_token %}
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Completo *</label>
-        <input type="text" name="nome" value="{{ usuario.nome }}" required
-          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
-                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username *</label>
-        <input type="text" name="username" value="{{ usuario.username }}" required
-          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
-                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Apenas letras, números e underscore. Sem espaços.</p>
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
-        <input type="text" name="telefone" value="{{ usuario.telefone }}"
-          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
-                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
-      </div>
-      <div class="flex gap-3 pt-2">
-        <button type="submit"
-          class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-          Guardar Alterações
-        </button>
-        <button type="button" onclick="fecharModal('modalEditarDados')"
-          class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-          Cancelar
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- ── Modal Alterar Senha ── -->
-<div id="modalAlterarSenha" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-  <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full shadow-2xl">
-    <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-        {% if not tem_senha %}Definir Senha{% else %}Alterar Senha{% endif %}
-      </h2>
-      <button onclick="fecharModal('modalAlterarSenha')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <form method="POST" action="{% url 'meu_perfil_senha' %}" class="p-6 space-y-4">
-      {% csrf_token %}
-      
-      {% if not tem_senha %}
-      <!-- Mensagem para utilizadores sem senha (criados via portal) -->
-      <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <div class="flex gap-3">
-          <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 text-xl"></i>
-          <div>
-            <p class="text-sm font-medium text-blue-900 dark:text-blue-100">Primeira Definição de Senha</p>
-            <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
-              A sua conta foi criada via Portal CDO. Defina uma senha para poder usar o login tradicional do SICDOA.
-            </p>
-          </div>
-        </div>
-      </div>
-      {% else %}
-      <!-- Campo de senha actual (apenas se o utilizador já tem senha) -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha Actual *</label>
-        <input type="password" name="senha_atual" required
-          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
-                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
-      </div>
-      {% endif %}
-      
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nova Senha *</label>
-        <input type="password" name="nova_senha" required minlength="4"
-          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
-                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mínimo de 4 caracteres</p>
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmar Nova Senha *</label>
-        <input type="password" name="confirmar_senha" required minlength="4"
-          class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm
-                 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
-      </div>
-      <div class="flex gap-3 pt-2">
-        <button type="submit"
-          class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-          {% if not tem_senha %}Definir Senha{% else %}Alterar Senha{% endif %}
-        </button>
-        <button type="button" onclick="fecharModal('modalAlterarSenha')"
-          class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-          Cancelar
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-{% endif %}
 
 {% if usuario.papel == 'Despachante Oficial' %}
 <!-- ── Modal Assinatura Digital ── -->
@@ -470,6 +480,37 @@
 {% endif %}
 
 <script>
+function toggleEditarPerfil() {
+  var view = document.getElementById('perfilView');
+  var edit = document.getElementById('perfilEdit');
+  var btn = document.getElementById('btnEditarPerfil');
+  if (!view || !edit) return;
+  if (edit.classList.contains('hidden')) {
+    view.classList.add('hidden');
+    edit.classList.remove('hidden');
+    btn.innerHTML = '<i class="fas fa-times text-sm"></i> Cancelar';
+  } else {
+    edit.classList.add('hidden');
+    view.classList.remove('hidden');
+    btn.innerHTML = '<i class="fas fa-edit text-sm"></i> Editar Perfil';
+  }
+}
+function toggleAlterarSenha() {
+  var view = document.getElementById('senhaView');
+  var edit = document.getElementById('senhaEdit');
+  var btn = document.getElementById('btnAlterarSenha');
+  if (!view || !edit) return;
+  if (edit.classList.contains('hidden')) {
+    view.classList.add('hidden');
+    edit.classList.remove('hidden');
+    btn.innerHTML = '<i class="fas fa-times text-sm"></i> Cancelar';
+  } else {
+    edit.classList.add('hidden');
+    view.classList.remove('hidden');
+    var label = btn.getAttribute('data-label') || 'Alterar Senha';
+    btn.innerHTML = '<i class="fas fa-key text-sm"></i> ' + label;
+  }
+}
 function abrirModal(id) {
   document.getElementById(id).classList.remove('hidden');
   // Canvas de assinatura precisa de redimensionar quando o modal abre
@@ -487,10 +528,10 @@ document.querySelectorAll('[id^="modal"]').forEach(m => {
 
 // ── Validação do formulário de senha ─────────────────────────────────────────
 (function() {
-  const form        = document.querySelector('#modalAlterarSenha form');
-  const novaSenha   = document.querySelector('#modalAlterarSenha [name="nova_senha"]');
-  const confirmar   = document.querySelector('#modalAlterarSenha [name="confirmar_senha"]');
-  const senhaActual = document.querySelector('#modalAlterarSenha [name="senha_atual"]');
+  const form        = document.getElementById('formAlterarSenha');
+  const novaSenha   = form ? form.querySelector('[name="nova_senha"]') : null;
+  const confirmar   = form ? form.querySelector('[name="confirmar_senha"]') : null;
+  const senhaActual = form ? form.querySelector('[name="senha_atual"]') : null;
 
   if (!form || !novaSenha || !confirmar) return;
 

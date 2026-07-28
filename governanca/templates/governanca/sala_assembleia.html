@@ -168,7 +168,7 @@
       <button onclick="document.getElementById('admin-controls').classList.add('hidden')" class="text-gray-400 hover:text-white cursor-pointer bg-transparent border-none"><i class="fas fa-times"></i></button>
     </div>
 
-    {% if papel == 'Administrador' or 'gerir_assembleia' in user_permissoes and assembleia.status == 'Em Curso' %}
+    {% if papel == 'Administrador' or papel == 'Super Administrador' or 'gerir_assembleia' in user_permissoes and assembleia.status == 'Em Curso' %}
     <div class="mb-2 text-xs text-gray-400 font-medium">Votações das Pautas</div>
     {% for pauta in pautas %}
     <div class="flex items-center justify-between py-1.5 text-sm" data-pauta-id="{{ pauta.id }}">
@@ -213,7 +213,7 @@
       {% endwith %}
     {% endif %}
   </div>
-  {% if papel != 'Administrador' and 'gerir_assembleia' not in user_permissoes %}
+  {% if papel != 'Administrador' and papel != 'Super Administrador' and 'gerir_assembleia' not in user_permissoes %}
   <div id="admin-controls-placeholder" class="hidden"></div> {# placeholder para JS não quebrar #}
   {% endif %}
 
@@ -231,7 +231,7 @@
 <script src="{% static 'js/sala_assembleia.js' %}?v=20260601"></script>
 
 {# ── Admin JS (voting controls, concluir, ata) ─────────────── #}
-{% if papel == 'Administrador' or 'gerir_assembleia' in user_permissoes %}
+{% if papel == 'Administrador' or papel == 'Super Administrador' or 'gerir_assembleia' in user_permissoes %}
 <script>
 (function() {
   const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';

@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 def _get_user_filter(request):
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         return {}
     banca_id = request.session.get('banca_id')
     if banca_id:

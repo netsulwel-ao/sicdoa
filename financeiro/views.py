@@ -96,7 +96,7 @@ def _carregar_assinatura(usuario_id):
 def _user_tem_acesso_total(request):
     """True APENAS para papel=Administrador. Despachantes NUNCA têm acesso total cross-tenant."""
     papel = request.session.get('usuario', {}).get('papel', '')
-    return papel == 'Administrador'
+    return papel in ('Administrador', 'Super Administrador')
 
 
 def _is_colaborador_institucional(request):
@@ -121,7 +121,7 @@ def _pode_escrever(request):
     """True se o user pode escrever no módulo financeiro (não é apenas auditor)."""
     papel = request.session.get('usuario', {}).get('papel', '')
     # Administradores são apenas visualizadores no módulo financeiro
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         return False
     if papel == 'Despachante Oficial':
         return True

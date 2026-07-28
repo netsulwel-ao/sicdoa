@@ -7,6 +7,7 @@ from django.utils import timezone
 
 class Usuario(models.Model):
     PAPEIS = [
+        ('Super Administrador', 'Super Administrador'),
         ('Administrador', 'Administrador'),
         ('Despachante Oficial', 'Despachante Oficial'),
         ('Colaborador Institucional', 'Colaborador Institucional'),
@@ -63,7 +64,7 @@ class Usuario(models.Model):
             return False
         if self.is_superuser:
             return True
-        if self.papel != 'Administrador':
+        if self.papel not in ('Administrador', 'Super Administrador'):
             return False
         perms_ok = {
             'financeiro.view_requisicaofundo',
@@ -77,7 +78,7 @@ class Usuario(models.Model):
             return False
         if self.is_superuser:
             return True
-        if self.papel != 'Administrador':
+        if self.papel not in ('Administrador', 'Super Administrador'):
             return False
         return app_label == 'financeiro'
 
@@ -93,7 +94,7 @@ class Usuario(models.Model):
         if self.is_superuser:
             return {'financeiro.view_requisicaofundo', 'financeiro.change_requisicaofundo',
                     'financeiro.delete_requisicaofundo'}
-        if self.papel == 'Administrador':
+        if self.papel in ('Administrador', 'Super Administrador'):
             return {'financeiro.view_requisicaofundo', 'financeiro.change_requisicaofundo',
                     'financeiro.delete_requisicaofundo'}
         return set()

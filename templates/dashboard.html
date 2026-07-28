@@ -8,7 +8,7 @@
       Bem-vindo, {{ usuario.nome }}
     </h1>
     <span class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
-      {% if papel == 'Administrador' %}bg-primary/10 text-primary
+      {% if papel == 'Administrador' or papel == 'Super Administrador' %}bg-primary/10 text-primary
       {% elif papel == 'Despachante Oficial' %}bg-amber-100 text-amber-700
       {% else %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400{% endif %}">
       {{ papel }}
@@ -20,7 +20,7 @@
 <!-- Stats Grid -->
 <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 mb-8">
 
-  {% if papel != 'Administrador' %}
+  {% if papel != 'Administrador' and papel != 'Super Administrador' %}
   <!-- Aduaneiro -->
   <div class="group relative bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200/80 dark:border-gray-800/80 shadow-sm hover:shadow-lg hover:border-blue-300/50 dark:hover:border-blue-700/50 transition-all duration-300">
     <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -79,7 +79,7 @@
     </div>
   </div>
 
-  {% if papel != 'Administrador' %}
+  {% if papel != 'Administrador' and papel != 'Super Administrador' %}
   <!-- Colaboradores -->
   <div class="group relative bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200/80 dark:border-gray-800/80 shadow-sm hover:shadow-lg hover:border-teal-300/50 dark:hover:border-teal-700/50 transition-all duration-300">
     <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -100,7 +100,7 @@
   </div>
   {% endif %}
 
-  {% if papel == 'Administrador' %}
+  {% if papel == 'Administrador' or papel == 'Super Administrador' %}
   <!-- Utilizadores -->
   <a href="{% url 'governanca_gerir_utilizadores' %}" class="group relative block bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200/80 dark:border-gray-800/80 shadow-sm hover:shadow-lg hover:border-indigo-300/50 dark:hover:border-indigo-700/50 transition-all duration-300 no-underline">
     <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -170,7 +170,7 @@
   </a>
   {% endif %}
 
-  {% if papel != 'Administrador' %}
+  {% if papel != 'Administrador' and papel != 'Super Administrador' %}
   <!-- Notificações (Despachante) -->
   <div class="group relative bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200/80 dark:border-gray-800/80 shadow-sm hover:shadow-lg hover:border-rose-300/50 dark:hover:border-rose-700/50 transition-all duration-300">
     <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -198,7 +198,7 @@
   <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-4">Ações Rápidas</h2>
   <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
 
-    {% if papel == 'Administrador' %}
+    {% if papel == 'Administrador' or papel == 'Super Administrador' %}
     <a href="{% url 'governanca_utilizador_novo' %}" class="group flex flex-col items-center gap-2.5 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       <div class="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl group-hover:scale-110 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 transition-all duration-200">
         <i class="fas fa-user-plus text-indigo-600 dark:text-indigo-400 text-xl"></i>
@@ -242,7 +242,7 @@
     </a>
     {% endif %}
 
-    {% if papel != 'Administrador' %}
+    {% if papel != 'Administrador' and papel != 'Super Administrador' %}
     {% if 'criar_declaracao_unica' in user_permissoes or 'gerir_aduaneiro' in user_permissoes %}
     <a href="{% url 'aduaneiro:du' %}" class="group flex flex-col items-center gap-2.5 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-800/80 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       <div class="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl group-hover:scale-110 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-all duration-200">
@@ -287,7 +287,7 @@
 <!-- Main Content Grid -->
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-{% if papel != 'Administrador' %}
+{% if papel != 'Administrador' and papel != 'Super Administrador' %}
   <!-- Left: Recent Processes -->
   <div class="xl:col-span-2">
     <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
@@ -297,7 +297,7 @@
             <h2 class="text-[#111418] dark:text-gray-100 text-lg font-bold">Processos Aduaneiros Recentes</h2>
             <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Últimas declarações registadas</p>
           </div>
-          {% if papel != 'Administrador' and 'criar_declaracao_unica' in user_permissoes or papel != 'Administrador' and 'gerir_aduaneiro' in user_permissoes %}
+          {% if papel != 'Administrador' and papel != 'Super Administrador' and 'criar_declaracao_unica' in user_permissoes or papel != 'Administrador' and papel != 'Super Administrador' and 'gerir_aduaneiro' in user_permissoes %}
           <a href="{% url 'aduaneiro:du' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-xl hover:bg-primary/90 hover:shadow-md transition-all whitespace-nowrap">
             <i class="fas fa-plus text-xs"></i> Nova Declaração
           </a>
@@ -367,7 +367,7 @@
                   </div>
                   <p class="text-gray-600 dark:text-gray-400 font-medium mb-1">Nenhum processo aduaneiro</p>
                   <p class="text-gray-400 dark:text-gray-500 text-sm mb-4">Ainda não existem declarações criadas.</p>
-                   {% if papel != 'Administrador' and 'criar_declaracao_unica' in user_permissoes or papel != 'Administrador' and 'gerir_aduaneiro' in user_permissoes %}
+                   {% if papel != 'Administrador' and papel != 'Super Administrador' and 'criar_declaracao_unica' in user_permissoes or papel != 'Administrador' and papel != 'Super Administrador' and 'gerir_aduaneiro' in user_permissoes %}
                    <a href="{% url 'aduaneiro:du' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary text-sm font-medium rounded-xl hover:bg-primary/20 transition-colors">
                      <i class="fas fa-plus text-xs"></i> Criar primeira declaração
                    </a>
@@ -425,7 +425,7 @@
             </div>
             <p class="text-gray-600 dark:text-gray-400 font-medium mb-1">Nenhum processo aduaneiro</p>
             <p class="text-gray-400 dark:text-gray-500 text-sm mb-4">Ainda não existem declarações criadas.</p>
-            {% if papel != 'Administrador' and 'criar_declaracao_unica' in user_permissoes or papel != 'Administrador' and 'gerir_aduaneiro' in user_permissoes %}
+            {% if papel != 'Administrador' and papel != 'Super Administrador' and 'criar_declaracao_unica' in user_permissoes or papel != 'Administrador' and papel != 'Super Administrador' and 'gerir_aduaneiro' in user_permissoes %}
             <a href="{% url 'aduaneiro:du' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary text-sm font-medium rounded-xl hover:bg-primary/20 transition-colors">
               <i class="fas fa-plus text-xs"></i> Criar primeira declaração
             </a>
@@ -448,7 +448,7 @@
   <div class="space-y-5">
 
     <!-- Pendentes de Aprovação -->
-    {% if papel == 'Administrador' or papel == 'Despachante Oficial' %}
+    {% if papel == 'Administrador' or papel == 'Super Administrador' or papel == 'Despachante Oficial' %}
     <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 p-5 shadow-sm">
       <h3 class="text-sm font-bold text-[#111418] dark:text-gray-100 mb-4 flex items-center gap-2">
         <div class="p-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg"><i class="fas fa-hourglass-half text-amber-500 text-xs"></i></div>

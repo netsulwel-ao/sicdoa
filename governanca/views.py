@@ -96,7 +96,11 @@ def _criar_notificacao(usuario_id, tipo, titulo, mensagem='', link=''):
 
 
 def _notificar_para_papel(papel, tipo, titulo, mensagem='', link=''):
-    usuarios = list(Usuario.objects.filter(papel=papel, status='Ativo').values_list('id', flat=True))
+    if isinstance(papel, str):
+        papeis = [papel]
+    else:
+        papeis = list(papel)
+    usuarios = list(Usuario.objects.filter(papel__in=papeis, status='Ativo').values_list('id', flat=True))
     if not usuarios:
         return
     if getattr(settings, 'REDIS_ENABLED', False):
@@ -134,7 +138,7 @@ def _enviar_convocatorias_email(assembleia):
     destinatarios = list(
         Usuario.objects.filter(
             status='Ativo',
-            papel__in=('Administrador', 'Despachante Oficial'),
+            papel__in=('Super Administrador', 'Administrador', 'Despachante Oficial'),
         ).exclude(email='').values_list('email', flat=True)
     )
     if destinatarios:
@@ -222,7 +226,7 @@ def index(request):
 
     from users.permissoes import _is_admin_ou_acesso_total
     papel = request.session.get('usuario', {}).get('papel', '')
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         qs_quotas = QuotaGerada.objects.all()
         quotas_pendentes = qs_quotas.filter(status='Pendente').count()
         quotas_pagas = qs_quotas.filter(status='Paga').count()
@@ -353,7 +357,7 @@ def nova_assembleia(request):
         else:
             status = 'Agendada'
 
-        total_ativos = Usuario.objects.filter(status='Ativo', papel__in=['Administrador', 'Despachante Oficial', 'Colaborador Institucional']).count()
+        total_ativos = Usuario.objects.filter(status='Ativo', papel__in=['Super Administrador', 'Administrador', 'Despachante Oficial', 'Colaborador Institucional']).count()
         try:
             quorum_minimo_val = int(quorum_minimo) if quorum_minimo else total_ativos
         except (ValueError, TypeError):
@@ -400,7 +404,7 @@ def nova_assembleia(request):
                     f'/governanca/assembleia/{assembleia.pk}/'
                 )
 
-            for u in Usuario.objects.filter(status='Ativo', papel__in=['Administrador', 'Despachante Oficial']).exclude(email=''):
+            for u in Usuario.objects.filter(status='Ativo', papel__in=['Super Administrador', 'Administrador', 'Despachante Oficial']).exclude(email=''):
                 if iniciar_agora:
                     assunto = f'Assembleia em curso: {titulo}'
                     corpo = f'Prezado(a) {u.nome},\n\nA assembleia "{titulo}" foi iniciada e já está em curso.\n\nEntre na sala virtual: {settings.SITE_URL}/governanca/assembleia/{assembleia.pk}/sala/\n\nAtenciosamente,\nCDOA'
@@ -437,7 +441,7 @@ def nova_assembleia(request):
                 messages.error(request, str(e))
             return render(request, 'governanca/nova_assembleia.html', {**locals()})
 
-    total_ativos = Usuario.objects.filter(status='Ativo', papel__in=['Administrador', 'Despachante Oficial', 'Colaborador Institucional']).count()
+    total_ativos = Usuario.objects.filter(status='Ativo', papel__in=['Super Administrador', 'Administrador', 'Despachante Oficial', 'Colaborador Institucional']).count()
     context = {
         'usuario': _usuario(request),
         'nome': _usuario_nome(request),
@@ -628,7 +632,7 @@ def sala_assembleia(request, pk):
         'mesa': MembroMesa.objects.filter(assembleia=assembleia).select_related('usuario'),
         'despachantes': Usuario.objects.filter(
             papel='Despachante Oficial', status='Ativo'
-        ).exclude(id=usuario_id) if _usuario_papel(request) == 'Administrador' else [],
+        ).exclude(id=usuario_id) if _usuario_papel(request) in ('Administrador', 'Super Administrador') else [],
         'elegivel': elegivel,
     }
     return render(request, 'governanca/sala_assembleia.html', context)
@@ -668,7 +672,7 @@ def gerir_assembleia(request, pk):
         'documentos': assembleia.documentos.all(),
         'mesa': MembroMesa.objects.filter(assembleia=assembleia).select_related('usuario'),
         'despachantes': Usuario.objects.filter(
-            papel__in=['Administrador', 'Despachante Oficial'], status='Ativo'
+            papel__in=['Super Administrador', 'Administrador', 'Despachante Oficial'], status='Ativo'
         ).exclude(id=request.session['usuario_id']),
         'tem_convocatoria_publicada': assembleia.convocatorias.filter(status='Publicada').exists(),
         'direcao_ids': list(membros_direcao.values_list('usuario_id', flat=True)),
@@ -1299,7 +1303,7 @@ def api_iniciar_assembleia(request, pk):
     assembleia.status = 'Em Curso'
     assembleia.save()
     _enviar_convocatorias_email(assembleia)
-    _notificar_para_papel('Administrador', 'assembleia_iniciada', f'Assembleia em curso: {assembleia.titulo}', 'A assembleia já está em curso. Entre na sala virtual!', f'/governanca/assembleia/{assembleia.pk}/sala/')
+    _notificar_para_papel(['Super Administrador', 'Administrador'], 'assembleia_iniciada', f'Assembleia em curso: {assembleia.titulo}', 'A assembleia já está em curso. Entre na sala virtual!', f'/governanca/assembleia/{assembleia.pk}/sala/')
     _notificar_para_papel('Despachante Oficial', 'assembleia_iniciada', f'Assembleia em curso: {assembleia.titulo}', 'A assembleia já está em curso. Entre na sala virtual!', f'/governanca/assembleia/{assembleia.pk}/sala/')
     _log_assembleia(assembleia.id, request.session['usuario_id'], 'assembleia_iniciada', {}, ip=_get_client_ip(request))
     return JsonResponse({'status': 'ok'})
@@ -1339,7 +1343,7 @@ def api_concluir_assembleia(request, pk):
         gerado_por=request.usuario_obj,
     )
 
-    _notificar_para_papel('Administrador', 'resultado_publicado', f'Assembleia Concluida: {assembleia.titulo}', 'Os resultados já estão disponíveis.', f'/governanca/assembleia/{assembleia.pk}/')
+    _notificar_para_papel(['Super Administrador', 'Administrador'], 'resultado_publicado', f'Assembleia Concluida: {assembleia.titulo}', 'Os resultados já estão disponíveis.', f'/governanca/assembleia/{assembleia.pk}/')
     _log_assembleia(assembleia.id, request.session['usuario_id'], 'assembleia_concluida', {
         'hash': assembleia.hash_integridade,
         'total_pautas': assembleia.total_pautas,
@@ -1418,7 +1422,7 @@ def api_publicar_ata(request, pk):
         'ata_id': ata.id, 'status_assinatura': ata.status_assinatura,
     }, ip=_get_client_ip(request))
 
-    _notificar_para_papel('Administrador', 'ata_publicada', f'Ata publicada: {assembleia.titulo}', 'A ata da assembleia foi publicada no repositório.', f'/governanca/atas/')
+    _notificar_para_papel(['Super Administrador', 'Administrador'], 'ata_publicada', f'Ata publicada: {assembleia.titulo}', 'A ata da assembleia foi publicada no repositório.', f'/governanca/atas/')
     _notificar_para_papel('Despachante Oficial', 'ata_publicada', f'Ata publicada: {assembleia.titulo}', 'A ata da assembleia está disponível para consulta.', f'/governanca/atas/')
     return JsonResponse({'status': 'ok', 'ata_id': ata.id, 'assinatura': assinatura, 'status_assinatura': ata.get_status_assinatura_display()})
 
@@ -1516,7 +1520,7 @@ def api_publicar_documento(request, pk, doc_pk):
             None, [u.email],
         )
 
-    for u in Usuario.objects.filter(status='Ativo', papel='Administrador').exclude(email=''):
+    for u in Usuario.objects.filter(status='Ativo', papel__in=['Super Administrador', 'Administrador']).exclude(email=''):
         _enviar(
             f'Documento publicado: {doc.titulo}',
             f'Prezado(a) {u.nome},\n\n'
@@ -1814,7 +1818,7 @@ def _livekit_rest_call(method, body=None):
 @_requer_login
 def api_livekit_mute(request):
     """Muta ou remove um participante do LiveKit."""
-    if _usuario_papel(request) != 'Administrador':
+    if _usuario_papel(request) not in ('Administrador', 'Super Administrador'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     data = json.loads(request.body)
     room = data.get('room', '')
@@ -1933,7 +1937,7 @@ def api_livekit_refresh_token(request):
 @_requer_login
 def api_recording_start(request):
     """Inicia gravação da assembleia via LiveKit Egress."""
-    if _usuario_papel(request) != 'Administrador':
+    if _usuario_papel(request) not in ('Administrador', 'Super Administrador'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     try:
         body = json.loads(request.body)
@@ -1962,7 +1966,7 @@ def api_recording_start(request):
 @_requer_login
 def api_recording_stop(request):
     """Para a gravação da assembleia."""
-    if _usuario_papel(request) != 'Administrador':
+    if _usuario_papel(request) not in ('Administrador', 'Super Administrador'):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores.'}, status=403)
     try:
         body = json.loads(request.body)
@@ -2147,9 +2151,9 @@ def quotas_dashboard(request):
     from django.db.models import Sum, Count, Q
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = _usuario_papel(request)
-    if papel == 'Administrador' or usuario_tem_permissao(request, 'gerir_quotas'):
+    if papel in ('Administrador', 'Super Administrador') or usuario_tem_permissao(request, 'gerir_quotas'):
         return redirect('governanca_quotas_admin')
-    if papel not in ('Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'ver_quotas'):
+    if papel not in ('Administrador', 'Super Administrador', 'Despachante Oficial') and not usuario_tem_permissao(request, 'ver_quotas'):
         return redirect('governanca_index')
     ef = _get_estado_financeiro(usuario_id)
     base_qs = QuotaGerada.objects.filter(despachante_id=usuario_id)
@@ -2191,7 +2195,7 @@ def quotas_faturas(request):
     papel = _usuario_papel(request)
     from django.db.models import Sum, Count, Q
     from users.permissoes import _is_admin_ou_acesso_total
-    if papel == 'Administrador':
+    if papel in ('Administrador', 'Super Administrador'):
         base_qs = QuotaGerada.objects.all()
     else:
         base_qs = QuotaGerada.objects.filter(despachante_id=usuario_id)
@@ -2213,7 +2217,7 @@ def quotas_faturas(request):
     context = {
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
         'papel': papel, 'active_menu': 'Governanca', 'active_sub': 'quotas',
-        'quotas': page_obj, 'page_obj': page_obj, 'is_admin': papel == 'Administrador',
+        'quotas': page_obj, 'page_obj': page_obj, 'is_admin': papel in ('Administrador', 'Super Administrador'),
         'stats': stats,
     }
     return render(request, 'governanca/quotas/faturas.html', context)
@@ -2225,7 +2229,7 @@ def quotas_fatura_detalhe(request, fatura_uuid):
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
     uid = request.session.get('banca_usuario_id') or request.session['usuario_id']
     papel = request.session.get('usuario', {}).get('papel', '')
-    if quota.despachante_id != uid and papel != 'Administrador':
+    if quota.despachante_id != uid and papel not in ('Administrador', 'Super Administrador'):
         return redirect('governanca_quotas_dashboard')
     pagamentos_qs = PagamentoQuota.objects.filter(quota=quota).order_by('-data_pagamento')
     paginator = Paginator(pagamentos_qs, 8)
@@ -2291,7 +2295,7 @@ def quotas_admin_dashboard(request):
     )
     context = {
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
-        'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
+        'papel': _usuario_papel(request), 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'total_quotas': stats['total'],
         'pendentes': stats['pendentes'],
         'pagas': stats['pagas'],
@@ -2326,7 +2330,7 @@ def quotas_admin_pagamentos(request):
         })
     context = {
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
-        'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
+        'papel': _usuario_papel(request), 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'pagamentos': page_obj, 'page_obj': page_obj,
         'pagamentos_com_multa': pagamentos_com_multa,
     }
@@ -2344,7 +2348,7 @@ def quotas_admin_config(request):
     page_obj = paginator.get_page(page_number)
     context = {
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
-        'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
+        'papel': _usuario_papel(request), 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'configs': page_obj, 'page_obj': page_obj,
         'tipos_quota': TipoQuota.objects.all(),
     }
@@ -2396,7 +2400,7 @@ def quotas_admin_relatorios(request):
     )
     context = {
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
-        'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
+        'papel': _usuario_papel(request), 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'total_arrecadado': total_arrecadado,
         'quotas_em_atraso': stats['atrasadas'],
         'quotas_pendentes': stats['pendentes'],
@@ -2546,7 +2550,7 @@ def quotas_admin_gerar_retroativo(request):
         })
     context = {
         'usuario': _usuario(request), 'nome': _usuario_nome(request),
-        'papel': 'Administrador', 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
+        'papel': _usuario_papel(request), 'active_menu': 'Governanca', 'active_sub': 'quotas_admin',
         'tipos_quota': TipoQuota.objects.all(),
         'ano_actual': hoje.year,
         'mes_actual': hoje.month,
@@ -2706,11 +2710,11 @@ def api_quotas_definir_estado(request, pk):
     """Admin define estado financeiro de um despachante."""
     from users.permissoes import usuario_tem_permissao
     papel = _usuario_papel(request)
-    if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if papel not in ('Administrador', 'Super Administrador') and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido'}, status=405)
-    if papel != 'Administrador':
+    if papel not in ('Administrador', 'Super Administrador'):
         uid = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
         if int(pk) != uid:
             return JsonResponse({'erro': 'Sem permissão para alterar estado de outro despachante'}, status=403)
@@ -2767,7 +2771,7 @@ def api_quotas_listar(request):
     papel = _usuario_papel(request)
     ano = request.GET.get('ano')
     from users.permissoes import _is_admin_ou_acesso_total
-    e_admin = papel == 'Administrador'
+    e_admin = papel in ('Administrador', 'Super Administrador')
     if e_admin:
         quotas = QuotaGerada.objects.select_related('despachante').order_by('-ano','-mes')
         if ano:
@@ -3104,24 +3108,24 @@ def api_quotas_gerar_retroativo(request):
         return JsonResponse({'erro': 'Informe mês/ano ou um intervalo de datas'}, status=400)
 
     if todos:
-        despachantes = Usuario.objects.filter(papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
+        despachantes = Usuario.objects.filter(papel__in=['Super Administrador', 'Despachante Oficial', 'Administrador'], status='Ativo')
     elif despachante_ids:
         try:
             ids = [int(x.strip()) for x in despachante_ids.split(',') if x.strip()]
-            despachantes = Usuario.objects.filter(id__in=ids, papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
+            despachantes = Usuario.objects.filter(id__in=ids, papel__in=['Super Administrador', 'Despachante Oficial', 'Administrador'], status='Ativo')
             if not despachantes.exists():
                 return JsonResponse({'erro': 'Nenhum despachante encontrado para os IDs fornecidos'}, status=404)
         except ValueError:
             return JsonResponse({'erro': 'IDs de despachante inválidos'}, status=400)
     elif despachante_id:
         try:
-            despachantes = Usuario.objects.filter(id=int(despachante_id), papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
+            despachantes = Usuario.objects.filter(id=int(despachante_id), papel__in=['Super Administrador', 'Despachante Oficial', 'Administrador'], status='Ativo')
             if not despachantes.exists():
                 return JsonResponse({'erro': 'Despachante não encontrado ou inativo'}, status=404)
         except ValueError:
             return JsonResponse({'erro': 'ID de despachante inválido'}, status=400)
     else:
-        despachantes = Usuario.objects.filter(papel__in=['Despachante Oficial', 'Administrador'], status='Ativo')
+        despachantes = Usuario.objects.filter(papel__in=['Super Administrador', 'Despachante Oficial', 'Administrador'], status='Ativo')
 
     tipo = TipoQuota.objects.filter(id=tipo_id).first() if tipo_id else TipoQuota.objects.filter(slug='mensal').first()
     slug_tipo = tipo.slug.upper() if tipo else 'QUOTA'
@@ -3196,10 +3200,10 @@ def api_quotas_gerar_retroativo(request):
 def api_quotas_marcar_paga(request, fatura_uuid):
     from users.permissoes import usuario_tem_permissao
     papel = _usuario_papel(request)
-    if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if papel not in ('Administrador', 'Super Administrador') and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
-    if papel != 'Administrador':
+    if papel not in ('Administrador', 'Super Administrador'):
         uid = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
         if quota.despachante_id != uid:
             return JsonResponse({'erro': 'Sem permissão para alterar quotas de outro despachante'}, status=403)
@@ -3235,10 +3239,10 @@ def api_quotas_cancelar(request, fatura_uuid):
     """Admin cancela uma quota. NUNCA apaga o registo."""
     from users.permissoes import usuario_tem_permissao
     papel = _usuario_papel(request)
-    if papel != 'Administrador' and not usuario_tem_permissao(request, 'gerir_quotas'):
+    if papel not in ('Administrador', 'Super Administrador') and not usuario_tem_permissao(request, 'gerir_quotas'):
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
-    if papel != 'Administrador':
+    if papel not in ('Administrador', 'Super Administrador'):
         uid = request.session.get('banca_usuario_id') or request.session.get('usuario_id')
         if quota.despachante_id != uid:
             return JsonResponse({'erro': 'Sem permissão para cancelar quotas de outro despachante'}, status=403)
@@ -3392,7 +3396,7 @@ def api_quotas_historico(request, fatura_uuid):
     quota = get_object_or_404(QuotaGerada, fatura_uuid=fatura_uuid)
     papel = _usuario_papel(request)
     usuario_id = request.session.get('banca_usuario_id') or request.session['usuario_id']
-    if papel != 'Administrador' and quota.despachante_id != usuario_id:
+    if papel not in ('Administrador', 'Super Administrador') and quota.despachante_id != usuario_id:
         return JsonResponse({'erro': 'Sem permissão'}, status=403)
     historico = HistoricoQuota.objects.filter(quota=quota).select_related('utilizador').order_by('-created_at')
     data = []
@@ -3639,7 +3643,7 @@ def api_consulta_publicar(request, pk):
     consulta.save()
     from django.db.models import Q
     destinatarios = Usuario.objects.filter(
-        Q(papel='Despachante Oficial') | Q(papel='Administrador'),
+        Q(papel='Super Administrador') | Q(papel='Despachante Oficial') | Q(papel='Administrador'),
         status='Ativo'
     ).values_list('email', flat=True)
     Notificacao.objects.bulk_create([
@@ -3648,7 +3652,7 @@ def api_consulta_publicar(request, pk):
             mensagem=f'Foi publicada a consulta "{consulta.titulo}". Participe até {consulta.prazo_fim.strftime("%d/%m/%Y %H:%M") if consulta.prazo_fim else "ao prazo indicado"}.',
             link=f'/governanca/consulta/{consulta.id}/',
         ) for u in Usuario.objects.filter(
-            Q(papel='Despachante Oficial') | Q(papel='Administrador'),
+            Q(papel='Super Administrador') | Q(papel='Despachante Oficial') | Q(papel='Administrador'),
             status='Ativo'
         )
     ])
@@ -3940,7 +3944,7 @@ def api_convocatoria_publicar(request, pk):
         }, status=400)
     conv.status = 'Publicada'
     conv.save()
-    _notificar_para_papel('Administrador', 'convocatoria_publicada',
+    _notificar_para_papel(['Super Administrador', 'Administrador'], 'convocatoria_publicada',
         f'Convocatória: {conv.titulo}',
         f'Foi publicada a convocatória "{conv.titulo}" para {conv.assembleia.titulo}.',
         f'/governanca/assembleia/{conv.assembleia.pk}/')
@@ -4021,7 +4025,7 @@ def api_reabrir_votacao(request, pk):
         'votos_anteriores_apagados': votos_anteriores,
     }, ip=_get_client_ip(request))
 
-    _notificar_para_papel('Administrador', 'votacao_reaberta',
+    _notificar_para_papel(['Super Administrador', 'Administrador'], 'votacao_reaberta',
         f'Votação reaberta: {pauta.titulo}',
         f'A votação da pauta "{pauta.titulo}" foi reaberta pelo administrador.',
         f'/governanca/assembleia/{pauta.assembleia.pk}/sala/')
@@ -4250,14 +4254,14 @@ def api_assinar_ata(request, pk):
 
     # Verificar se usuário é membro da mesa
     membro = MembroMesa.objects.filter(assembleia=assembleia, usuario=usuario).first()
-    if not membro and papel != 'Administrador':
+    if not membro and papel not in ('Administrador', 'Super Administrador'):
         return JsonResponse({'status': 'error', 'message': 'Apenas membros da mesa podem assinar a ata.'}, status=403)
 
     funcao = membro.funcao if membro else 'Administrador'
     is_presidente = funcao == 'Presidente'
     is_secretario = funcao in ('Secretário', '1º Secretário')
 
-    if not is_presidente and not is_secretario and papel != 'Administrador':
+    if not is_presidente and not is_secretario and papel not in ('Administrador', 'Super Administrador'):
         return JsonResponse({'status': 'error', 'message': 'Apenas Presidente ou Secretário podem assinar.'}, status=403)
 
     # Gerar hash da assinatura
@@ -4291,7 +4295,7 @@ def api_assinar_ata(request, pk):
 
     ata.save()
 
-    _notificar_para_papel('Administrador', 'ata_assinada',
+    _notificar_para_papel(['Super Administrador', 'Administrador'], 'ata_assinada',
         f'Ata assinada: {assembleia.titulo}',
         f'{usuario.nome} assinou a ata da assembleia "{assembleia.titulo}". Status: {ata.get_status_assinatura_display()}.',
         f'/governanca/assembleia/{assembleia.pk}/')
@@ -4409,7 +4413,7 @@ def utilizador_novo_view(request):
     permissoes = get_usuario_permissoes(request)
     papel = usuario.get('papel', '')
     _pode_gerir = (
-        papel == 'Administrador'
+        papel in ('Administrador', 'Super Administrador')
         or 'admin' in permissoes
         or 'gerir_utilizadores' in permissoes
         or papel == 'Colaborador Institucional'
@@ -4443,10 +4447,11 @@ def utilizador_novo_view(request):
             if not nif: erros['nif'] = 'O NIF é obrigatório.'
 
         if not erros:
-            if tipo == 'despachante': papel = 'Despachante Oficial'
-            elif tipo == 'colaborador': papel = 'Colaborador Institucional'
-            elif tipo == 'outro': papel = 'Visualizador'
-            else: papel = 'Visualizador'
+            if tipo == 'despachante': papel_novo = 'Despachante Oficial'
+            elif tipo == 'colaborador': papel_novo = 'Colaborador Institucional'
+            elif tipo == 'admin' and papel == 'Super Administrador': papel_novo = 'Administrador'
+            elif tipo == 'outro': papel_novo = 'Visualizador'
+            else: papel_novo = 'Visualizador'
 
             base = email.split('@')[0]
             username = base
@@ -4466,7 +4471,7 @@ def utilizador_novo_view(request):
             user = Usuario.objects.create(
                 username=username, password=hash_senha, nome=nome, email=email,
                 telefone=telefone, nif=nif, cedula=cedula if tipo == 'despachante' else '',
-                papel=papel, status='Ativo',
+                papel=papel_novo, status='Ativo',
                 area_actuacao=area_actuacao if tipo == 'colaborador' else '',
                 cargo_personalizado=nome_tipo if tipo == 'outro' else '',
                 funcao=funcao_obj if funcao_obj else None,
@@ -4495,6 +4500,7 @@ def utilizador_novo_view(request):
         'active_menu': 'RH_INST', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
         'user_permissoes': _get_perms(request),
         'erros': erros, 'funcoes': Funcao.objects.all().order_by('nome'),
+        'e_super_admin': papel == 'Super Administrador',
     }
     return render(request, 'governanca/utilizador_novo.html', ctx)
 
@@ -4508,7 +4514,7 @@ def utilizador_editar_view(request, usuario_id):
     permissoes = get_usuario_permissoes(request)
     papel = usuario.get('papel', '')
     _pode_gerir = (
-        papel == 'Administrador'
+        papel in ('Administrador', 'Super Administrador')
         or 'admin' in permissoes
         or 'gerir_utilizadores' in permissoes
         or papel == 'Colaborador Institucional'
@@ -4568,6 +4574,7 @@ def utilizador_editar_view(request, usuario_id):
         'active_menu': 'RH_INST', 'active_sub': 'gerir_utilizadores', 'is_admin_sistema': True,
         'user_permissoes': _get_perms(request),
         'user_obj': user_obj, 'erros': erros, 'funcoes': Funcao.objects.all().order_by('nome'),
+        'e_super_admin': papel == 'Super Administrador',
     }
     return render(request, 'governanca/utilizador_editar.html', ctx)
 
@@ -4587,7 +4594,7 @@ def gerir_utilizadores(request):
     permissoes = get_usuario_permissoes(request)
     papel = usuario.get('papel', '')
     _pode_gerir = (
-        papel == 'Administrador'
+        papel in ('Administrador', 'Super Administrador')
         or 'admin' in permissoes
         or 'gerir_utilizadores' in permissoes
         or papel == 'Colaborador Institucional'
@@ -4602,7 +4609,10 @@ def gerir_utilizadores(request):
     if not tipo:
         tipo = 'Colaborador Institucional'
 
-    utilizadores_qs = Usuario.objects.exclude(papel='Administrador')
+    if papel == 'Super Administrador':
+        utilizadores_qs = Usuario.objects.all()
+    else:
+        utilizadores_qs = Usuario.objects.exclude(papel__in=('Administrador', 'Super Administrador'))
     if q:
         utilizadores_qs = utilizadores_qs.filter(nome__icontains=q)
     if tipo:
@@ -4645,8 +4655,9 @@ def gerir_utilizadores(request):
         'active_menu': 'RH_INST',
         'active_sub': 'gerir_utilizadores',
         'is_admin_sistema': True,
+        'e_super_admin': papel == 'Super Administrador',
         'user_permissoes': get_usuario_permissoes(request),
-        'pode_executar_acoes': papel == 'Administrador' or 'admin' in permissoes or 'gerir_utilizadores' in permissoes or papel == 'Colaborador Institucional',
+        'pode_executar_acoes': papel in ('Administrador', 'Super Administrador') or 'admin' in permissoes or 'gerir_utilizadores' in permissoes or papel == 'Colaborador Institucional',
         'utilizadores': utilizadores,
         'bancas_por_usuario': bancas_por_usuario,
         'stats_total': stats_total,
@@ -4657,6 +4668,94 @@ def gerir_utilizadores(request):
         'tipo': tipo,
         'extra_params': extra_params,
         'funcoes': Funcao.objects.all().order_by('nome'),
+    })
+
+
+@require_http_methods(['GET'])
+@_requer_login
+def api_utilizador_lista(request):
+    from django.http import JsonResponse
+    from django.template.loader import render_to_string
+    from users.permissoes import get_usuario_permissoes
+    usuario = _get_usuario(request)
+    if not usuario:
+        return JsonResponse({'erro': 'Nao autenticado'}, status=401)
+    permissoes = get_usuario_permissoes(request)
+    papel = usuario.get('papel', '')
+    _pode_gerir = (
+        papel in ('Administrador', 'Super Administrador')
+        or 'admin' in permissoes
+        or 'gerir_utilizadores' in permissoes
+        or papel == 'Colaborador Institucional'
+    )
+    if not _pode_gerir:
+        return JsonResponse({'erro': 'Sem permissao'}, status=403)
+
+    from users.models import Usuario
+    q = request.GET.get('q', '').strip()
+    tipo = request.GET.get('tipo', '').strip()
+    if not tipo:
+        tipo = 'Colaborador Institucional'
+
+    if papel == 'Super Administrador':
+        utilizadores_qs = Usuario.objects.all()
+    else:
+        utilizadores_qs = Usuario.objects.exclude(papel__in=('Administrador', 'Super Administrador'))
+    if q:
+        utilizadores_qs = utilizadores_qs.filter(nome__icontains=q)
+    if tipo:
+        utilizadores_qs = utilizadores_qs.filter(papel=tipo)
+    utilizadores_qs = utilizadores_qs.order_by('nome').prefetch_related('permissoes_diretas').select_related('funcao')
+
+    paginator = Paginator(utilizadores_qs, 12)
+    page_number = request.GET.get('page')
+    utilizadores = paginator.get_page(page_number)
+
+    ids = [u.id for u in utilizadores_qs]
+    from django.db.models import Count
+    from rh.models import Banca
+    bancas = Banca.objects.filter(usuario_id__in=ids).annotate(
+        num_colaboradores=Count('colaboradores')
+    )
+    bancas_por_usuario = {}
+    for b in bancas:
+        bancas_por_usuario.setdefault(b.usuario_id, []).append(b)
+    for u in utilizadores:
+        u.bancas_list = bancas_por_usuario.get(u.id, [])
+        u.bancas_total = len(u.bancas_list)
+
+    stats_total = utilizadores_qs.count()
+    stats_ativos = utilizadores_qs.filter(status='Ativo').count()
+    stats_inativos = utilizadores_qs.filter(status__in=['Inativo', 'Suspenso']).count()
+
+    from users.models import Funcao
+    extra_params = ''
+    if q: extra_params = 'q=' + q
+    if tipo: extra_params += ('&' if extra_params else '') + 'tipo=' + tipo
+
+    ctx = {
+        'usuario': usuario,
+        'nome': usuario['nome'],
+        'papel': usuario['papel'],
+        'e_super_admin': papel == 'Super Administrador',
+        'pode_executar_acoes': papel in ('Administrador', 'Super Administrador') or 'admin' in permissoes or 'gerir_utilizadores' in permissoes or papel == 'Colaborador Institucional',
+        'utilizadores': utilizadores,
+        'bancas_por_usuario': bancas_por_usuario,
+        'page_obj': utilizadores,
+        'q': q,
+        'tipo': tipo,
+        'extra_params': extra_params,
+        'funcoes': Funcao.objects.all().order_by('nome'),
+    }
+
+    grid_html = render_to_string('governanca/gerir_utilizadores_lista.html', ctx, request=request)
+
+    return JsonResponse({
+        'html': grid_html,
+        'stats_total': stats_total,
+        'stats_ativos': stats_ativos,
+        'stats_inativos': stats_inativos,
+        'count': utilizadores.paginator.count,
     })
 
 
@@ -4672,7 +4771,7 @@ def api_utilizador_criar(request):
     permissoes = get_usuario_permissoes(request)
     _papel = _usuario_papel(request)
     _pode_gerir = (
-        _papel == 'Administrador'
+        _papel in ('Administrador', 'Super Administrador')
         or 'admin' in permissoes
         or 'gerir_utilizadores' in permissoes
         or _papel == 'Colaborador Institucional'
@@ -4706,6 +4805,8 @@ def api_utilizador_criar(request):
             return JsonResponse({'erro': 'NIF é obrigatório para despachantes.'}, status=400)
     elif tipo_criacao == 'colaborador':
         papel = 'Colaborador Institucional'
+    elif tipo_criacao == 'admin' and _papel == 'Super Administrador':
+        papel = 'Administrador'
     elif tipo_criacao == 'outro':
         papel = 'Visualizador'
     else:
@@ -4844,7 +4945,7 @@ def api_utilizador_toggle_status(request):
     from users.models import Usuario
     from users.permissoes import usuario_tem_permissao
     papel = _usuario_papel(request)
-    if papel not in ('Administrador', 'Colaborador Institucional') \
+    if papel not in ('Administrador', 'Super Administrador', 'Colaborador Institucional') \
        and not usuario_tem_permissao(request, 'gerir_rh') \
        and not usuario_tem_permissao(request, 'gerir_utilizadores'):
         return JsonResponse({'erro': 'Sem permissão para alterar estado de utilizadores'}, status=403)
@@ -4853,6 +4954,8 @@ def api_utilizador_toggle_status(request):
     if not usuario_id:
         return JsonResponse({'erro': 'ID do utilizador obrigatório.'}, status=400)
     usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
+    if usuario_obj.papel == 'Super Administrador':
+        return JsonResponse({'erro': 'Não é possível alterar o estado do Super Administrador.'}, status=403)
     if usuario_obj.status == 'Ativo':
         usuario_obj.status = 'Suspenso'
     else:
@@ -4869,13 +4972,15 @@ def api_utilizador_enviar_credenciais(request):
     import bcrypt
     from users.permissoes import usuario_tem_permissao
     papel = _usuario_papel(request)
-    if papel not in ('Administrador', 'Colaborador Institucional') \
+    if papel not in ('Administrador', 'Super Administrador', 'Colaborador Institucional') \
        and not usuario_tem_permissao(request, 'gerir_rh') \
        and not usuario_tem_permissao(request, 'gerir_utilizadores'):
         return JsonResponse({'erro': 'Sem permissão para reenviar credenciais'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
     usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
+    if usuario_obj.papel == 'Super Administrador':
+        return JsonResponse({'erro': 'Não é possível reenviar credenciais do Super Administrador.'}, status=403)
     senha = gerar_senha_aleatoria(10)
     salt = bcrypt.gensalt()
     hash_senha = bcrypt.hashpw(senha.encode('utf-8'), salt).decode('utf-8').replace('$2b$', '$2y$')
@@ -4915,7 +5020,8 @@ def api_permissoes_usuario(request):
 def api_utilizador_eliminar(request):
     """Elimina um utilizador."""
     from users.models import Usuario
-    if _usuario_papel(request) != 'Administrador':
+    papel = _usuario_papel(request)
+    if papel not in ('Administrador', 'Super Administrador'):
         return JsonResponse({'erro': 'Apenas administradores podem eliminar utilizadores'}, status=403)
     data = json.loads(request.body)
     usuario_id = data.get('usuario_id')
@@ -4924,6 +5030,8 @@ def api_utilizador_eliminar(request):
     usuario_obj = get_object_or_404(Usuario, pk=usuario_id)
     if usuario_obj.papel == 'Despachante Oficial':
         return JsonResponse({'erro': 'Não é possível eliminar utilizadores do tipo Despachante Oficial.'}, status=403)
+    if usuario_obj.papel == 'Super Administrador':
+        return JsonResponse({'erro': 'Não é possível eliminar o Super Administrador.'}, status=403)
     nome = usuario_obj.nome
     usuario_obj.delete()
     return JsonResponse({'status': 'ok', 'message': f'Utilizador "{nome}" eliminado com sucesso.'})
@@ -4936,7 +5044,7 @@ def api_utilizador_atribuir_funcao(request):
     from users.models import Funcao, Usuario
     from users.permissoes import usuario_tem_permissao
     papel = _usuario_papel(request)
-    if papel not in ('Administrador', 'Colaborador Institucional') \
+    if papel not in ('Administrador', 'Super Administrador', 'Colaborador Institucional') \
        and not usuario_tem_permissao(request, 'gerir_rh') \
        and not usuario_tem_permissao(request, 'gerir_utilizadores'):
         return JsonResponse({'erro': 'Sem permissão para atribuir funções'}, status=403)

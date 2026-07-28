@@ -581,7 +581,7 @@ def _dashboard_inner(request):
     _me = _ms.replace(year=_ms.year + 1, month=1) if _ms.month == 12 else _ms.replace(month=_ms.month + 1)
 
     # ── Filtro base por papel ──────────────────────────────────────────────
-    e_admin = papel == 'Administrador'
+    e_admin = papel in ('Administrador', 'Super Administrador')
     e_gestor = e_admin or papel in ("Gestor Financeiro",)
 
     # ── 1. Processos Aduaneiros ─────────────────────────────────────────────
@@ -628,8 +628,8 @@ def _dashboard_inner(request):
     # ── 6. Utilizadores (apenas administradores) ─────────────────────────────
     if e_admin:
         from users.models import Usuario
-        stats_utilizadores_total = Usuario.objects.exclude(papel='Administrador').count()
-        stats_utilizadores_ativos = Usuario.objects.exclude(papel='Administrador').filter(status='Ativo').count()
+        stats_utilizadores_total = Usuario.objects.exclude(papel__in=['Administrador', 'Super Administrador']).count()
+        stats_utilizadores_ativos = Usuario.objects.exclude(papel__in=['Administrador', 'Super Administrador']).filter(status='Ativo').count()
     else:
         stats_utilizadores_total = 0
         stats_utilizadores_ativos = 0
@@ -1490,7 +1490,7 @@ def meu_perfil_view(request):
 
 
 def meu_perfil_guardar(request):
-    """Guarda alterações ao perfil via POST — nome, username e telefone."""
+    """Guarda alterações ao perfil via POST — nome, username, telefone (+ nif, email, cedula para admin)."""
     usuario, erro = _verificar_sessao_usuario(request)
     if erro:
         return erro
@@ -1502,9 +1502,17 @@ def meu_perfil_guardar(request):
         messages.error(request, 'Não tem permissão para alterar o perfil.')
         return redirect("meu_perfil")
 
+    papel = request.session.get('usuario', {}).get('papel', '')
+    e_admin = papel in ('Administrador', 'Super Administrador')
+
     nome     = request.POST.get("nome", "").strip()
     username = request.POST.get("username", "").strip()
     telefone = request.POST.get("telefone", "").strip()
+
+    # ── Campos extras para admin ───────────────────────────────────────
+    nif     = request.POST.get("nif", "").strip() if e_admin else ""
+    email   = request.POST.get("email", "").strip().lower() if e_admin else ""
+    cedula  = request.POST.get("cedula", "").strip() if e_admin else ""
 
     # ── Validação ─────────────────────────────────────────────────────────
     if not nome:
@@ -1539,16 +1547,29 @@ def meu_perfil_guardar(request):
         messages.error(request, "Número de telefone inválido.")
         return redirect("meu_perfil")
 
+    # ── Validação extras para admin ────────────────────────────────────
+    if e_admin:
+        if not email:
+            messages.error(request, "O email não pode estar vazio.")
+            return redirect("meu_perfil")
+        if Usuario.objects.filter(email=email).exclude(id=usuario.id).exists():
+            messages.error(request, f'O email "{email}" já está em uso.')
+            return redirect("meu_perfil")
+        if username != usuario.username and Usuario.objects.filter(username=username).exclude(id=usuario.id).exists():
+            messages.error(request, f'O username "{username}" já está em uso.')
+            return redirect("meu_perfil")
+
     from django.db import connection as _conn
     with _conn.cursor() as cur:
         cur.execute(
-            "UPDATE usuarios SET nome=%s, username=%s, telefone=%s, updated_at=%s WHERE id=%s",
-            [nome, username, telefone, timezone.now(), usuario.id],
+            "UPDATE usuarios SET nome=%s, username=%s, telefone=%s, nif=%s, email=%s, cedula=%s, updated_at=%s WHERE id=%s",
+            [nome, username, telefone, nif, email, cedula, timezone.now(), usuario.id],
         )
 
     # Actualizar sessão
     sess = request.session.get("usuario", {})
     sess["nome"] = nome
+    sess["email"] = email if e_admin else sess.get("email", "")
     request.session["usuario"] = sess
     request.session.modified = True
 
@@ -1797,7 +1818,7 @@ def _requer_admin_ou_perm_funcoes(fn):
         if not request.session.get('usuario_id'):
             return redirect('login')
         papel = request.session.get('usuario', {}).get('papel', '')
-        if papel != 'Administrador':
+        if papel not in ('Administrador', 'Super Administrador'):
             from .permissoes import usuario_tem_permissao
             if not usuario_tem_permissao(request, 'gerir_utilizadores'):
                 messages.error(request, 'Acesso restrito a Administradores.')
@@ -2025,7 +2046,7 @@ def logs_atividade_view(request):
                 banca = col.banca
                 is_colab_logs = True
 
-    if not _is_admin_ou_acesso_total(request) and papel != 'Administrador' and not Usuario.objects.filter(
+    if not _is_admin_ou_acesso_total(request) and papel not in ('Administrador', 'Super Administrador') and not Usuario.objects.filter(
         pk=usuario_id,
         permissoes_diretas__codigo='acesso_auditoria'
     ).exists() and not Usuario.objects.filter(
