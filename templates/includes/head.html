@@ -155,66 +155,6 @@ html.dark .dark-hide-in-dark { display: none !important; }
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display">
 
-{# ── Loading overlay global (substitui a barra fina) ───────────────── #}
-<div id="page-loader">
-  <div id="page-spinner" class="fixed inset-0 z-[99999] flex flex-col items-center justify-center
-       bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-    <p class="text-sm text-gray-400 dark:text-gray-500 font-medium mt-4">A carregar...</p>
-  </div>
-</div>
-
-<script>
-(function() {
-  var spinner = document.getElementById('page-spinner');
-  if (!spinner) return;
-
-  var showTimer = null;
-
-  function showLoader() {
-    clearTimeout(showTimer);
-    showTimer = setTimeout(function() {
-      spinner.classList.remove('opacity-0', 'pointer-events-none');
-      spinner.classList.add('opacity-100');
-    }, 150);
-  }
-
-  function hideLoader() {
-    clearTimeout(showTimer);
-    spinner.classList.remove('opacity-100');
-    spinner.classList.add('opacity-0', 'pointer-events-none');
-  }
-
-  document.addEventListener('click', function(e) {
-    var link = e.target.closest('a');
-    if (!link || !link.href || link.hasAttribute('data-no-loader') ||
-        link.hostname !== window.location.hostname ||
-        link.getAttribute('href').startsWith('#') ||
-        link.getAttribute('href').startsWith('javascript:') ||
-        link.getAttribute('download') ||
-        e.ctrlKey || e.metaKey || e.shiftKey) return;
-    var href = link.getAttribute('href');
-    if (href && href !== '#' && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
-      showLoader();
-    }
-  });
-
-  document.addEventListener('submit', function(e) {
-    var form = e.target;
-    if (form.method && form.method.toUpperCase() === 'GET') {
-      showLoader();
-    }
-  });
-
-  window.addEventListener('beforeunload', function() {
-    showLoader();
-  });
-
-  hideLoader();
-  window.addEventListener('load', hideLoader);
-})();
-</script>
-
 {# ── Mensagens Django → JSON para o toast.js ─────────────────────────────── #}
 {% if messages %}
 <script id="django-messages" type="application/json">

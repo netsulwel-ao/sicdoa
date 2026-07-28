@@ -1,7 +1,67 @@
 {% include 'includes/head.html' %}
 {% block sidebar %}{% include 'includes/sidebar.html' %}{% endblock %}
 
-<div class="flex-1 ml-0 lg:ml-64 min-w-0">
+<div class="flex-1 ml-0 lg:ml-64 min-w-0 relative">
+
+<div id="page-loader">
+  <div id="page-spinner" class="absolute inset-0 z-50 flex flex-col items-center justify-center
+       bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+    <p class="text-sm text-gray-400 dark:text-gray-500 font-medium mt-4">A carregar...</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var spinner = document.getElementById('page-spinner');
+  if (!spinner) return;
+
+  var showTimer = null;
+
+  function showLoader() {
+    clearTimeout(showTimer);
+    showTimer = setTimeout(function() {
+      spinner.classList.remove('opacity-0', 'pointer-events-none');
+      spinner.classList.add('opacity-100');
+    }, 150);
+  }
+
+  function hideLoader() {
+    clearTimeout(showTimer);
+    spinner.classList.remove('opacity-100');
+    spinner.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (!link || !link.href || link.hasAttribute('data-no-loader') ||
+        link.hostname !== window.location.hostname ||
+        link.getAttribute('href').startsWith('#') ||
+        link.getAttribute('href').startsWith('javascript:') ||
+        link.getAttribute('download') ||
+        e.ctrlKey || e.metaKey || e.shiftKey) return;
+    var href = link.getAttribute('href');
+    if (href && href !== '#' && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+      showLoader();
+    }
+  });
+
+  document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (form.method && form.method.toUpperCase() === 'GET') {
+      showLoader();
+    }
+  });
+
+  window.addEventListener('beforeunload', function() {
+    showLoader();
+  });
+
+  hideLoader();
+  window.addEventListener('load', hideLoader);
+})();
+</script>
+
   {% block header %}{% include 'includes/header.html' %}{% endblock %}
   {% block breadcrumbs %}{% endblock %}
   <main class="{% block main_classes %}p-4 md:p-6 lg:p-8{% endblock %}">
