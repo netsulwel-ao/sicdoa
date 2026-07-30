@@ -1238,6 +1238,11 @@ def banca_detalhe_view(request):
 def banca_criar_view(request):
     """Criação da banca (apenas se não existir)."""
     uid = request.session['usuario_id']
+    papel = request.session.get('usuario', {}).get('papel', '')
+    if papel == 'Colaborador Institucional':
+        from django.contrib import messages
+        messages.error(request, 'Colaboradores Institucionais não podem criar bancas.')
+        return redirect('dashboard')
 
     # Verificar se já existe banca (activa ou inactiva)
     if Banca.objects.filter(usuario_id=uid).exists():

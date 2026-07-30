@@ -481,6 +481,8 @@ def redirect_sem_acesso_rh(request):
     papel = request.session.get('usuario', {}).get('papel', '')
     if _is_admin_ou_acesso_total(request):
         return redirect('dashboard')
+    if papel == 'Colaborador Institucional':
+        return redirect('dashboard')
     if Banca.objects.filter(
         usuario_id=request.session.get('usuario_id'), ativa=True,
     ).exists():

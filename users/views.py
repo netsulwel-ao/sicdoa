@@ -582,10 +582,11 @@ def _dashboard_inner(request):
 
     # ── Filtro base por papel ──────────────────────────────────────────────
     e_admin = papel in ('Administrador', 'Super Administrador')
+    e_visao_global = e_admin or papel in ("Gestor Financeiro", "Colaborador Institucional")
     e_gestor = e_admin or papel in ("Gestor Financeiro",)
 
     # ── 1. Processos Aduaneiros ─────────────────────────────────────────────
-    if e_admin:
+    if e_visao_global:
         dus_qs = DeclaracaoUnica.objects.all()
     else:
         dus_qs = DeclaracaoUnica.objects.filter(usuario_id=uid)
@@ -597,14 +598,14 @@ def _dashboard_inner(request):
     ).aggregate(total=Sum('total_geral'))['total'] or 0
 
     # ── 2. Clientes ────────────────────────────────────────────────────────
-    if e_gestor:
+    if e_visao_global:
         clientes_qs = Cliente.objects.all()
     else:
         clientes_qs = Cliente.objects.filter(usuario_id=uid)
     stats_clientes = clientes_qs.filter(ativo=True).count()
 
     # ── 3. Facturação do mês ───────────────────────────────────────────────
-    if e_gestor:
+    if e_visao_global:
         fact_mes_qs = FacturaCliente.objects.all()
     else:
         fact_mes_qs = FacturaCliente.objects.filter(cliente__usuario_id=uid)
@@ -617,7 +618,7 @@ def _dashboard_inner(request):
     ).count()
 
     # ── 4. Colaboradores ────────────────────────────────────────────────────
-    if e_gestor:
+    if e_visao_global:
         cols_qs = Colaborador.objects.all()
     else:
         banca = Banca.objects.filter(usuario_id=uid, ativa=True).first()
@@ -672,7 +673,7 @@ def _dashboard_inner(request):
 
     # ── Actividade recente (últimos históricos financeiros) ─────────────────
     from financeiro.models import HistoricoFinanceiro
-    if e_gestor:
+    if e_visao_global:
         recente = HistoricoFinanceiro.objects.order_by('-data')[:10]
     else:
         recente = HistoricoFinanceiro.objects.filter(utilizador_id=uid).order_by('-data')[:10]
