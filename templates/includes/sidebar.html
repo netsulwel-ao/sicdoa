@@ -6,12 +6,10 @@
 
   <!-- Logo -->
   <div class="flex items-center gap-3 px-3 py-2 mb-4">
-    <div class="size-8 text-primary">
-      <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-        <path clip-rule="evenodd" d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z" fill="currentColor" fill-rule="evenodd"/>
-      </svg>
+    <div class="size-8 text-primary flex items-center justify-center">
+      <i class="fas fa-store text-xl"></i>
     </div>
-    <h1 class="text-[#111418] dark:text-gray-200 text-lg font-bold leading-tight">CDOA Sistema</h1>
+    <h1 class="text-[#111418] dark:text-gray-200 text-lg font-bold leading-tight">C.D.O.A Sistema</h1>
   </div>
 
   <nav class="flex flex-col gap-1 flex-grow overflow-y-auto pr-1 pb-24">
@@ -204,7 +202,7 @@
         <a href="{% url 'rh_banca_central' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'banca_central' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-store text-base"></i>CDOA
+          <i class="fas fa-store text-base"></i>C.D.O.A
         </a>
       </li>
       {% else %}
@@ -212,7 +210,7 @@
         <a href="{% url 'rh_banca_central_criar' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
                   {% if sub == 'banca_central' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-          <i class="fas fa-plus-circle text-base"></i>Criar CDOA
+          <i class="fas fa-plus-circle text-base"></i>Criar C.D.O.A
         </a>
       </li>
       {% endif %}
@@ -289,7 +287,7 @@
             class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap
                    {% if active == 'Governanca' %}bg-primary/15 text-primary font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
       <i class="fas fa-vote-yea flex-shrink-0"></i>
-      <span class="text-sm font-medium flex-1 truncate">CDOA Governança</span>
+      <span class="text-sm font-medium flex-1 truncate">C.D.O.A Governança</span>
       <i class="fas fa-chevron-down text-base sidebar-arrow flex-shrink-0 {% if active == 'Governanca' %}rotate-180{% endif %}"></i>
     </button>
     <ul data-submenu="governanca" class="ml-4 space-y-0.5 {% if active != 'Governanca' %}hidden{% endif %}">
