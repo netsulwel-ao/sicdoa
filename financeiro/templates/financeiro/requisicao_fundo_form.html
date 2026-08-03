@@ -976,16 +976,6 @@ document.addEventListener('DOMContentLoaded', function() {
               camposPreencher++;
             }
             
-            // ── Moeda e Câmbio (Seção 5 - Válidade e Referências) ──
-            if (setFieldValue('id_moeda_referencia', p.moeda_du)) {
-              console.log('Campo id_moeda_referencia preenchido');
-              camposPreencher++;
-            }
-            if (setFieldValue('id_cambio_referencia', p.cambio_du)) {
-              console.log('Campo id_cambio_referencia preenchido');
-              camposPreencher++;
-            }
-            
             // ── Actualizar elementos de display da secção Processo Aduaneiro ──
             // DU info
             setDisplayText('display_du_numero', p.numero_du);
@@ -1094,7 +1084,6 @@ document.addEventListener('DOMContentLoaded', function() {
       'id_numero_bl_awb', 'id_meio_transporte', 'id_origem', 'id_destino',
       'id_mercadoria_descricao', 'id_peso_bruto_kg', 'id_peso_liquido_kg',
       'id_quantidade_volumes', 'id_valor_cif',
-      'id_moeda_referencia', 'id_cambio_referencia'
     ];
     
     campos.forEach(fieldId => {
@@ -1171,7 +1160,6 @@ document.addEventListener('DOMContentLoaded', function() {
       'id_numero_bl_awb', 'id_meio_transporte', 'id_origem', 'id_destino',
       'id_mercadoria_descricao', 'id_peso_bruto_kg', 'id_peso_liquido_kg',
       'id_quantidade_volumes', 'id_valor_cif',
-      'id_moeda_referencia', 'id_cambio_referencia'
     ];
     cargoFieldIds.forEach(function(fieldId) {
       const field = document.getElementById(fieldId);
@@ -1193,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'id_numero_bl_awb', 'id_meio_transporte', 'id_origem', 'id_destino',
         'id_mercadoria_descricao', 'id_peso_bruto_kg', 'id_peso_liquido_kg',
         'id_quantidade_volumes', 'id_valor_cif',
-        'id_moeda_referencia', 'id_cambio_referencia'
+        
       ];
       cargoFieldIds.forEach(function(fieldId) {
         const field = document.getElementById(fieldId);

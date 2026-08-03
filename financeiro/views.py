@@ -4094,7 +4094,7 @@ def factura_pdf(request, pk):
                    st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_PRIMARIO)), '', ''],
         [Paragraph('<font size="7"><b>Ref. Interna:</b></font>', st('pr')),
          Paragraph(f'<font size="7">{ref_processo}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Nr DU:</b></font>', st('pr')),
+         Paragraph('<font size="7"><b>Número de DU:</b></font>', st('pr')),
          Paragraph(f'<font size="7">{nr_du}</font>', st('pr'))],
         [Paragraph('<font size="7"><b>Documento Transporte:</b></font>', st('pr')),
          Paragraph(f'<font size="7">{bl_awb or "—"}</font>', st('pr')),

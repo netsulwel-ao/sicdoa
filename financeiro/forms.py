@@ -30,8 +30,8 @@ class RequisicaoFundoForm(forms.ModelForm):
         model = RequisicaoFundo
         fields = ['banca', 'filial', 'cliente', 'pessoa_contacto', 'processo_aduaneiro', 
                  'numero_bl_awb', 'meio_transporte', 'origem', 'destino', 'mercadoria_descricao',
-                 'peso_bruto_kg', 'peso_liquido_kg', 'cbm_metros_cubicos', 'quantidade_volumes', 'valor_cif',
-                 'taxa_iva', 'data_validade', 'moeda_referencia', 'cambio_referencia', 'observacoes']
+                 'peso_bruto_kg', 'peso_liquido_kg', 'quantidade_volumes', 'valor_cif',
+                 'taxa_iva', 'data_validade', 'observacoes']
         field_classes = {
             'cliente': ClienteNIFChoiceField,
         }
@@ -81,11 +81,6 @@ class RequisicaoFundoForm(forms.ModelForm):
                 'step': '0.01',
                 'placeholder': '0.00'
             }),
-            'cbm_metros_cubicos': forms.NumberInput(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'step': '0.001',
-                'placeholder': '0.00'
-            }),
             'quantidade_volumes': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
                 'placeholder': 'Ex: 2 Contentores de 40ft ou 15 Paletes'
@@ -102,15 +97,6 @@ class RequisicaoFundoForm(forms.ModelForm):
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
                 'type': 'date'
             }, format='%Y-%m-%d'),
-            'moeda_referencia': forms.TextInput(attrs={
-                'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'value': 'AOA'
-            }),
-            'cambio_referencia': forms.TextInput(attrs={
-                'class': 'moeda w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all',
-                'placeholder': '0,00',
-                'inputmode': 'decimal'
-            }),
             'observacoes': forms.Textarea(attrs={
                 'class': 'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none',
                 'rows': '3',
