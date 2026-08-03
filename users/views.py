@@ -2064,6 +2064,12 @@ def logs_atividade_view(request):
 
     logs = LogAtividade.objects.all()
 
+    # Administrador (não Super): vê apenas actividades do C.D.O.A —
+    # realizadas por Administradores e Colaboradores Institucionais.
+    # Super Administrador: logs globais.
+    if papel == 'Administrador':
+        logs = logs.filter(usuario__papel__in=['Administrador', 'Colaborador Institucional'])
+
     # Filtrar por banca se for despachante ou colaborador com ver_logs_banca
     if (is_despachante or is_colab_logs) and banca:
         logs = logs.filter(banca_id=banca.pk)

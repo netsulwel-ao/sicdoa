@@ -445,11 +445,11 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
         return qs
     
     def get_form(self, form_class=None):
-        """Bloqueia edição de requisições em estado final"""
+        """Bloqueia edição de requisições em estado final (Aceite/Rejeitada)"""
         form = super().get_form(form_class)
         
-        # Bloquear edição se requisição não está em Pendente
-        if self.object and self.object.estado != 'Pendente':
+        # Bloquear edição se requisição foi aceite ou rejeitada
+        if self.object and self.object.estado in ('Aceite', 'Rejeitada'):
             for field in form.fields:
                 form.fields[field].disabled = True
                 form.fields[field].widget.attrs['readonly'] = True
@@ -458,7 +458,7 @@ class RequisicaoFundoUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateVie
     
     def form_valid(self, form):
         # Verificar se requisição está em estado editável
-        if self.object.estado != 'Pendente':
+        if self.object.estado in ('Aceite', 'Rejeitada'):
             from django.contrib import messages
             messages.error(self.request, 
                 f"Não é possível editar uma requisição em estado {self.object.get_estado_display()}")
@@ -717,7 +717,7 @@ def editar_linha_requisicao(request, pk, linha_id):
     requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
     linha = get_object_or_404(RequisicaoFundoLinha, pk=linha_id, requisicao=requisicao)
     
-    if requisicao.estado in ('Anulada', 'Aceite', 'Rejeitada'):
+    if requisicao.estado in ('Aceite', 'Rejeitada'):
         messages.error(request, 'Não é possível editar linhas de uma requisição neste estado.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
 
@@ -745,7 +745,7 @@ def eliminar_linha_requisicao(request, pk, linha_id):
     requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
     linha = get_object_or_404(RequisicaoFundoLinha, pk=linha_id, requisicao=requisicao)
     
-    if requisicao.estado in ('Anulada', 'Aceite', 'Rejeitada'):
+    if requisicao.estado in ('Aceite', 'Rejeitada'):
         messages.error(request, 'Não é possível eliminar linhas de uma requisição neste estado.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
     
@@ -884,44 +884,61 @@ def valor_por_extenso(valor):
 @safe_pdf
 @requer_sessao_ativa
 def requisicao_pdf(request, pk):
-    """Gera PDF da Requisição de Fundos com layout estilo FactPlus/NETSULWEL,
-    usando os mesmos campos e dados da versão original."""
-
+    """Gera PDF da Requisição de Fundos com layout idêntico ao da Factura Final."""
     requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
     buffer = io.BytesIO()
 
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, Image as RLImage
+    from reportlab.platypus.flowables import HRFlowable
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from datetime import datetime
+    from users.models import Usuario
+
     PAGE_W, PAGE_H = A4
-    MARGIN = 0.7 * cm
+    MARGIN = 0.8 * cm
     W = PAGE_W - 2 * MARGIN
 
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
         leftMargin=MARGIN, rightMargin=MARGIN,
-        topMargin=0.5 * cm, bottomMargin=1.0 * cm,
+        topMargin=0.4 * cm, bottomMargin=1.0 * cm,
         title=f"Requisição de Fundos {requisicao.numero_requisicao}",
     )
 
-    # Cores
+    COR_PRETO    = colors.HexColor('#0f172a')
+    COR_CINZA    = colors.HexColor('#64748b')
+    COR_CLARO    = colors.HexColor('#f1f5f9')
+    COR_BORDA    = colors.HexColor('#cbd5e1')
+    COR_HEADER   = colors.white
     COR_PRIMARIO = colors.HexColor('#0f172a')
-    COR_SECUNDARIO = colors.white
-    COR_CINZA = colors.HexColor('#64748b')
+    COR_VERMELHO = colors.white
+    COR_BRANCO   = colors.white
+    COR_VERDE    = colors.HexColor('#059669')
     COR_CINZA_CLARO = colors.HexColor('#f1f5f9')
-    COR_BORDA = colors.HexColor('#cbd5e1')
-    COR_VERDE = colors.HexColor('#059669')
-    COR_VERMELHO = colors.HexColor('#dc2626')
-    COR_BRANCO = colors.white
-    COR_HEADER = colors.white
 
     def st(name, **kw):
-        defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRIMARIO, leading=11)
+        defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRETO, leading=11)
         defaults.update(kw)
         return ParagraphStyle(name, **defaults)
 
-    banca = requisicao.banca
+    s_normal   = st('normal')
+    s_small    = st('small', fontSize=7, textColor=COR_CINZA, leading=9)
+    s_bold     = st('bold', fontName='Helvetica-Bold')
+    s_right    = st('right', alignment=TA_RIGHT)
+    s_center   = st('center', alignment=TA_CENTER)
+    s_th       = st('th', fontName='Helvetica-Bold', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_CENTER, leading=9)
+    s_td       = st('td', fontSize=8, leading=10)
+    s_td_right = st('td_r', fontSize=8, leading=10, alignment=TA_RIGHT)
+    s_td_cent  = st('td_c', fontSize=8, leading=10, alignment=TA_CENTER)
+
+    banca   = requisicao.banca
     cliente = requisicao.cliente
     processo = requisicao.processo_aduaneiro
 
-    # Despachante responsável (dono da banca)
     responsavel_nome = 'DESPACHANTE OFICIAL'
     responsavel_nif = '—'
     responsavel_cedula = '—'
@@ -938,6 +955,8 @@ def requisicao_pdf(request, pk):
         except Exception:
             responsavel_nome = 'DESPACHANTE OFICIAL'
 
+    story = []
+
     agora = datetime.now()
     nif_txt = banca.nif if banca else 'N/D'
     nome_txt = _safe(banca.nome) if banca else 'Despachante Oficial'
@@ -946,11 +965,6 @@ def requisicao_pdf(request, pk):
     telefone = _safe(banca.telefone) if banca else '—'
     email_b = _safe(banca.email) if banca else '—'
 
-    story = []
-
-    # ════════════════════════════════════════════════════════════════
-    # LOGO (esquerda) + QR CODE (direita)
-    # ══════════════════════════════════════════════════════════════════
     logo_path = None
     if banca and hasattr(banca, 'logo') and banca.logo:
         try:
@@ -958,38 +972,202 @@ def requisicao_pdf(request, pk):
         except Exception:
             logo_path = None
 
-    col_logo = Paragraph('', st('empty', fontSize=1))
+    col_logo = Paragraph('', s_small)
     if logo_path:
         try:
-            col_logo = RLImage(logo_path, width=2.4 * cm, height=1.7 * cm)
+            col_logo = RLImage(logo_path, width=2.2 * cm, height=1.6 * cm)
         except Exception:
-            col_logo = Paragraph('', st('empty', fontSize=1))
+            col_logo = Paragraph('', s_small)
 
+    top_line = Table([[
+        col_logo, ''
+    ]], colWidths=[W - 1.9 * cm, 1.9 * cm])
+    top_line.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+
+    despachante_info = (
+        f'<font size="7" color="{COR_VERDE.hexval()}"><b>DESPACHANTE: {responsavel_nome}</b></font><br/>'
+        f'<font size="6.5" color="#64748b">NIF: {responsavel_nif}</font><br/>'
+        f'<font size="6.5" color="#64748b">Cédula CDOA: {responsavel_cedula}</font><br/>'
+        f'<font size="6.5" color="#64748b">Tel: {responsavel_telefone} &nbsp;|&nbsp; Email: {responsavel_email}</font>'
+    )
+
+    data_emissao_f = requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else '—'
+    data_validade_f = requisicao.data_validade.strftime('%d/%m/%Y') if requisicao.data_validade else '—'
+
+    doc_info = (
+        f'<font size="7" color="#475569"><b>Dados do Documento</b></font><br/>'
+        f'<font size="6.5" color="#64748b"><b>Tipo:</b> Requisição de Fundos</font><br/>'
+        f'<font size="6.5" color="#64748b"><b>Nº:</b> {requisicao.numero_requisicao}</font><br/>'
+        f'<font size="6.5" color="#64748b"><b>Emissão:</b> {data_emissao_f}</font><br/>'
+        f'<font size="6.5" color="#64748b"><b>Validade:</b> {data_validade_f}</font>'
+    )
+
+    header_body = Table([[
+        Paragraph(despachante_info, st('desp_info', fontSize=6.5, leading=9)),
+        Paragraph(doc_info, st('doc_info', fontSize=6.5, leading=9, alignment=TA_RIGHT)),
+    ]], colWidths=[W * 0.55, W * 0.45])
+    header_body.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_body)
+    story.append(Spacer(1, 0.06 * cm))
+
+    story.append(Paragraph(
+        f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; Processado por programa válido nº35/AGT/2019</font>',
+        st('hash_line', fontSize=6)
+    ))
+    story.append(Spacer(1, 0.06 * cm))
+    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
+    story.append(Spacer(1, 0.06 * cm))
+
+    t_num = Table([[
+        Paragraph(f'<b>REQUISIÇÃO DE FUNDOS — {requisicao.numero_requisicao}</b>',
+                  st('num_rf', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
+    ]], colWidths=[W])
+    t_num.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), COR_HEADER),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(t_num)
+    story.append(Spacer(1, 0.06 * cm))
+
+    cli_nome  = _safe(cliente.nome) if cliente else '—'
+    cli_nif   = _safe(cliente.nif) if cliente else '—'
+    cli_end   = _safe(cliente.localizacao) if cliente else '—'
+    cli_tel   = _safe(cliente.telefone) if cliente else '—'
+    cli_email = _safe(cliente.email) if cliente else '—'
+    cli_contacto = requisicao.pessoa_contacto or '—'
+
+    cliente_rows = [
+        [Paragraph('<b>Dados do Cliente (Importador/Exportador)</b>',
+                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_PRIMARIO)), '', ''],
+        [Paragraph('<font size="7"><b>Nome/Firma:</b></font>', st('cl')),
+         Paragraph(f'<font size="7">{cli_nome}</font>', st('cl')),
+         Paragraph('<font size="7"><b>NIF:</b></font>', st('cl')),
+         Paragraph(f'<font size="7">{cli_nif}</font>', st('cl'))],
+        [Paragraph('<font size="7"><b>Endereço:</b></font>', st('cl')),
+         Paragraph(f'<font size="7">{cli_end}</font>', st('cl')),
+         Paragraph('<font size="7"><b>Contacto:</b></font>', st('cl')),
+         Paragraph(f'<font size="7">{cli_contacto}</font>', st('cl'))],
+        [Paragraph('<font size="7"><b>Tel:</b></font>', st('cl')),
+         Paragraph(f'<font size="7">{cli_tel}</font>', st('cl')),
+         Paragraph('<font size="7"><b>Email:</b></font>', st('cl')),
+         Paragraph(f'<font size="7">{cli_email}</font>', st('cl'))],
+    ]
+    t_cliente = Table(cliente_rows, colWidths=[W * 0.12, W * 0.38, W * 0.10, W * 0.40])
+    t_cliente.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('TEXTCOLOR', (0, 0), (-1, 0), COR_PRIMARIO),
+        ('SPAN', (0, 0), (-1, 0)),
+        ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
+    ]))
+    story.append(t_cliente)
+    story.append(Spacer(1, 0.1 * cm))
+
+    ref_processo = processo.id if processo else '—'
     nr_du = processo.numero_du if processo else '—'
-    merc = requisicao.mercadoria_descricao[:60] if requisicao.mercadoria_descricao else '—'
+    bl_awb = requisicao.numero_bl_awb or '—'
+    transporte = requisicao.meio_transporte or (processo.meio_transporte if processo else '—')
+    transporte = transporte or '—'
+    origem = requisicao.origem or (
+        (getattr(processo, 'pais_origem', '') or '') + ' / ' + (getattr(processo, 'porto_embarque', '') or '')
+    )
+    origem = origem.strip(' /') or '—'
+    destino = requisicao.destino or (getattr(processo, 'porto_desembarque', '') or '—')
+    merc = requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else '—')
+    v_cif_proc = fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else ''
+    if not v_cif_proc and processo and processo.valor_cif:
+        v_cif_proc = fmt_kz(processo.valor_cif)
+
+    valor_aduaneiro = ''
+    if processo and processo.total_geral:
+        valor_aduaneiro = fmt_kz(processo.total_geral)
+
+    processo_rows = [
+        [Paragraph('<b>Referências do Processo Aduaneiro (Carga)</b>',
+                   st('sec_h', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_PRIMARIO)), '', ''],
+        [Paragraph('<font size="7"><b>Ref. Interna:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{ref_processo}</font>', st('pr')),
+         Paragraph('<font size="7"><b>Número de DU:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{nr_du}</font>', st('pr'))],
+        [Paragraph('<font size="7"><b>Documento Transporte:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{bl_awb or "—"}</font>', st('pr')),
+         Paragraph('<font size="7"><b>Navio/Voo:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{transporte}</font>', st('pr'))],
+        [Paragraph('<font size="7"><b>Origem:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{origem}</font>', st('pr')),
+         Paragraph('<font size="7"><b>Destino:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{destino}</font>', st('pr'))],
+        [Paragraph('<font size="7"><b>Mercadoria:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{merc}</font>', st('pr')),
+         Paragraph('<font size="7"><b>Valor CIF:</b></font>', st('pr')),
+         Paragraph(f'<font size="7">{v_cif_proc or "—"}</font>', st('pr'))],
+        [Paragraph('<font size="7"><b>Valor Aduaneiro:</b></font>', st('pr', fontName='Helvetica-Bold')),
+         Paragraph(f'<font size="7">{valor_aduaneiro or "—"} KZ</font>', st('pr')),
+         Paragraph('', st('pr')), Paragraph('', st('pr'))],
+    ]
+    t_processo = Table(processo_rows, colWidths=[W * 0.18, W * 0.32, W * 0.13, W * 0.37])
+    t_processo.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
+        ('TEXTCOLOR', (0, 0), (-1, 0), COR_PRIMARIO),
+        ('SPAN', (0, 0), (-1, 0)),
+        ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, COR_CINZA_CLARO]),
+    ]))
+    story.append(t_processo)
+    story.append(Spacer(1, 0.1 * cm))
+
+    nr_du_qr = processo.numero_du if processo else '—'
+    merc_qr = (requisicao.mercadoria_descricao or '')[:60] or '—'
+
+    taxa_iva_pct = Decimal(str(requisicao.taxa_iva or '14'))
 
     qr_data = (
         f"=== REQUISIÇÃO DE FUNDOS ===\n"
         f"Nº: {requisicao.numero_requisicao}\n"
-        f"Data: {requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else '—'}\n"
-        f"Validade: {requisicao.data_validade.strftime('%d/%m/%Y') if requisicao.data_validade else '—'}\n"
+        f"Data: {data_emissao_f}\n"
+        f"Validade: {data_validade_f}\n"
         f"Estado: {requisicao.estado}\n"
         f"\n--- CLIENTE ---\n"
-        f"Nome: {cliente.nome if cliente else '—'}\n"
-        f"NIF: {cliente.nif if cliente else '—'}\n"
-        f"Contacto: {requisicao.pessoa_contacto or '—'}\n"
+        f"Nome: {cli_nome}\n"
+        f"NIF: {cli_nif}\n"
         f"\n--- PROCESSO ---\n"
-        f"DU: {nr_du}\n"
-        f"Mercadoria: {merc}\n"
-        f"Origem: {requisicao.origem or '—'}\n"
-        f"Destino: {requisicao.destino or '—'}\n"
-        f"Transporte: {requisicao.meio_transporte or '—'}\n"
-        f"B/L/AWB: {requisicao.numero_bl_awb or '—'}\n"
-        f"Valor CIF: {fmt_kz(requisicao.valor_cif or 0)} KZ\n"
-        f"Peso Bruto: {requisicao.peso_bruto_kg or '—'} Kg\n"
+        f"DU: {nr_du_qr}\n"
+        f"Mercadoria: {merc_qr}\n"
+        f"Origem: {origem}\n"
+        f"Destino: {destino}\n"
+        f"Transporte: {transporte}\n"
+        f"Valor CIF: {v_cif_proc or '—'} KZ\n"
         f"\n--- VALORES ---\n"
         f"Subtotal: {fmt_kz(requisicao.subtotal_geral or 0)} KZ\n"
-        f"Retenção ({requisicao.taxa_iva}%): {fmt_kz(requisicao.retencao or 0)} KZ\n"
+        f"Retenção ({taxa_iva_pct}%): {fmt_kz(requisicao.retencao or 0)} KZ\n"
         f"TOTAL: {fmt_kz(requisicao.total_geral or 0)} KZ\n"
         f"\n--- DESPACHANTE ---\n"
         f"Nome: {responsavel_nome}\n"
@@ -1005,7 +1183,9 @@ def requisicao_pdf(request, pk):
     _qr_buf.seek(0)
     qr_flowable = RLImage(_qr_buf, width=1.9 * cm, height=1.9 * cm)
 
-    top_line = Table([[col_logo, qr_flowable]], colWidths=[W - 1.9 * cm, 1.9 * cm])
+    top_line = Table([[
+        col_logo, qr_flowable
+    ]], colWidths=[W - 1.9 * cm, 1.9 * cm])
     top_line.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
@@ -1014,356 +1194,186 @@ def requisicao_pdf(request, pk):
         ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
-    story.append(top_line)
+    story.insert(0, Spacer(1, 0.15 * cm))
+    story.insert(0, top_line)
+
+    story.append(Paragraph('<b>Original</b>', st('orig', fontSize=10, fontName='Helvetica-Bold', alignment=TA_CENTER,
+                                                  textColor=COR_PRIMARIO)))
     story.append(Spacer(1, 0.15 * cm))
 
-    # ══════════════════════════════════════════════════════════════════
-    # BLOCO EMPRESA (esquerda) + BLOCO CLIENTE (direita)
-    # ══════════════════════════════════════════════════════════════════
-    empresa_info = (
-        f'<font size="9"><b>{nome_txt}</b></font><br/>'
-        f'<font size="7.5" color="#334155">Residência: {endereco}</font><br/>'
-        f'<font size="7.5" color="#334155">Tel: {telefone}</font><br/>'
-        f'<font size="7.5" color="#334155">Email: {email_b}</font><br/>'
-        f'<font size="7.5" color="#334155">NIF: {nif_txt} &nbsp;|&nbsp; Licença CDOA: {cdoa}</font>'
-    )
-    cli_nome = _safe(cliente.nome) if cliente else '—'
-    cli_nif = _safe(cliente.nif) if cliente else '—'
-    cli_end = _safe(cliente.localizacao) if cliente else '—'
-    cliente_info = (
-        f'<font size="7.5">Exmo.(s) Sr(s)</font><br/>'
-        f'<font size="9"><b>{cli_nome}</b></font><br/>'
-        f'<font size="7.5" color="#334155">{cli_end}</font><br/>'
-        f'<font size="7.5" color="#334155">NIF: {cli_nif}</font>'
-    )
-    header_body = Table([[
-        Paragraph(empresa_info, st('empresa_info', fontSize=7.5, leading=10)),
-        Paragraph(cliente_info, st('cliente_info', fontSize=7.5, leading=10)),
-    ]], colWidths=[W * 0.55, W * 0.45])
-    header_body.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    story.append(header_body)
-    story.append(Spacer(1, 0.35 * cm))
-
-    # ══════════════════════════════════════════════════════════════════
-    # TÍTULO DO DOCUMENTO
-    # ══════════════════════════════════════════════════════════════════
-    story.append(Paragraph('<font size="7.5">Original</font>', st('original', fontSize=7.5)))
-    story.append(Paragraph(
-        f'<font size="12"><b>Requisição de Fundos n.º {requisicao.numero_requisicao}</b></font>',
-        st('titulo', fontSize=12)
-    ))
-    story.append(Spacer(1, 0.2 * cm))
-
-    # ══════════════════════════════════════════════════════════════════
-    # DADOS DO DOCUMENTO (linha estilo "Data do Documento | ... | V/ Ref.")
-    # ══════════════════════════════════════════════════════════════════
-    data_emissao = requisicao.data_emissao.strftime('%d/%m/%Y') if requisicao.data_emissao else '—'
-    data_validade = requisicao.data_validade.strftime('%d/%m/%Y') if requisicao.data_validade else '—'
-    moeda = requisicao.moeda_referencia or 'AOA'
-    cambio = requisicao.cambio_referencia or '—'
-    cli_contacto = requisicao.pessoa_contacto or '—'
-    ref_processo = processo.id if processo else '—'
-    nr_du = processo.numero_du if processo else '—'
-
-    dados_doc_header = [
-        Paragraph('<b>Data de Emissão</b>', st('ddh', fontSize=7.5)),
-        Paragraph('<b>Data de Validade</b>', st('ddh', fontSize=7.5)),
-        Paragraph('<b>Data/Hora de Emissão</b>', st('ddh', fontSize=7.5)),
-        Paragraph('<b>NIF Cliente</b>', st('ddh', fontSize=7.5)),
-        Paragraph('<b>V/ Ref.</b>', st('ddh', fontSize=7.5)),
+    ITENS_HEADER = [
+        Paragraph('Ref.', s_th),
+        Paragraph('Descrição', s_th),
+        Paragraph('Tipo', s_th),
+        Paragraph('Valor (KZ)', s_th),
     ]
-    dados_doc_valores = [
-        Paragraph(data_emissao, st('ddv', fontSize=7.5)),
-        Paragraph(data_validade, st('ddv', fontSize=7.5)),
-        Paragraph(agora.strftime('%Y-%m-%d %H:%M'), st('ddv', fontSize=7.5)),
-        Paragraph(cli_nif, st('ddv', fontSize=7.5)),
-        Paragraph(cli_contacto, st('ddv', fontSize=7.5)),
-    ]
-    t_dados_doc = Table([dados_doc_header, dados_doc_valores], colWidths=[W / 5] * 5)
-    t_dados_doc.setStyle(TableStyle([
-        ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
-        ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_CINZA),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-    ]))
-    story.append(t_dados_doc)
-    story.append(Paragraph(
-        f'<font size="7" color="#64748b">Observações: Requisição referente ao processo {ref_processo} — Nr DU {nr_du}</font>',
-        st('obs', fontSize=7)
-    ))
-    story.append(Spacer(1, 0.3 * cm))
+    cw = [1.2*cm, W - 1.2*cm - 4.0*cm - 3.0*cm, 4.0*cm, 3.0*cm]
 
-    # ══════════════════════════════════════════════════════════════════
-    # TABELA DE ITENS (linha a linha: Código | Descrição | Valor | Tipo | Total)
-    # ══════════════════════════════════════════════════════════════════
-    bl = requisicao.numero_bl_awb or '—'
-    transporte = requisicao.meio_transporte or (processo.meio_transporte if processo else '—')
-    origem = requisicao.origem or (
-        f"{getattr(processo, 'pais_origem', '') or ''} / {getattr(processo, 'porto_embarque', '') or ''}".strip(' /') or '—'
-    )
-    destino = requisicao.destino or (getattr(processo, 'porto_desembarque', '') or '—')
-    merc = requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else '—')
-    peso_bruto = (
-        f"{requisicao.peso_bruto_kg:.2f} Kg" if requisicao.peso_bruto_kg
-        else (f"{processo.peso_bruto:.2f} Kg" if processo and processo.peso_bruto else '—')
-    )
-    peso_liq = (
-        f"{requisicao.peso_liquido_kg:.2f} Kg" if requisicao.peso_liquido_kg
-        else (f"{processo.peso_liquido:.2f} Kg" if processo and processo.peso_liquido else '—')
-    )
-    v_cif = fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else (
-        fmt_kz(processo.valor_cif) if processo and processo.valor_cif else '—'
-    )
-    processo_total = fmt_kz(processo.total_geral) if processo and processo.total_geral else '—'
-
-    itens_header = [
-        Paragraph('<b>Código</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO)),
-        Paragraph('<b>Descrição</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO)),
-        Paragraph('<b>Valor</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
-        Paragraph('<b>Tipo</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO)),
-        Paragraph('<b>Total</b>', st('ih', fontSize=7.5, textColor=COR_PRIMARIO, alignment=TA_RIGHT)),
-    ]
-    itens_rows = [itens_header]
-
-    itens_rows.append([
-        Paragraph('CIF', st('ic', fontSize=7)),
-        Paragraph(f'Mercadoria: {merc}', st('ic', fontSize=7)),
-        Paragraph(v_cif, st('ic', fontSize=7, alignment=TA_RIGHT)),
-        Paragraph('Valor CIF', st('ic', fontSize=7)),
-        Paragraph(v_cif, st('ic', fontSize=7, alignment=TA_RIGHT)),
-    ])
+    ITENS = [ITENS_HEADER]
+    total_geral_itens = Decimal('0')
 
     despesas_doc = requisicao.linhas.filter(documentada=True)
-    total_direitos = Decimal('0')
     for idx, linha in enumerate(despesas_doc, start=1):
-        if linha.valor and linha.valor > 0:
-            total_direitos += linha.valor
-            itens_rows.append([
-                Paragraph(f'EP{idx:02d}', st('ic', fontSize=7)),
-                Paragraph(linha.despesa_tipo or 'Despesa', st('ic', fontSize=7)),
-                Paragraph(fmt_kz(linha.valor), st('ic', fontSize=7, alignment=TA_RIGHT, textColor=COR_PRIMARIO)),
-                Paragraph('Direito (documentado)', st('ic', fontSize=7)),
-                Paragraph(fmt_kz(linha.valor), st('ic', fontSize=7, alignment=TA_RIGHT)),
-            ])
+        v = linha.valor or Decimal('0')
+        if not v or v <= 0:
+            continue
+        ITENS.append([
+            Paragraph(f'EP{idx:02d}', s_td_cent),
+            Paragraph(linha.despesa_tipo or 'Despesa', s_td),
+            Paragraph('Despesa (documentada)', s_td),
+            Paragraph(fmt_kz(v), s_td_right),
+        ])
+        total_geral_itens += v
 
     despesas_nao_doc = requisicao.linhas.filter(documentada=False)
-    total_despesas = Decimal('0')
     for idx, linha in enumerate(despesas_nao_doc, start=1):
-        if linha.valor and linha.valor > 0:
-            total_despesas += linha.valor
-            itens_rows.append([
-                Paragraph(f'DE{idx:02d}', st('ic', fontSize=7)),
-                Paragraph(linha.despesa_tipo or 'Despesa', st('ic', fontSize=7)),
-                Paragraph(fmt_kz(linha.valor), st('ic', fontSize=7, alignment=TA_RIGHT, textColor=COR_PRIMARIO)),
-                Paragraph('Despesa (não documentada)', st('ic', fontSize=7)),
-                Paragraph(fmt_kz(linha.valor), st('ic', fontSize=7, alignment=TA_RIGHT)),
-            ])
+        v = linha.valor or Decimal('0')
+        if not v or v <= 0:
+            continue
+        ITENS.append([
+            Paragraph(f'DE{idx:02d}', s_td_cent),
+            Paragraph(linha.despesa_tipo or 'Despesa', s_td),
+            Paragraph('Despesa (não documentada)', s_td),
+            Paragraph(fmt_kz(v), s_td_right),
+        ])
+        total_geral_itens += v
 
-    t_itens = Table(itens_rows, colWidths=[W * 0.10, W * 0.38, W * 0.16, W * 0.20, W * 0.16])
+    while len(ITENS) < 6:
+        ITENS.append(['', '', '', ''])
+
+    t_itens = Table(ITENS, colWidths=cw, repeatRows=1)
     t_itens.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('LINEBELOW', (0, 0), (-1, 0), 0.5, COR_BORDA),
-        ('LINEBELOW', (0, 1), (-1, -1), 0.3, colors.HexColor('#e2e2e2')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('BACKGROUND',    (0, 0), (-1, 0), COR_HEADER),
+        ('TEXTCOLOR',     (0, 0), (-1, 0), COR_PRIMARIO),
+        ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, 0), 7),
+        ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+        ('FONTNAME',      (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE',      (0, 1), (-1, -1), 8),
+        ('GRID',          (0, 0), (-1, -1), 0.3, COR_BORDA),
+        ('ROWBACKGROUNDS',(0, 1), (-1, -1), [colors.white, COR_CLARO]),
+        ('VALIGN',        (0, 1), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 1), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
     ]))
     story.append(t_itens)
-    story.append(Spacer(1, 0.2 * cm))
+    story.append(Spacer(1, 0.08 * cm))
 
-    # ══════════════════════════════════════════════════════════════════
-    # REFERÊNCIAS DO PROCESSO ADUANEIRO (CARGA)
-    # ══════════════════════════════════════════════════════════════════
-    ref_interna = processo.id if processo else '—'
-    bl_awb = requisicao.numero_bl_awb or '—'
-    transporte = requisicao.meio_transporte or (processo.meio_transporte if processo else '—')
-    origem = requisicao.origem or (
-        f"{getattr(processo, 'pais_origem', '') or ''} / {getattr(processo, 'porto_embarque', '') or ''}".strip(' /') or '—'
-    )
-    destino = requisicao.destino or (getattr(processo, 'porto_desembarque', '') or '—')
-    merc_desc = requisicao.mercadoria_descricao or (processo.descricao_mercadoria if processo else '—')
-    v_cif_proc = fmt_kz(requisicao.valor_cif) if requisicao.valor_cif else (
-        fmt_kz(processo.valor_cif) if processo and processo.valor_cif else '—'
-    )
-    valor_aduaneiro = fmt_kz(processo.total_geral) if processo and processo.total_geral else '—'
-
-    processo_rows = [
-        [Paragraph('<b>Referências do Processo Aduaneiro (Carga)</b>',
-                   st('sec_h_proc', fontName='Helvetica-Bold', fontSize=7.5, textColor=COR_PRIMARIO)), '', ''],
-        [Paragraph('<font size="7"><b>Ref. Interna:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{ref_interna}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Nr DU:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{nr_du}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Documento Transporte:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{bl_awb}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Navio/Voo:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{transporte}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Origem:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{origem}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Destino:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{destino}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Mercadoria:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{merc_desc[:60]}</font>', st('pr')),
-         Paragraph('<font size="7"><b>Valor CIF:</b></font>', st('pr')),
-         Paragraph(f'<font size="7">{v_cif_proc}</font>', st('pr'))],
-        [Paragraph('<font size="7"><b>Valor Aduaneiro:</b></font>', st('pr', fontName='Helvetica-Bold')),
-         Paragraph(f'<font size="7">{valor_aduaneiro} KZ</font>', st('pr')),
-         Paragraph('', st('pr')), Paragraph('', st('pr'))],
-    ]
-    t_processo = Table(processo_rows, colWidths=[W * 0.16, W * 0.34, W * 0.13, W * 0.37])
-    t_processo.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('TEXTCOLOR', (0, 0), (-1, 0), COR_PRIMARIO),
-        ('SPAN', (0, 0), (-1, 0)),
-        ('GRID', (0, 0), (-1, -1), 0.4, COR_BORDA),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('LEFTPADDING', (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
-        ('ROWBACKGROUNDS', (1, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
-    ]))
-    story.append(t_processo)
-    story.append(Spacer(1, 0.2 * cm))
-
-    # ══════════════════════════════════════════════════════════════════
-    # IMPOSTO/IVA + SUMÁRIO
-    # ══════════════════════════════════════════════════════════════════
-    iva_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
-    sttl = requisicao.subtotal_geral or Decimal('0')
-    ret_pct = iva_pct
-    ret_val = requisicao.retencao or Decimal('0')
-    total = requisicao.total_geral or Decimal('0')
-
-    # Incidência da retenção = soma dos honorários (tipo_custo == 'Honorários do Despachante')
-    incidencia_ret = sum(
-        (linha.valor or Decimal('0')) for linha in requisicao.linhas.all()
-        if linha.tipo_custo == 'Honorários do Despachante'
-    )
-    if incidencia_ret <= 0:
-        incidencia_ret = sttl
-
-    imposto_rows = [
-        [Paragraph('<b>Impostos</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
-         Paragraph('<b>Incidência</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO)),
-         Paragraph('<b>Valor</b>', st('imh', fontSize=7, textColor=COR_PRIMARIO, alignment=TA_RIGHT))],
-        [Paragraph(f'Retenção - {iva_pct*100:.1f}%', st('imc', fontSize=7)),
-         Paragraph(f'{fmt_kz(incidencia_ret)} KZ', st('imc', fontSize=7)),
-         Paragraph(f'{fmt_kz(ret_val)} KZ', st('imc', fontSize=7, alignment=TA_RIGHT))],
-    ]
-    t_imposto = Table(imposto_rows, colWidths=[W * 0.55 * 0.30, W * 0.55 * 0.40, W * 0.55 * 0.30])
-    t_imposto.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
-        ('LINEABOVE', (0, 0), (-1, 0), 0.5, COR_CINZA),
-        ('LINEBELOW', (0, 0), (-1, 0), 1.0, COR_CINZA),
-        ('LINEBELOW', (0, 1), (-1, -1), 0.3, COR_BORDA),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COR_BRANCO, COR_CINZA_CLARO]),
-    ]))
-
-    bloco_esquerdo = [
-        [t_imposto],
-    ]
-    t_bloco_esquerdo = Table(bloco_esquerdo, colWidths=[W * 0.55])
-    t_bloco_esquerdo.setStyle(TableStyle([
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-
-    # Total = Subtotal (todos os custos) + Retenção (apenas sobre honorários)
-    total_calc = sttl + ret_val
-    valor_extenso = valor_por_extenso(total_calc)
-    sumario_rows = [
-        [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO))],
-        [Spacer(1, 0.15 * cm)],
-        [Paragraph(f'<font size="7">Subtotal (Direitos + Despesas): <b>{fmt_kz(sttl)} KZ</b></font>',
-                   st('sum_l', fontSize=7, leading=10))],
-        [Paragraph(f'<font size="7">Retenção ({ret_pct*100:.1f}%): <b>{fmt_kz(ret_val)} KZ</b></font>',
-                   st('sum_l', fontSize=7, leading=10))],
-        [Spacer(1, 0.15 * cm)],
-        [Paragraph(f'<font size="10" color="#0f172a"><b>Total: {fmt_kz(total_calc)} KZ</b></font>',
-                   st('sum_total', fontSize=10, leading=12))],
-        [Spacer(1, 0.1 * cm)],
-        [Paragraph(f'<font size="6.5" color="#64748b"><i>{valor_extenso}</i></font>',
-                   st('sum_ext', fontSize=6.5, leading=8))],
-    ]
-    t_sumario = Table(sumario_rows, colWidths=[W * 0.35])
-    t_sumario.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, 0), COR_HEADER),
-        ('TOPPADDING', (0, 0), (0, 0), 5),
-        ('BOTTOMPADDING', (0, 0), (0, 0), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 1), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
-    ]))
-    bloco_direito = t_sumario
-
-    t_resumo = Table([[t_bloco_esquerdo, '', '', bloco_direito]], colWidths=[W * 0.60, W * 0.02, W * 0.03, W * 0.35])
-    t_resumo.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    story.append(t_resumo)
-    story.append(Spacer(1, 0.2 * cm))
-
-    # ══════════════════════════════════════════════════════════════════
-    # NOTA
-    # ══════════════════════════════════════════════════════════════════
     nota_box = Table([[
-        Paragraph('<b>Nota</b>', st('nota_h', fontSize=7.5, textColor=COR_PRIMARIO)),
+        Paragraph('<font size="7" color="#475569"><i>Bens foram colocados à disposição do adquirente a data do documento</i></font>',
+                  s_small)
     ]], colWidths=[W])
     nota_box.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COR_SECUNDARIO),
-        ('TOPPADDING', (0, 0), (-1, 0), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
-        ('LEFTPADDING', (0, 0), (-1, 0), 6),
+        ('BACKGROUND', (0, 0), (-1, -1), COR_CLARO),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('BOX', (0, 0), (-1, -1), 0.3, COR_BORDA),
     ]))
     story.append(nota_box)
-    story.append(Paragraph(
-        'Os originais das contas referidas vão devidamente selecionadas pelo valor dos honorários.',
-        st('nota_txt', fontSize=7, textColor=COR_SECUNDARIO)
-    ))
-    story.append(Spacer(1, 0.15 * cm))
-
-    # ══════════════════════════════════════════════════════════════════
-    # ASSINATURA + OPERADOR
-    # ══════════════════════════════════════════════════════════════════
-    story.append(HRFlowable(width=W, thickness=0.5, color=COR_BORDA))
     story.append(Spacer(1, 0.1 * cm))
-    _ass_img = _carregar_assinatura(banca.usuario_id if banca else None)
-    if _ass_img:
-        ass_data = [
-            ['', Table([
-                [_ass_img],
+
+    taxas_total = Decimal('0')
+    emol_total = Decimal('0')
+    oper_total = Decimal('0')
+    honor_total = Decimal('0')
+    outros_total = Decimal('0')
+    for linha in requisicao.linhas.all():
+        v = linha.valor or Decimal('0')
+        if not v or v <= 0:
+            continue
+        tc = (linha.tipo_custo or '').strip()
+        dt = (linha.despesa_tipo or '').strip()
+        if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
+            honor_total += v
+        elif tc == 'Impostos e Taxas Aduaneiras (AGT)':
+            taxas_total += v
+        elif tc == 'Despesas Portuárias e Terminais':
+            emol_total += v
+        elif tc in ('Logística e Transporte', 'Outros') or not tc:
+            oper_total += v
+        else:
+            outros_total += v
+
+    v_cif_val = Decimal('0')
+    if requisicao.valor_cif:
+        v_cif_val = requisicao.valor_cif
+    elif processo and processo.valor_cif:
+        v_cif_val = processo.valor_cif
+
+    s_lbl = st('sum_lbl', fontSize=8, fontName='Helvetica', textColor=COR_PRIMARIO, alignment=TA_LEFT)
+    s_lbl_b = st('sum_lbl_b', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_LEFT)
+    s_val = st('sum_val', fontSize=8, fontName='Helvetica', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
+    s_val_b = st('sum_val_b', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
+    s_tot_lbl = st('sum_tot_lbl', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_LEFT)
+    s_tot_val = st('sum_tot_val', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
+
+    sum_rows = [
+        [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=9, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
+         '', ''],
+        [Paragraph('Mercadorias', s_lbl),
+         Paragraph(f'({fmt_kz(v_cif_val)} CIF)', st('sum_det', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         Paragraph(fmt_kz(v_cif_val) if v_cif_val > 0 else '0,00', s_val)],
+        [Paragraph('Serviços (Honorários)', s_lbl),
+         Paragraph(f'({fmt_kz(honor_total)})', st('sum_det2', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         Paragraph(fmt_kz(honor_total), s_val)],
+        [Paragraph(f'Retenção ({taxa_iva_pct:.1f}%)', s_lbl),
+         Paragraph(f's/ honorários', st('sum_det3', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         Paragraph(fmt_kz(requisicao.retencao) if requisicao.retencao and requisicao.retencao > 0 else '0,00', s_val)],
+    ]
+    sum_rows.append(['', '', ''])
+    sum_rows.append([
+        Paragraph('<b>Total (AKZ):</b>', s_tot_lbl),
+        '',
+        Paragraph(f'<b>{fmt_kz(requisicao.total_geral)}</b>', s_tot_val),
+    ])
+
+    cw_sum = [W * 0.32, W * 0.33, W * 0.32]
+    t_sum = Table(sum_rows, colWidths=cw_sum)
+    t_sum.setStyle(TableStyle([
+        ('SPAN',          (0, 0), (-1, 0)),
+        ('BACKGROUND',    (0, 0), (-1, 0), COR_HEADER),
+        ('TOPPADDING',    (0, 0), (-1, 0), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+        ('LEFTPADDING',   (0, 0), (-1, 0), 6),
+        ('GRID',          (0, 1), (-1, -3), 0.3, COR_BORDA),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -3), [COR_BRANCO, COR_CINZA_CLARO]),
+        ('LINEABOVE',     (0, -1), (-1, -1), 1.5, COR_PRIMARIO),
+        ('BACKGROUND',    (0, -1), (-1, -1), COR_CLARO),
+        ('FONTSIZE',      (0, 0), (-1, -1), 8),
+        ('TOPPADDING',    (0, 1), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
+        ('LEFTPADDING',   (0, 1), (-1, -1), 6),
+        ('RIGHTPADDING',  (0, 1), (-1, -1), 6),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+
+    story.append(t_sum)
+    story.append(Spacer(1, 0.08 * cm))
+
+    _ass_img_rf = _carregar_assinatura(banca.usuario_id if banca else None)
+    if _ass_img_rf:
+        t_ass = Table([[
+            '',
+            Table([
+                [_ass_img_rf],
                 [Paragraph('<font size="7.5"><b>Assinatura do Despachante</b></font>',
                             st('ass', fontSize=7.5, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
                 [Spacer(1, 0.08*cm)],
                 [Paragraph(f'<font size="7.5"><b>Operador:</b> {requisicao.criado_por_nome or "—"}</font>',
                             st('op', fontSize=7.5, alignment=TA_CENTER))],
-            ], colWidths=[4.5*cm])],
-        ]
+            ], colWidths=[4.5*cm]),
+        ]], colWidths=[W - 4.5*cm, 4.5*cm])
     else:
-        ass_data = [
-            ['', Table([
+        t_ass = Table([[
+            '',
+            Table([
                 [HRFlowable(width=4.5*cm, thickness=0.5, color=COR_BORDA)],
                 [Paragraph('<font size="7.5"><b>Assinatura do Despachante</b></font>',
                             st('ass', fontSize=7.5, alignment=TA_CENTER, fontName='Helvetica-Bold'))],
@@ -1371,31 +1381,76 @@ def requisicao_pdf(request, pk):
                 [HRFlowable(width=4.5*cm, thickness=0.5, color=COR_BORDA)],
                 [Paragraph(f'<font size="7.5"><b>Operador:</b> {requisicao.criado_por_nome or "—"}</font>',
                             st('op', fontSize=7.5, alignment=TA_CENTER))],
-            ], colWidths=[4.5*cm])],
-        ]
-    assinatura = Table(ass_data, colWidths=[W - 4.5*cm, 4.5*cm])
-    assinatura.setStyle(TableStyle([
+            ], colWidths=[4.5*cm]),
+        ]], colWidths=[W - 4.5*cm, 4.5*cm])
+    t_ass.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
         ('ALIGN',  (1, 0), (1, 0),  'CENTER'),
     ]))
-    story.append(assinatura)
-    story.append(Spacer(1, 0.15 * cm))
+    story.append(t_ass)
 
-    # ══════════════════════════════════════════════════════════════════
-    # RODAPÉ: HASH + PÁGINA/DATA
-    # ══════════════════════════════════════════════════════════════════
-    story.append(HRFlowable(width=W, thickness=0.5, color=colors.HexColor('#e2e2e2')))
-    story.append(Spacer(1, 0.1 * cm))
-    story.append(Paragraph(
-        f'<font size="6" color="#94a3b8"><b>{nome_txt} - HASH</b> &nbsp;|&nbsp; '
-        f'Processado por programa válido nº35/AGT/2019<br/>'
-        f'Pág. 1 / 1 &nbsp;&nbsp; {agora.strftime("%H:%M:%S")} &nbsp;&nbsp; {agora.strftime("%d/%m/%Y")}</font>',
-        st('footer', fontSize=6)
-    ))
+    bancos_pdf = []
+    if banca:
+        try:
+            bancos_pdf = json.loads(banca.dados_bancarios_json or '[]')
+        except (json.JSONDecodeError, ValueError):
+            bancos_pdf = []
+        if not isinstance(bancos_pdf, list):
+            bancos_pdf = []
 
-    # BUILD DO PDF
+    has_bank_data = False
+    if bancos_pdf:
+        has_bank_data = any(b.get('banco') for b in bancos_pdf if isinstance(b, dict))
+    elif banca:
+        has_bank_data = bool(banca.banco or banca.numero_conta or banca.iban)
+
+    if has_bank_data or (banca and banca.instrucoes_pagamento):
+        story.append(Spacer(1, 0.06 * cm))
+        story.append(HRFlowable(width=W, thickness=0.3, color=COR_BORDA))
+        story.append(Spacer(1, 0.04 * cm))
+
+        story.append(Paragraph(
+            '<font size="5.5" color="#1e293b"><b>Dados Bancários</b></font>',
+            st('bank_title', fontSize=5.5)
+        ))
+
+        if bancos_pdf:
+            bank_lines = []
+            for i, b in enumerate(bancos_pdf):
+                if not isinstance(b, dict) or not b.get('banco'):
+                    continue
+                iban = b.get('iban', '—')
+                bank_lines.append(
+                    f'<font size="5" color="#475569">'
+                    f'<b>{i + 1}.</b> <b>{b["banco"]}</b> IBAN: <font name="Courier">{iban}</font>'
+                    f'</font>'
+                )
+            story.append(Paragraph(
+                ' &nbsp;&nbsp; '.join(bank_lines),
+                st('bank_all', fontSize=5, leading=7, leftIndent=8)
+            ))
+        elif banca:
+            parts = []
+            if banca.banco:
+                parts.append(f'<b>Banco:</b> {banca.banco}')
+            if banca.iban:
+                parts.append(f'<b>IBAN:</b> <font name="Courier">{banca.iban}</font>')
+            if banca.numero_conta:
+                parts.append(f'<b>Conta:</b> {banca.numero_conta}')
+            if parts:
+                story.append(Paragraph(
+                    f'<font size="5" color="#475569">{" &nbsp;|&nbsp; ".join(parts)}</font>',
+                    st('bank_foot', fontSize=5, leading=6.5, leftIndent=8)
+                ))
+
+        if banca and banca.instrucoes_pagamento:
+            texto_pagamento = banca.instrucoes_pagamento.replace('\n', ' ').replace('\r', '')
+            story.append(Paragraph(
+                f'<font size="5" color="#64748b"><i>{texto_pagamento}</i></font>',
+                st('bank_inst', fontSize=5, leading=6.5, leftIndent=8)
+            ))
+
     doc.build(story)
-
     buffer.seek(0)
     response = HttpResponse(buffer.read(), content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="Requisicao_{requisicao.numero_requisicao}.pdf"'
@@ -2128,6 +2183,15 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
     template_name = 'financeiro/factura_form.html'
     success_message = "Factura Final actualizada com sucesso!"
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Apenas facturas "Pendente" podem ser editadas.
+        qs = qs.filter(estado='Pendente')
+        filtro = self._get_user_cliente_filter()
+        if filtro:
+            qs = qs.filter(**filtro)
+        return qs
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         banca_id = self.request.session.get('banca_id')
@@ -2137,13 +2201,6 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
 
     def get_success_url(self):
         return reverse('financeiro:factura_detalhe', kwargs={'pk': self.object.pk})
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        filtro = self._get_user_cliente_filter()
-        if filtro:
-            qs = qs.filter(**filtro)
-        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -3661,7 +3718,7 @@ def _construir_pdf_documento(
             Paragraph(f'<font size="6.5" color="#64748b"><i>{valor_ext}</i></font>',
                       st('sum_ext', fontSize=6.5, leading=8))
         ])
-        t_sumario = Table(sumario_rows, colWidths=[W * 0.35])
+        t_sumario = Table(sumario_rows, colWidths=[W * 0.35], hAlign='LEFT')
         t_sumario.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, 0), COR_HEADER),
             ('TOPPADDING', (0, 0), (0, 0), 5),
@@ -3904,15 +3961,13 @@ def factura_pdf(request, pk):
 
     data_emissao_f = factura.data_emissao.strftime('%d/%m/%Y') if factura.data_emissao else '—'
     data_venc = factura.data_vencimento.strftime('%d/%m/%Y') if factura.data_vencimento else '—'
-    moeda_fact = getattr(getattr(factura, 'requisicao_fundo', None), 'moeda_referencia', '') or 'AOA'
 
     doc_info = (
         f'<font size="7" color="#475569"><b>Dados do Documento</b></font><br/>'
         f'<font size="6.5" color="#64748b"><b>Tipo:</b> Factura Final</font><br/>'
         f'<font size="6.5" color="#64748b"><b>Nº:</b> {factura.numero_factura}</font><br/>'
         f'<font size="6.5" color="#64748b"><b>Emissão:</b> {data_emissao_f}</font><br/>'
-        f'<font size="6.5" color="#64748b"><b>Vencimento:</b> {data_venc}</font><br/>'
-        f'<font size="6.5" color="#64748b"><b>Moeda:</b> {moeda_fact}</font>'
+        f'<font size="6.5" color="#64748b"><b>Vencimento:</b> {data_venc}</font>'
     )
 
     header_body = Table([[
@@ -4057,7 +4112,7 @@ def factura_pdf(request, pk):
          Paragraph(f'<font size="7">{valor_aduaneiro or "—"} KZ</font>', st('pr')),
          Paragraph('', st('pr')), Paragraph('', st('pr'))],
     ]
-    t_processo = Table(processo_rows, colWidths=[W * 0.16, W * 0.34, W * 0.13, W * 0.37])
+    t_processo = Table(processo_rows, colWidths=[W * 0.18, W * 0.32, W * 0.13, W * 0.37])
     t_processo.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), COR_HEADER),
         ('TEXTCOLOR', (0, 0), (-1, 0), COR_PRIMARIO),
@@ -4159,16 +4214,6 @@ def factura_pdf(request, pk):
     ITENS = [ITENS_HEADER]
     total_geral_itens = Decimal('0')
 
-    # Adicionar linha CIF
-    v_cif_val = factura.requisicao_fundo.valor_cif if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo and factura.requisicao_fundo.valor_cif else (processo.valor_cif if processo and processo.valor_cif else Decimal('0'))
-    if v_cif_val and v_cif_val > 0:
-        ITENS.append([
-            Paragraph('CIF', s_td_cent),
-            Paragraph(merc[:50] if merc else 'Mercadoria', s_td),
-            Paragraph('Valor CIF', s_td),
-            Paragraph(fmt_kz(v_cif_val), s_td_right),
-        ])
-
     # Listar cada linha da requisição individualmente
     if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
         # Despesas documentadas
@@ -4180,7 +4225,7 @@ def factura_pdf(request, pk):
             ITENS.append([
                 Paragraph(f'EP{idx:02d}', s_td_cent),
                 Paragraph(linha.despesa_tipo or 'Despesa', s_td),
-                Paragraph('Direito (documentado)', s_td),
+                Paragraph('Despesa (documentada)', s_td),
                 Paragraph(fmt_kz(v), s_td_right),
             ])
             total_geral_itens += v

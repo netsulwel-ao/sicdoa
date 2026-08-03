@@ -63,7 +63,7 @@
           </button>
         </form>
 
-        {% if requisicao.estado == 'Pendente' %}
+        {% if requisicao.estado != 'Aceite' and requisicao.estado != 'Rejeitada' %}
         <a href="{% url 'financeiro:requisicao_editar' requisicao.id %}"
           class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">
           <i class="fas fa-edit"></i>Editar

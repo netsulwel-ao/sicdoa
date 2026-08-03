@@ -63,6 +63,10 @@
 
   hideLoader();
   window.addEventListener('load', hideLoader);
+
+  window.addEventListener('pageshow', function(e) {
+    if (e.persisted) hideLoader();
+  });
 })();
 </script>
 

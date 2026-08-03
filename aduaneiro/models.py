@@ -174,12 +174,20 @@ class DeclaracaoUnica(models.Model):
         )
 
     def gerar_numero(self):
-        """Gera número sequencial: DU-AAAA-NNNNNN."""
+        """Gera número sequencial por banca: DU-AA-CCCC-NNNNNN.
+        AA = últimos 2 dígitos do ano; CCCC = últimos 4 dígitos da cédula do
+        despachante (dono da banca); NNNNNN = sequência por banca/ano."""
+        import re
         from django.utils import timezone
-        ano = timezone.now().year
+        from users.models import Usuario
+        from rh.models import Banca
+
+        ano2 = f'{timezone.now().year % 100:02d}'
+        cedula4 = self._cedula4_despachante()
+        prefixo = f'DU-{ano2}-{cedula4}-'
         ultimo = (
             DeclaracaoUnica.objects
-            .filter(numero_du__startswith=f'DU-{ano}-')
+            .filter(numero_du__startswith=prefixo)
             .order_by('-numero_du')
             .first()
         )
@@ -190,7 +198,25 @@ class DeclaracaoUnica(models.Model):
                 seq = 1
         else:
             seq = 1
-        return f'DU-{ano}-{seq:06d}'
+        return f'{prefixo}{seq:06d}'
+
+    def _cedula4_despachante(self):
+        """Últimos 4 dígitos da cédula do despachante (dono da banca)."""
+        import re
+        from users.models import Usuario
+        from rh.models import Banca
+
+        usuario_id = self.usuario_id
+        if not usuario_id and self.banca_id:
+            banca_usuario = Banca.objects.filter(pk=self.banca_id).values_list('usuario_id', flat=True).first()
+            usuario_id = banca_usuario
+        cedula = ''
+        if usuario_id:
+            cedula = Usuario.objects.filter(pk=usuario_id).values_list('cedula', flat=True).first() or ''
+        digitos = re.sub(r'\D', '', str(cedula))
+        if not digitos:
+            return '0000'
+        return digitos[-4:].rjust(4, '0')
 
     @staticmethod
     def gerar_codigo_processo():

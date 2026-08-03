@@ -49,11 +49,11 @@ class RequisicaoFundo(models.Model):
     
     # Totalizações
     TAXA_RETENCAO_CHOICES = [
-        ('14', '14% - Regime Geral'),
-        ('6.5', '6,5% - Regime Simplificado'),
+        ('14', '14% - Regime Geral (IVA)'),
+        ('6.5', '6,5% - Regime Simplificado (Retenção)'),
     ]
     taxa_iva = models.CharField(max_length=5, choices=TAXA_RETENCAO_CHOICES, default='14',
-                                verbose_name='Taxa de Retenção')
+                                verbose_name='Regime')
     subtotal_geral = models.DecimalField(max_digits=15, decimal_places=2, default=0,
                                         verbose_name='Subtotal Geral')
     iva_honorarios = models.DecimalField(max_digits=15, decimal_places=2, default=0,
