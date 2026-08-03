@@ -445,7 +445,7 @@ label.form-label:not(.required) > .text-red-500 {
                     <span class="field-code">Campo 2</span>
                   </label>
                   <div class="input-group">
-                    <input type="text" name="exportador_codigo" id="exportador_codigo" class="form-input" placeholder="Digite o NIF" required />
+                    <input type="text" name="exportador_codigo" id="exportador_codigo" class="form-input" placeholder="Digite o NIF" required maxlength="14" minlength="14" pattern="\d{9}[A-Z]{2}\d{3}" title="Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058)" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
                     <button type="button" id="consultar_nif_btn" class="btn-secondary" onclick="consultarNIF()">
                       <i class="fas fa-search"></i>
                       Consultar
@@ -485,7 +485,7 @@ label.form-label:not(.required) > .text-red-500 {
                     <span class="field-code">Campo 8</span>
                   </label>
                   <div class="input-group">
-                    <input type="text" name="destinatario_nif" id="destinatario_nif" class="form-input" placeholder="Digite o NIF" required />
+                    <input type="text" name="destinatario_nif" id="destinatario_nif" class="form-input" placeholder="Digite o NIF" required maxlength="14" minlength="14" pattern="\d{9}[A-Z]{2}\d{3}" title="Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058)" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
                     <button type="button" id="btn_consultar_destinatario" class="btn-secondary" onclick="consultarNIFDestinatario()">
                       <i class="fas fa-search"></i>
                       Consultar

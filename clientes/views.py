@@ -6,7 +6,7 @@ from decimal import Decimal
 from .models import Cliente
 from utils.format_kz import parse_kz
 from .acesso import escopo_cliente
-from utils.validators import email_ja_existe
+from utils.validators import email_ja_existe, limpar_nif, nif_valido
 from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
 from users.auth_decorators import sessao_expirada, limpar_sessao
 import time
@@ -104,7 +104,7 @@ def criar_cliente(request):
     if request.method == 'POST':
         try:
             nome = request.POST.get('nome', '').strip()
-            nif = request.POST.get('nif', '').strip()
+            nif = limpar_nif(request.POST.get('nif', '').strip())
             localizacao = request.POST.get('localizacao', '').strip()
             telefone = request.POST.get('telefone', '').strip()
             email = request.POST.get('email', '').strip()
@@ -112,6 +112,13 @@ def criar_cliente(request):
             
             if not nome or not nif or not localizacao:
                 messages.error(request, 'Os campos Nome, NIF e Localização são obrigatórios.')
+                context = _ctx(request, 'criar', {
+                    'form_data': request.POST
+                })
+                return render(request, 'clientes/form.html', context)
+
+            if not nif_valido(nif):
+                messages.error(request, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
                 context = _ctx(request, 'criar', {
                     'form_data': request.POST
                 })
@@ -184,7 +191,7 @@ def editar_cliente(request, pk):
     if request.method == 'POST':
         try:
             nome = request.POST.get('nome', '').strip()
-            nif = request.POST.get('nif', '').strip()
+            nif = limpar_nif(request.POST.get('nif', '').strip())
             localizacao = request.POST.get('localizacao', '').strip()
             telefone = request.POST.get('telefone', '').strip()
             email = request.POST.get('email', '').strip()
@@ -192,6 +199,14 @@ def editar_cliente(request, pk):
             
             if not nome or not nif or not localizacao:
                 messages.error(request, 'Os campos Nome, NIF e Localização são obrigatórios.')
+                context = _ctx(request, 'editar', {
+                    'cliente': cliente,
+                    'form_data': request.POST
+                })
+                return render(request, 'clientes/form.html', context)
+
+            if not nif_valido(nif):
+                messages.error(request, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
                 context = _ctx(request, 'editar', {
                     'cliente': cliente,
                     'form_data': request.POST

@@ -15,7 +15,7 @@ from clientes.models import Cliente
 from users.models import Usuario
 from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
 from users.auth_decorators import sessao_expirada, requer_sessao_ativa
-from utils.validators import email_ja_existe
+from utils.validators import email_ja_existe, limpar_nif, nif_valido
 from django.core.paginator import Paginator
 from rh.models import Colaborador, Banca
 from .models import DeclaracaoUnica
@@ -224,6 +224,12 @@ def _du_guardar_impl(request):
             return JsonResponse({'erro': 'Sem permissão para criar DU'}, status=403)
     submeter  = payload.get('submeter', False)
     dados     = payload.get('dados', {})
+
+    # Normalizar NIFs de exportador/destinatário (maiúsculas, sem espaços/hífenes)
+    for campo_nif in ('exportador_codigo', 'destinatario_nif'):
+        if campo_nif in dados and dados[campo_nif]:
+            dados[campo_nif] = limpar_nif(dados[campo_nif])
+
     totais    = payload.get('totais', {})
 
     # Se for colaborador, a DU deve ficar em nome do dono da banca
@@ -279,12 +285,18 @@ def _du_guardar_impl(request):
 
         if not (dados.get('exportador_nome', '') or '').strip():
             erros.append('Nome do Exportador é obrigatório.')
-        if not (dados.get('exportador_codigo', '') or '').strip():
+        exportador_codigo = limpar_nif(dados.get('exportador_codigo', '') or '')
+        if not exportador_codigo:
             erros.append('NIF do Exportador é obrigatório.')
+        elif not nif_valido(exportador_codigo):
+            erros.append('NIF do Exportador inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
         if not (dados.get('destinatario_nome', '') or '').strip():
             erros.append('Nome do Destinatário é obrigatório.')
-        if not (dados.get('destinatario_nif', '') or '').strip():
+        destinatario_nif = limpar_nif(dados.get('destinatario_nif', '') or '')
+        if not destinatario_nif:
             erros.append('NIF do Destinatário é obrigatório.')
+        elif not nif_valido(destinatario_nif):
+            erros.append('NIF do Destinatário inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
 
         adicoes = dados.get('adicoes', [])
         if not adicoes:
@@ -1511,7 +1523,7 @@ def criar_cliente_rapido(request):
             banca_id = banca_obj.id
         filial_id = request.session.get('colaborador_filial_id') if request.session.get('tipo_usuario') == 'colaborador' else None
         nome       = request.POST.get('nome', '').strip()
-        nif        = request.POST.get('nif', '').strip()
+        nif        = limpar_nif(request.POST.get('nif', '').strip())
         localizacao = request.POST.get('localizacao', '').strip()
         telefone   = request.POST.get('telefone', '').strip()
         email      = request.POST.get('email', '').strip()
@@ -1519,6 +1531,9 @@ def criar_cliente_rapido(request):
 
         if not nome or not nif or not localizacao:
             return JsonResponse({'error': 'Nome, NIF e Localização são obrigatórios'}, status=400)
+
+        if not nif_valido(nif):
+            return JsonResponse({'error': 'NIF inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'}, status=400)
 
         if Cliente.objects.filter(nif=nif, usuario_id=uid, ativo=True).exists():
             return JsonResponse({'error': 'Já existe um cliente com este NIF'}, status=400)

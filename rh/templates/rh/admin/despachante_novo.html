@@ -86,7 +86,7 @@
             <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
               NIF <span class="text-red-500">*</span>
             </label>
-            <input type="text" name="nif" required value="{{ form_data.nif|default:'' }}"
+            <input type="text" name="nif" required value="{{ form_data.nif|default:'' }}" maxlength="14" minlength="14" pattern="\d{9}[A-Z]{2}\d{3}" title="Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058)" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
                    placeholder="Número de Identificação Fiscal"
                    class="w-full px-4 py-3 rounded-xl border-2 {% if erros.nif %}border-red-400 bg-red-50 dark:bg-red-900/10{% else %}border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800{% endif %} text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
             {% if erros.nif %}

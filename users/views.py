@@ -10,6 +10,7 @@ from datetime import date
 import bcrypt
 import requests
 from utils.ssl_utils import requests_kwargs_ssl
+from utils.validators import limpar_nif, nif_valido
 from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
@@ -420,7 +421,7 @@ def login_portal_view(request):
         nome = people_data.get('name', '').strip()
         apelido = people_data.get('apelido', '').strip()
         telefone = people_data.get('telefone', '')
-        nif = despachante_data.get('nif', '')
+        nif = limpar_nif(despachante_data.get('nif', ''))
         cedula = despachante_data.get('cedula', '')
         
         # Nome completo
@@ -1511,7 +1512,7 @@ def meu_perfil_guardar(request):
     telefone = request.POST.get("telefone", "").strip()
 
     # ── Campos extras para admin ───────────────────────────────────────
-    nif     = request.POST.get("nif", "").strip() if e_admin else ""
+    nif     = limpar_nif(request.POST.get("nif", "")) if e_admin else ""
     email   = request.POST.get("email", "").strip().lower() if e_admin else ""
     cedula  = request.POST.get("cedula", "").strip() if e_admin else ""
 
@@ -1552,6 +1553,9 @@ def meu_perfil_guardar(request):
     if e_admin:
         if not email:
             messages.error(request, "O email não pode estar vazio.")
+            return redirect("meu_perfil")
+        if nif and not nif_valido(nif):
+            messages.error(request, "NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).")
             return redirect("meu_perfil")
         if Usuario.objects.filter(email=email).exclude(id=usuario.id).exists():
             messages.error(request, f'O email "{email}" já está em uso.')

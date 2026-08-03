@@ -29,6 +29,7 @@ from users.models import Usuario
 from users.auth_decorators import sessao_expirada, limpar_sessao
 from utils.email_utils import _enviar
 from utils.format_kz import fmt_kz, parse_kz
+from utils.validators import limpar_nif, nif_valido
 from .models import (
     QuotaConfig, QuotaGerada, PagamentoQuota, EstadoFinanceiro,
     CertidaoRegularidade, CarteiraProfissional,
@@ -4432,7 +4433,7 @@ def utilizador_novo_view(request):
         nome = request.POST.get('nome', '').strip()
         email = request.POST.get('email', '').strip().lower()
         telefone = request.POST.get('telefone', '').strip()
-        nif = request.POST.get('nif', '').strip()
+        nif = limpar_nif(request.POST.get('nif', '').strip())
         cedula = request.POST.get('cedula', '').strip()
         area_actuacao = request.POST.get('area_actuacao', '').strip()
         nome_tipo = request.POST.get('nome_tipo', '').strip()
@@ -4445,6 +4446,9 @@ def utilizador_novo_view(request):
         if tipo == 'despachante':
             if not cedula: erros['cedula'] = 'A cédula CDOA é obrigatória.'
             if not nif: erros['nif'] = 'O NIF é obrigatório.'
+
+        if nif and not nif_valido(nif):
+            erros['nif'] = 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'
 
         if not erros:
             if tipo == 'despachante': papel_novo = 'Despachante Oficial'
@@ -4531,7 +4535,7 @@ def utilizador_editar_view(request, usuario_id):
         nome = request.POST.get('nome', '').strip()
         email = request.POST.get('email', '').strip().lower()
         telefone = request.POST.get('telefone', '').strip()
-        nif = request.POST.get('nif', '').strip()
+        nif = limpar_nif(request.POST.get('nif', '').strip())
         cedula = request.POST.get('cedula', '').strip()
         area_actuacao = request.POST.get('area_actuacao', '').strip()
         cargo_personalizado = request.POST.get('cargo_personalizado', '').strip()
@@ -4543,6 +4547,9 @@ def utilizador_editar_view(request, usuario_id):
             erros['email'] = 'O email é obrigatório.'
         elif email != user_obj.email and Usuario.objects.filter(email=email).exists():
             erros['email'] = 'Já existe um utilizador com este email.'
+
+        if nif and not nif_valido(nif):
+            erros['nif'] = 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'
 
         if not erros:
             user_obj.nome = nome
@@ -4784,7 +4791,7 @@ def api_utilizador_criar(request):
     nome = data.get('nome', '').strip()
     email = data.get('email', '').strip().lower()
     telefone = data.get('telefone', '').strip()
-    nif = data.get('nif', '').strip()
+    nif = limpar_nif(data.get('nif', '').strip())
     cedula = data.get('cedula', '').strip()
     area_actuacao = data.get('area_actuacao', '').strip()
     nome_tipo = data.get('nome_tipo', '').strip()
@@ -4796,6 +4803,9 @@ def api_utilizador_criar(request):
     if Usuario.objects.filter(email=email).exists():
         return JsonResponse({'erro': 'Já existe um utilizador com este email.'}, status=400)
 
+    if nif and not nif_valido(nif):
+        return JsonResponse({'erro': 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'}, status=400)
+
     # Definir papel baseado no tipo
     if tipo_criacao == 'despachante':
         papel = 'Despachante Oficial'
@@ -4803,6 +4813,7 @@ def api_utilizador_criar(request):
             return JsonResponse({'erro': 'Cédula CDOA é obrigatória para despachantes.'}, status=400)
         if not nif:
             return JsonResponse({'erro': 'NIF é obrigatório para despachantes.'}, status=400)
+
     elif tipo_criacao == 'colaborador':
         papel = 'Colaborador Institucional'
     elif tipo_criacao == 'admin' and _papel == 'Super Administrador':

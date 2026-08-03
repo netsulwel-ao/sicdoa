@@ -62,7 +62,7 @@
             </label>
             <input type="text" id="nif" name="nif"
                    value="{% if form_data.nif %}{{ form_data.nif }}{% elif cliente %}{{ cliente.nif }}{% endif %}"
-                   required autocomplete="off" placeholder="NIF do cliente"
+                   required autocomplete="off" placeholder="NIF do cliente" maxlength="14" minlength="14" pattern="\d{9}[A-Z]{2}\d{3}" title="Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058)" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
                    class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
             <p class="mt-1 text-xs text-gray-500">Campo único — não pode ser repetido</p>
           </div>

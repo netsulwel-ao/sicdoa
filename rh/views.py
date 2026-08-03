@@ -14,7 +14,7 @@ from datetime import date
 from utils.format_kz import parse_kz, fmt_kz
 from utils.email_utils import gerar_senha_aleatoria, enviar_senha_colaborador
 from utils.cache_utils import cache_get_or_set, safe_cache_key
-from utils.validators import email_ja_existe
+from utils.validators import email_ja_existe, limpar_nif, nif_valido
 from .acesso import (
     obter_acesso_rh,
     escopo_colaboradores,
@@ -489,12 +489,16 @@ def _criar_colaborador_responsavel(request, banca, filial):
     """Cria novo colaborador e designa-o gestor da filial. Retorna (col, mensagem_email)."""
     nome = request.POST.get('nome', '').strip()
     email_gestor = request.POST.get('email', '').strip()
+    nif_gestor = limpar_nif(request.POST.get('nif', '').strip())
 
     if not email_gestor:
         return None, 'Gestor de filial precisa de email para aceder ao sistema.'
 
     if email_gestor and email_ja_existe(email_gestor):
         return None, 'Este email já está registado no sistema.'
+
+    if nif_gestor and not nif_valido(nif_gestor):
+        return None, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'
 
     senha_gerada = None
     senha_hash = None
@@ -508,7 +512,7 @@ def _criar_colaborador_responsavel(request, banca, filial):
         filial=filial,
         nome=nome,
         bi=request.POST.get('bi', '').strip(),
-        nif=request.POST.get('nif', '').strip(),
+        nif=nif_gestor,
         genero=request.POST.get('genero', ''),
         data_nascimento=request.POST.get('data_nascimento') or None,
         cargo='Gestor',
@@ -1278,6 +1282,10 @@ def banca_criar_view(request):
         if not dados['nome'] or not dados['nif']:
             return _render({'erro': 'Nome e NIF são obrigatórios.'})
 
+        dados['nif'] = limpar_nif(dados['nif'])
+        if not nif_valido(dados['nif']):
+            return _render({'erro': 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'})
+
         # Verificar se NIF já existe
         if Banca.objects.filter(nif=dados['nif']).exists():
             return _render({'erro': 'Já existe uma banca com este NIF.'})
@@ -1343,6 +1351,10 @@ def banca_editar_view(request):
 
         if not dados['nome'] or not dados['nif']:
             return _render({'erro': 'Nome e NIF são obrigatórios.'})
+
+        dados['nif'] = limpar_nif(dados['nif'])
+        if not nif_valido(dados['nif']):
+            return _render({'erro': 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'})
 
         # Verificar se NIF já existe (excluindo atual)
         if Banca.objects.filter(nif=dados['nif']).exclude(pk=banca.pk).exists():
@@ -1900,6 +1912,11 @@ def colaborador_novo_view(request):
             messages.error(request, 'Este email já está registado no sistema.')
             return _render()
 
+        nif_colaborador = limpar_nif(request.POST.get('nif', '').strip())
+        if nif_colaborador and not nif_valido(nif_colaborador):
+            messages.error(request, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
+            return _render()
+
         # Gerar senha apenas se tiver email
         senha_gerada = None
         senha_hash = None
@@ -1915,7 +1932,7 @@ def colaborador_novo_view(request):
             filial_id=filial_id,
             nome=nome,
             bi=request.POST.get('bi', '').strip(),
-            nif=request.POST.get('nif', '').strip(),
+            nif=nif_colaborador,
             genero=request.POST.get('genero', ''),
             data_nascimento=request.POST.get('data_nascimento') or None,
             cargo=request.POST.get('cargo', 'Assistente'),
@@ -2122,7 +2139,10 @@ def colaborador_editar_view(request, pk):
         ) if is_desp or col.pk != col_log.pk else col_log.filial_id
         col.nome = request.POST.get('nome', '').strip()
         col.bi = request.POST.get('bi', '').strip()
-        col.nif = request.POST.get('nif', '').strip()
+        col.nif = limpar_nif(request.POST.get('nif', '').strip())
+        if col.nif and not nif_valido(col.nif):
+            messages.error(request, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
+            return _render()
         col.genero = request.POST.get('genero', '')
         col.data_nascimento = request.POST.get('data_nascimento') or None
         col.cargo = request.POST.get('cargo', 'Assistente')

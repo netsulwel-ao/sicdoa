@@ -19,6 +19,7 @@ from .models import Banca, FilialBanca, Colaborador, GestorFilial
 from .tax_utils import _hash_password
 from users.models import Usuario
 from utils.email_utils import gerar_senha_aleatoria, _enviar
+from utils.validators import limpar_nif, nif_valido
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1103,6 +1104,10 @@ def banca_central_criar_view(request):
         if not dados['nome'] or not dados['nif']:
             return _render({'erro': 'Nome e NIF são obrigatórios.'})
 
+        dados['nif'] = limpar_nif(dados['nif'])
+        if not nif_valido(dados['nif']):
+            return _render({'erro': 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'})
+
         if BancaCentral.objects.filter(nif=dados['nif']).exists():
             return _render({'erro': 'Já existe um registo com este NIF.'})
 
@@ -1165,6 +1170,10 @@ def banca_central_editar_view(request):
 
         if not dados['nome'] or not dados['nif']:
             return _render({'erro': 'Nome e NIF são obrigatórios.'})
+
+        dados['nif'] = limpar_nif(dados['nif'])
+        if not nif_valido(dados['nif']):
+            return _render({'erro': 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'})
 
         if BancaCentral.objects.filter(nif=dados['nif']).exclude(pk=banca.pk).exists():
             return _render({'erro': 'Já existe outro registo com este NIF.'})
