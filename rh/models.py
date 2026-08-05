@@ -873,6 +873,9 @@ class RegistoPresenca(models.Model):
             self.full_clean()
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"{self.colaborador} — {self.data:%d/%m/%Y}"
+
 
 class PedidoFerias(models.Model):
     ESTADOS = [
@@ -926,6 +929,9 @@ class PedidoFerias(models.Model):
         if not kwargs.get('update_fields'):
             self.full_clean()
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.colaborador} — {self.data_inicio:%d/%m/%Y} a {self.data_fim:%d/%m/%Y}"
 
 
 class HistoricoPresenca(models.Model):
