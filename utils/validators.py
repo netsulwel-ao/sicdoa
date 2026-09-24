@@ -1,6 +1,6 @@
 import re
 
-NIF_RE = re.compile(r'^\d{9}[A-Z]{2}\d{3}$')
+NIF_RE = re.compile(r'^[A-Z0-9]{1,18}$')
 
 
 def limpar_nif(valor):
@@ -11,8 +11,35 @@ def limpar_nif(valor):
 
 
 def nif_valido(valor):
-    """Valida NIF no formato 022230815HA058 (9 dígitos + 2 letras maiúsculas + 3 dígitos)."""
+    """Valida NIF: sem formato fixo, apenas letras/números, no máximo 18 caracteres."""
     return bool(valor) and bool(NIF_RE.match(limpar_nif(valor)))
+
+
+def nif_ja_existe(valor, exclude_model=None, exclude_pk=None):
+    """Verifica se um NIF já está registado em qualquer registo do sistema."""
+    from users.models import Usuario
+    from rh.models import Banca, BancaCentral, Colaborador
+    from clientes.models import Cliente
+
+    nif = limpar_nif(valor)
+    if not nif:
+        return False
+
+    checks = [
+        (Usuario, Usuario.objects.filter(nif__iexact=nif)),
+        (Banca, Banca.objects.filter(nif__iexact=nif)),
+        (BancaCentral, BancaCentral.objects.filter(nif__iexact=nif)),
+        (Colaborador, Colaborador.objects.filter(nif__iexact=nif)),
+        (Cliente, Cliente.objects.filter(nif__iexact=nif)),
+    ]
+
+    for model, qs in checks:
+        if model is exclude_model and exclude_pk is not None:
+            qs = qs.exclude(pk=exclude_pk)
+        if qs.exists():
+            return True
+
+    return False
 
 
 def email_ja_existe(email, exclude_model=None, exclude_pk=None):

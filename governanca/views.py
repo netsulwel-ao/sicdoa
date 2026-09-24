@@ -29,7 +29,7 @@ from users.models import Usuario
 from users.auth_decorators import sessao_expirada, limpar_sessao
 from utils.email_utils import _enviar
 from utils.format_kz import fmt_kz, parse_kz
-from utils.validators import limpar_nif, nif_valido
+from utils.validators import limpar_nif, nif_ja_existe, nif_valido
 from .models import (
     QuotaConfig, QuotaGerada, PagamentoQuota, EstadoFinanceiro,
     CertidaoRegularidade, CarteiraProfissional,
@@ -4448,7 +4448,9 @@ def utilizador_novo_view(request):
             if not nif: erros['nif'] = 'O NIF é obrigatório.'
 
         if nif and not nif_valido(nif):
-            erros['nif'] = 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'
+            erros['nif'] = 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).'
+        elif nif and nif_ja_existe(nif):
+            erros['nif'] = 'Já existe um utilizador/registo no sistema com este NIF.'
 
         if not erros:
             if tipo == 'despachante': papel_novo = 'Despachante Oficial'
@@ -4549,7 +4551,9 @@ def utilizador_editar_view(request, usuario_id):
             erros['email'] = 'Já existe um utilizador com este email.'
 
         if nif and not nif_valido(nif):
-            erros['nif'] = 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'
+            erros['nif'] = 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).'
+        elif nif and nif_ja_existe(nif, exclude_model=Usuario, exclude_pk=user_obj.pk):
+            erros['nif'] = 'Já existe um utilizador/registo no sistema com este NIF.'
 
         if not erros:
             user_obj.nome = nome
@@ -4804,7 +4808,9 @@ def api_utilizador_criar(request):
         return JsonResponse({'erro': 'Já existe um utilizador com este email.'}, status=400)
 
     if nif and not nif_valido(nif):
-        return JsonResponse({'erro': 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'}, status=400)
+        return JsonResponse({'erro': 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).'}, status=400)
+    if nif and nif_ja_existe(nif):
+        return JsonResponse({'erro': 'Já existe um utilizador/registo no sistema com este NIF.'}, status=400)
 
     # Definir papel baseado no tipo
     if tipo_criacao == 'despachante':

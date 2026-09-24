@@ -6,7 +6,7 @@ from decimal import Decimal
 from .models import Cliente
 from utils.format_kz import parse_kz
 from .acesso import escopo_cliente
-from utils.validators import email_ja_existe, limpar_nif, nif_valido
+from utils.validators import email_ja_existe, limpar_nif, nif_ja_existe, nif_valido
 from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
 from users.auth_decorators import sessao_expirada, limpar_sessao
 import time
@@ -118,19 +118,15 @@ def criar_cliente(request):
                 return render(request, 'clientes/form.html', context)
 
             if not nif_valido(nif):
-                messages.error(request, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
+                messages.error(request, 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).')
                 context = _ctx(request, 'criar', {
                     'form_data': request.POST
                 })
                 return render(request, 'clientes/form.html', context)
 
-            # Verificar se NIF já existe (na mesma banca)
-            banca_id_check = request.session.get('banca_id')
-            nif_qs = Cliente.objects.filter(nif=nif)
-            if banca_id_check:
-                nif_qs = nif_qs.filter(banca_id=banca_id_check)
-            if nif_qs.exists():
-                messages.error(request, 'Já existe um cliente cadastrado com este NIF.')
+            # Verificar se NIF já existe no sistema
+            if nif_ja_existe(nif):
+                messages.error(request, 'Já existe um registo no sistema com este NIF.')
                 context = _ctx(request, 'criar', {
                     'form_data': request.POST
                 })
@@ -206,20 +202,16 @@ def editar_cliente(request, pk):
                 return render(request, 'clientes/form.html', context)
 
             if not nif_valido(nif):
-                messages.error(request, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
+                messages.error(request, 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).')
                 context = _ctx(request, 'editar', {
                     'cliente': cliente,
                     'form_data': request.POST
                 })
                 return render(request, 'clientes/form.html', context)
 
-            # Verificar se NIF já existe (na mesma banca, exceto para este cliente)
-            banca_id_check = cliente.banca_id
-            nif_qs = Cliente.objects.filter(nif=nif).exclude(pk=pk)
-            if banca_id_check:
-                nif_qs = nif_qs.filter(banca_id=banca_id_check)
-            if nif_qs.exists():
-                messages.error(request, 'Já existe um cliente cadastrado com este NIF.')
+            # Verificar se NIF já existe no sistema (exceto para este cliente)
+            if nif_ja_existe(nif, exclude_model=Cliente, exclude_pk=pk):
+                messages.error(request, 'Já existe um registo no sistema com este NIF.')
                 context = _ctx(request, 'editar', {
                     'cliente': cliente,
                     'form_data': request.POST

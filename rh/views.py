@@ -14,7 +14,7 @@ from datetime import date
 from utils.format_kz import parse_kz, fmt_kz
 from utils.email_utils import gerar_senha_aleatoria, enviar_senha_colaborador
 from utils.cache_utils import cache_get_or_set, safe_cache_key
-from utils.validators import email_ja_existe, limpar_nif, nif_valido
+from utils.validators import email_ja_existe, limpar_nif, nif_ja_existe, nif_valido
 from .acesso import (
     obter_acesso_rh,
     escopo_colaboradores,
@@ -498,7 +498,10 @@ def _criar_colaborador_responsavel(request, banca, filial):
         return None, 'Este email já está registado no sistema.'
 
     if nif_gestor and not nif_valido(nif_gestor):
-        return None, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'
+        return None, 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).'
+
+    if nif_gestor and nif_ja_existe(nif_gestor):
+        return None, 'Já existe um registo no sistema com este NIF.'
 
     senha_gerada = None
     senha_hash = None
@@ -1284,11 +1287,11 @@ def banca_criar_view(request):
 
         dados['nif'] = limpar_nif(dados['nif'])
         if not nif_valido(dados['nif']):
-            return _render({'erro': 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'})
+            return _render({'erro': 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).'})
 
-        # Verificar se NIF já existe
-        if Banca.objects.filter(nif=dados['nif']).exists():
-            return _render({'erro': 'Já existe uma banca com este NIF.'})
+        # Verificar se NIF já existe no sistema
+        if nif_ja_existe(dados['nif']):
+            return _render({'erro': 'Já existe um registo no sistema com este NIF.'})
 
         # Verificar se email já existe no sistema
         if dados['email'] and email_ja_existe(dados['email']):
@@ -1354,11 +1357,11 @@ def banca_editar_view(request):
 
         dados['nif'] = limpar_nif(dados['nif'])
         if not nif_valido(dados['nif']):
-            return _render({'erro': 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'})
+            return _render({'erro': 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).'})
 
-        # Verificar se NIF já existe (excluindo atual)
-        if Banca.objects.filter(nif=dados['nif']).exclude(pk=banca.pk).exists():
-            return _render({'erro': 'Já existe outra banca com este NIF.'})
+        # Verificar se NIF já existe no sistema (excluindo atual)
+        if nif_ja_existe(dados['nif'], exclude_model=Banca, exclude_pk=banca.pk):
+            return _render({'erro': 'Já existe um registo no sistema com este NIF.'})
 
         # Verificar se email já existe no sistema (excluindo atual)
         if dados['email'] and email_ja_existe(dados['email'], exclude_model=Banca, exclude_pk=banca.pk):
@@ -1914,7 +1917,10 @@ def colaborador_novo_view(request):
 
         nif_colaborador = limpar_nif(request.POST.get('nif', '').strip())
         if nif_colaborador and not nif_valido(nif_colaborador):
-            messages.error(request, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
+            messages.error(request, 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).')
+            return _render()
+        elif nif_colaborador and nif_ja_existe(nif_colaborador):
+            messages.error(request, 'Já existe um registo no sistema com este NIF.')
             return _render()
 
         # Gerar senha apenas se tiver email
@@ -2141,7 +2147,10 @@ def colaborador_editar_view(request, pk):
         col.bi = request.POST.get('bi', '').strip()
         col.nif = limpar_nif(request.POST.get('nif', '').strip())
         if col.nif and not nif_valido(col.nif):
-            messages.error(request, 'NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
+            messages.error(request, 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).')
+            return _render()
+        elif col.nif and nif_ja_existe(col.nif, exclude_model=Colaborador, exclude_pk=col.pk):
+            messages.error(request, 'Já existe um registo no sistema com este NIF.')
             return _render()
         col.genero = request.POST.get('genero', '')
         col.data_nascimento = request.POST.get('data_nascimento') or None

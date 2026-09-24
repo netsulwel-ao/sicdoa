@@ -15,7 +15,7 @@ from clientes.models import Cliente
 from users.models import Usuario
 from users.permissoes import _is_admin_ou_acesso_total, get_usuario_permissoes
 from users.auth_decorators import sessao_expirada, requer_sessao_ativa
-from utils.validators import email_ja_existe, limpar_nif, nif_valido
+from utils.validators import email_ja_existe, limpar_nif, nif_ja_existe, nif_valido
 from django.core.paginator import Paginator
 from rh.models import Colaborador, Banca
 from .models import DeclaracaoUnica
@@ -289,14 +289,14 @@ def _du_guardar_impl(request):
         if not exportador_codigo:
             erros.append('NIF do Exportador é obrigatório.')
         elif not nif_valido(exportador_codigo):
-            erros.append('NIF do Exportador inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
+            erros.append('NIF do Exportador inválido. Use apenas letras e números (máximo 18 caracteres).')
         if not (dados.get('destinatario_nome', '') or '').strip():
             erros.append('Nome do Destinatário é obrigatório.')
         destinatario_nif = limpar_nif(dados.get('destinatario_nif', '') or '')
         if not destinatario_nif:
             erros.append('NIF do Destinatário é obrigatório.')
         elif not nif_valido(destinatario_nif):
-            erros.append('NIF do Destinatário inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).')
+            erros.append('NIF do Destinatário inválido. Use apenas letras e números (máximo 18 caracteres).')
 
         adicoes = dados.get('adicoes', [])
         if not adicoes:
@@ -1533,10 +1533,10 @@ def criar_cliente_rapido(request):
             return JsonResponse({'error': 'Nome, NIF e Localização são obrigatórios'}, status=400)
 
         if not nif_valido(nif):
-            return JsonResponse({'error': 'NIF inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).'}, status=400)
+            return JsonResponse({'error': 'NIF inválido. Use apenas letras e números (máximo 18 caracteres).'}, status=400)
 
-        if Cliente.objects.filter(nif=nif, usuario_id=uid, ativo=True).exists():
-            return JsonResponse({'error': 'Já existe um cliente com este NIF'}, status=400)
+        if nif_ja_existe(nif):
+            return JsonResponse({'error': 'Já existe um registo no sistema com este NIF'}, status=400)
 
         if email and email_ja_existe(email):
             return JsonResponse({'error': 'Este email já está registado no sistema.'}, status=400)

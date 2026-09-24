@@ -10,7 +10,7 @@ from datetime import date
 import bcrypt
 import requests
 from utils.ssl_utils import requests_kwargs_ssl
-from utils.validators import limpar_nif, nif_valido
+from utils.validators import limpar_nif, nif_ja_existe, nif_valido
 from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
@@ -1555,7 +1555,10 @@ def meu_perfil_guardar(request):
             messages.error(request, "O email não pode estar vazio.")
             return redirect("meu_perfil")
         if nif and not nif_valido(nif):
-            messages.error(request, "NIF inválido. O formato deve ser: 9 dígitos + 2 letras + 3 dígitos (ex: 022230815HA058).")
+            messages.error(request, "NIF inválido. Use apenas letras e números (máximo 18 caracteres).")
+            return redirect("meu_perfil")
+        elif nif and nif_ja_existe(nif, exclude_model=Usuario, exclude_pk=usuario.id):
+            messages.error(request, "Já existe um registo no sistema com este NIF.")
             return redirect("meu_perfil")
         if Usuario.objects.filter(email=email).exclude(id=usuario.id).exists():
             messages.error(request, f'O email "{email}" já está em uso.')
