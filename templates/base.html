@@ -21,6 +21,8 @@
   if (!spinner) return;
 
   var showTimer = null;
+  var maxTimer = null;
+  var MAX_MS = 12000;
 
   function showLoader() {
     clearTimeout(showTimer);
@@ -28,10 +30,13 @@
       spinner.classList.remove('opacity-0', 'pointer-events-none');
       spinner.classList.add('opacity-100');
     }, 150);
+    clearTimeout(maxTimer);
+    maxTimer = setTimeout(hideLoader, MAX_MS);
   }
 
   function hideLoader() {
     clearTimeout(showTimer);
+    clearTimeout(maxTimer);
     spinner.classList.remove('opacity-100');
     spinner.classList.add('opacity-0', 'pointer-events-none');
   }
@@ -43,6 +48,7 @@
         link.getAttribute('href').startsWith('#') ||
         link.getAttribute('href').startsWith('javascript:') ||
         link.getAttribute('download') ||
+        link.target === '_blank' ||
         e.ctrlKey || e.metaKey || e.shiftKey) return;
     var href = link.getAttribute('href');
     if (href && href !== '#' && !href.startsWith('mailto:') && !href.startsWith('tel:')) {

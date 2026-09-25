@@ -115,7 +115,7 @@
                         <i class="fas fa-edit text-base"></i>
                       </a>
                       {% endif %}
-                      <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}" title="Download PDF"
+                      <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}" data-no-loader title="Download PDF"
                         class="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors">
                         <i class="fas fa-download text-base"></i>
                       </a>
@@ -160,7 +160,7 @@
                     <i class="fas fa-edit text-base"></i>
                   </a>
                   {% endif %}
-                  <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}" title="Download PDF"
+                  <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}" data-no-loader title="Download PDF"
                     class="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors">
                     <i class="fas fa-download text-base"></i>
                   </a>

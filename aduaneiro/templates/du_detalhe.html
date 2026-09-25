@@ -39,7 +39,7 @@
 
           <!-- Acções -->
           <div class="flex items-center gap-2 flex-wrap">
-            <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}"
+            <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}" data-no-loader
               class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
               <i class="fas fa-download text-base"></i>
               Download PDF
@@ -382,7 +382,7 @@
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Acções</h2>
             <div class="space-y-2">
-              <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}"
+              <a href="{% url 'aduaneiro:du_pdf' du.du_uuid %}" data-no-loader
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300">
                 <i class="fas fa-file-pdf text-base text-green-600"></i>
                 Download PDF
