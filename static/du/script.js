@@ -1,6 +1,18 @@
 let currentStep = 1;
 const totalSteps = 4;
 
+// Leitura numérica unificada (com ou sem máscara de milhar) — idempotente.
+// Os cálculos NÃO mudam: PVI("1000") === parseFloat("1000").
+window.PVI = window.PVI || (window.parseValorInput || function(el) {
+  if (typeof el === 'string') el = document.getElementById(el);
+  if (!el || el.value === undefined || el.value === null) return 0;
+  var n = parseFloat(el.value);
+  return isNaN(n) ? 0 : n;
+});
+window.FMTN = window.FMTN || (window.formatNumber || function(x) {
+  return Number(x || 0).toFixed(2);
+});
+
 // ============================================================
 // NOTIFICAÇÕES — usa SweetAlert2 Toast se disponível
 // ============================================================
@@ -1594,10 +1606,10 @@ function calcularTaxas() {
     const paisOrigem      = card.querySelector(`[name="adicao[${n}][pais_origem]"]`)?.value || '';
 
     // valorCIF = montante_kz (FOB + Seguro + Frete em KZ) — ItmCIFNcy
-    const valorCIF        = parseFloat(document.getElementById(`montante_kz_${n}`)?.value) || 0;
+    const valorCIF        = window.PVI(document.getElementById(`montante_kz_${n}`));
 
     // valorFOB = fob_kz da adição — ItmFobNcy
-    const valorFOB        = parseFloat(document.getElementById(`fob_kz_${n}`)?.value) || 0;
+    const valorFOB        = window.PVI(document.getElementById(`fob_kz_${n}`));
 
     // valorFatura = FOB em KZ (usado no EMGEAD para exportação)
     const valorFatura     = valorFOB;
@@ -1943,13 +1955,13 @@ function validarTotaisStep1VsAdicoes(submeter = false) {
   if (!submeter) {
     const cards = document.querySelectorAll('[data-adicao]');
     if (cards.length > 0) {
-      const fobStep1 = parseFloat(document.getElementById('valor_fob_kz')?.value || '0') || 0;
+      const fobStep1 = window.PVI(document.getElementById('valor_fob_kz'));
       let fobTotal = 0;
       cards.forEach(card => {
-        fobTotal += parseFloat(document.getElementById(`fob_kz_${card.dataset.adicao}`)?.value || '0') || 0;
+        fobTotal += window.PVI(document.getElementById(`fob_kz_${card.dataset.adicao}`));
       });
       if (Math.abs(fobStep1 - fobTotal) > 1) {
-        console.info('[Rascunho] FOB Step1 vs Adições:', fobStep1.toFixed(2), 'vs', fobTotal.toFixed(2));
+        console.info('[Rascunho] FOB Step1 vs Adições:', window.FMTN(fobStep1), 'vs', window.FMTN(fobTotal));
       }
     }
     return []; // Rascunho: sem erros bloqueantes
@@ -1964,33 +1976,33 @@ function validarTotaisStep1VsAdicoes(submeter = false) {
   if (cards.length === 0) return erros;
 
   // 1. Validar FOB
-  const fobStep1 = parseFloat(document.getElementById('valor_fob_kz')?.value || '0') || 0;
+  const fobStep1 = window.PVI(document.getElementById('valor_fob_kz'));
   let fobTotal = 0;
   cards.forEach(card => {
-    fobTotal += parseFloat(document.getElementById(`fob_kz_${card.dataset.adicao}`)?.value || '0') || 0;
+    fobTotal += window.PVI(document.getElementById(`fob_kz_${card.dataset.adicao}`));
   });
   if (fobStep1 > 0 && fobTotal > 0 && Math.abs(fobStep1 - fobTotal) > margem) {
-    erros.push(`FOB do Step 1 (${fobStep1.toFixed(2)} KZ) não corresponde ao total das adições (${fobTotal.toFixed(2)} KZ). Diferença: ${Math.abs(fobStep1 - fobTotal).toFixed(2)} KZ`);
+    erros.push(`FOB do Step 1 (${window.FMTN(fobStep1)} KZ) não corresponde ao total das adições (${window.FMTN(fobTotal)} KZ). Diferença: ${window.FMTN(Math.abs(fobStep1 - fobTotal))} KZ`);
   }
 
   // 2. Validar Frete (só se ambos > 0)
-  const freteStep1 = parseFloat(document.getElementById('valor_frete_kz')?.value || '0') || 0;
+  const freteStep1 = window.PVI(document.getElementById('valor_frete_kz'));
   let freteTotal = 0;
   cards.forEach(card => {
-    freteTotal += parseFloat(document.getElementById(`frete_kz_${card.dataset.adicao}`)?.value || '0') || 0;
+    freteTotal += window.PVI(document.getElementById(`frete_kz_${card.dataset.adicao}`));
   });
   if (freteStep1 > 0 && freteTotal > 0 && Math.abs(freteStep1 - freteTotal) > margem) {
-    erros.push(`Frete do Step 1 (${freteStep1.toFixed(2)} KZ) não corresponde ao total das adições (${freteTotal.toFixed(2)} KZ). Diferença: ${Math.abs(freteStep1 - freteTotal).toFixed(2)} KZ`);
+    erros.push(`Frete do Step 1 (${window.FMTN(freteStep1)} KZ) não corresponde ao total das adições (${window.FMTN(freteTotal)} KZ). Diferença: ${window.FMTN(Math.abs(freteStep1 - freteTotal))} KZ`);
   }
 
   // 3. Validar Seguro (só se ambos > 0)
-  const seguroStep1 = parseFloat(document.getElementById('valor_seguro_kz')?.value || '0') || 0;
+  const seguroStep1 = window.PVI(document.getElementById('valor_seguro_kz'));
   let seguroTotal = 0;
   cards.forEach(card => {
-    seguroTotal += parseFloat(document.getElementById(`seguro_kz_${card.dataset.adicao}`)?.value || '0') || 0;
+    seguroTotal += window.PVI(document.getElementById(`seguro_kz_${card.dataset.adicao}`));
   });
   if (seguroStep1 > 0 && seguroTotal > 0 && Math.abs(seguroStep1 - seguroTotal) > margem) {
-    erros.push(`Seguro do Step 1 (${seguroStep1.toFixed(2)} KZ) não corresponde ao total das adições (${seguroTotal.toFixed(2)} KZ). Diferença: ${Math.abs(seguroStep1 - seguroTotal).toFixed(2)} KZ`);
+    erros.push(`Seguro do Step 1 (${window.FMTN(seguroStep1)} KZ) não corresponde ao total das adições (${window.FMTN(seguroTotal)} KZ). Diferença: ${window.FMTN(Math.abs(seguroStep1 - seguroTotal))} KZ`);
   }
 
   if (erros.length === 0) {
@@ -2069,18 +2081,26 @@ function _submeterDU(submeter) {
   // Dados gerais
   const dados = {};
   const formData = new FormData(form);
+  // Chaves monetárias do Step 1: enviar sempre em formato plain (nunca "1 000,00")
+  const CHAVES_MONETARIAS_STEP1 = ['valor_fob', 'valor_seguro', 'valor_frete', 'valor_fob_kz', 'valor_seguro_kz', 'valor_frete_kz', 'montante_aduaneiro_kz'];
   for (const [k, v] of formData.entries()) {
     if (!k.startsWith('adicao[')) {
       const el = form.querySelector(`[name="${k}"]`);
       const wrapper = el?.nextElementSibling;
       const ac = wrapper?.classList?.contains('ac-wrapper') ? wrapper.querySelector('.ac-input') : null;
-      dados[k] = ac?.dataset?.value || v;
+      let vv = ac?.dataset?.value || v;
+      if (CHAVES_MONETARIAS_STEP1.includes(k) && vv !== '' && vv != null) {
+        try { vv = String(window.PVI(el || { value: vv })); } catch(e) {}
+      }
+      dados[k] = vv;
     }
   }
 
   // Adições — recolher como array
   const cards = document.querySelectorAll('[data-adicao]');
   const adicoes = [];
+  // Chaves monetárias: enviar sempre em formato plain (nunca "1 000,00")
+  const CHAVES_MONETARIAS = ['valor_fob', 'valor_seguro', 'valor_frete', 'valor_fob_kz', 'valor_seguro_kz', 'valor_frete_kz', 'montante_kz'];
   cards.forEach(card => {
     const n = card.dataset.adicao;
     const ad = {};
@@ -2088,7 +2108,11 @@ function _submeterDU(submeter) {
       const nome = el.name.replace(`adicao[${n}][`, '').replace(']', '');
       const wrapper = el.nextElementSibling;
       const ac = wrapper?.classList?.contains('ac-wrapper') ? wrapper.querySelector('.ac-input') : null;
-      ad[nome] = ac?.dataset?.value || el.value;
+      let v = ac?.dataset?.value || el.value;
+      if (CHAVES_MONETARIAS.includes(nome) && v !== '' && v != null) {
+        try { v = String(window.PVI(el)); } catch(e) {}
+      }
+      ad[nome] = v;
     });
     // Converter impostos_json de string para objecto (se existir)
     if (ad.impostos_json) {
@@ -2401,11 +2425,11 @@ async function handleReparticaoChange(tipo, modo) {
   cards.forEach(function(card) {
     var m = card.dataset.adicao;
     if (!m) return;
-    var fkz = parseFloat(document.getElementById('fob_kz_' + m)?.value)    || 0;
-    var skz = parseFloat(document.getElementById('seguro_kz_' + m)?.value) || 0;
-    var rtkz = parseFloat(document.getElementById('frete_kz_' + m)?.value)  || 0;
+    var fkz = window.PVI(document.getElementById('fob_kz_' + m));
+    var skz = window.PVI(document.getElementById('seguro_kz_' + m));
+    var rtkz = window.PVI(document.getElementById('frete_kz_' + m));
     var mel = document.getElementById('montante_kz_' + m);
-    if (mel) mel.value = (fkz + skz + rtkz).toFixed(2);
+    if (mel) mel.value = window.FMTN(fkz + skz + rtkz);
   });
 
   if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
@@ -2572,11 +2596,11 @@ async function obterTaxaCambioDinamica(moeda) {
  */
 async function calcularReparticao(tipo, modo) {
   const campoTotalKz = document.getElementById(`valor_${tipo}_kz`);
-  const valorTotal = parseFloat(campoTotalKz?.value) || 0;
+  const valorTotal = window.PVI(campoTotalKz);
 
   if (valorTotal <= 0) {
     const campoOriginal = document.getElementById(`valor_${tipo}`);
-    const valorOriginal = parseFloat(campoOriginal?.value) || 0;
+    const valorOriginal = window.PVI(campoOriginal);
     const campoMoeda = document.getElementById(`moeda_${tipo}`);
     const moeda = campoMoeda?.value || 'USD';
 
@@ -2586,7 +2610,7 @@ async function calcularReparticao(tipo, modo) {
         if (taxaCambio > 0) {
           const valorConvertido = valorOriginal * taxaCambio;
           if (campoTotalKz) {
-            campoTotalKz.value = valorConvertido.toFixed(2);
+            campoTotalKz.value = window.FMTN(valorConvertido);
             const campoCambio = document.getElementById(`cambio_${tipo}`);
             if (campoCambio) campoCambio.value = taxaCambio.toFixed(4);
             await calcularReparticao(tipo, modo);
@@ -2613,7 +2637,7 @@ async function calcularReparticao(tipo, modo) {
       valorBase = parseFloat(campoBase?.value) || 0;
     } else if (modo === 'valor') {
       const campoBase = adicao.querySelector('[id^="fob_kz_"]');
-      valorBase = parseFloat(campoBase?.value) || 0;
+      valorBase = window.PVI(campoBase);
     }
     valoresBase.push(valorBase);
     totalBase += valorBase;
@@ -2634,7 +2658,7 @@ async function calcularReparticao(tipo, modo) {
 
     const campoKz = adicao.querySelector(`#${tipo}_kz_${nAdicao}`) || adicao.querySelector(`[id^="${tipo}_kz_"]`);
     if (campoKz) {
-      campoKz.value = valorRepartido.toFixed(2);
+      campoKz.value = window.FMTN(valorRepartido);
       campoKz.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
@@ -2651,9 +2675,9 @@ async function calcularReparticao(tipo, modo) {
     const campoValor = adicao.querySelector(`#${tipo}_${nAdicao}`) || adicao.querySelector(`[id^="${tipo}_"]`);
     if (campoValor && campoValor.id !== campoKz?.id) {
       if (moedaStep1 === 'AOA' || moedaStep1 === 'KZ') {
-        campoValor.value = valorRepartido.toFixed(2);
+        campoValor.value = window.FMTN(valorRepartido);
       } else if (cambioStep1 > 0) {
-        campoValor.value = (valorRepartido / cambioStep1).toFixed(2);
+        campoValor.value = window.FMTN(valorRepartido / cambioStep1);
       }
     }
   });
@@ -2724,11 +2748,11 @@ document.addEventListener('DOMContentLoaded', function() {
               cards.forEach(function(card) {
                 var m = card.dataset.adicao;
                 if (!m) return;
-                var fkz = parseFloat(document.getElementById('fob_kz_' + m)?.value)    || 0;
-                var skz = parseFloat(document.getElementById('seguro_kz_' + m)?.value) || 0;
-                var rtkz = parseFloat(document.getElementById('frete_kz_' + m)?.value)  || 0;
+                var fkz = window.PVI(document.getElementById('fob_kz_' + m));
+                var skz = window.PVI(document.getElementById('seguro_kz_' + m));
+                var rtkz = window.PVI(document.getElementById('frete_kz_' + m));
                 var mel = document.getElementById('montante_kz_' + m);
-                if (mel) mel.value = (fkz + skz + rtkz).toFixed(2);
+                if (mel) mel.value = window.FMTN(fkz + skz + rtkz);
               });
               if (typeof agregarValoresGeral === 'function') agregarValoresGeral();
               if (currentStep === 4 && typeof calcularTaxas === 'function') calcularTaxas();
@@ -2749,7 +2773,7 @@ document.addEventListener('DOMContentLoaded', function() {
       field.addEventListener('change', function() {
         if (typeof calcularValoresConvertidos === 'function') {
           calcularValoresConvertidos().then(() => {
-            const montante = parseFloat(document.getElementById('montante_aduaneiro_kz')?.value) || 0;
+            const montante = window.PVI(document.getElementById('montante_aduaneiro_kz'));
             if (montante > 0 && currentStep === 4) calcularTaxas();
           });
         }
@@ -2768,7 +2792,7 @@ document.addEventListener('DOMContentLoaded', function() {
         field._calcTimer = setTimeout(function() {
           if (typeof calcularValoresConvertidos === 'function') {
             calcularValoresConvertidos().then(() => {
-              const montante = parseFloat(document.getElementById('montante_aduaneiro_kz')?.value) || 0;
+              const montante = window.PVI(document.getElementById('montante_aduaneiro_kz'));
               if (montante > 0 && currentStep === 4) calcularTaxas();
             });
           }

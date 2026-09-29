@@ -22,7 +22,7 @@ from .models import DeclaracaoUnica
 from .acesso import escopo_du
 import logging
 from decimal import Decimal
-from utils.format_kz import fmt_kz
+from utils.format_kz import fmt_kz, parse_kz
 
 logger = logging.getLogger(__name__)
 
@@ -236,11 +236,25 @@ def _du_guardar_impl(request):
     dono_banca, uid = _banca_owner(request)
 
     # ── Normalizar e validar totais recebidos ─────────────────────────────
+    # parse_kz primeiro: aceita '1 000', '1 000,00', '1000.00' sem partir os cálculos
     def _safe_float(v, default=0.0):
         try:
-            return float(v or 0)
+            return float(parse_kz(v) if isinstance(v, str) else (v or 0))
         except (TypeError, ValueError):
             return default
+
+    def _num(v):
+        """float ou None se o valor não for numérico (espaços aceites)."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            if v.strip() == '':
+                return None
+            v = parse_kz(v)
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
 
     t_derimp = _safe_float(totais.get('derimp', 0))
     t_iec    = _safe_float(totais.get('iec',    0))
@@ -307,6 +321,49 @@ def _du_guardar_impl(request):
                     erros.append(f'Adição {i}: Código Pautal é obrigatório.')
                 if not (ad.get('pais_origem', '') or '').strip():
                     erros.append(f'Adição {i}: País de Origem é obrigatório.')
+                if not (ad.get('descricao_mercadoria', '') or '').strip():
+                    erros.append(f'Adição {i}: Descrição da Mercadoria é obrigatória.')
+
+                # Quantidade: obrigatória, numérica e maior que zero
+                q_raw = ad.get('quantidade', '')
+                if q_raw is None or (isinstance(q_raw, str) and q_raw.strip() == ''):
+                    erros.append(f'Adição {i}: Quantidade é obrigatória.')
+                else:
+                    q_val = _num(q_raw)
+                    if q_val is None:
+                        erros.append(f"Adição {i}: Quantidade inválida ('{q_raw}'). Deve ser um número.")
+                    elif q_val <= 0:
+                        erros.append(f'Adição {i}: Quantidade deve ser maior que zero.')
+
+                # Pesos e valores: numéricos e não negativos
+                # (chaves reais do payload: valor_fob_kz / valor_frete_kz / valor_seguro_kz)
+                for campo, rotulo in (
+                    ('peso_bruto', 'Peso Bruto'),
+                    ('peso_liquido', 'Peso Líquido'),
+                    ('valor_fob_kz', 'FOB da adição'),
+                    ('valor_frete_kz', 'Frete da adição'),
+                    ('valor_seguro_kz', 'Seguro da adição'),
+                ):
+                    v_raw = ad.get(campo, '')
+                    if v_raw is None or (isinstance(v_raw, str) and v_raw.strip() == ''):
+                        continue
+                    v_val = _num(v_raw)
+                    if v_val is None:
+                        erros.append(f"Adição {i}: {rotulo} inválido ('{v_raw}'). Deve ser um número.")
+                    elif v_val < 0:
+                        erros.append(f'Adição {i}: {rotulo} não pode ser negativo.')
+
+                # Impostos da adição: valor/taxa/base numéricos
+                imp = ad.get('impostos')
+                if isinstance(imp, dict):
+                    for cod, info in imp.items():
+                        if isinstance(info, dict):
+                            for ck in ('valor', 'taxa', 'base'):
+                                cv = info.get(ck, '')
+                                if cv is None or (isinstance(cv, str) and cv.strip() == ''):
+                                    continue
+                                if _num(cv) is None:
+                                    erros.append(f"Adição {i}: Imposto {cod} tem '{ck}' inválido ('{cv}').")
 
         forma_pag = (dados.get('forma_pagamento', '') or '').strip()
         if not forma_pag:
@@ -321,15 +378,28 @@ def _du_guardar_impl(request):
         if not ref:
             erros.append('Referência Interna é obrigatória.')
 
+        # Formato numérico (para nunca rebentar com 500 ao agregar)
+        for i, ad in enumerate(dados.get('adicoes', []) or [], 1):
+            for campo, rotulo in (
+                ('quantidade', 'Quantidade'),
+                ('peso_bruto', 'Peso Bruto'),
+                ('peso_liquido', 'Peso Líquido'),
+            ):
+                v_raw = ad.get(campo, '')
+                if v_raw is None or (isinstance(v_raw, str) and v_raw.strip() == ''):
+                    continue
+                if _num(v_raw) is None:
+                    erros.append(f"Adição {i}: {rotulo} inválido(a) ('{v_raw}'). Deve ser um número.")
+
     # ── Validação de totais: Step 1 vs Adições (só na submissão final) ───────
     if submeter:
         fob_step1 = _safe_float(dados.get('valor_fob_kz', 0))
         frete_step1 = _safe_float(dados.get('valor_frete_kz', 0))
         seguro_step1 = _safe_float(dados.get('valor_seguro_kz', 0))
 
-        fob_total = sum(_safe_float(ad.get('fob_kz', 0)) for ad in dados.get('adicoes', []))
-        frete_total = sum(_safe_float(ad.get('frete_kz', 0)) for ad in dados.get('adicoes', []))
-        seguro_total = sum(_safe_float(ad.get('seguro_kz', 0)) for ad in dados.get('adicoes', []))
+        fob_total = sum(_safe_float(ad.get('valor_fob_kz', 0)) for ad in dados.get('adicoes', []))
+        frete_total = sum(_safe_float(ad.get('valor_frete_kz', 0)) for ad in dados.get('adicoes', []))
+        seguro_total = sum(_safe_float(ad.get('valor_seguro_kz', 0)) for ad in dados.get('adicoes', []))
 
         # Margem de 1 KZ para arredondamentos de câmbio
         margem = 1.0
@@ -339,14 +409,23 @@ def _du_guardar_impl(request):
         logger.info(f"  Frete Step1: {frete_step1:.2f} | Adições: {frete_total:.2f} | Diff: {abs(frete_step1 - frete_total):.2f}")
         logger.info(f"  Seguro Step1: {seguro_step1:.2f} | Adições: {seguro_total:.2f} | Diff: {abs(seguro_step1 - seguro_total):.2f}")
 
-        if fob_step1 > 0 and fob_total > 0 and abs(fob_step1 - fob_total) > margem:
-            erros.append(f'FOB do Step 1 ({fmt_kz(fob_step1)}) não corresponde ao total das adições ({fmt_kz(fob_total)}). Diferença: {fmt_kz(abs(fob_step1 - fob_total))}')
+        if fob_step1 > 0:
+            if fob_total <= 0:
+                erros.append(f'FOB do Step 1 ({fmt_kz(fob_step1)}) sem valores nas adições. Preencha o FOB em cada adição.')
+            elif abs(fob_step1 - fob_total) > margem:
+                erros.append(f'FOB do Step 1 ({fmt_kz(fob_step1)}) não corresponde ao total das adições ({fmt_kz(fob_total)}). Diferença: {fmt_kz(abs(fob_step1 - fob_total))}')
 
-        if frete_step1 > 0 and frete_total > 0 and abs(frete_step1 - frete_total) > margem:
-            erros.append(f'Frete do Step 1 ({fmt_kz(frete_step1)}) não corresponde ao total das adições ({fmt_kz(frete_total)}). Diferença: {fmt_kz(abs(frete_step1 - frete_total))}')
+        if frete_step1 > 0:
+            if frete_total <= 0:
+                erros.append(f'Frete do Step 1 ({fmt_kz(frete_step1)}) sem valores nas adições. Preencha o Frete em cada adição.')
+            elif abs(frete_step1 - frete_total) > margem:
+                erros.append(f'Frete do Step 1 ({fmt_kz(frete_step1)}) não corresponde ao total das adições ({fmt_kz(frete_total)}). Diferença: {fmt_kz(abs(frete_step1 - frete_total))}')
 
-        if seguro_step1 > 0 and seguro_total > 0 and abs(seguro_step1 - seguro_total) > margem:
-            erros.append(f'Seguro do Step 1 ({fmt_kz(seguro_step1)}) não corresponde ao total das adições ({fmt_kz(seguro_total)}). Diferença: {fmt_kz(abs(seguro_step1 - seguro_total))}')
+        if seguro_step1 > 0:
+            if seguro_total <= 0:
+                erros.append(f'Seguro do Step 1 ({fmt_kz(seguro_step1)}) sem valores nas adições. Preencha o Seguro em cada adição.')
+            elif abs(seguro_step1 - seguro_total) > margem:
+                erros.append(f'Seguro do Step 1 ({fmt_kz(seguro_step1)}) não corresponde ao total das adições ({fmt_kz(seguro_total)}). Diferença: {fmt_kz(abs(seguro_step1 - seguro_total))}')
     else:
         logger.info("Rascunho: validação de totais ignorada")
 
@@ -378,6 +457,18 @@ def _du_guardar_impl(request):
     else:
         du = DeclaracaoUnica(usuario_id=uid, processo_id=None, banca_id=banca_id, filial_id=filial_id)
 
+    # ── Guarda de estado: só Rascunho/Rejeitada podem ser editados/submetidos ──
+    # (alinhado com o frontend, que só permite editar Rascunho; sem isto, gravar
+    # um rascunho sobre uma DU Submetida/Aprovada/Finalizada até a regredia para
+    # Rascunho, e uma DU Aprovada/Finalizada podia ser adulterada via API)
+    if du.pk:
+        if not _is_admin_ou_acesso_total(request) and du.status not in ('Rascunho', 'Rejeitada'):
+            accao = 'submetida' if submeter else 'alterada'
+            return JsonResponse(
+                {'erro': f'DU em estado {du.status} não pode ser {accao}. Apenas DUs em Rascunho ou Rejeitadas podem ser editadas.'},
+                status=400,
+            )
+
     # Preencher campos desnormalizados
     regime_val = (dados.get('regime_aduaneiro', '') or '').strip()
     du.regime_aduaneiro   = regime_val[:100]
@@ -402,18 +493,24 @@ def _du_guardar_impl(request):
         try:
             return int(float(valor))
         except (ValueError, TypeError):
-            raise ValueError(
-                f"Quantidade inválida na adição {idx + 1}: '{valor}'. "
-                f"Deve ser um número inteiro (ex: 1, 10, 100) ou decimal (ex: 1.5, 0.76)."
-            )
+            # Formato já validado antes de chegar aqui; tolerar sem rebentar
+            logger.warning(f"Quantidade não numérica ignorada na agregação (adição {idx + 1}): {valor!r}")
+            return 0
 
     # Extrair dados de carga das adições para campos desnormalizados
+    # (valores já validados acima; _f é defesa em profundidade contra 500)
+    def _f(v):
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
     adicoes_lista = dados.get('adicoes') or []
     if adicoes_lista:
         descs = [a.get('descricao_mercadoria', '').strip() for a in adicoes_lista if a.get('descricao_mercadoria', '').strip()]
         du.descricao_mercadoria = ' | '.join(descs)[:500] if descs else ''
-        du.peso_bruto = sum(float(a.get('peso_bruto', 0) or 0) for a in adicoes_lista)
-        du.peso_liquido = sum(float(a.get('peso_liquido', 0) or 0) for a in adicoes_lista)
+        du.peso_bruto = sum(_f(a.get('peso_bruto')) for a in adicoes_lista)
+        du.peso_liquido = sum(_f(a.get('peso_liquido')) for a in adicoes_lista)
         du.quantidade = sum(_parse_quantidade(a.get('quantidade'), i) for i, a in enumerate(adicoes_lista))
     else:
         du.descricao_mercadoria = ''
@@ -448,11 +545,18 @@ def _du_guardar_impl(request):
     du.iva                 = du.total_iva
     du.total_impostos      = du.total_geral
 
-    # Valores financeiros
+    # Valores financeiros (parse_kz: tolera '1 000,00' sem partir os cálculos)
+    def _fnum(v):
+        if isinstance(v, str):
+            v = parse_kz(v)
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            raise
     try:
-        du.valor_fob    = float(dados.get('valor_fob_kz',    0) or 0)
-        du.valor_frete  = float(dados.get('valor_frete_kz',  0) or 0)
-        du.valor_seguro = float(dados.get('valor_seguro_kz', 0) or 0)
+        du.valor_fob    = _fnum(dados.get('valor_fob_kz', 0))
+        du.valor_frete  = _fnum(dados.get('valor_frete_kz', 0))
+        du.valor_seguro = _fnum(dados.get('valor_seguro_kz', 0))
     except (TypeError, ValueError):
         du.valor_fob = du.valor_frete = du.valor_seguro = 0
     du.valor_cif = du.valor_fob + du.valor_frete + du.valor_seguro

@@ -20,8 +20,7 @@ function formatNumber(value) {
  * Converte string em formato angolano (1 234,56 ou 1.234,56) para número JS.
  * Suporta: 20000, 20 000, 20.000, 20.000,00, 20,000.00
  */
-function parseNumber(str) {
-    if (!str) return 0;
+function parseNumber(str) {    if (!str) return 0;
     var s = String(str).trim().replace(/ /g, '');
     
     // Se tem vírgula, é formato europeu (1.234.567,89)
@@ -48,12 +47,16 @@ function parseNumber(str) {
 /**
  * Aplica máscara IMask a inputs com classe .moeda (keyup tempo real).
  * Uso: <input class="moeda" type="text" inputmode="decimal" ...>
+ * Chamar aplicarMascaraMoeda(scope) para conteúdo dinâmico (ex: cartões de adição).
  */
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof IMask === 'undefined') return;
-
-    document.querySelectorAll('.moeda').forEach(function(input) {
-        if (input.disabled || input.readOnly) return;
+function aplicarMascaraMoeda(scope) {
+    if (typeof IMask === 'undefined') return 0;
+    var root = scope || document;
+    var count = 0;
+    root.querySelectorAll('.moeda').forEach(function(input) {
+        // NOTA: esta versão do IMask não regista input.imask; usar flag própria
+        // para nunca acumular duas máscaras no mesmo input.
+        if (input.disabled || input.readOnly || input.dataset.maskApplied) return;
         try {
             var useScale = input.classList.contains('moeda-inteiro') ? 0 : 2;
             IMask(input, {
@@ -63,13 +66,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 mapToRadix: ['.'],
                 scale: useScale,
                 min: 0,
-                max: 999999999.99,
+                max: 999999999999.99,
                 normalizeZeros: true
             });
+            input.dataset.maskApplied = '1';
+            count++;
         } catch(e) {
             // fallback silencioso se IMask falhar
         }
     });
+    return count;
+}
+window.aplicarMascaraMoeda = aplicarMascaraMoeda;
+
+/**
+ * Lê um número a partir de um input, com ou sem máscara/milhar.
+ * Nunca rebenta: devolve 0 quando vazio ou inválido.
+ * Uso: parseValorInput(document.getElementById('valor_fob')) ou parseValorInput('valor_fob')
+ */
+function parseValorInput(el) {
+    if (typeof el === 'string') el = document.getElementById(el);
+    if (!el || el.value === undefined || el.value === null) return 0;
+    var s = String(el.value);
+    if (typeof parseNumber === 'function') return parseNumber(s) || 0;
+    var n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+}
+window.parseValorInput = parseValorInput;
+document.addEventListener('DOMContentLoaded', function() {
+    aplicarMascaraMoeda(document);
 
     // Sanitizar valores formatados antes do submit
     window._sanitizarCamposMonetarios = function(form) {

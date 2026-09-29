@@ -823,7 +823,7 @@ label.form-label:not(.required) > .text-red-500 {
                   <div class="form-grid-4">
                     <div class="form-field">
                       <label class="form-label required">Valor FOB</label>
-                      <input type="number" name="valor_fob" id="valor_fob" class="form-input calc-field" placeholder="0.00" step="0.01"  title="Agregado automaticamente das adições" />
+                      <input type="text" inputmode="decimal" name="valor_fob" id="valor_fob" class="form-input calc-field moeda" placeholder="0,00"  title="Agregado automaticamente das adições" />
                     </div>
                     <div class="form-field">
                       <label class="form-label">Moeda</label>
@@ -841,7 +841,7 @@ label.form-label:not(.required) > .text-red-500 {
                     </div>
                     <div class="form-field">
                       <label class="form-label">Valor FOB em (KZ)</label>
-                      <input type="number" name="valor_fob_kz" id="valor_fob_kz" class="form-input calc-field" placeholder="0.00" step="0.01" readonly  />
+                      <input type="text" inputmode="decimal" name="valor_fob_kz" id="valor_fob_kz" class="form-input calc-field moeda" placeholder="0,00" readonly  />
                     </div>
                   </div>
                   <p class="field-hint mt-1" style="color:#137fec;">
@@ -856,7 +856,7 @@ label.form-label:not(.required) > .text-red-500 {
                   <div class="form-grid-5">
                     <div class="form-field">
                       <label class="form-label" style="font-size:0.75rem;">Valor Seguro</label>
-                      <input type="number" name="valor_seguro" id="valor_seguro" class="form-input calc-field" placeholder="0.00" step="0.01" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" title="Agregado automaticamente das adições" />
+                      <input type="text" inputmode="decimal" name="valor_seguro" id="valor_seguro" class="form-input calc-field moeda" placeholder="0,00" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" title="Agregado automaticamente das adições" />
                     </div>
                     <div class="form-field">
                       <label class="form-label" style="font-size:0.75rem;">Modo de Repartição</label>
@@ -881,7 +881,7 @@ label.form-label:not(.required) > .text-red-500 {
                     </div>
                     <div class="form-field">
                       <label class="form-label" style="font-size:0.75rem;">Valor do Seguro em (KZ)</label>
-                      <input type="number" name="valor_seguro_kz" id="valor_seguro_kz" class="form-input calc-field" placeholder="0.00" step="0.01" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" readonly />
+                      <input type="text" inputmode="decimal" name="valor_seguro_kz" id="valor_seguro_kz" class="form-input calc-field moeda" placeholder="0,00" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" readonly />
                     </div>
                   </div>
                   <p class="field-hint mt-1" style="color:#137fec;">
@@ -896,7 +896,7 @@ label.form-label:not(.required) > .text-red-500 {
                   <div class="form-grid-5">
                     <div class="form-field">
                       <label class="form-label" style="font-size:0.75rem;">Valor Frete</label>
-                      <input type="number" name="valor_frete" id="valor_frete" class="form-input calc-field" placeholder="0.00" step="0.01" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" title="Agregado automaticamente das adições" />
+                      <input type="text" inputmode="decimal" name="valor_frete" id="valor_frete" class="form-input calc-field moeda" placeholder="0,00" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" title="Agregado automaticamente das adições" />
                     </div>
                     <div class="form-field">
                       <label class="form-label" style="font-size:0.75rem;">Modo de Repartição</label>
@@ -921,7 +921,7 @@ label.form-label:not(.required) > .text-red-500 {
                     </div>
                     <div class="form-field">
                       <label class="form-label" style="font-size:0.75rem;">Valor do Frete em (KZ)</label>
-                      <input type="number" name="valor_frete_kz" id="valor_frete_kz" class="form-input calc-field" placeholder="0.00" step="0.01" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" readonly />
+                      <input type="text" inputmode="decimal" name="valor_frete_kz" id="valor_frete_kz" class="form-input calc-field moeda" placeholder="0,00" style="font-size:0.78rem; padding:5px 8px; height:34px; box-sizing:border-box;" readonly />
                     </div>
                   </div>
                   <p class="field-hint mt-1" style="color:#137fec;">
@@ -938,7 +938,7 @@ label.form-label:not(.required) > .text-red-500 {
                         Montante Aduaneiro (KZ)
                         <span class="field-code">Calculado Automaticamente</span>
                       </label>
-                      <input type="number" name="montante_aduaneiro_kz" id="montante_aduaneiro_kz" class="form-input calc-field font-bold text-lg" placeholder="0.00" step="0.01" readonly />
+                      <input type="text" inputmode="decimal" name="montante_aduaneiro_kz" id="montante_aduaneiro_kz" class="form-input calc-field font-bold text-lg" placeholder="0,00" readonly />
                     </div>
                   </div>
                   <p class="field-hint mt-2">Soma de: FOB (KZ) + Seguro (KZ) + Frete (KZ)</p>
@@ -1450,6 +1450,20 @@ label.form-label:not(.required) > .text-red-500 {
 <!-- Select2 JS -->
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="{% static 'du/documento.js' %}?v={% now 'U' %}"></script>
+<script src="{% static 'js/formatacao.js' %}?v={% now 'U' %}"></script>
+<script>
+// Leitura numérica unificada (com ou sem máscara de milhar).
+// Os cálculos NÃO mudam: parseValorInput("1000") === parseFloat("1000").
+window.PVI = window.PVI || (window.parseValorInput || function(el) {
+  if (typeof el === 'string') el = document.getElementById(el);
+  if (!el || el.value === undefined || el.value === null) return 0;
+  var n = parseFloat(el.value);
+  return isNaN(n) ? 0 : n;
+});
+window.FMTN = window.FMTN || (window.formatNumber || function(x) {
+  return Number(x || 0).toFixed(2);
+});
+</script>
 <script src="{% static 'du/script.js' %}?v={% now 'U' %}"></script>
 <script src="{% static 'du/searchable-dropdown.js' %}?v={% now 'U' %}"></script>
 
@@ -2358,8 +2372,8 @@ function gerarHTMLAdicao(n, dados) {
             <div class="form-grid-4">
               <div class="form-field">
                 <label class="form-label required">Valor FOB</label>
-                <input type="number" name="adicao[${n}][valor_fob]" id="fob_${n}"
-                  class="form-input" placeholder="0.00" step="0.01" required
+                <input type="text" inputmode="decimal" name="adicao[${n}][valor_fob]" id="fob_${n}"
+                  class="form-input moeda" placeholder="0,00" required
                   value="${dados.valor_fob || ''}"
                   oninput="calcularAdicaoFinanceiro(${n})" />
               </div>
@@ -2381,8 +2395,8 @@ function gerarHTMLAdicao(n, dados) {
               </div>
               <div class="form-field">
                 <label class="form-label">FOB em KZ</label>
-                <input type="number" name="adicao[${n}][valor_fob_kz]" id="fob_kz_${n}"
-                  class="form-input calc-field" placeholder="0.00" step="0.01" readonly
+                <input type="text" inputmode="decimal" name="adicao[${n}][valor_fob_kz]" id="fob_kz_${n}"
+                  class="form-input calc-field moeda" placeholder="0,00" readonly
                   value="${dados.valor_fob_kz || ''}" />
               </div>
             </div>
@@ -2394,8 +2408,8 @@ function gerarHTMLAdicao(n, dados) {
             <div class="form-grid-4">
               <div class="form-field">
                 <label class="form-label">Valor Seguro</label>
-                <input type="number" name="adicao[${n}][valor_seguro]" id="seguro_${n}"
-                  class="form-input" placeholder="0.00" step="0.01"
+                <input type="text" inputmode="decimal" name="adicao[${n}][valor_seguro]" id="seguro_${n}"
+                  class="form-input moeda" placeholder="0,00"
                   value="${dados.valor_seguro || ''}"
                   oninput="calcularAdicaoFinanceiro(${n})" />
               </div>
@@ -2417,8 +2431,8 @@ function gerarHTMLAdicao(n, dados) {
               </div>
               <div class="form-field">
                 <label class="form-label">Seguro em KZ</label>
-                <input type="number" name="adicao[${n}][valor_seguro_kz]" id="seguro_kz_${n}"
-                  class="form-input calc-field" placeholder="0.00" step="0.01"
+                <input type="text" inputmode="decimal" name="adicao[${n}][valor_seguro_kz]" id="seguro_kz_${n}"
+                  class="form-input calc-field moeda" placeholder="0,00"
                   value="${dados.valor_seguro_kz || ''}" />
               </div>
             </div>
@@ -2430,8 +2444,8 @@ function gerarHTMLAdicao(n, dados) {
             <div class="form-grid-4">
               <div class="form-field">
                 <label class="form-label">Valor Frete</label>
-                <input type="number" name="adicao[${n}][valor_frete]" id="frete_${n}"
-                  class="form-input" placeholder="0.00" step="0.01"
+                <input type="text" inputmode="decimal" name="adicao[${n}][valor_frete]" id="frete_${n}"
+                  class="form-input moeda" placeholder="0,00"
                   value="${dados.valor_frete || ''}"
                   oninput="calcularAdicaoFinanceiro(${n})" />
               </div>
@@ -2453,8 +2467,8 @@ function gerarHTMLAdicao(n, dados) {
               </div>
               <div class="form-field">
                 <label class="form-label">Frete em KZ</label>
-                <input type="number" name="adicao[${n}][valor_frete_kz]" id="frete_kz_${n}"
-                  class="form-input calc-field" placeholder="0.00" step="0.01"
+                <input type="text" inputmode="decimal" name="adicao[${n}][valor_frete_kz]" id="frete_kz_${n}"
+                  class="form-input calc-field moeda" placeholder="0,00"
                   value="${dados.valor_frete_kz || ''}" />
               </div>
             </div>
@@ -2464,8 +2478,8 @@ function gerarHTMLAdicao(n, dados) {
           <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <div class="flex items-center justify-between">
               <span class="text-sm font-semibold text-blue-800 dark:text-blue-200">Montante desta Adição (KZ)</span>
-              <input type="number" name="adicao[${n}][montante_kz]" id="montante_kz_${n}"
-                class="form-input calc-field w-48 text-right font-bold" placeholder="0.00" readonly
+              <input type="text" inputmode="decimal" name="adicao[${n}][montante_kz]" id="montante_kz_${n}"
+                class="form-input calc-field w-48 text-right font-bold" placeholder="0,00" readonly
                 value="${dados.montante_kz || ''}" />
             </div>
             <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">FOB (KZ) + Seguro (KZ) + Frete (KZ)</p>
@@ -2502,6 +2516,9 @@ function adicionarNovaAdicao(dadosExistentes) {
   const card = temp.firstElementChild;
 
   wrapper.appendChild(card);
+
+  // Aplicar máscara monetária aos campos FOB/Frete/Seguro da nova adição
+  if (typeof aplicarMascaraMoeda === 'function') aplicarMascaraMoeda(card);
 
   // ── Autocomplete para campos da adição ──────────────────────────────
   if (typeof autocompleteSelect !== 'undefined') {
@@ -3034,15 +3051,15 @@ async function calcularValoresConvertidos() {
   }
 
   async function calcularCampo(idValor, idMoeda, idCambio, idValorKz) {
-    const valor = parseFloat(document.getElementById(idValor)?.value) || 0;
+    const valor = window.PVI(document.getElementById(idValor));
     const moeda = document.getElementById(idMoeda)?.value || 'AOA';
     const inputValorKz = document.getElementById(idValorKz);
     if (!inputValorKz) return 0;
-    if (valor <= 0) { inputValorKz.value = '0.00'; return 0; }
+    if (valor <= 0) { inputValorKz.value = window.FMTN(0); return 0; }
     const taxa = await obterCambio(moeda, idCambio);
     if (taxa <= 0) return 0;
     const valorKz = valor * taxa;
-    inputValorKz.value = valorKz.toFixed(2);
+    inputValorKz.value = window.FMTN(valorKz);
     return valorKz;
   }
 
@@ -3055,8 +3072,8 @@ async function calcularValoresConvertidos() {
   const montanteAduaneiro = document.getElementById('montante_aduaneiro_kz');
   if (montanteAduaneiro) {
     const total = fobKz + seguroKz + freteKz;
-    montanteAduaneiro.value = total.toFixed(2);
-    console.log('Montante Aduaneiro (KZ):', total.toFixed(2));
+    montanteAduaneiro.value = window.FMTN(total);
+    console.log('Montante Aduaneiro (KZ):', window.FMTN(total));
   }
 }
 
@@ -3075,16 +3092,16 @@ async function calcularAdicaoFinanceiro(n) {
   }
 
   async function calcularLinha(idValor, idMoeda, idCambio, idKz) {
-    const valor  = parseFloat(document.getElementById(idValor)?.value)  || 0;
+    const valor  = window.PVI(document.getElementById(idValor));
     const moeda  = document.getElementById(idMoeda)?.value              || 'AOA';
     const kzEl   = document.getElementById(idKz);
     const cambioEl = document.getElementById(idCambio);
     if (!kzEl) return 0;
-    if (valor <= 0) { kzEl.value = '0.00'; return 0; }
+    if (valor <= 0) { kzEl.value = window.FMTN(0); return 0; }
     const taxa = await obterTaxa(moeda, cambioEl);
     if (taxa <= 0) return 0;
     const kz = valor * taxa;
-    kzEl.value = kz.toFixed(2);
+    kzEl.value = window.FMTN(kz);
     return kz;
   }
 
@@ -3095,20 +3112,20 @@ async function calcularAdicaoFinanceiro(n) {
 
   var seguroKz;
   if (repSeguro !== 'sem_reparticao') {
-    seguroKz = parseFloat(document.getElementById('seguro_kz_' + n)?.value) || 0;
+    seguroKz = window.PVI(document.getElementById('seguro_kz_' + n));
   } else {
     seguroKz = await calcularLinha('seguro_' + n, 'moeda_seguro_' + n, 'cambio_seguro_' + n, 'seguro_kz_' + n);
   }
 
   var freteKz;
   if (repFrete !== 'sem_reparticao') {
-    freteKz = parseFloat(document.getElementById('frete_kz_' + n)?.value) || 0;
+    freteKz = window.PVI(document.getElementById('frete_kz_' + n));
   } else {
     freteKz = await calcularLinha('frete_' + n, 'moeda_frete_' + n, 'cambio_frete_' + n, 'frete_kz_' + n);
   }
 
   var montanteEl = document.getElementById('montante_kz_' + n);
-  if (montanteEl) montanteEl.value = (fobKz + seguroKz + freteKz).toFixed(2);
+  if (montanteEl) montanteEl.value = window.FMTN(fobKz + seguroKz + freteKz);
 
   agregarValoresGeral();
 
@@ -3121,11 +3138,11 @@ async function calcularAdicaoFinanceiro(n) {
     cards.forEach(function(card) {
       var m = card.dataset.adicao;
       if (!m) return;
-      var fkz = parseFloat(document.getElementById('fob_kz_' + m)?.value)    || 0;
-      var skz = parseFloat(document.getElementById('seguro_kz_' + m)?.value) || 0;
-      var rtkz = parseFloat(document.getElementById('frete_kz_' + m)?.value)  || 0;
+      var fkz = window.PVI(document.getElementById('fob_kz_' + m));
+      var skz = window.PVI(document.getElementById('seguro_kz_' + m));
+      var rtkz = window.PVI(document.getElementById('frete_kz_' + m));
       var mel = document.getElementById('montante_kz_' + m);
-      if (mel) mel.value = (fkz + skz + rtkz).toFixed(2);
+      if (mel) mel.value = window.FMTN(fkz + skz + rtkz);
     });
     agregarValoresGeral();
   }
@@ -3139,12 +3156,12 @@ async function calcularAdicaoFinanceiro(n) {
    utilizador e devem ser iguais à soma das adições (Step 2).
 ---------------------------------------------------------- */
 function agregarValoresGeral() {
-  var fobStep1    = parseFloat(document.getElementById('valor_fob_kz')?.value)    || 0;
-  var seguroStep1 = parseFloat(document.getElementById('valor_seguro_kz')?.value) || 0;
-  var freteStep1  = parseFloat(document.getElementById('valor_frete_kz')?.value)  || 0;
+  var fobStep1    = window.PVI(document.getElementById('valor_fob_kz'));
+  var seguroStep1 = window.PVI(document.getElementById('valor_seguro_kz'));
+  var freteStep1  = window.PVI(document.getElementById('valor_frete_kz'));
 
   var el = document.getElementById('montante_aduaneiro_kz');
-  if (el) el.value = (fobStep1 + seguroStep1 + freteStep1).toFixed(2);
+  if (el) el.value = window.FMTN(fobStep1 + seguroStep1 + freteStep1);
 }
 // Função para carregar regimes aduaneiros da API
 async function carregarRegimesAduaneiros() {
