@@ -412,6 +412,13 @@ class RequisicaoFundoDetailView(BaseContextMixin, DetailView):
         facturas = self.object.facturas.all()
         context['tem_factura_recibo'] = FacturaRecibo.objects.filter(factura__in=facturas).exists()
 
+        # Notas de Crédito geradas automaticamente para esta requisição
+        # (motivos exactos novo + legado — evita colisão entre RF-2026/001 e RF-2026/0010)
+        context['notas_credito_rf'] = NotaCredito.objects.filter(
+            cliente_id=self.object.cliente_id,
+            motivo__in=_motivos_nc_requisicao(self.object.numero_requisicao),
+        ).order_by('-data_criacao')
+
         # Formulário inline para adicionar custos
         context['custo_form'] = RequisicaoFundoLinhaForm()
         context['despesas_documentadas'] = RequisicaoFundoLinha.DESPESAS_DOCUMENTADAS
@@ -579,11 +586,24 @@ def eliminar_requisicao(request, pk):
     return redirect('financeiro:requisicao_lista')
 
 
+def _motivo_nc_aceite(numero_requisicao):
+    """Motivo exacto da NC gerada automaticamente ao aceitar a RF (valor total)."""
+    return f'Nota de Crédito referente à Requisição {numero_requisicao}'
+
+
+def _motivos_nc_requisicao(numero_requisicao):
+    """Motivos aceites na pesquisa da NC da RF (novo + legado da fase da retenção)."""
+    return [
+        _motivo_nc_aceite(numero_requisicao),
+        f'Retenção na fonte (IR) referente à Requisição {numero_requisicao}',
+    ]
+
+
 @requer_sessao_ativa
 @require_POST
 @requer_escrita_financeira
 def aceitar_requisicao(request, pk):
-    """Marca a Requisição de Fundos como Aceite pelo cliente"""
+    """Marca a Requisição de Fundos como Aceite e gera Nota de Crédito do valor total"""
     requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
     
     if requisicao.estado != 'Pendente':
@@ -592,8 +612,43 @@ def aceitar_requisicao(request, pk):
     
     if request.method == 'POST':
         estado_anterior = requisicao.estado
-        requisicao.estado = 'Aceite'
-        requisicao.save(update_fields=['estado'])
+        with transaction.atomic():
+            requisicao.estado = 'Aceite'
+            requisicao.save(update_fields=['estado'])
+
+            # Gerar Nota de Crédito automática do VALOR TOTAL da RF.
+            # Nessa altura a NC não ajusta valores de factura (ainda não há
+            # Factura Final associada); apenas credita a conta corrente
+            # do cliente (save() da NC com estado='Aprovada' actualiza o saldo
+            # e a NC aparece na conta corrente via _movimentacoes_cliente).
+            # Transacção atómica: se a NC falhar, o aceite é revertido (sem RF Aceite órfã).
+            nc_gerada = False
+            if requisicao.total_geral and requisicao.total_geral > 0:
+                motivo_nc = _motivo_nc_aceite(requisicao.numero_requisicao)
+                ja_existe = NotaCredito.objects.filter(
+                    cliente_id=requisicao.cliente_id,
+                    motivo__in=_motivos_nc_requisicao(requisicao.numero_requisicao),
+                ).exists()
+                if not ja_existe:
+                    factura_relacionada = requisicao.facturas.first()
+
+                    nota_credito = NotaCredito(
+                        cliente=requisicao.cliente,
+                        factura_relacionada=factura_relacionada,
+                        valor_creditado=requisicao.total_geral,
+                        motivo=motivo_nc,
+                        data=timezone.now().date(),
+                        estado='Aprovada',  # Aprovada diretamente para impacto imediato na conta corrente
+                        utilizador_criador_id=request.session.get('usuario_id'),
+                        utilizador_criador_nome=request.session.get('usuario', {}).get('nome', ''),
+                        utilizador_aprovador_id=request.session.get('usuario_id'),
+                        utilizador_aprovador_nome=request.session.get('usuario', {}).get('nome', ''),
+                        data_aprovacao=timezone.now(),
+                        banca_id=requisicao.banca_id,
+                        filial_id=requisicao.filial_id,
+                    )
+                    nota_credito.save()
+                    nc_gerada = True
         
         usuario_data = request.session.get('usuario', {})
         registrar_historico(
@@ -604,7 +659,10 @@ def aceitar_requisicao(request, pk):
             cliente_nome=requisicao.cliente.nome,
             banca_id=requisicao.banca_id, filial_id=requisicao.filial_id,
         )
-        messages.success(request, f'Requisição {requisicao.numero_requisicao} aceite com sucesso.')
+        if nc_gerada:
+            messages.success(request, f'Requisição {requisicao.numero_requisicao} aceite com sucesso. Nota de Crédito gerada automaticamente.')
+        else:
+            messages.success(request, f'Requisição {requisicao.numero_requisicao} aceite com sucesso.')
     
     return redirect('financeiro:requisicao_detalhe', pk=pk)
 
@@ -1148,6 +1206,10 @@ def requisicao_pdf(request, pk):
     merc_qr = (requisicao.mercadoria_descricao or '')[:60] or '—'
 
     taxa_iva_pct = Decimal(str(requisicao.taxa_iva or '14'))
+    _taxa_str = str(taxa_iva_pct)
+    if '.' in _taxa_str:
+        _taxa_str = _taxa_str.rstrip('0').rstrip('.')
+    taxa_iva_rotulo = _taxa_str
 
     qr_data = (
         f"=== REQUISIÇÃO DE FUNDOS ===\n"
@@ -1321,12 +1383,29 @@ def requisicao_pdf(request, pk):
          Paragraph(f'({fmt_kz(v_cif_val)} CIF)', st('sum_det', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
          Paragraph(fmt_kz(v_cif_val) if v_cif_val > 0 else '0,00', s_val)],
         [Paragraph('Serviços (Honorários)', s_lbl),
-         Paragraph(f'({fmt_kz(honor_total)})', st('sum_det2', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         '',
          Paragraph(fmt_kz(honor_total), s_val)],
-        [Paragraph(f'Retenção ({taxa_iva_pct:.1f}%)', s_lbl),
-         Paragraph(f's/ honorários', st('sum_det3', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
-         Paragraph(fmt_kz(requisicao.retencao) if requisicao.retencao and requisicao.retencao > 0 else '0,00', s_val)],
     ]
+    if taxas_total > 0:
+        sum_rows.append(
+            [Paragraph('Impostos e Taxas (AGT)', s_lbl),
+             '',
+             Paragraph(fmt_kz(taxas_total), s_val)])
+    if emol_total > 0:
+        sum_rows.append(
+            [Paragraph('Despesas Portuárias e Terminais', s_lbl),
+             '',
+             Paragraph(fmt_kz(emol_total), s_val)])
+    if oper_total + outros_total > 0:
+        sum_rows.append(
+            [Paragraph('Outras Despesas', s_lbl),
+             '',
+             Paragraph(fmt_kz(oper_total + outros_total), s_val)])
+    sum_rows.append(
+        [Paragraph(f'Retenção ({taxa_iva_rotulo}%)', s_lbl),
+         Paragraph('s/ honorários, inerentes e licenciamento', st('sum_det3', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         Paragraph(fmt_kz(requisicao.retencao) if requisicao.retencao and requisicao.retencao > 0 else '0,00', s_val)],
+    )
     sum_rows.append(['', '', ''])
     sum_rows.append([
         Paragraph('<b>Total (AKZ):</b>', s_tot_lbl),
@@ -1455,6 +1534,28 @@ def requisicao_pdf(request, pk):
     response = HttpResponse(buffer.read(), content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="Requisicao_{requisicao.numero_requisicao}.pdf"'
     return response
+
+
+@safe_pdf
+@requer_sessao_ativa
+def requisicao_nota_credito_pdf(request, pk):
+    """Gera PDF da Nota de Crédito associada à Requisição de Fundos"""
+    requisicao = _get_object_or_404_com_scope(request, RequisicaoFundo, pk)
+    
+    # Buscar a Nota de Crédito criada automaticamente ao aceitar a RF
+    # (motivos exactos novo + legado — evita colisão entre RF-2026/001 e RF-2026/0010)
+    nota_credito = NotaCredito.objects.filter(
+        cliente=requisicao.cliente,
+        motivo__in=_motivos_nc_requisicao(requisicao.numero_requisicao)
+    ).order_by('-data_criacao').first()
+    
+    if not nota_credito:
+        messages.error(request, 'Não existe Nota de Crédito associada a esta Requisição.')
+        return redirect('financeiro:requisicao_detalhe', pk=pk)
+    
+    # Reutilizar a lógica existente de nota_credito_pdf
+    return nota_credito_pdf(request, nota_credito.pk)
+
 
 @require_POST
 @requer_sessao_ativa
@@ -1617,7 +1718,7 @@ Detalhes da Requisição:
   
 Totalizações:
   Subtotal Geral: {fmt_kz(requisicao.subtotal_geral)} KZ
-  Retenção ({requisicao.taxa_iva}% Honorários): {fmt_kz(requisicao.retencao)} KZ
+  Retenção ({requisicao.taxa_iva}% Honorários, Inerentes e Licenciamento): {fmt_kz(requisicao.retencao)} KZ
   Total Geral a Pagar: {fmt_kz(requisicao.total_geral)} KZ
 
 Esta Requisição de Fundos é equivalente a uma Fatura Proforma e não é documento contabilístico final, estando sujeita a alterações conforme a execução do despacho.
@@ -1661,7 +1762,7 @@ Equipa SICDOA
                     <td style="padding: 10px; text-align: right;">{fmt_kz(requisicao.subtotal_geral)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; color: #475569;">Retenção ({requisicao.taxa_iva}% Honorários):</td>
+                    <td style="padding: 10px; color: #475569;">Retenção ({requisicao.taxa_iva}% Honorários, Inerentes e Licenciamento):</td>
                     <td style="padding: 10px; text-align: right;">{fmt_kz(requisicao.retencao)} KZ</td>
                 </tr>
                 <tr style="border-bottom: 2px solid #137fec;">
@@ -1760,11 +1861,12 @@ def criar_factura_de_requisicao(request, pk):
             else:
                 despesas_operacionais += valor
         
-        # Retenção = taxa_retenção% sobre Honorários do Despachante
+        # Retenção = taxa_retenção% sobre Honorários do Despachante + Inerentes + Licenciamento
         retencao_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
         base_retencao = sum(
             (linha.valor or 0) for linha in linhas_qs
             if (linha.tipo_custo or '').strip() == 'Honorários do Despachante'
+            or (linha.despesa_tipo or '').strip() in ('Inerentes', 'Licenciamento')
         )
         retencao = (base_retencao * retencao_pct).quantize(Decimal('0.01'))
         
@@ -4141,6 +4243,10 @@ def factura_pdf(request, pk):
                 factura_iva_pct = Decimal(_rf_iva)
         except Exception:
             pass
+    _fact_taxa_str = str(factura_iva_pct)
+    if '.' in _fact_taxa_str:
+        _fact_taxa_str = _fact_taxa_str.rstrip('0').rstrip('.')
+    factura_iva_rotulo = _fact_taxa_str
 
     qr_data = (
         f"=== FACTURA FINAL ===\n"
@@ -4384,10 +4490,10 @@ def factura_pdf(request, pk):
          Paragraph(f'({fmt_kz(v_cif_val)} CIF)', st('sum_det', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
          Paragraph(fmt_kz(v_cif_val) if v_cif_val > 0 else '0,00', s_val)],
         [Paragraph('Serviços (Honorários)', s_lbl),
-         Paragraph(f'({fmt_kz(honor_total)})', st('sum_det2', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         '',
          Paragraph(fmt_kz(honor_total), s_val)],
-        [Paragraph(f'Retenção ({factura_iva_pct:.1f}%)', s_lbl),
-         Paragraph(f's/ honorários', st('sum_det3', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+        [Paragraph(f'Retenção ({factura_iva_rotulo}%)', s_lbl),
+         Paragraph('s/ honorários, inerentes e licenciamento', st('sum_det3', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
          Paragraph(fmt_kz(factura.retencao) if factura.retencao > 0 else '0,00', s_val)],
     ]
     if factura.ajuste_nota_credito and factura.ajuste_nota_credito > 0:
@@ -4696,7 +4802,7 @@ def nota_credito_pdf(request, pk):
     ]
     dd_v = [
         Paragraph(nota.numero_nota, s),
-        Paragraph(nota.factura_relacionada.numero_factura, s),
+        Paragraph(nota.factura_relacionada.numero_factura if nota.factura_relacionada_id and nota.factura_relacionada else 'N/D', s),
         Paragraph(nota.data.strftime('%d/%m/%Y') if nota.data else '—', s),
         Paragraph(nota.estado, s),
         Paragraph(nota.motivo[:60], s),
@@ -4704,7 +4810,9 @@ def nota_credito_pdf(request, pk):
 
     colunas = ['Descrição', 'Valor Creditado (KZ)']
     linhas = [
-        [f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}',
+        [(f'Crédito referente à Factura {nota.factura_relacionada.numero_factura}'
+          if nota.factura_relacionada_id and nota.factura_relacionada
+          else f'Crédito referente à {nota.motivo}'),
          fmt_kz(nota.valor_creditado)]
     ]
 
@@ -4724,7 +4832,7 @@ def nota_credito_pdf(request, pk):
         f"Nome: {cliente.nome}\n"
         f"NIF: {cliente.nif}\n"
         f"--- DETALHES ---\n"
-        f"Factura: {nota.factura_relacionada.numero_factura}\n"
+        f"Factura: {(nota.factura_relacionada.numero_factura if nota.factura_relacionada_id and nota.factura_relacionada else 'N/D')}\n"
         f"Valor: {fmt_kz(nota.valor_creditado)} KZ\n"
         f"Motivo: {nota.motivo}\n"
         f"--- DESPACHANTE ---\n"

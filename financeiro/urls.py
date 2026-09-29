@@ -19,6 +19,7 @@ urlpatterns = [
     path('requisicoes/<int:pk>/rejeitar/', views.rejeitar_requisicao, name='requisicao_rejeitar'),
     path('requisicoes/<int:pk>/pdf/', views.requisicao_pdf, name='requisicao_pdf'),
     path('requisicoes/<int:pk>/enviar-email/', views.requisicao_enviar_email, name='requisicao_enviar_email'),
+    path('requisicoes/<int:pk>/nota-credito/pdf/', views.requisicao_nota_credito_pdf, name='requisicao_nota_credito_pdf'),
     path('requisicoes/<int:pk>/criar-factura/', views.criar_factura_de_requisicao, name='requisicao_criar_factura'),
     path('requisicoes/<int:pk>/criar-factura-recibo/', views.requisicao_criar_factura_recibo, name='requisicao_criar_factura_recibo'),
     path('requisicoes/<int:pk>/linha/adicionar/', views.adicionar_linha_requisicao, name='requisicao_linha_adicionar'),

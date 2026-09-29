@@ -152,14 +152,15 @@ class RequisicaoFundo(models.Model):
         # Sem IVA nos Custos Orçados
         self.iva_honorarios = Decimal('0.00')
         
-        # Retenção = taxa_retenção% sobre Honorários do Despachante
+        # Retenção = taxa_retenção% sobre Honorários do Despachante + Inerentes + Licenciamento
         retencao_pct = Decimal(self.taxa_iva or '14') / Decimal('100')
-        valor_honorarios = sum(
+        valor_base_retencao = sum(
             (linha.valor or 0) for linha in linhas
             if linha.tipo_custo == 'Honorários do Despachante'
+            or (linha.despesa_tipo or '') in ('Inerentes', 'Licenciamento')
         )
         
-        self.retencao = (valor_honorarios * retencao_pct).quantize(Decimal('0.01'))
+        self.retencao = (valor_base_retencao * retencao_pct).quantize(Decimal('0.01'))
         
         # Total = Subtotal + Retenção (retenção é um custo adicional ao cliente)
         self.total_geral = (self.subtotal_geral + self.retencao).quantize(Decimal('0.01'))
@@ -768,15 +769,17 @@ class NotaCredito(models.Model):
                 cliente.saldo_conta_corrente += diff
                 cliente.save(update_fields=['saldo_conta_corrente'])
                 self.cliente.refresh_from_db()
-                num_factura = FacturaCliente.objects.filter(pk=self.factura_relacionada_id).values_list('numero_factura', flat=True).first() or ''
-                registrar_historico(
-                    'Factura', self.factura_relacionada_id, num_factura,
-                    'Ajuste por Nota de Crédito', valor=self.valor_creditado,
-                    utilizador_id=self.utilizador_aprovador_id or self.utilizador_criador_id,
-                    utilizador_nome=self.utilizador_aprovador_nome or self.utilizador_criador_nome,
-                    cliente_nome=self.cliente.nome,
-                    banca_id=self.banca_id, filial_id=self.filial_id,
-                )
+                # Só regista histórico se houver factura relacionada
+                if self.factura_relacionada_id:
+                    num_factura = FacturaCliente.objects.filter(pk=self.factura_relacionada_id).values_list('numero_factura', flat=True).first() or ''
+                    registrar_historico(
+                        'Factura', self.factura_relacionada_id, num_factura,
+                        'Ajuste por Nota de Crédito', valor=self.valor_creditado,
+                        utilizador_id=self.utilizador_aprovador_id or self.utilizador_criador_id,
+                        utilizador_nome=self.utilizador_aprovador_nome or self.utilizador_criador_nome,
+                        cliente_nome=self.cliente.nome,
+                        banca_id=self.banca_id, filial_id=self.filial_id,
+                    )
 
     def __str__(self):
         return f"Nota Crédito {self.numero_nota} - {self.cliente.nome} - {self.valor_creditado}"
@@ -878,15 +881,17 @@ class NotaDebito(models.Model):
                 cliente.saldo_conta_corrente -= diff
                 cliente.save(update_fields=['saldo_conta_corrente'])
                 self.cliente.refresh_from_db()
-                num_factura = FacturaCliente.objects.filter(pk=self.factura_relacionada_id).values_list('numero_factura', flat=True).first() or ''
-                registrar_historico(
-                    'Factura', self.factura_relacionada_id, num_factura,
-                    'Ajuste por Nota de Débito', valor=self.valor,
-                    utilizador_id=self.utilizador_aprovador_id or self.utilizador_criador_id,
-                    utilizador_nome=self.utilizador_aprovador_nome or self.utilizador_criador_nome,
-                    cliente_nome=self.cliente.nome,
-                    banca_id=self.banca_id, filial_id=self.filial_id,
-                )
+                # Só regista histórico se houver factura relacionada
+                if self.factura_relacionada_id:
+                    num_factura = FacturaCliente.objects.filter(pk=self.factura_relacionada_id).values_list('numero_factura', flat=True).first() or ''
+                    registrar_historico(
+                        'Factura', self.factura_relacionada_id, num_factura,
+                        'Ajuste por Nota de Débito', valor=self.valor,
+                        utilizador_id=self.utilizador_aprovador_id or self.utilizador_criador_id,
+                        utilizador_nome=self.utilizador_aprovador_nome or self.utilizador_criador_nome,
+                        cliente_nome=self.cliente.nome,
+                        banca_id=self.banca_id, filial_id=self.filial_id,
+                    )
 
     def __str__(self):
         return f"Nota Débito {self.numero_nota} - {self.cliente.nome} - {self.valor}"
