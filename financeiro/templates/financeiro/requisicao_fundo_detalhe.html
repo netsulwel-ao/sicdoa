@@ -143,7 +143,46 @@
               <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Peso (kg)</p>
               <p class="text-sm text-gray-800">{{ requisicao.peso_bruto_kg|default:"-" }}</p>
             </div>
+            <div>
+              <p class="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">Total da DU</p>
+              <p class="text-sm font-bold text-cdoa">{{ requisicao.processo_aduaneiro.total_geral|fmtkz }} <span class="text-xs font-medium text-gray-400">Kz</span></p>
+            </div>
           </div>
+          {% if requisicao.processo_aduaneiro %}
+          <div class="mt-4 p-4 bg-primary/5 rounded-xl border border-primary/10">
+            <p class="text-xs font-bold text-cdoa uppercase tracking-wide mb-3"><i class="fas fa-file-invoice mr-1"></i>Totais da DU {{ requisicao.processo_aduaneiro.numero_du|default:"" }}</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Valor CIF</p>
+                <p class="text-sm font-semibold text-gray-900">{{ requisicao.processo_aduaneiro.valor_cif|fmtkz }} Kz</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Direitos Aduaneiros</p>
+                <p class="text-sm font-semibold text-gray-900">{{ requisicao.processo_aduaneiro.direitos_aduaneiros|fmtkz }} Kz</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">IVA</p>
+                <p class="text-sm font-semibold text-gray-900">{{ requisicao.processo_aduaneiro.iva|fmtkz }} Kz</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Total Impostos</p>
+                <p class="text-sm font-semibold text-gray-900">{{ requisicao.processo_aduaneiro.total_impostos|fmtkz }} Kz</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Emolumentos</p>
+                <p class="text-sm font-semibold text-gray-900">{{ requisicao.processo_aduaneiro.emolumentos|fmtkz }} Kz</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 mb-0.5">Imposto Consumo</p>
+                <p class="text-sm font-semibold text-gray-900">{{ requisicao.processo_aduaneiro.imposto_consumo|fmtkz }} Kz</p>
+              </div>
+              <div class="col-span-2">
+                <p class="text-xs text-gray-400 mb-0.5">Total Geral DU</p>
+                <p class="text-lg font-bold text-primary">{{ requisicao.processo_aduaneiro.total_geral|fmtkz }} Kz</p>
+              </div>
+            </div>
+          </div>
+          {% endif %}
         </div>
       </div>
 

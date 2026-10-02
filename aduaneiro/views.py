@@ -225,6 +225,12 @@ def _du_guardar_impl(request):
     submeter  = payload.get('submeter', False)
     dados     = payload.get('dados', {})
 
+    # Higiene: o FormData do formulário inclui o csrfmiddlewaretoken —
+    # não faz parte dos dados da DU e não deve ser persistido em dados_json
+    if isinstance(dados, dict):
+        dados.pop('csrfmiddlewaretoken', None)
+        dados.pop('csrf_token', None)
+
     # Normalizar NIFs de exportador/destinatário (maiúsculas, sem espaços/hífenes)
     for campo_nif in ('exportador_codigo', 'destinatario_nif'):
         if campo_nif in dados and dados[campo_nif]:

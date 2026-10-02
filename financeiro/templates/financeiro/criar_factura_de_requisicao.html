@@ -26,7 +26,7 @@
       </div>
       <p class="text-sm text-gray-500 dark:text-gray-400">
         A fatura será gerada a partir da Requisição de Fundos <strong class="text-gray-700 dark:text-gray-300">{{ requisicao.numero_requisicao }}</strong>.
-        Reveja os valores antes de confirmar.
+        A Fatura Final contém <strong>apenas Honorários, Licenciamento e Inerentes</strong> — as restantes despesas geram uma Nota de Débito automática.
       </p>
     </div>
   </div>
@@ -149,6 +149,18 @@
               <span class="text-2xl font-bold text-primary tabular-nums">{{ valor_total }} KZ</span>
             </div>
           </div>
+
+          {% if total_nd_raw %}
+          <div class="mt-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-5 py-4">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p class="font-bold text-amber-800 dark:text-amber-300 text-sm"><i class="fas fa-file-invoice mr-1"></i>Nota de Débito automática</p>
+                <p class="text-xs text-amber-700/80 dark:text-amber-400/80 mt-1">{{ linhas_nd|length }} despesa(s) fora da Fatura Final (tudo exceto Honorários, Licenciamento, Inerentes)</p>
+              </div>
+              <span class="text-lg font-bold text-amber-700 dark:text-amber-300 tabular-nums">{{ total_nd }} KZ</span>
+            </div>
+          </div>
+          {% endif %}
         </div>
       </div>
 

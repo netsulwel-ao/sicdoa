@@ -73,6 +73,74 @@ def _safe(text):
     return _html_mod.escape(str(text))
 
 
+# ── Fatura Final: que linhas ficam na fatura vs Nota de Débito ────────────
+# A Fatura Final contém APENAS Honorários/Licenciamento/Inerentes.
+# Todas as restantes despesas vão para Nota(s) de Débito.
+TIPOS_FATURA_FINAL = frozenset({'Honorários', 'Licenciamento', 'Inerentes'})
+
+DESP_TAXAS_FATURA = frozenset({'Direitos Aduaneiros', 'Taxa Administrativa', 'Inspeção Sanitária',
+                               'Multas e Desdobramento', 'Multas'})
+DESP_EMOL_FATURA = frozenset({'JUP', 'Factura de Exportação', 'Emissão DAR'})
+
+
+def _linha_na_fatura_final(linha):
+    """True se a linha da RF deve ficar na Fatura Final."""
+    tc = (linha.tipo_custo or '').strip()
+    dt = (linha.despesa_tipo or '').strip()
+    if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
+        return True
+    return dt in TIPOS_FATURA_FINAL
+
+
+def _mapear_linhas_fatura_final(linhas, taxa_iva='14'):
+    """Classifica as linhas da Fatura Final nos campos da FacturaCliente.
+
+    Retorna (honorarios, taxas, emolumentos, operacionais, iva, retencao, total).
+    A retenção incide sobre Honorários + Inerentes + Licenciamento.
+    """
+    honorarios = Decimal('0')
+    taxas_aduaneiras = Decimal('0')
+    emolumentos = Decimal('0')
+    despesas_operacionais = Decimal('0')
+
+    for linha in linhas:
+        valor = linha.valor or Decimal('0')
+        if not valor:
+            continue
+        tc = (linha.tipo_custo or '').strip()
+        dt = (linha.despesa_tipo or '').strip()
+        if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
+            honorarios += valor
+        elif tc == 'Impostos e Taxas Aduaneiras (AGT)':
+            taxas_aduaneiras += valor
+        elif tc == 'Despesas Portuárias e Terminais':
+            emolumentos += valor
+        elif tc in ('Logística e Transporte', 'Outros') or not tc:
+            if dt in DESP_TAXAS_FATURA:
+                taxas_aduaneiras += valor
+            elif dt in DESP_EMOL_FATURA:
+                emolumentos += valor
+            else:
+                despesas_operacionais += valor
+        else:
+            despesas_operacionais += valor
+
+    try:
+        retencao_pct = Decimal(taxa_iva or '14') / Decimal('100')
+    except Exception:
+        retencao_pct = Decimal('14') / Decimal('100')
+    base_retencao = sum(
+        (linha.valor or 0) for linha in linhas
+        if (linha.tipo_custo or '').strip() == 'Honorários do Despachante'
+        or (linha.despesa_tipo or '').strip() in ('Inerentes', 'Licenciamento')
+    )
+    retencao = (base_retencao * retencao_pct).quantize(Decimal('0.01'))
+
+    subtotal = honorarios + taxas_aduaneiras + emolumentos + despesas_operacionais
+    iva = Decimal('0.00')
+    return honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, subtotal + retencao
+
+
 def _carregar_assinatura(usuario_id):
     """Carrega a assinatura digital de um utilizador e retorna um ReportLab Image ou None."""
     if not usuario_id:
@@ -1818,63 +1886,11 @@ def criar_factura_de_requisicao(request, pk):
         messages.error(request, 'Apenas requisições Aceites pelo cliente podem gerar Factura Final.')
         return redirect('financeiro:requisicao_detalhe', pk=pk)
     
+    def _pertence_fatura_final(linha):
+        return _linha_na_fatura_final(linha)
+
     def _mapear_linhas(linhas_qs):
-        """Classifica as linhas da RF nos campos da FacturaCliente
-        
-        Regras:
-        - Honorários do Despachante (tipo_custo ou despesa_tipo ~ Honorários) → honorarios
-        - Despesas documentadas com perfil fiscal/taxas → taxas_aduaneiras
-        - Despesas documentadas portuárias/terminais → emolumentos
-        - Restantes (não-documentadas operacionais, etc.) → despesas_operacionais
-        """
-        DESP_TAXAS = {'Direitos Aduaneiros', 'Taxa Administrativa', 'Inspeção Sanitária',
-                       'Multas e Desdobramento', 'Multas'}
-        DESP_EMOL = {'JUP', 'Factura de Exportação', 'Emissão DAR'}
-        
-        honorarios = Decimal('0')
-        taxas_aduaneiras = Decimal('0')
-        emolumentos = Decimal('0')
-        despesas_operacionais = Decimal('0')
-        
-        for linha in linhas_qs:
-            valor = linha.valor or Decimal('0')
-            if not valor:
-                continue
-            tc = (linha.tipo_custo or '').strip()
-            dt = (linha.despesa_tipo or '').strip()
-            
-            # Honorários — por tipo_custo ou despesa_tipo
-            if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
-                honorarios += valor
-            elif tc == 'Impostos e Taxas Aduaneiras (AGT)':
-                taxas_aduaneiras += valor
-            elif tc == 'Despesas Portuárias e Terminais':
-                emolumentos += valor
-            elif tc in ('Logística e Transporte', 'Outros') or not tc:
-                # Classificar por despesa_tipo quando tipo_custo é genérico
-                if dt in DESP_TAXAS:
-                    taxas_aduaneiras += valor
-                elif dt in DESP_EMOL:
-                    emolumentos += valor
-                else:
-                    despesas_operacionais += valor
-            else:
-                despesas_operacionais += valor
-        
-        # Retenção = taxa_retenção% sobre Honorários do Despachante + Inerentes + Licenciamento
-        retencao_pct = Decimal(requisicao.taxa_iva or '14') / Decimal('100')
-        base_retencao = sum(
-            (linha.valor or 0) for linha in linhas_qs
-            if (linha.tipo_custo or '').strip() == 'Honorários do Despachante'
-            or (linha.despesa_tipo or '').strip() in ('Inerentes', 'Licenciamento')
-        )
-        retencao = (base_retencao * retencao_pct).quantize(Decimal('0.01'))
-        
-        subtotal = honorarios + taxas_aduaneiras + emolumentos + despesas_operacionais
-        iva = Decimal('0.00')
-        valor_total = subtotal + retencao
-        
-        return honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, valor_total
+        return _mapear_linhas_fatura_final(linhas_qs, requisicao.taxa_iva)
     
     def _numero_extenso(num):
         """Converte número para extenso em português (até 999 milhões)"""
@@ -1911,8 +1927,16 @@ def criar_factura_de_requisicao(request, pk):
         except Exception:
             return f'{num} kwanzas'
     
+    def _dividir_linhas(todas):
+        linhas_fatura = [l for l in todas if _pertence_fatura_final(l)]
+        linhas_nd = [l for l in todas if not _pertence_fatura_final(l)]
+        total_nd = sum((l.valor or Decimal('0')) for l in linhas_nd)
+        return linhas_fatura, linhas_nd, total_nd
+
     if request.method == 'POST':
-        honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, _ = _mapear_linhas(requisicao.linhas.all())
+        todas = list(requisicao.linhas.all())
+        linhas_fatura, linhas_nd, total_nd = _dividir_linhas(todas)
+        honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, _ = _mapear_linhas(linhas_fatura)
         
         factura = FacturaCliente(
             cliente=requisicao.cliente,
@@ -1944,10 +1968,56 @@ def criar_factura_de_requisicao(request, pk):
         )
         
         messages.success(request, f'Factura {factura.numero_factura} criada com sucesso a partir da Requisição.')
+
+        # ── Nota de Débito automática com as despesas fora da Fatura Final ──
+        # Fatura Final contém APENAS Honorários/Licenciamento/Inerentes.
+        # Todas as restantes despesas vão para uma Nota de Débito separada.
+        # A ND é criada SEM factura_relacionada para não somar 2x ao total da fatura
+        # (o save() de NotaDebito soma ajuste_nota_debito à fatura vinculada).
+        nota_debito = None
+        if total_nd and total_nd > 0:
+            usuario_data = request.session.get('usuario', {})
+            usuario_id = request.session.get('usuario_id')
+            tipos_nd = sorted({(l.despesa_tipo or l.get_tipo_custo_display()) for l in linhas_nd})
+            detalhe = ', '.join(tipos_nd[:8])
+            if len(tipos_nd) > 8:
+                detalhe += f' (+{len(tipos_nd) - 8})'
+            nota_debito = NotaDebito(
+                cliente=requisicao.cliente,
+                banca_id=requisicao.banca_id,
+                filial_id=requisicao.filial_id,
+                valor=total_nd,
+                motivo=(
+                    f'Despesas excluídas da Fatura Final {factura.numero_factura} '
+                    f'(RF {requisicao.numero_requisicao}): {detalhe}'
+                )[:255],
+                data=timezone.now().date(),
+                estado='Aprovada',
+                utilizador_criador_id=usuario_id,
+                utilizador_criador_nome=usuario_data.get('nome', ''),
+                utilizador_aprovador_id=usuario_id,
+                utilizador_aprovador_nome=usuario_data.get('nome', ''),
+                data_aprovacao=timezone.now(),
+            )
+            nota_debito.save()
+            registrar_historico(
+                'NotaDebito', nota_debito.pk, nota_debito.numero_nota, 'Criada de Requisição (split Fatura Final)',
+                valor=nota_debito.valor,
+                utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
+                cliente_nome=requisicao.cliente.nome,
+                banca_id=requisicao.banca_id, filial_id=requisicao.filial_id,
+            )
+            messages.success(
+                request,
+                f'Nota de Débito {nota_debito.numero_nota} gerada com {len(linhas_nd)} despesa(s) '
+                f'({fmt_kz(total_nd)} KZ).'
+            )
         return redirect('financeiro:factura_detalhe', pk=factura.pk)
-    
+
     # GET - mostrar confirmação
-    honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, valor_total = _mapear_linhas(requisicao.linhas.all())
+    todas = list(requisicao.linhas.all())
+    linhas_fatura, linhas_nd, total_nd = _dividir_linhas(todas)
+    honorarios, taxas_aduaneiras, emolumentos, despesas_operacionais, iva, retencao, valor_total = _mapear_linhas(linhas_fatura)
     
     # Calcular próximo número de factura
     ano = timezone.now().year
@@ -1972,6 +2042,10 @@ def criar_factura_de_requisicao(request, pk):
         'valor_total': fmt_kz(valor_total),
         'valor_total_extenso': _numero_extenso(int(valor_total)),
         'linhas': requisicao.linhas.all(),
+        'linhas_fatura': linhas_fatura,
+        'linhas_nd': linhas_nd,
+        'total_nd': fmt_kz(total_nd),
+        'total_nd_raw': total_nd,
         'active_menu': 'Financeiro',
         'active_sub': 'requisicoes',
     }
@@ -2319,7 +2393,155 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
         if filtro_du:
             processos_qs = processos_qs.filter(**filtro_du)
         context['processos_json'] = json.dumps(list(processos_qs.values('id', 'nif_declarante', 'numero_du')))
+
+        # ── Gestão de custos por linha (facturas geradas de Requisição) ──
+        # A Fatura Final contém apenas Honorários/Licenciamento/Inerentes;
+        # cada linha pode ser corrigida e é possível adicionar novos custos.
+        rf = self.object.requisicao_fundo
+        context['gerir_linhas'] = False
+        if rf is not None:
+            linhas = list(rf.linhas.all().order_by('ordem'))
+            linhas_fatura = [l for l in linhas if _linha_na_fatura_final(l)]
+            linhas_nd = [l for l in linhas if not _linha_na_fatura_final(l)]
+            context['gerir_linhas'] = True
+            context['requisicao'] = rf
+            context['linhas_fatura'] = linhas_fatura
+            context['linhas_nd'] = linhas_nd
+            context['taxa_retencao'] = rf.taxa_iva or '14'
+            context['notas_debito_ft'] = NotaDebito.objects.filter(
+                cliente_id=self.object.cliente_id,
+                motivo__contains=self.object.numero_factura,
+            ).order_by('-data_criacao')
+            tipos_nd = []
+            for _grupo in (RequisicaoFundoLinha.DESPESAS_DOCUMENTADAS,
+                           RequisicaoFundoLinha.DESPESAS_NAODOCUMENTADAS):
+                for _v, _l in _grupo:
+                    if _v not in TIPOS_FATURA_FINAL and _v not in tipos_nd:
+                        tipos_nd.append(_v)
+            context['tipos_fatura'] = sorted(TIPOS_FATURA_FINAL)
+            context['tipos_nd'] = tipos_nd
+            context['despesas_doc_json'] = json.dumps([v for v, _l in RequisicaoFundoLinha.DESPESAS_DOCUMENTADAS])
+            context['despesas_naodoc_json'] = json.dumps([v for v, _l in RequisicaoFundoLinha.DESPESAS_NAODOCUMENTADAS])
         return context
+
+    def _processar_linhas_custos(self, factura):
+        """Aplica correções/adições de custos vindas do editor por linhas.
+
+        Retorna (ok, erros). Actualiza as linhas da RF, recalcula os campos
+        da factura e cria Nota de Débito para novos custos fora da fatura.
+        """
+        from .models import RequisicaoFundoLinha
+        rf = factura.requisicao_fundo
+        if rf is None:
+            return True, []
+        erros = []
+        post = self.request.POST
+
+        # 1) Linhas existentes da fatura: corrigir valor/descrição ou remover
+        for linha in list(rf.linhas.all()):
+            if not _linha_na_fatura_final(linha):
+                continue
+            prefixo = f'linha_{linha.pk}_'
+            if prefixo + 'valor' not in post and prefixo + 'remover' not in post:
+                continue
+            if post.get(prefixo + 'remover') == '1':
+                linha.delete()
+                continue
+            try:
+                novo_valor = parse_valor_monetario(post.get(prefixo + 'valor', ''))
+            except ValueError:
+                erros.append(f'Linha "{linha.descricao}": valor inválido.')
+                continue
+            nova_desc = (post.get(prefixo + 'descricao') or '').strip() or linha.descricao
+            if nova_desc != linha.descricao or novo_valor != linha.valor:
+                linha.descricao = nova_desc
+                linha.valor = novo_valor
+                linha.save()
+
+        # 2) Novos custos
+        novas_nd = []
+        for i in range(40):
+            tipo = (post.get(f'nova_{i}_tipo') or '').strip()
+            if not tipo:
+                continue
+            raw_valor = (post.get(f'nova_{i}_valor') or '').strip()
+            if not raw_valor:
+                continue
+            try:
+                valor = parse_valor_monetario(raw_valor)
+            except ValueError:
+                erros.append(f'Novo custo "{tipo}": valor inválido.')
+                continue
+            if valor <= 0:
+                continue
+            desc = (post.get(f'nova_{i}_descricao') or '').strip() or tipo
+            documentada = (post.get(f'nova_{i}_documentada') or 'false') == 'true'
+            if documentada and not self.request.FILES.get(f'nova_{i}_documento'):
+                erros.append(f'Novo custo "{tipo}": anexe o comprovativo (despesa documentada).')
+                continue
+            nova_linha = RequisicaoFundoLinha(
+                requisicao=rf,
+                tipo_custo='Honorários do Despachante' if tipo == 'Honorários' else 'Outras Despesas',
+                descricao=desc[:255],
+                documentada=documentada,
+                despesa_tipo=tipo,
+                valor=valor,
+                ordem=(rf.linhas.count() + 1),
+            )
+            _doc_file = self.request.FILES.get(f'nova_{i}_documento')
+            if _doc_file:
+                nova_linha.documento_justificativo = _doc_file
+            nova_linha.save()
+            if not _linha_na_fatura_final(nova_linha):
+                novas_nd.append(nova_linha)
+
+        # 3) Recalcular campos da factura a partir das linhas da fatura
+        linhas_fatura = [l for l in rf.linhas.all() if _linha_na_fatura_final(l)]
+        (hon, tax, emo, ope, iva, ret, _tot) = _mapear_linhas_fatura_final(linhas_fatura, rf.taxa_iva)
+        factura.honorarios_despachante = hon
+        factura.taxas_aduaneiras = tax
+        factura.emolumentos = emo
+        factura.despesas_operacionais = ope
+        factura.iva = iva
+        factura.retencao = ret
+
+        # 4) Novos custos fora da fatura → Nota de Débito automática
+        if novas_nd:
+            total_nd = sum((l.valor or Decimal('0')) for l in novas_nd)
+            usuario_data = self.request.session.get('usuario', {})
+            usuario_id = self.request.session.get('usuario_id')
+            tipos_txt = ', '.join(sorted({(l.despesa_tipo or '') for l in novas_nd}))[:180]
+            nd = NotaDebito(
+                cliente=factura.cliente,
+                banca_id=factura.banca_id,
+                filial_id=factura.filial_id,
+                valor=total_nd,
+                motivo=(
+                    f'Despesas adicionadas na edição da Fatura Final {factura.numero_factura} '
+                    f'(RF {rf.numero_requisicao}): {tipos_txt}'
+                )[:255],
+                data=timezone.now().date(),
+                estado='Aprovada',
+                utilizador_criador_id=usuario_id,
+                utilizador_criador_nome=usuario_data.get('nome', ''),
+                utilizador_aprovador_id=usuario_id,
+                utilizador_aprovador_nome=usuario_data.get('nome', ''),
+                data_aprovacao=timezone.now(),
+            )
+            nd.save()
+            registrar_historico(
+                'NotaDebito', nd.pk, nd.numero_nota, 'Criada na edição da Fatura Final',
+                valor=nd.valor,
+                utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
+                cliente_nome=factura.cliente.nome,
+                banca_id=factura.banca_id, filial_id=factura.filial_id,
+            )
+            messages.success(
+                self.request,
+                f'Nota de Débito {nd.numero_nota} gerada com {len(novas_nd)} novo(s) custo(s) '
+                f'({fmt_kz(total_nd)} KZ).'
+            )
+        return (len(erros) == 0), erros
 
     def form_valid(self, form):
         banca_id = self.request.session.get('banca_id')
@@ -2330,6 +2552,14 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
             if form.instance.processo_aduaneiro and getattr(form.instance.processo_aduaneiro, 'banca_id', None) and form.instance.processo_aduaneiro.banca_id != banca_id:
                 from django.core.exceptions import PermissionDenied
                 raise PermissionDenied('O processo aduaneiro seleccionado não pertence à sua banca.')
+        # Gestão por linhas sobrepõe-se aos totais agregados do formulário
+        if self.request.POST.get('gerir_linhas') == '1' and form.instance.requisicao_fundo_id:
+            form.instance.requisicao_fundo = RequisicaoFundo.objects.get(pk=form.instance.requisicao_fundo_id)
+            ok, erros = self._processar_linhas_custos(form.instance)
+            if not ok:
+                for e in erros:
+                    messages.error(self.request, e)
+                return self.form_invalid(form)
         form.instance.banca_id = banca_id or getattr(form.instance.cliente, 'banca_id', None)
         form.instance.filial_id = self.request.session.get('colaborador_filial_id')
         response = super().form_valid(form)
@@ -4321,10 +4551,17 @@ def factura_pdf(request, pk):
     total_geral_itens = Decimal('0')
 
     # Listar cada linha da requisição individualmente
+    # REGRA: Fatura Final contém APENAS Honorários/Licenciamento/Inerentes.
+    # As restantes despesas vão para Nota de Débito automática.
+    def _linha_na_fatura(linha):
+        return _linha_na_fatura_final(linha)
+
     if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
-        # Despesas documentadas
+        # Despesas documentadas (filtradas à Fatura Final)
         despesas_doc = factura.requisicao_fundo.linhas.filter(documentada=True)
         for idx, linha in enumerate(despesas_doc, start=1):
+            if not _linha_na_fatura(linha):
+                continue
             v = linha.valor or Decimal('0')
             if not v or v <= 0:
                 continue
@@ -4336,9 +4573,11 @@ def factura_pdf(request, pk):
             ])
             total_geral_itens += v
 
-        # Despesas não documentadas
+        # Despesas não documentadas (filtradas à Fatura Final)
         despesas_nao_doc = factura.requisicao_fundo.linhas.filter(documentada=False)
         for idx, linha in enumerate(despesas_nao_doc, start=1):
+            if not _linha_na_fatura(linha):
+                continue
             v = linha.valor or Decimal('0')
             if not v or v <= 0:
                 continue
@@ -4445,6 +4684,8 @@ def factura_pdf(request, pk):
 
     if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
         for linha in factura.requisicao_fundo.linhas.all():
+            if not _linha_na_fatura(linha):
+                continue
             v = linha.valor or Decimal('0')
             if not v or v <= 0:
                 continue
@@ -4869,6 +5110,7 @@ def nota_debito_pdf(request, pk):
 
     s = ParagraphStyle('x', fontSize=7.5, fontName='Helvetica', textColor=colors.HexColor('#0f172a'))
 
+    num_factura_ref = nota.factura_relacionada.numero_factura if nota.factura_relacionada else '—'
     dd_h = [
         Paragraph('<b>Nº Nota</b>', s), Paragraph('<b>Factura</b>', s),
         Paragraph('<b>Data</b>', s), Paragraph('<b>Estado</b>', s),
@@ -4876,15 +5118,19 @@ def nota_debito_pdf(request, pk):
     ]
     dd_v = [
         Paragraph(nota.numero_nota, s),
-        Paragraph(nota.factura_relacionada.numero_factura, s),
+        Paragraph(num_factura_ref, s),
         Paragraph(nota.data.strftime('%d/%m/%Y') if nota.data else '—', s),
         Paragraph(nota.estado, s),
-        Paragraph(nota.motivo[:60], s),
+        Paragraph((nota.motivo or '')[:60], s),
     ]
 
     colunas = ['Descrição', 'Valor Debitado (KZ)']
+    descricao_linha = (
+        f'Débito adicional referente à Factura {num_factura_ref}'
+        if nota.factura_relacionada else (nota.motivo or 'Despesas transferidas da Fatura Final')
+    )
     linhas = [
-        [f'Débito adicional referente à Factura {nota.factura_relacionada.numero_factura}',
+        [descricao_linha,
          fmt_kz(nota.valor)]
     ]
 
@@ -4903,7 +5149,7 @@ def nota_debito_pdf(request, pk):
         f"Nome: {cliente.nome}\n"
         f"NIF: {cliente.nif}\n"
         f"--- DETALHES ---\n"
-        f"Factura: {nota.factura_relacionada.numero_factura}\n"
+        f"Factura: {num_factura_ref}\n"
         f"Valor: {fmt_kz(nota.valor)} KZ\n"
         f"Motivo: {nota.motivo}\n"
         f"--- DESPACHANTE ---\n"

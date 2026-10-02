@@ -71,7 +71,7 @@
       {% endif %}
 
       <!-- ── Formulário ── -->
-      <form method="post" class="space-y-6">
+      <form method="post" {% if gerir_linhas %}enctype="multipart/form-data"{% endif %} class="space-y-6">
         {% csrf_token %}
 
         {% if form.non_field_errors %}
@@ -125,6 +125,129 @@
             </div>
           </div>
         </div>
+
+        <!-- ── Custos por Linha (facturas geradas de Requisição) ── -->
+        {% if gerir_linhas %}
+        <input type="hidden" name="gerir_linhas" value="1" />
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div class="px-6 py-4 bg-gradient-to-r from-primary/5 to-transparent border-b border-gray-100 dark:border-gray-700">
+            <h2 class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <i class="fas fa-list text-primary text-sm"></i> Custos da Fatura
+              <span class="text-xs font-normal text-gray-400">— Honorários, Licenciamento e Inerentes (de {{ requisicao.numero_requisicao }})</span>
+            </h2>
+          </div>
+          <div class="p-6 space-y-4">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm" id="tabela-custos">
+                <thead class="bg-gray-50 dark:bg-gray-700/30">
+                  <tr>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Descrição</th>
+                    <th class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Valor (KZ)</th>
+                    <th class="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase"></th>
+                  </tr>
+                </thead>
+                <tbody id="corpo-custos" class="divide-y divide-gray-100 dark:divide-gray-700/60">
+                  {% for linha in linhas_fatura %}
+                  <tr class="linha-custo hover:bg-gray-50/50 dark:hover:bg-gray-700/20" data-tipo="{{ linha.despesa_tipo }}">
+                    <td class="px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      {{ linha.despesa_tipo }}
+                      <span class="ml-1 inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full {% if linha.documentada %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">{% if linha.documentada %}Sim{% else %}Não{% endif %}</span>
+                    </td>
+                    <td class="px-4 py-2.5">
+                      <input type="text" name="linha_{{ linha.pk }}_descricao" value="{{ linha.descricao }}" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm" />
+                    </td>
+                    <td class="px-4 py-2.5">
+                      <input type="text" name="linha_{{ linha.pk }}_valor" value="{{ linha.valor|fmtkz }}" inputmode="decimal" class="moeda valor-linha w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-right" />
+                      <input type="hidden" name="linha_{{ linha.pk }}_remover" value="0" class="flag-remover" />
+                    </td>
+                    <td class="px-4 py-2.5 text-center">
+                      <button type="button" onclick="removerLinhaCusto(this)" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remover custo"><i class="fas fa-trash text-xs"></i></button>
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr id="sem-custos"><td colspan="4" class="px-4 py-6 text-center text-sm text-gray-400">Sem custos na fatura — adicione abaixo.</td></tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot class="bg-gray-50 dark:bg-gray-700/30 border-t border-gray-200 dark:border-gray-600">
+                  <tr>
+                    <td colspan="2" class="px-4 py-3 text-right text-sm font-bold text-gray-700 dark:text-gray-300">Subtotal custos</td>
+                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-white" id="subtotal-custos">0,00 Kz</td>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" class="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">Retenção {{ taxa_retencao }}% (s/ Honorários, Inerentes, Licenciamento)</td>
+                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-white" id="retencao-custos">0,00 Kz</td>
+                    <td></td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" class="px-4 py-3 text-right text-sm font-bold text-primary">Total da Fatura</td>
+                    <td class="px-4 py-3 text-right text-base font-bold text-primary" id="total-custos">0,00 Kz</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 -mx-6 -mb-6 mt-4 p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <i class="fas fa-plus-circle text-primary"></i>Adicionar Custo
+                </h3>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Documentada</label>
+                  <select id="fc-documentada" class="w-full px-4 py-2.5 bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                    <option value="true">Sim</option>
+                    <option value="false" selected>Não</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de Despesa</label>
+                  <select id="fc-despesa-tipo" class="w-full px-4 py-2.5 bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                    <option value="">Selecione</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Valor (KZ)</label>
+                  <input type="text" id="fc-valor" placeholder="0,00" inputmode="decimal" class="moeda w-full px-4 py-2.5 bg-white dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Comprovativo</label>
+                  <input type="file" id="fc-documento" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer">
+                </div>
+              </div>
+              <div class="mt-4 flex justify-end gap-2">
+                <button type="button" id="btn-fc-adicionar" class="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2">
+                  <i class="fas fa-plus"></i>Adicionar
+                </button>
+              </div>
+              <p class="text-xs text-gray-400 mt-3">Custos fora de Honorários/Licenciamento/Inerentes geram Nota de Débito automática ao guardar.</p>
+            </div>
+
+            {% if linhas_nd %}
+            <details class="rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden">
+              <summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/30">Custos em Nota de Débito ({{ linhas_nd|length }}, só leitura)</summary>
+              <div class="border-t border-gray-100 dark:border-gray-700 px-4 py-2 divide-y divide-gray-100 dark:divide-gray-700/60">
+                {% for linha in linhas_nd %}
+                <div class="flex items-center justify-between py-2 text-sm">
+                  <span class="text-gray-600 dark:text-gray-400">{{ linha.despesa_tipo }} <span class="text-gray-400">— {{ linha.descricao }}</span></span>
+                  <span class="font-semibold text-gray-900 dark:text-white">{{ linha.valor|fmtkz }} Kz</span>
+                </div>
+                {% endfor %}
+                {% for nd in notas_debito_ft %}
+                <div class="flex items-center justify-between py-2 text-sm bg-amber-50/60 dark:bg-amber-900/10 -mx-4 px-4">
+                  <span class="text-amber-700 dark:text-amber-400 font-medium"><i class="fas fa-file-invoice mr-1"></i>{{ nd.numero_nota }} ({{ nd.estado }})</span>
+                  <a href="{% url 'financeiro:nota_debito_detalhe' nd.pk %}" class="font-semibold text-primary hover:underline">{{ nd.valor|fmtkz }} Kz — Ver</a>
+                </div>
+                {% endfor %}
+              </div>
+            </details>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
 
         <!-- ── Valores e Custos ── -->
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -216,6 +339,169 @@
     </div>
 
 <script>
+{% if gerir_linhas %}
+(function() {
+  var TAXA = parseFloat('{{ taxa_retencao }}'.replace(',', '.')) || 14;
+  var DESP_DOC = {{ despesas_doc_json|safe }};
+  var DESP_NAODOC = {{ despesas_naodoc_json|safe }};
+  var fcDocumentada = document.getElementById('fc-documentada');
+  var fcDespesaTipo = document.getElementById('fc-despesa-tipo');
+  var fcValor = document.getElementById('fc-valor');
+  var fcDocumento = document.getElementById('fc-documento');
+  var fcDocParent = fcDocumento.parentNode;
+  var corpoCustos = document.getElementById('corpo-custos');
+  var formEl = document.querySelector('form');
+  var idxNova = 0;
+
+  // Agregados passam a só-leitura: são recalculados das linhas no servidor
+  document.querySelectorAll('input[name="honorarios_despachante"], input[name="taxas_aduaneiras"], input[name="emolumentos"], input[name="despesas_operacionais"], input[name="iva"], input[name="outros_encargos"]').forEach(function(inp) {
+    inp.readOnly = true;
+    inp.classList.add('bg-gray-100', 'dark:bg-gray-600', 'cursor-not-allowed');
+  });
+
+  function preencherDespesaTipo(documentada) {
+    var opcoes = documentada === 'true' ? DESP_DOC : DESP_NAODOC;
+    fcDespesaTipo.innerHTML = '<option value="">Selecione</option>';
+    opcoes.forEach(function(o) {
+      var opt = document.createElement('option');
+      opt.value = o;
+      opt.textContent = o;
+      fcDespesaTipo.appendChild(opt);
+    });
+  }
+  preencherDespesaTipo('false');
+
+  fcDocumentada.addEventListener('change', function() {
+    preencherDespesaTipo(this.value);
+    if (this.value === 'false') {
+      fcDocumento.disabled = true;
+      fcDocumento.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+    } else {
+      fcDocumento.disabled = false;
+      fcDocumento.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+    }
+  });
+  fcDocumentada.dispatchEvent(new Event('change'));
+
+  function num(str) {
+    if (typeof parseNumber === 'function') { try { return parseNumber(str) || 0; } catch(e) {} }
+    return parseFloat(String(str || '').replace(/\s/g, '').replace(',', '.')) || 0;
+  }
+  function fmt(v) { return v.toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' Kz'; }
+  function noFatura(tipo) { var t = (tipo || '').trim(); return t === 'Honorários' || t === 'Licenciamento' || t === 'Inerentes' || /^Honorário/.test(t); }
+
+  window.removerLinhaCusto = function(btn) {
+    var tr = btn.closest('tr.linha-custo');
+    var flag = tr.querySelector('.flag-remover');
+    if (flag) {
+      flag.value = '1';
+      tr.style.display = 'none';
+      tr.classList.add('removida');
+    } else {
+      tr.remove();
+    }
+    recalcularCustos();
+  };
+
+  document.getElementById('btn-fc-adicionar').addEventListener('click', function() {
+    var docVal = fcDocumentada.value;
+    var despesaTipo = fcDespesaTipo.value;
+    if (!despesaTipo) {
+      showToast('Selecione o tipo de despesa', 'error');
+      fcDespesaTipo.focus();
+      fcDespesaTipo.classList.add('ring-2', 'ring-red-500', 'border-red-500');
+      setTimeout(function() { fcDespesaTipo.classList.remove('ring-2', 'ring-red-500', 'border-red-500'); }, 2500);
+      return;
+    }
+    if (docVal === 'true' && (!fcDocumento.files || !fcDocumento.files.length)) {
+      showToast('Anexe o comprovativo da despesa. Despesas documentadas exigem ficheiro comprovativo.', 'error');
+      fcDocumento.focus();
+      return;
+    }
+    var valorNum = 0;
+    try {
+      if (fcValor.imask && fcValor.imask.unmaskedValue !== undefined) {
+        valorNum = parseNumber(fcValor.imask.unmaskedValue) || 0;
+      } else {
+        valorNum = parseNumber(fcValor.value) || 0;
+      }
+    } catch(e) {
+      valorNum = parseNumber(fcValor.value) || 0;
+    }
+    // Honorários do Despachante: mínimo 45.000 KZ
+    if (despesaTipo === 'Honorários' && valorNum < 45000) {
+      valorNum = 45000;
+      showToast('O valor mínimo para Honorários do Despachante é 45.000 KZ — o valor foi ajustado automaticamente.', 'warning');
+    }
+
+    var i = idxNova++;
+    var sem = document.getElementById('sem-custos');
+    if (sem) sem.remove();
+    var tr = document.createElement('tr');
+    tr.className = 'linha-custo hover:bg-gray-50/50 dark:hover:bg-gray-700/20';
+    tr.setAttribute('data-tipo', despesaTipo);
+    var badgeDoc = docVal === 'true'
+      ? '<span class="ml-1 inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Sim</span>'
+      : '<span class="ml-1 inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">Não</span>';
+    var valorFmt = (typeof formatNumber === 'function') ? formatNumber(valorNum) : valorNum.toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    tr.innerHTML =
+      '<td class="px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300">' + despesaTipo + badgeDoc +
+        '<input type="hidden" name="nova_' + i + '_tipo" value="' + despesaTipo + '" />' +
+        '<input type="hidden" name="nova_' + i + '_documentada" value="' + docVal + '" /></td>' +
+      '<td class="px-4 py-2.5"><input type="text" name="nova_' + i + '_descricao" value="' + despesaTipo + '" class="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm" /></td>' +
+      '<td class="px-4 py-2.5"><input type="text" name="nova_' + i + '_valor" value="' + valorFmt + '" inputmode="decimal" class="moeda valor-linha w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-right" /></td>' +
+      '<td class="px-4 py-2.5 text-center"><button type="button" onclick="removerLinhaCusto(this)" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remover"><i class="fas fa-trash text-xs"></i></button></td>';
+    corpoCustos.appendChild(tr);
+
+    // File input: mover para o form com o nome esperado pelo servidor
+    if (fcDocumento.files.length > 0) {
+      var classes = fcDocumento.className;
+      fcDocumento.name = 'nova_' + i + '_documento';
+      fcDocumento.removeAttribute('id');
+      fcDocumento.style.display = 'none';
+      formEl.appendChild(fcDocumento);
+      var novoFile = document.createElement('input');
+      novoFile.type = 'file';
+      novoFile.id = 'fc-documento';
+      novoFile.className = classes;
+      fcDocParent.appendChild(novoFile);
+      fcDocumento = novoFile;
+      fcDocumentada.dispatchEvent(new Event('change'));
+    }
+
+    tr.querySelector('.valor-linha').addEventListener('input', recalcularCustos);
+    fcDespesaTipo.value = '';
+    fcValor.value = '';
+    fcDocumentada.value = 'false';
+    preencherDespesaTipo('false');
+    fcDocumentada.dispatchEvent(new Event('change'));
+    recalcularCustos();
+    showToast('Custo adicionado: ' + despesaTipo, 'success');
+  });
+
+  window.recalcularCustos = function() {
+    var sub = 0, base = 0;
+    document.querySelectorAll('#corpo-custos tr.linha-custo:not(.removida)').forEach(function(tr) {
+      var inp = tr.querySelector('.valor-linha');
+      if (!inp) return;
+      var tipo = tr.getAttribute('data-tipo') || '';
+      if (!noFatura(tipo)) return; // vai para Nota de Débito: fora do total
+      var v = num(inp.value);
+      sub += v;
+      base += v; // base retenção: só linhas da fatura (Honorários/Inerentes/Licenciamento)
+    });
+    var ret = base * TAXA / 100;
+    document.getElementById('subtotal-custos').textContent = fmt(sub);
+    document.getElementById('retencao-custos').textContent = fmt(ret);
+    document.getElementById('total-custos').textContent = fmt(sub + ret);
+  };
+
+  document.querySelectorAll('#corpo-custos .valor-linha').forEach(function(inp) {
+    inp.addEventListener('input', recalcularCustos);
+  });
+  recalcularCustos();
+})();
+{% endif %}
 document.addEventListener('DOMContentLoaded', function() {
   var inputs = document.querySelectorAll('.moeda');
   var totalSpan = document.getElementById('calculo-total');

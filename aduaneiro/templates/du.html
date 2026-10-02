@@ -2607,10 +2607,20 @@ function adicionarNovaAdicao(dadosExistentes) {
       }
     })(n);
 
-    // País de Origem — autocomplete
+    // País de Origem — autocomplete (repõe o valor guardado no rascunho)
     autocompleteSelect(document.getElementById('pais_origem_' + n), {
       placeholder: 'Digite o código do país'
     });
+    if (dadosExistentes && dadosExistentes.pais_origem) {
+      var poSel = document.getElementById('pais_origem_' + n);
+      if (poSel) {
+        poSel.value = dadosExistentes.pais_origem;
+        poSel.dispatchEvent(new Event('change', { bubbles: true }));
+        if (poSel.nextElementSibling && poSel.nextElementSibling._ac) {
+          poSel.nextElementSibling._ac.setValue(dadosExistentes.pais_origem, dadosExistentes.pais_origem);
+        }
+      }
+    }
 
     // Tipo de Volume — autocomplete
     autocompleteSelect(document.getElementById('tipo_volume_' + n), {
@@ -2913,7 +2923,10 @@ async function carregarCodigosProcedimento(n, valorSelecionado) {
     const optDefault = document.createElement('option');
     optDefault.value = '0000';
     optDefault.textContent = '0000 - Sem procedimento específico';
+    if (valorSelecionado && String(valorSelecionado) === '0000') optDefault.selected = true;
     sel.insertBefore(optDefault, sel.children[1] || null);
+  } else if (valorSelecionado && String(valorSelecionado) === '0000') {
+    sel.value = '0000';
   }
 
 }
@@ -2928,8 +2941,10 @@ async function atualizarCodigoIsencaoDinamico(n) {
   const isencaoSelect = document.getElementById(`codigo_isencao_${n}`);
   if (!isencaoSelect) return;
 
-  // Capturar valor ATUAL antes de reconstruir (preservar selecção do utilizador)
-  const valorAtualIsencao = isencaoSelect.value || '';
+  // Capturar valor ATUAL antes de reconstruir (preservar selecção do utilizador
+  // ou o valor inicial vindo do rascunho via data-valor-inicial)
+  const valorInicialDs = isencaoSelect.dataset ? (isencaoSelect.dataset.valorInicial || '') : '';
+  const valorAtualIsencao = isencaoSelect.value || valorInicialDs || '';
 
   isencaoSelect.innerHTML = '<option value="">A carregar...</option>';
 
@@ -3505,10 +3520,10 @@ if (document.readyState !== 'loading') {
 
 <!-- Script simplificado para inicialização -->
 <script>
-// Preencher data actual no campo data_campo54
+// Preencher data actual no campo data_campo54 apenas em criação (rascunho novo)
 document.addEventListener('DOMContentLoaded', function() {
   const dataCampo54 = document.getElementById('data_campo54');
-  if (dataCampo54) {
+  if (dataCampo54 && !dataCampo54.value) {
     const hoje = new Date().toISOString().split('T')[0];
     dataCampo54.value = hoje;
   }
@@ -3565,8 +3580,38 @@ document.addEventListener('DOMContentLoaded', function() {
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  function preencherSelectSemEvento(nome, valor) {
+    if (valor === undefined || valor === null || valor === '') return;
+    var el = document.querySelector('[name="' + nome + '"]');
+    if (!el) return;
+    el.value = valor; // sem dispatch: evita disparar handleReparticaoChange,
+                      // que limpa os valores das adições (limparValoresRepartidos)
+  }
+
   function preencherFormulario() {
     var d = _dadosRaw;
+
+    // ── Repartição ANTES das adições e SEM eventos: o listener de `change`
+    // destes selects (handleReparticaoChange → limparValoresRepartidos)
+    // apaga os inputs de seguro/frete das adições; restaurá-los depois de
+    // criar as adições destruía os valores guardados no rascunho. ──
+    preencherSelectSemEvento('reparticao_seguro', d.reparticao_seguro);
+    preencherSelectSemEvento('reparticao_frete',  d.reparticao_frete);
+
+    // ── Adições PRIMEIRO (cada adicionarNovaAdicao recalcula os totais do
+    // Step 1 via agregarValoresGeral; por isso os valores gerais guardados
+    // são repostos DEPOIS, para o rascunho ficar tal como foi guardado) ──
+    if (d.adicoes && d.adicoes.length > 0) {
+      // Limpar adições existentes
+      var wrapper = document.getElementById('adicoes_wrapper');
+      if (wrapper) wrapper.innerHTML = '';
+
+      d.adicoes.forEach(function(ad) {
+        if (typeof adicionarNovaAdicao === 'function') {
+          adicionarNovaAdicao(ad);
+        }
+      });
+    }
 
     // ── Passo 1: Geral ──────────────────────────────────────────────
     preencherSelect2('regime_aduaneiro',   d.regime_aduaneiro);
@@ -3611,52 +3656,53 @@ document.addEventListener('DOMContentLoaded', function() {
     preencherCampoSimples('cambio_fob',   d.cambio_fob);
     preencherCampoSimples('valor_fob_kz', d.valor_fob_kz);
 
-    // Seguro
+    // Seguro (repartição já reposta sem eventos antes das adições)
     preencherCampoSimples('valor_seguro',    d.valor_seguro);
     preencherSelect2('moeda_seguro',         d.moeda_seguro);
-    preencherSelect2('reparticao_seguro',    d.reparticao_seguro);
     preencherCampoSimples('cambio_seguro',   d.cambio_seguro);
     preencherCampoSimples('valor_seguro_kz', d.valor_seguro_kz);
 
-    // Frete
+    // Frete (repartição já reposta sem eventos antes das adições)
     preencherCampoSimples('valor_frete',    d.valor_frete);
     preencherSelect2('moeda_frete',         d.moeda_frete);
-    preencherSelect2('reparticao_frete',    d.reparticao_frete);
     preencherCampoSimples('cambio_frete',   d.cambio_frete);
     preencherCampoSimples('valor_frete_kz', d.valor_frete_kz);
 
-    // ── Passo 3: Transporte ─────────────────────────────────────────
-    preencherCampoSimples('numero_conhecimento', d.numero_conhecimento);
-    preencherCampoSimples('data_conhecimento',   d.data_conhecimento);
-    preencherCampoSimples('porto_embarque',      d.porto_embarque);
-    preencherCampoSimples('porto_desembarque',   d.porto_desembarque);
-    preencherCampoSimples('pais_expedicao',      d.pais_expedicao);
+    // ── Passo 3: Transporte (nomes reais do formulário) ──────────────
     preencherSelect2('modo_transporte_fronteira', d.modo_transporte_fronteira);
     preencherSelect2('modo_transporte_interior',  d.modo_transporte_interior);
-    preencherSelect2('forma_pagamento',           d.forma_pagamento);
+    preencherCampoSimples('transporte_identidade',     d.transporte_identidade);
+    preencherCampoSimples('transporte_nacionalidade',  d.transporte_nacionalidade);
+    preencherCampoSimples('estancia_destino',          d.estancia_destino);
+    preencherCampoSimples('pais_destino_campo53',      d.pais_destino_campo53);
+    preencherCampoSimples('local_campo54',             d.local_campo54);
+    preencherCampoSimples('data_campo54',              d.data_campo54);
+    preencherCampoSimples('montante_aduaneiro_kz',     d.montante_aduaneiro_kz);
 
-    // Contentores
-    if (d.tem_contentores) {
-      var radios = document.querySelectorAll('[name="tem_contentores"]');
+    // ── Passo 4: Finalizar ──────────────────────────────────────────
+    preencherSelect2('forma_pagamento',           d.forma_pagamento);
+    preencherCampoSimples('num_liquidacao',       d.num_liquidacao);
+    preencherCampoSimples('num_recibo',           d.num_recibo);
+
+    // Contentores (o JSON usa `container`: "1"/"0")
+    var _contVal = d.container !== undefined && d.container !== null && d.container !== ''
+      ? String(d.container) : (d.tem_contentores !== undefined ? String(d.tem_contentores) : null);
+    if (_contVal !== null) {
+      var radios = document.querySelectorAll('[name="container"]');
       radios.forEach(function(r) {
-        if (r.value === d.tem_contentores) {
+        if (r.value === _contVal) {
           r.checked = true;
           r.dispatchEvent(new Event('change', { bubbles: true }));
+          if (typeof toggleContainerRadio === 'function') toggleContainerRadio(r);
         }
       });
     }
 
-    // ── Adições ─────────────────────────────────────────────────────
-    if (d.adicoes && d.adicoes.length > 0) {
-      // Limpar adições existentes
-      var wrapper = document.getElementById('adicoes_wrapper');
-      if (wrapper) wrapper.innerHTML = '';
-
-      d.adicoes.forEach(function(ad) {
-        if (typeof adicionarNovaAdicao === 'function') {
-          adicionarNovaAdicao(ad);
-        }
-      });
+    // Aplicar estado (activo/inactivo) dos campos de seguro/frete das adições
+    // conforme o modo de repartição — sem recalcular nem limpar valores.
+    if (typeof habilitarCamposAdicao === 'function') {
+      habilitarCamposAdicao('seguro', !d.reparticao_seguro || d.reparticao_seguro === 'sem_reparticao');
+      habilitarCamposAdicao('frete', !d.reparticao_frete || d.reparticao_frete === 'sem_reparticao');
     }
 
     console.log('[Edição] Formulário pré-preenchido com dados existentes da DU.');
