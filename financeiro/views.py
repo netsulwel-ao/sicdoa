@@ -1279,6 +1279,46 @@ def requisicao_pdf(request, pk):
         _taxa_str = _taxa_str.rstrip('0').rstrip('.')
     taxa_iva_rotulo = _taxa_str
 
+    # ── Totais do sumário (calculados aqui para alimentar QR + tabela) ──
+    # REGRA: Total do documento = Mercadorias (CIF) + Serviços
+    # (Honorários+Licenciamento+Inerentes) + restantes despesas + Retenção.
+    v_cif_doc = Decimal('0')
+    if requisicao.valor_cif:
+        v_cif_doc = requisicao.valor_cif
+    elif processo and processo.valor_cif:
+        v_cif_doc = processo.valor_cif
+
+    _t_taxas = Decimal('0')
+    _t_emol = Decimal('0')
+    _t_oper = Decimal('0')
+    _t_honor = Decimal('0')
+    _t_outros = Decimal('0')
+    _t_ine = Decimal('0')
+    _t_lic = Decimal('0')
+    for _linha in requisicao.linhas.all():
+        _v = _linha.valor or Decimal('0')
+        if not _v or _v <= 0:
+            continue
+        _tc = (_linha.tipo_custo or '').strip()
+        _dt = (_linha.despesa_tipo or '').strip()
+        if _tc == 'Honorários do Despachante' or _dt.startswith('Honorário'):
+            _t_honor += _v
+        elif _dt == 'Inerentes':
+            _t_ine += _v
+        elif _dt == 'Licenciamento':
+            _t_lic += _v
+        elif _tc == 'Impostos e Taxas Aduaneiras (AGT)':
+            _t_taxas += _v
+        elif _tc == 'Despesas Portuárias e Terminais':
+            _t_emol += _v
+        elif _tc in ('Logística e Transporte', 'Outros') or not _tc:
+            _t_oper += _v
+        else:
+            _t_outros += _v
+    _t_servicos = _t_honor + _t_ine + _t_lic
+    _t_ret = requisicao.retencao or Decimal('0')
+    total_documento = (v_cif_doc + _t_servicos + _t_taxas + _t_emol + _t_oper + _t_outros + _t_ret).quantize(Decimal('0.01'))
+
     qr_data = (
         f"=== REQUISIÇÃO DE FUNDOS ===\n"
         f"Nº: {requisicao.numero_requisicao}\n"
@@ -1296,9 +1336,11 @@ def requisicao_pdf(request, pk):
         f"Transporte: {transporte}\n"
         f"Valor CIF: {v_cif_proc or '—'} KZ\n"
         f"\n--- VALORES ---\n"
-        f"Subtotal: {fmt_kz(requisicao.subtotal_geral or 0)} KZ\n"
-        f"Retenção ({taxa_iva_pct}%): {fmt_kz(requisicao.retencao or 0)} KZ\n"
-        f"TOTAL: {fmt_kz(requisicao.total_geral or 0)} KZ\n"
+        f"Mercadorias (CIF): {fmt_kz(v_cif_doc)} KZ\n"
+        f"Serviços: {fmt_kz(_t_servicos)} KZ\n"
+        f"Outras despesas: {fmt_kz(_t_taxas + _t_emol + _t_oper + _t_outros)} KZ\n"
+        f"Retenção ({taxa_iva_pct}%): {fmt_kz(_t_ret)} KZ\n"
+        f"TOTAL: {fmt_kz(total_documento)} KZ\n"
         f"\n--- DESPACHANTE ---\n"
         f"Nome: {responsavel_nome}\n"
         f"NIF: {responsavel_nif}\n"
@@ -1409,33 +1451,18 @@ def requisicao_pdf(request, pk):
     story.append(nota_box)
     story.append(Spacer(1, 0.1 * cm))
 
-    taxas_total = Decimal('0')
-    emol_total = Decimal('0')
-    oper_total = Decimal('0')
-    honor_total = Decimal('0')
-    outros_total = Decimal('0')
-    for linha in requisicao.linhas.all():
-        v = linha.valor or Decimal('0')
-        if not v or v <= 0:
-            continue
-        tc = (linha.tipo_custo or '').strip()
-        dt = (linha.despesa_tipo or '').strip()
-        if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
-            honor_total += v
-        elif tc == 'Impostos e Taxas Aduaneiras (AGT)':
-            taxas_total += v
-        elif tc == 'Despesas Portuárias e Terminais':
-            emol_total += v
-        elif tc in ('Logística e Transporte', 'Outros') or not tc:
-            oper_total += v
-        else:
-            outros_total += v
+    # Reutiliza os totais pré-calculados (os mesmos do QR).
+    taxas_total = _t_taxas
+    emol_total = _t_emol
+    oper_total = _t_oper
+    honor_total = _t_honor
+    outros_total = _t_outros
+    ine_total = _t_ine
+    lic_total = _t_lic
+    # Serviços = Honorários + Licenciamento + Inerentes (regra da Fatura Final)
+    servicos_total = _t_servicos
 
-    v_cif_val = Decimal('0')
-    if requisicao.valor_cif:
-        v_cif_val = requisicao.valor_cif
-    elif processo and processo.valor_cif:
-        v_cif_val = processo.valor_cif
+    v_cif_val = v_cif_doc
 
     s_lbl = st('sum_lbl', fontSize=8, fontName='Helvetica', textColor=COR_PRIMARIO, alignment=TA_LEFT)
     s_lbl_b = st('sum_lbl_b', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_LEFT)
@@ -1450,9 +1477,9 @@ def requisicao_pdf(request, pk):
         [Paragraph('Mercadorias', s_lbl),
          Paragraph(f'({fmt_kz(v_cif_val)} CIF)', st('sum_det', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
          Paragraph(fmt_kz(v_cif_val) if v_cif_val > 0 else '0,00', s_val)],
-        [Paragraph('Serviços (Honorários)', s_lbl),
+        [Paragraph('Serviços (Honorários, Licenciamento, Inerentes)', s_lbl),
          '',
-         Paragraph(fmt_kz(honor_total), s_val)],
+         Paragraph(fmt_kz(servicos_total), s_val)],
     ]
     if taxas_total > 0:
         sum_rows.append(
@@ -1478,7 +1505,7 @@ def requisicao_pdf(request, pk):
     sum_rows.append([
         Paragraph('<b>Total (AKZ):</b>', s_tot_lbl),
         '',
-        Paragraph(f'<b>{fmt_kz(requisicao.total_geral)}</b>', s_tot_val),
+        Paragraph(f'<b>{fmt_kz(total_documento)}</b>', s_tot_val),
     ])
 
     cw_sum = [W * 0.32, W * 0.33, W * 0.32]
@@ -2347,6 +2374,12 @@ class FacturaClienteDetailView(BaseContextMixin, DetailView):
             except Exception:
                 pass
         context['taxa_iva_pct'] = taxa_iva_pct
+
+        # Notas de Débito geradas a partir desta factura (standalone, via motivo)
+        context['notas_debito_ft'] = NotaDebito.objects.filter(
+            cliente_id=f.cliente_id,
+            motivo__contains=f.numero_factura,
+        ).order_by('-data_criacao')
 
         return context
 

@@ -52,10 +52,33 @@
           class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
           <i class="fas fa-arrow-left"></i>Voltar
         </a>
-        <a href="{% url 'financeiro:factura_pdf' factura.pk %}" target="_blank"
-          class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
-          <i class="fas fa-file-pdf"></i>PDF
-        </a>
+        <div class="relative inline-flex items-stretch" data-doc-menu>
+          <a href="{% url 'financeiro:factura_pdf' factura.pk %}" target="_blank" title="Ver PDF da Fatura"
+            class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-l-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm border-r-0">
+            <i class="fas fa-file-pdf"></i>PDF
+          </a>
+          <button type="button" data-doc-toggle title="Escolher documento (Fatura ou Nota de Débito)"
+            class="px-2.5 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-r-xl text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm">
+            <i class="fas fa-chevron-down text-xs pointer-events-none"></i>
+          </button>
+          <div data-doc-list class="hidden absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-20 overflow-hidden">
+            <p class="px-4 py-2 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-700/40">Documentos</p>
+            <a href="{% url 'financeiro:factura_pdf' factura.pk %}" target="_blank"
+              class="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <span><i class="fas fa-file-invoice mr-2 text-primary"></i>{{ factura.numero_factura }}</span>
+              <span class="text-xs text-gray-400">Fatura</span>
+            </a>
+            {% for nd in notas_debito_ft %}
+            <a href="{% url 'financeiro:nota_debito_detalhe' nd.pk %}"
+              class="flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700">
+              <span><i class="fas fa-file-contract mr-2 text-red-500"></i>{{ nd.numero_nota }} <span class="text-xs text-gray-400">({{ nd.estado }})</span></span>
+              <span class="font-semibold text-red-600 dark:text-red-400 text-xs">{{ nd.valor|fmtkz }} Kz</span>
+            </a>
+            {% empty %}
+            <p class="px-4 py-2.5 text-xs text-gray-400 border-t border-gray-100 dark:border-gray-700">Sem notas de débito geradas.</p>
+            {% endfor %}
+          </div>
+        </div>
         {% if factura.estado == 'Pendente' %}
         <a href="{% url 'financeiro:factura_editar' factura.pk %}"
           class="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors shadow-sm">
@@ -399,4 +422,28 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Menu de documentos (PDF da fatura + notas de débito): fecha ao clicar fora ou com Escape
+(function() {
+  function closeAll(except) {
+    document.querySelectorAll('[data-doc-menu] [data-doc-list]').forEach(function(m) {
+      if (m !== except) m.classList.add('hidden');
+    });
+  }
+  document.querySelectorAll('[data-doc-menu] [data-doc-toggle]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var menu = btn.closest('[data-doc-menu]').querySelector('[data-doc-list]');
+      var willOpen = menu.classList.contains('hidden');
+      closeAll();
+      if (willOpen) menu.classList.remove('hidden');
+    });
+  });
+  document.addEventListener('click', function() { closeAll(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeAll(); });
+})();
+</script>
 {% endblock %}
