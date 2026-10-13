@@ -223,7 +223,7 @@
                   <i class="fas fa-plus"></i>Adicionar
                 </button>
               </div>
-              <p class="text-xs text-gray-400 mt-3">Custos fora de Honorários/Licenciamento/Inerentes geram Nota de Débito automática ao guardar.</p>
+              <p class="text-xs text-gray-400 mt-3">Novos custos entram na fatura (sem Nota de Débito/Crédito) — o total é recalculado e o valor pago opera sobre o novo total.</p>
             </div>
 
             {% if linhas_nd %}
@@ -480,15 +480,17 @@
   });
 
   window.recalcularCustos = function() {
+    // Sem ND/NC na edição: TODAS as linhas contam para o subtotal;
+    // a base da retenção é só Honorários + Inerentes + Licenciamento.
     var sub = 0, base = 0;
     document.querySelectorAll('#corpo-custos tr.linha-custo:not(.removida)').forEach(function(tr) {
       var inp = tr.querySelector('.valor-linha');
       if (!inp) return;
       var tipo = tr.getAttribute('data-tipo') || '';
-      if (!noFatura(tipo)) return; // vai para Nota de Débito: fora do total
       var v = num(inp.value);
       sub += v;
-      base += v; // base retenção: só linhas da fatura (Honorários/Inerentes/Licenciamento)
+      var t = tipo.trim();
+      if (t === 'Honorários' || t === 'Licenciamento' || t === 'Inerentes' || /^Honorário/.test(t)) base += v;
     });
     var ret = base * TAXA / 100;
     document.getElementById('subtotal-custos').textContent = fmt(sub);

@@ -2460,10 +2460,15 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
         return context
 
     def _processar_linhas_custos(self, factura):
-        """Aplica correções/adições de custos vindas do editor por linhas.
+        """Aplica correções/adições/remoções de custos vindas do editor por linhas.
 
-        Retorna (ok, erros). Actualiza as linhas da RF, recalcula os campos
-        da factura e cria Nota de Débito para novos custos fora da fatura.
+        REGRA: na edição NÃO se emite Nota de Crédito nem Nota de Débito.
+        O aceite da requisição equivale ao pagamento do valor pedido; ao editar,
+        todos os custos (novos ou corrigidos) recalculam o total da factura e
+        o valor já pago opera sobre o novo total (a diferença aparece no Saldo).
+        As linhas já faturadas via Nota de Débito ficam de fora (só leitura).
+
+        Retorna (ok, erros).
         """
         from .models import RequisicaoFundoLinha
         rf = factura.requisicao_fundo
@@ -2493,8 +2498,8 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
                 linha.valor = novo_valor
                 linha.save()
 
-        # 2) Novos custos
-        novas_nd = []
+        # 2) Novos custos (qualquer tipo): entram na factura, sem ND/NC
+        novas = []
         for i in range(40):
             tipo = (post.get(f'nova_{i}_tipo') or '').strip()
             if not tipo:
@@ -2527,12 +2532,12 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
             if _doc_file:
                 nova_linha.documento_justificativo = _doc_file
             nova_linha.save()
-            if not _linha_na_fatura_final(nova_linha):
-                novas_nd.append(nova_linha)
+            novas.append(nova_linha)
 
-        # 3) Recalcular campos da factura a partir das linhas da fatura
-        linhas_fatura = [l for l in rf.linhas.all() if _linha_na_fatura_final(l)]
-        (hon, tax, emo, ope, iva, ret, _tot) = _mapear_linhas_fatura_final(linhas_fatura, rf.taxa_iva)
+        # 3) Recalcular factura: linhas da fatura + TODAS as novas
+        # (linhas já faturadas via Nota de Débito ficam de fora).
+        linhas_base = [l for l in rf.linhas.all() if _linha_na_fatura_final(l) or l in novas]
+        (hon, tax, emo, ope, iva, ret, _tot) = _mapear_linhas_fatura_final(linhas_base, rf.taxa_iva)
         factura.honorarios_despachante = hon
         factura.taxas_aduaneiras = tax
         factura.emolumentos = emo
@@ -2540,41 +2545,10 @@ class FacturaClienteUpdateView(BaseContextMixin, SuccessMessageMixin, UpdateView
         factura.iva = iva
         factura.retencao = ret
 
-        # 4) Novos custos fora da fatura → Nota de Débito automática
-        if novas_nd:
-            total_nd = sum((l.valor or Decimal('0')) for l in novas_nd)
-            usuario_data = self.request.session.get('usuario', {})
-            usuario_id = self.request.session.get('usuario_id')
-            tipos_txt = ', '.join(sorted({(l.despesa_tipo or '') for l in novas_nd}))[:180]
-            nd = NotaDebito(
-                cliente=factura.cliente,
-                banca_id=factura.banca_id,
-                filial_id=factura.filial_id,
-                valor=total_nd,
-                motivo=(
-                    f'Despesas adicionadas na edição da Fatura Final {factura.numero_factura} '
-                    f'(RF {rf.numero_requisicao}): {tipos_txt}'
-                )[:255],
-                data=timezone.now().date(),
-                estado='Aprovada',
-                utilizador_criador_id=usuario_id,
-                utilizador_criador_nome=usuario_data.get('nome', ''),
-                utilizador_aprovador_id=usuario_id,
-                utilizador_aprovador_nome=usuario_data.get('nome', ''),
-                data_aprovacao=timezone.now(),
-            )
-            nd.save()
-            registrar_historico(
-                'NotaDebito', nd.pk, nd.numero_nota, 'Criada na edição da Fatura Final',
-                valor=nd.valor,
-                utilizador_id=usuario_id, utilizador_nome=usuario_data.get('nome', ''),
-                cliente_nome=factura.cliente.nome,
-                banca_id=factura.banca_id, filial_id=factura.filial_id,
-            )
+        if novas:
             messages.success(
                 self.request,
-                f'Nota de Débito {nd.numero_nota} gerada com {len(novas_nd)} novo(s) custo(s) '
-                f'({fmt_kz(total_nd)} KZ).'
+                f'{len(novas)} novo(s) custo(s) adicionado(s) ({fmt_kz(sum((l.valor or Decimal("0")) for l in novas))} KZ) — total recalculado.',
             )
         return (len(erros) == 0), erros
 
