@@ -1470,6 +1470,8 @@ def requisicao_pdf(request, pk):
     s_val_b = st('sum_val_b', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
     s_tot_lbl = st('sum_tot_lbl', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_LEFT)
     s_tot_val = st('sum_tot_val', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
+    # Etiqueta mais compacta para caber numa só linha
+    s_lbl_serv = st('sum_lbl_serv', fontSize=7, fontName='Helvetica', textColor=COR_PRIMARIO, alignment=TA_LEFT, leading=9)
 
     sum_rows = [
         [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=9, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
@@ -1477,7 +1479,7 @@ def requisicao_pdf(request, pk):
         [Paragraph('Mercadorias', s_lbl),
          Paragraph(f'({fmt_kz(v_cif_val)} CIF)', st('sum_det', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
          Paragraph(fmt_kz(v_cif_val) if v_cif_val > 0 else '0,00', s_val)],
-        [Paragraph('Serviços (Honorários, Licenciamento, Inerentes)', s_lbl),
+        [Paragraph('Serviços (Honorários, Licenciamento, Inerentes)', s_lbl_serv),
          '',
          Paragraph(fmt_kz(servicos_total), s_val)],
     ]
@@ -4709,13 +4711,17 @@ def factura_pdf(request, pk):
     story.append(Spacer(1, 0.1 * cm))
 
     # Totais por categoria (para secção de totalizadores)
+    # REGRA: Serviços = Honorários + Licenciamento + Inerentes
     taxas_total = Decimal('0')
     emol_total = Decimal('0')
     oper_total = Decimal('0')
     honor_total = Decimal('0')
     outros_total = Decimal('0')
+    ine_total = Decimal('0')
+    lic_total = Decimal('0')
+    tem_rf = bool(getattr(factura, 'requisicao_fundo', None))
 
-    if hasattr(factura, 'requisicao_fundo') and factura.requisicao_fundo:
+    if tem_rf:
         for linha in factura.requisicao_fundo.linhas.all():
             if not _linha_na_fatura(linha):
                 continue
@@ -4726,6 +4732,10 @@ def factura_pdf(request, pk):
             dt = (linha.despesa_tipo or '').strip()
             if tc == 'Honorários do Despachante' or dt.startswith('Honorário'):
                 honor_total += v
+            elif dt == 'Inerentes':
+                ine_total += v
+            elif dt == 'Licenciamento':
+                lic_total += v
             elif tc == 'Impostos e Taxas Aduaneiras (AGT)':
                 taxas_total += v
             elif tc == 'Despesas Portuárias e Terminais':
@@ -4740,6 +4750,7 @@ def factura_pdf(request, pk):
         oper_total = factura.despesas_operacionais or Decimal('0')
         honor_total = factura.honorarios_despachante or Decimal('0')
         outros_total = factura.outros_encargos or Decimal('0')
+    servicos_total = honor_total + ine_total + lic_total
 
     # ══════════════════════════════════════════════════════════════════════════
     # BLOCO 6 — Sumário (tabela única alinhada)
@@ -4756,20 +4767,45 @@ def factura_pdf(request, pk):
     s_val_b = st('sum_val_b', fontSize=8, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
     s_tot_lbl = st('sum_tot_lbl', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_LEFT)
     s_tot_val = st('sum_tot_val', fontSize=10, fontName='Helvetica-Bold', textColor=COR_PRIMARIO, alignment=TA_RIGHT)
+    # Etiqueta mais compacta para caber numa só linha
+    s_lbl_serv = st('sum_lbl_serv', fontSize=7, fontName='Helvetica', textColor=COR_PRIMARIO, alignment=TA_LEFT, leading=9)
 
     sum_rows = [
         [Paragraph('<b>Sumário</b>', st('sum_h', fontSize=9, fontName='Helvetica-Bold', textColor=COR_PRIMARIO)),
          '', ''],
-        [Paragraph('Mercadorias', s_lbl),
-         Paragraph(f'({fmt_kz(v_cif_val)} CIF)', st('sum_det', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
-         Paragraph(fmt_kz(v_cif_val) if v_cif_val > 0 else '0,00', s_val)],
-        [Paragraph('Serviços (Honorários)', s_lbl),
+        [Paragraph('Serviços (Honorários, Licenciamento, Inerentes)', s_lbl_serv),
          '',
-         Paragraph(fmt_kz(honor_total), s_val)],
-        [Paragraph(f'Retenção ({factura_iva_rotulo}%)', s_lbl),
-         Paragraph('s/ honorários, inerentes e licenciamento', st('sum_det3', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
-         Paragraph(fmt_kz(factura.retencao) if factura.retencao > 0 else '0,00', s_val)],
+         Paragraph(fmt_kz(servicos_total), s_val)],
     ]
+    # Com requisição vinculada, a fatura contém APENAS Serviços + Retenção
+    # (restantes despesas vão para Nota de Débito). Sem vínculo, mostrar
+    # as rubricas com valor para as linhas fecharem com o Total.
+    if not tem_rf:
+        if taxas_total > 0:
+            sum_rows.append(
+                [Paragraph('Taxas Aduaneiras', s_lbl),
+                 '',
+                 Paragraph(fmt_kz(taxas_total), s_val)])
+        if emol_total > 0:
+            sum_rows.append(
+                [Paragraph('Emolumentos', s_lbl),
+                 '',
+                 Paragraph(fmt_kz(emol_total), s_val)])
+        if oper_total > 0:
+            sum_rows.append(
+                [Paragraph('Despesas Operacionais', s_lbl),
+                 '',
+                 Paragraph(fmt_kz(oper_total), s_val)])
+        if outros_total > 0:
+            sum_rows.append(
+                [Paragraph('Outros Encargos', s_lbl),
+                 '',
+                 Paragraph(fmt_kz(outros_total), s_val)])
+    sum_rows.append(
+        [Paragraph(f'Retenção ({factura_iva_rotulo}%)', s_lbl),
+         Paragraph('s/ total honorários, total inerentes e total licenciamento', st('sum_det3', fontSize=7, textColor=COR_CINZA, alignment=TA_LEFT)),
+         Paragraph(fmt_kz(factura.retencao) if factura.retencao > 0 else '0,00', s_val)],
+    )
     if factura.ajuste_nota_credito and factura.ajuste_nota_credito > 0:
         sum_rows.append([Paragraph('Nota Crédito', s_lbl), '', Paragraph(f'-{fmt_kz(factura.ajuste_nota_credito)}', s_val)])
     if factura.ajuste_nota_debito and factura.ajuste_nota_debito > 0:
