@@ -1136,3 +1136,56 @@ def registrar_historico(tipo_documento, documento_id, documento_numero, accao,
     )
 
 # Fim dos modelos existentes.
+
+
+class FaturaAGT(models.Model):
+    """Fatura submetida/validada pela AGT via Faturação Eletrónica"""
+
+    STATUS_AGT = [
+        ('Pendente', 'Pendente'),
+        ('Processando', 'Processando'),
+        ('Validada', 'Validada'),
+        ('Rejeitada', 'Rejeitada'),
+        ('Erro', 'Erro'),
+    ]
+
+    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE, related_name='faturas_agt', null=True, blank=True)
+    factura = models.OneToOneField('FacturaCliente', on_delete=models.SET_NULL, null=True, blank=True, related_name='fatura_agt', verbose_name='Factura')
+    numero_fatura = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Fatura AGT')
+    serie = models.CharField(max_length=20, blank=True, verbose_name='Série')
+    nif_emitente = models.CharField(max_length=20, blank=True, verbose_name='NIF do Emitente')
+    nif_cliente = models.CharField(max_length=20, blank=True, verbose_name='NIF do Cliente')
+    nome_cliente = models.CharField(max_length=255, blank=True, verbose_name='Nome do Cliente')
+    descricao = models.TextField(blank=True, verbose_name='Descrição')
+    valor_sem_iva = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor sem IVA')
+    valor_iva = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor IVA')
+    valor_total = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor Total')
+    taxa_iva = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('14.00'), verbose_name='Taxa IVA (%)')
+
+    # Campos da API AGT
+    agt_id = models.CharField(max_length=100, blank=True, verbose_name='ID AGT')
+    agt_hash = models.CharField(max_length=500, blank=True, verbose_name='Hash AGT')
+    agt_qr_code = models.TextField(blank=True, verbose_name='QR Code AGT')
+    agt_status = models.CharField(max_length=20, choices=STATUS_AGT, default='Pendente', db_index=True, verbose_name='Status AGT')
+    agt_motivo_rejeicao = models.TextField(blank=True, verbose_name='Motivo de Rejeição AGT')
+    agt_data_validacao = models.DateTimeField(null=True, blank=True, verbose_name='Data de Validação AGT')
+    agt_resposta_raw = models.JSONField(null=True, blank=True, verbose_name='Resposta Raw AGT')
+
+    data_emissao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Emissão', db_index=True)
+    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name='Última Atualização')
+    criado_por_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador')
+    criado_por_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Criador')
+
+    class Meta:
+        db_table = 'financeiro_fatura_agt'
+        verbose_name = 'Fatura AGT'
+        verbose_name_plural = 'Faturas AGT'
+        ordering = ['-data_emissao']
+        indexes = [
+            models.Index(fields=['agt_status', '-data_emissao'], name='ix_fatagt_status_data'),
+            models.Index(fields=['banca', 'agt_status'], name='ix_fatagt_banca_status'),
+            models.Index(fields=['nif_cliente'], name='ix_fatagt_nif_cliente'),
+        ]
+
+    def __str__(self):
+        return f"FatAGT {self.numero_fatura or self.agt_id} - {self.nome_cliente}"

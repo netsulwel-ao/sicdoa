@@ -3,6 +3,7 @@ from . import views
 from . import views_contacorrente as cc
 from . import views_relatorios as rel
 from . import views_relatorio_pdf as rel_pdf
+from . import views_agt as agt
 
 
 app_name = 'financeiro'
@@ -135,5 +136,13 @@ urlpatterns = [
 
     # PDF dos Relatórios
     path('relatorios/<slug:tipo>/pdf/', rel_pdf.relatorio_pdf, name='relatorio_pdf'),
+
+    # ─── Faturação Eletrónica AGT ─────────────────────────────────────────
+    path('faturacao-agt/', agt.faturacao_agt_dashboard, name='faturacao_agt_dashboard'),
+    path('faturacao-agt/lista/', agt.faturacao_agt_lista, name='faturacao_agt_lista'),
+    path('faturacao-agt/<int:pk>/', agt.faturacao_agt_detalhe, name='faturacao_agt_detalhe'),
+    path('faturacao-agt/submeter/<int:factura_pk>/', agt.faturacao_agt_submeter, name='faturacao_agt_submeter'),
+    path('faturacao-agt/<int:pk>/sincronizar/', agt.faturacao_agt_sincronizar, name='faturacao_agt_sincronizar'),
+    path('api/facturacaoelectronica/callback', agt.faturacao_agt_callback, name='faturacao_agt_callback'),
 
 ]
