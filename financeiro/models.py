@@ -1187,5 +1187,25 @@ class FaturaAGT(models.Model):
             models.Index(fields=['nif_cliente'], name='ix_fatagt_nif_cliente'),
         ]
 
+    def _gerar_numero_fatura(self):
+        """Gera um número de fatura único no padrão FAT-{ano}-{seq:04d}."""
+        ano = timezone.now().year
+        ultimo = FaturaAGT.objects.filter(
+            numero_fatura__startswith=f'FAT-{ano}-'
+        ).order_by('-numero_fatura').first()
+        if ultimo and ultimo.numero_fatura:
+            try:
+                seq = int(ultimo.numero_fatura.split('-')[-1]) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+        return f'FAT-{ano}-{seq:04d}'
+
+    def save(self, *args, **kwargs):
+        if not self.numero_fatura:
+            self.numero_fatura = self._gerar_numero_fatura()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"FatAGT {self.numero_fatura or self.agt_id} - {self.nome_cliente}"
