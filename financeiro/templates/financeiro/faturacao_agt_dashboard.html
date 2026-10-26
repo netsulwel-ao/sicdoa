@@ -146,10 +146,12 @@
                   class="inline-flex items-center gap-1 px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors">
                   <i class="fas fa-eye"></i> Ver
                 </a>
-                <a href="{% url 'financeiro:faturacao_agt_sincronizar' fatura.pk %}"
+                <button type="button"
+                  onclick="sincronizarFaturaAGT({{ fatura.pk }}, this)"
+                  data-url="{% url 'financeiro:faturacao_agt_sincronizar' fatura.pk %}"
                   class="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors dark:bg-gray-800 dark:text-gray-300">
                   <i class="fas fa-sync-alt"></i> Sincronizar
-                </a>
+                </button>
               </div>
             </td>
           </tr>
@@ -167,6 +169,31 @@
     </div>
     {% endif %}
   </div>
+
+  <!-- Script — Sincronizar via POST (Finding 1: previne GET state-mutation) -->
+  <script>
+  function sincronizarFaturaAGT(pk, btn) {
+    const url = btn.dataset.url;
+    const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    btn.disabled = true;
+    btn.querySelector('i').classList.add('fa-spin');
+    fetch(url, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrfToken, 'Content-Type': 'application/json'},
+      credentials: 'same-origin',
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) { location.reload(); }
+      else { alert('Erro: ' + (data.erro || 'desconhecido')); }
+    })
+    .catch(() => { alert('Erro de rede ao sincronizar.'); })
+    .finally(() => {
+      btn.disabled = false;
+      btn.querySelector('i').classList.remove('fa-spin');
+    });
+  }
+  </script>
 
   <!-- Info Box — Endpoint Callback -->
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-5 dark:bg-gray-900 dark:border-gray-700">

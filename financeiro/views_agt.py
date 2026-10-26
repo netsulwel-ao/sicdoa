@@ -4,6 +4,7 @@ Gestão e acompanhamento de faturas validadas pela AGT (Administração Geral Tr
 """
 import json
 import logging
+from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse
 from django.urls import reverse
@@ -106,8 +107,9 @@ def faturacao_agt_detalhe(request, pk):
     return render(request, 'financeiro/faturacao_agt_detalhe.html', context)
 
 
-@require_POST
+# Finding 3 fix: correct decorator order — session check first, then method guard, then write perm.
 @requer_sessao_ativa
+@require_POST
 @requer_escrita_financeira
 def faturacao_agt_submeter(request, factura_pk):
     """Submete uma FacturaCliente para validação na AGT."""
@@ -168,9 +170,16 @@ def faturacao_agt_submeter(request, factura_pk):
     return redirect(reverse('financeiro:faturacao_agt_detalhe', args=[fatura.pk]))
 
 
+# Finding 1 fix: convert to POST-only to prevent GET-based state mutation.
+# Templates use JavaScript fetch with CSRF token instead of plain <a href>.
 @requer_sessao_ativa
+@require_POST
 def faturacao_agt_sincronizar(request, pk):
-    """Consulta o status actualizado da fatura na AGT."""
+    """
+    Consulta o status actualizado da fatura na AGT.
+    Aceita apenas POST para prevenir mutação de estado via GET
+    (browser prefetch, histórico de navegação, etc.).
+    """
     try:
         fatura = get_object_or_404(FaturaAGT, pk=pk)
 
@@ -203,9 +212,32 @@ def faturacao_agt_callback(request):
     """
     Webhook AGT — recebe notificações de status de processamento de faturas.
     URL pública: https://bejames.online/api/facturacaoelectronica/callback
+
+    Finding 2 fix: verifica token secreto configurado em settings.AGT_CALLBACK_SECRET.
+    Se a setting não estiver definida, regista aviso e aceita (modo degradado).
+    Para activar a verificação, adicionar ao settings.py:
+        AGT_CALLBACK_SECRET = "um-segredo-forte-partilhado-com-a-agt"
+    e configurar o mesmo valor no portal AGT para que seja enviado no header
+    X-AGT-Secret de cada callback.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'detail': 'Method not allowed'}, status=405)
+
+    # Verificação de segredo partilhado (Finding 2)
+    secret = getattr(settings, 'AGT_CALLBACK_SECRET', None)
+    if secret:
+        received_token = request.headers.get('X-AGT-Secret', '')
+        if received_token != secret:
+            logger.warning(
+                "Callback AGT rejeitado: token inválido. IP=%s",
+                request.META.get('REMOTE_ADDR', 'desconhecido'),
+            )
+            return JsonResponse({'status': 'error', 'detail': 'Unauthorized'}, status=401)
+    else:
+        logger.warning(
+            "AGT_CALLBACK_SECRET não configurado — callback aceite sem autenticação. "
+            "Defina settings.AGT_CALLBACK_SECRET para activar a verificação."
+        )
 
     try:
         payload = json.loads(request.body)
