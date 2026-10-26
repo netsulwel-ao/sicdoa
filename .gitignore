@@ -43,3 +43,7 @@ apscheduler.db
 # OS-specific files
 DS_Store
 Thumbs.db
+
+# Chaves RSA AGT — NUNCA commitar chaves privadas
+keys/
+*.pem

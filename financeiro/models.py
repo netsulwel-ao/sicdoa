@@ -1163,7 +1163,8 @@ class FaturaAGT(models.Model):
     taxa_iva = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('14.00'), verbose_name='Taxa IVA (%)')
 
     # Campos da API AGT
-    agt_id = models.CharField(max_length=100, blank=True, verbose_name='ID AGT')
+    agt_id = models.CharField(max_length=200, blank=True, verbose_name='ID AGT / requestID')
+    agt_request_id = models.CharField(max_length=200, blank=True, verbose_name='Request ID AGT', db_index=True)
     agt_hash = models.CharField(max_length=500, blank=True, verbose_name='Hash AGT')
     agt_qr_code = models.TextField(blank=True, verbose_name='QR Code AGT')
     agt_status = models.CharField(max_length=20, choices=STATUS_AGT, default='Pendente', db_index=True, verbose_name='Status AGT')
@@ -1188,11 +1189,16 @@ class FaturaAGT(models.Model):
         ]
 
     def _gerar_numero_fatura(self):
-        """Gera um número de fatura único no padrão FAT-{ano}-{seq:04d}."""
+        """
+        Gera um número de fatura único no padrão FAT-{ano}-{seq:04d}.
+        A sequência é isolada por banca — cada banca tem a sua numeração independente.
+        """
         ano = timezone.now().year
-        ultimo = FaturaAGT.objects.filter(
-            numero_fatura__startswith=f'FAT-{ano}-'
-        ).order_by('-numero_fatura').first()
+        # Isolamento por banca: cada banca tem sequência própria
+        qs = FaturaAGT.objects.filter(numero_fatura__startswith=f'FAT-{ano}-')
+        if self.banca_id:
+            qs = qs.filter(banca_id=self.banca_id)
+        ultimo = qs.order_by('-numero_fatura').first()
         if ultimo and ultimo.numero_fatura:
             try:
                 seq = int(ultimo.numero_fatura.split('-')[-1]) + 1
@@ -1203,9 +1209,15 @@ class FaturaAGT(models.Model):
         return f'FAT-{ano}-{seq:04d}'
 
     def save(self, *args, **kwargs):
-        if not self.numero_fatura:
-            self.numero_fatura = self._gerar_numero_fatura()
-        super().save(*args, **kwargs)
+        for _attempt in range(5):
+            if not self.numero_fatura:
+                self.numero_fatura = self._gerar_numero_fatura()
+            try:
+                super().save(*args, **kwargs)
+                break
+            except IntegrityError:
+                self.numero_fatura = None
+                continue
 
     def __str__(self):
         return f"FatAGT {self.numero_fatura or self.agt_id} - {self.nome_cliente}"

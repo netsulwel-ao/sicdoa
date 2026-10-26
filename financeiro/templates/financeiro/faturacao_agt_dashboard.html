@@ -41,6 +41,41 @@
     {% endfor %}
   {% endif %}
 
+  <!-- Alertas de configuração AGT -->
+  {% if alertas_config %}
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
+    <div class="flex items-start gap-3">
+      <i class="fas fa-exclamation-triangle text-amber-500 mt-0.5 flex-shrink-0"></i>
+      <div>
+        <p class="text-sm font-semibold text-amber-800 mb-1">Integração AGT não totalmente configurada</p>
+        <ul class="space-y-1">
+          {% for alerta in alertas_config %}
+          <li class="text-xs text-amber-700"><i class="fas fa-circle text-amber-400 mr-1" style="font-size:6px;vertical-align:middle;"></i>{{ alerta }}</li>
+          {% endfor %}
+        </ul>
+        <p class="text-xs text-amber-600 mt-2">Edite o ficheiro <code class="bg-amber-100 px-1 rounded">.env</code> na raiz do projecto para configurar.</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Badge ambiente AGT -->
+  <div class="flex items-center gap-2 mb-4 flex-wrap">
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
+      {% if agt_configurado %}bg-green-100 text-green-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+      <i class="fas fa-{% if agt_configurado %}check-circle{% else %}exclamation-circle{% endif %}"></i>
+      {% if agt_configurado %}AGT Configurada{% else %}AGT — Configuração Incompleta{% endif %}
+    </span>
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-mono">
+      <i class="fas fa-server"></i> {{ agt_api_base }}
+    </span>
+    {% if total_processando %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+      <i class="fas fa-spinner fa-spin"></i> {{ total_processando }} em processamento
+    </span>
+    {% endif %}
+  </div>
+
   <!-- Cards KPI -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
     <!-- Pendentes AGT -->
@@ -64,7 +99,8 @@
         </div>
         <div>
           <p class="text-xs text-gray-400">Status AGT</p>
-          <p class="text-lg font-bold text-blue-600">+5%</p>
+          <p class="text-lg font-bold text-blue-600">{{ taxa_validacao }}%</p>
+          <p class="text-xs text-gray-400">Taxa de validação</p>
         </div>
       </div>
     </div>
@@ -195,25 +231,65 @@
   }
   </script>
 
-  <!-- Info Box — Endpoint Callback -->
+  <!-- Info Box — Integração AGT -->
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-5 dark:bg-gray-900 dark:border-gray-700">
-    <div class="flex items-start gap-3 mb-3">
+    <div class="flex items-start gap-3 mb-4">
       <div class="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
         <i class="fas fa-plug text-blue-500 text-sm"></i>
       </div>
       <div>
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Webhook para integração com AGT</h3>
-        <p class="text-xs text-gray-500 mt-0.5">Recebe notificações de status de processamento de faturas</p>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Integração com a AGT — Como funciona</h3>
+        <p class="text-xs text-gray-500 mt-0.5">Modelo de processamento assíncrono (conforme documentação AGT)</p>
       </div>
     </div>
 
-    <div class="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 mb-3 flex items-center gap-2 flex-wrap">
-      <span class="text-xs text-gray-400 font-medium">API Pública:</span>
-      <code class="text-xs text-primary font-mono">{{ callback_url }}</code>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-center">
+        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+          <span class="text-xs font-bold text-primary">1</span>
+        </div>
+        <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Submeter</p>
+        <p class="text-xs text-gray-400 mt-0.5">POST com JWS RS256 + Basic Auth → AGT devolve requestID</p>
+      </div>
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-center">
+        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
+          <span class="text-xs font-bold text-blue-600">2</span>
+        </div>
+        <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Polling</p>
+        <p class="text-xs text-gray-400 mt-0.5">GET consultarFactura/{id} para verificar estado de processamento</p>
+      </div>
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-center">
+        <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+          <span class="text-xs font-bold text-green-600">3</span>
+        </div>
+        <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Validada</p>
+        <p class="text-xs text-gray-400 mt-0.5">AGT devolve hash + QR Code de validação fiscal</p>
+      </div>
     </div>
 
-    <p class="text-xs text-gray-500 mb-2">Exemplo de payload JSON recebido pelo callback:</p>
-    <pre class="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 text-xs text-gray-700 dark:text-gray-300 font-mono overflow-x-auto">{"agt_id": "AGT-123", "status": "Validada", "hash": "abc...", "qr_code": "...", "motivo_rejeicao": ""}</pre>
+    <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+      <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+        <i class="fas fa-plug mr-1"></i> Webhook Callback
+        <span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-normal">
+          <i class="fas fa-check-circle"></i> Activo
+        </span>
+      </p>
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <i class="fas fa-link text-primary text-xs flex-shrink-0"></i>
+          <code class="text-xs text-primary font-mono truncate">https://sicdoa.cdoangola.co.ao/api/facturacaoelectronica/callback</code>
+        </div>
+        <button onclick="navigator.clipboard.writeText('https://sicdoa.cdoangola.co.ao/api/facturacaoelectronica/callback'); this.innerHTML='<i class=\'fas fa-check\'></i>'; setTimeout(()=>this.innerHTML='<i class=\'fas fa-copy\'></i>',1500)"
+          class="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-medium transition-colors"
+          title="Copiar URL">
+          <i class="fas fa-copy"></i>
+        </button>
+      </div>
+      <p class="text-xs text-gray-400 mt-2">
+        <i class="fas fa-info-circle mr-1 text-blue-400"></i>
+        Registar este URL no portal AGT para receber notificações automáticas de validação de faturas.
+      </p>
+    </div>
   </div>
 
 </div>

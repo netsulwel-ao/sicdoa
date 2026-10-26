@@ -143,6 +143,6 @@ urlpatterns = [
     path('faturacao-agt/<int:pk>/', agt.faturacao_agt_detalhe, name='faturacao_agt_detalhe'),
     path('faturacao-agt/submeter/<int:factura_pk>/', agt.faturacao_agt_submeter, name='faturacao_agt_submeter'),
     path('faturacao-agt/<int:pk>/sincronizar/', agt.faturacao_agt_sincronizar, name='faturacao_agt_sincronizar'),
-    path('api/facturacaoelectronica/callback', agt.faturacao_agt_callback, name='faturacao_agt_callback'),
+    # NOTA: o callback AGT está registado no urls.py raiz em /api/facturacaoelectronica/callback
 
 ]

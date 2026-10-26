@@ -278,6 +278,42 @@ BACKUP_RETENTION_DAYS = int(os.environ.get('BACKUP_RETENTION_DAYS', '30'))
 BACKUP_EMAIL_TO = os.environ.get('BACKUP_EMAIL_TO', 'ramosfranciscotch@gmail.com')
 ERROR_REPORT_EMAIL = os.environ.get('ERROR_REPORT_EMAIL', BACKUP_EMAIL_TO)
 
+# ── Faturação Eletrónica AGT ────────────────────────────────────────
+# Credenciais Basic Auth (solicitar em produtores.dfe.dcrr.agt@minfin.gov.ao)
+AGT_USERNAME = os.environ.get('AGT_USERNAME', '')
+AGT_PASSWORD = os.environ.get('AGT_PASSWORD', '')
+
+# URL da API AGT
+# Homologação: https://sifphml.minfin.gov.ao/sigt/fe/v1
+# Produção:    https://sifp.minfin.gov.ao/sigt/fe/v1
+AGT_API_BASE = os.environ.get('AGT_API_BASE', 'https://sifphml.minfin.gov.ao/sigt/fe/v1')
+
+# Identificação do software produtor
+AGT_PRODUCT_ID = os.environ.get('AGT_PRODUCT_ID', 'SICDOA')
+AGT_PRODUCT_VERSION = os.environ.get('AGT_PRODUCT_VERSION', '1.0.0')
+AGT_SOFTWARE_VALIDATION_NUMBER = os.environ.get('AGT_SOFTWARE_VALIDATION_NUMBER', '')
+
+# Identificação do contribuinte emitente
+AGT_NIF_EMITENTE = os.environ.get('AGT_NIF_EMITENTE', '')
+AGT_COMPANY_NAME = os.environ.get('AGT_COMPANY_NAME', 'CDOA')
+AGT_SERIE_PADRAO = os.environ.get('AGT_SERIE_PADRAO', 'A')
+
+# Chaves RSA — conteúdo PEM directo (variável de ambiente) OU caminho para ficheiro
+AGT_SOFTWARE_PRIVATE_KEY = os.environ.get('AGT_SOFTWARE_PRIVATE_KEY', '')
+AGT_SOFTWARE_PRIVATE_KEY_FILE = os.environ.get(
+    'AGT_SOFTWARE_PRIVATE_KEY_FILE',
+    str(BASE_DIR / 'keys' / 'agt_software_private.pem'),
+)
+AGT_CONTRIBUTOR_PRIVATE_KEY = os.environ.get('AGT_CONTRIBUTOR_PRIVATE_KEY', '')
+AGT_CONTRIBUTOR_PRIVATE_KEY_FILE = os.environ.get(
+    'AGT_CONTRIBUTOR_PRIVATE_KEY_FILE',
+    str(BASE_DIR / 'keys' / 'agt_contributor_private.pem'),
+)
+
+# Webhook callback
+AGT_CALLBACK_SECRET = os.environ.get('AGT_CALLBACK_SECRET', '')
+AGT_CALLBACK_URL = os.environ.get('AGT_CALLBACK_URL', 'https://sicdoa.cdoangola.co.ao/api/facturacaoelectronica/callback')
+
 # ── APScheduler (tarefas agendadas) ────────────────────────────────
 APSCHEDULER_DATETIME_FORMAT = 'N/A'
 APSCHEDULER_RUN_NOW_TIMEOUT = 25

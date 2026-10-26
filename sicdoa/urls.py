@@ -6,6 +6,7 @@ from django.shortcuts import render
 from users import views as user_views
 from users import views_session as session_views
 from rh import views_public
+from financeiro.views_agt import faturacao_agt_callback
 
 
 def _error500(request):
@@ -95,4 +96,9 @@ urlpatterns = [
 
     # Financeiro
     path('financeiro/', include('financeiro.urls')),
+
+    # ── AGT Callback — URL pública: https://sicdoa.cdoangola.co.ao/api/facturacaoelectronica/callback
+    # Registado aqui no urls raiz (NÃO dentro de /financeiro/) para que o path
+    # seja exactamente /api/facturacaoelectronica/callback sem prefixo adicional.
+    path('api/facturacaoelectronica/callback', faturacao_agt_callback, name='faturacao_agt_callback'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
