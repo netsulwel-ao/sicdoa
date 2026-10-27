@@ -2754,7 +2754,10 @@ def fatura_eletronica_callback_agt(request):
          verificada com a chave pública da AGT configurada;
       2. HMAC-SHA256 (`settings.AGT_CALLBACK_SECRET`) como compatibilidade.
 
-    O documento é identificado pelo `request_id` (ou pelo `documentNo`).
+    O payload bruto é guardado numa fila persistente (`CallbackAGT`) antes de
+    qualquer alteração de estado. Por omissão o evento é processado de imediato
+    (resposta rápida), ficando disponível para reprocessamento pelo comando
+    `processar_callbacks_agt` caso algo falhe.
     """
     raw = request.body or b''
 
@@ -2767,19 +2770,12 @@ def fatura_eletronica_callback_agt(request):
     if data is None and request.POST:
         data = request.POST.dict()
     if not isinstance(data, dict) or not data:
+        logger.warning('Callback AGT rejeitado: payload inválido.')
         return JsonResponse(
             {'status': 'error', 'message': 'Payload inválido.'}, status=400
         )
 
-    request_id = str(
-        data.get('request_id') or data.get('requestID') or data.get('requestId')
-        or data.get('id') or ''
-    ).strip()
-    document_no = str(
-        data.get('documentNo') or data.get('numero_fatura') or data.get('numeroFatura')
-        or data.get('documento_numero') or ''
-    ).strip()
-
+    request_id, document_no = agt_callbacks.extrair_identificadores(data)
     fatura = None
     if request_id:
         fatura = FaturaEletronica.objects.filter(request_id=request_id).first()
@@ -2788,20 +2784,13 @@ def fatura_eletronica_callback_agt(request):
             FaturaEletronica.objects.filter(document_no=document_no).order_by('-pk').first()
             or FaturaEletronica.objects.filter(numero_fatura=document_no).order_by('-pk').first()
         )
-    if fatura is None:
-        return JsonResponse(
-            {'status': 'error', 'message': 'Documento não encontrado.'}, status=404
-        )
-    if fatura.estado == 'Cancelada':
-        return JsonResponse(
-            {'status': 'error', 'message': 'Documento cancelado.'}, status=409
-        )
 
-    config = ConfiguracaoAGT.obter(fatura.banca_id)
+    config = ConfiguracaoAGT.obter(fatura.banca_id if fatura else None)
     secret = (getattr(settings, 'AGT_CALLBACK_SECRET', '') or '').strip()
     if config is None and not secret:
         return JsonResponse(
-            {'status': 'error', 'message': 'Integração AGT não configurada para validar o callback.'},
+            {'status': 'error',
+             'message': 'Integração AGT não configurada para validar o callback.'},
             status=401,
         )
 
@@ -2811,50 +2800,57 @@ def fatura_eletronica_callback_agt(request):
         or ''
     )
     try:
-        agt_service.verificar_assinatura_callback(assinatura, data, config, secret)
+        payload_validado = agt_service.verificar_assinatura_callback(
+            assinatura, data, config, secret, corpo_bruto=raw,
+        )
     except agt_service.AGTErro as exc:
         logger.warning('Callback AGT rejeitado: %s', exc)
         return JsonResponse({'status': 'error', 'message': str(exc)}, status=401)
 
-    estado = _mapear_estado_agt(
-        data.get('estado') or data.get('status') or data.get('state')
+    # Quando a AGT assina o próprio evento em JWS, o payload autenticado é a
+    # fonte de verdade (o corpo pode transportar apenas o envelope).
+    if (
+        isinstance(payload_validado, dict) and payload_validado
+        and payload_validado is not data
+        and any(k in payload_validado for k in (
+            'requestID', 'request_id', 'requestId', 'documentNo',
+            'status', 'estado', 'state',
+        ))
+    ):
+        data = payload_validado
+
+    evento, _criado = agt_callbacks.registar_evento(
+        raw, data,
+        headers=dict(request.headers),
+        ip=_obter_ip_cliente(request),
+        assinatura_valida=True,
     )
-    if not estado:
-        # O callback da AGT confirma o pedido: sem estado explícito, deriva
-        # 'Rejeitada AGT' quando há erros no resultado, senão 'Aprovada AGT'.
-        erros = data.get('errorList') or data.get('requestErrorList') or []
-        if erros or data.get('rejectedDocumentNo'):
-            estado = 'Rejeitada AGT'
-        else:
-            estado = 'Aprovada AGT'
-    if not estado:
+
+    if not getattr(settings, 'AGT_CALLBACK_PROCESSAR_IMEDIATO', True):
         return JsonResponse(
-            {'status': 'error', 'message': 'Estado inválido.'}, status=400
+            {'status': 'accepted', 'evento_id': evento.pk}, status=202
         )
 
-    estado_anterior = fatura.estado
-    observacoes = (
-        data.get('observacoes') or data.get('mensagem')
-        or data.get('message') or ''
-    )
+    try:
+        resultado = agt_callbacks.processar_evento(evento)
+    except Exception:  # noqa: BLE001 - a AGT deve receber 500 para reenviar
+        logger.exception('Falha ao processar callback AGT #%s', evento.pk)
+        return JsonResponse(
+            {'status': 'error', 'message': 'Erro interno ao processar o callback.'},
+            status=500,
+        )
 
-    fatura.estado = estado
-    fatura.resposta_agt = json.dumps(data, ensure_ascii=False)[:20000]
-    if observacoes:
-        fatura.observacoes = str(observacoes)[:5000]
-    fatura.save(update_fields=['estado', 'resposta_agt', 'observacoes'])
-
-    registrar_historico(
-        'FaturaEletronica', fatura.pk, fatura.numero_fatura, 'Callback AGT',
-        estado_anterior=estado_anterior, estado_novo=estado,
-        valor=fatura.total_geral, cliente_nome=fatura.cliente.nome,
-        banca_id=fatura.banca_id, filial_id=fatura.filial_id,
-    )
+    if not resultado.get('ok'):
+        return JsonResponse(
+            {'status': 'error', 'message': resultado.get('motivo') or 'Erro.'},
+            status=404,
+        )
 
     return JsonResponse({
         'status': 'ok',
-        'numero_fatura': fatura.numero_fatura,
-        'estado': fatura.estado,
+        'duplicado': resultado.get('duplicado', False),
+        'numero_fatura': resultado.get('numero_fatura', ''),
+        'estado': resultado.get('estado', ''),
     })
 
 

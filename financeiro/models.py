@@ -104,6 +104,8 @@ class FaturaEletronica(models.Model):
     # Dados AGT
     data_emissao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Emissão')
     data_envio_agt = models.DateTimeField(null=True, blank=True, verbose_name='Data Envio AGT')
+    data_resposta_agt = models.DateTimeField(null=True, blank=True,
+                                             verbose_name='Data de Resposta da AGT')
     estado = models.CharField(max_length=20, choices=ESTADOS, default='Rascunho',
                               db_index=True, verbose_name='Estado')
 
@@ -207,6 +209,73 @@ class FaturaEletronica(models.Model):
 
     def __str__(self):
         return f"Fatura Eletrónica {self.numero_fatura} - {self.cliente.nome}"
+
+
+class CallbackAGT(models.Model):
+    """Evento recebido no webhook público da AGT (fila persistente).
+
+    O payload bruto é guardado integralmente para auditoria antes de qualquer
+    processamento de negócio. A chave única (`chave_evento`, SHA-256 do corpo)
+    garante idempotência: reenvios do mesmo evento não são processados duas
+    vezes. O processamento pode ser imediato ou assíncrono, através do comando
+    ``processar_callbacks_agt`` (agendado no APScheduler).
+    """
+
+    ESTADOS_PROCESSAMENTO = [
+        ('Pendente', 'Pendente'),
+        ('Processado', 'Processado'),
+        ('Ignorado', 'Ignorado'),
+        ('Erro', 'Erro'),
+    ]
+
+    chave_evento = models.CharField(
+        max_length=64, unique=True, verbose_name='Chave do Evento (SHA-256)')
+    request_id = models.CharField(
+        max_length=100, blank=True, default='', db_index=True,
+        verbose_name='Request ID AGT')
+    document_no = models.CharField(
+        max_length=60, blank=True, default='', db_index=True,
+        verbose_name='Nº do Documento (AGT)')
+    fatura = models.ForeignKey(
+        'FaturaEletronica', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='callbacks_agt', verbose_name='Fatura Eletrónica')
+
+    assinatura_valida = models.BooleanField(
+        default=False, verbose_name='Assinatura Validada')
+    payload_bruto = models.TextField(verbose_name='Payload Bruto')
+    payload = models.JSONField(
+        null=True, blank=True, verbose_name='Payload (JSON)')
+    cabecalhos = models.JSONField(
+        default=dict, blank=True, verbose_name='Cabeçalhos HTTP')
+    origem_ip = models.GenericIPAddressField(
+        null=True, blank=True, verbose_name='IP de Origem')
+
+    estado_processamento = models.CharField(
+        max_length=20, choices=ESTADOS_PROCESSAMENTO, default='Pendente',
+        db_index=True, verbose_name='Estado do Processamento')
+    tentativas = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Tentativas de Processamento')
+    erro = models.TextField(blank=True, default='', verbose_name='Erro')
+
+    recebido_em = models.DateTimeField(
+        auto_now_add=True, verbose_name='Recebido em')
+    processado_em = models.DateTimeField(
+        null=True, blank=True, verbose_name='Processado em')
+
+    class Meta:
+        db_table = 'financeiro_callback_agt'
+        verbose_name = 'Callback AGT'
+        verbose_name_plural = 'Callbacks AGT'
+        ordering = ['-recebido_em']
+        indexes = [
+            models.Index(
+                fields=['estado_processamento', 'recebido_em'],
+                name='fe_callback_estado_data'),
+            models.Index(fields=['request_id'], name='fe_callback_request'),
+        ]
+
+    def __str__(self):
+        return f'Callback AGT #{self.pk} ({self.estado_processamento})'
 
 
 class ConfiguracaoAGT(models.Model):

@@ -10,6 +10,7 @@ Todas as assinaturas usam o algoritmo RS256 (RSA + SHA-256) em JWS compacto
 com cabeçalho ``{"typ": "JOSE", "alg": "RS256"}``, tal como exigido pela AGT.
 """
 
+import base64
 import hashlib
 import hmac
 import json
@@ -76,31 +77,81 @@ def verificar_jws(token, chave_publica_pem):
         raise AGTErro(f'Assinatura JWS inválida: {exc}') from exc
 
 
-def verificar_assinatura_callback(header_valor, corpo_json, config, segredo_hmac=''):
+def _extrair_token(header_valor, corpo_json):
+    """Normaliza o token de assinatura recebido no cabeçalho ou no corpo.
+
+    Aceita prefixos usuais (``Bearer``, ``sha256=``, ``JWS ``) e devolve apenas
+    o valor do token, sem espaços.
+    """
+    token = (header_valor or '').strip()
+    if not token and isinstance(corpo_json, dict):
+        token = str(corpo_json.get('jwsSignature') or '').strip()
+    if token.lower().startswith('bearer '):
+        token = token[7:].strip()
+    elif token.lower().startswith('jws '):
+        token = token[4:].strip()
+    if token.lower().startswith('sha256='):
+        token = token[7:].strip()
+    return token
+
+
+def _candidatos_hmac(corpo_json, corpo_bruto):
+    """Devolve os bytes plausíveis sobre os quais a AGT assinou o evento.
+
+    A AGT pode assinar o corpo HTTP exactamente como foi enviado ou o JSON
+    canonicamente normalizado. Testamos ambos para manter compatibilidade.
+    """
+    candidatos = []
+    if corpo_bruto:
+        candidatos.append(bytes(corpo_bruto))
+    candidatos.append(
+        json.dumps(corpo_json, separators=(',', ':'), sort_keys=True).encode('utf-8')
+    )
+    return candidatos
+
+
+def verificar_assinatura_callback(header_valor, corpo_json, config,
+                                   segredo_hmac='', corpo_bruto=None):
     """Valida a assinatura de um callback da AGT.
 
     Ordem de tentativa:
-      1. JWS compacto no cabeçalho ``X-AGT-Signature``;
-      2. JWS compacto no campo ``jwsSignature`` do corpo;
-      3. HMAC-SHA256 (compatibilidade) usando ``segredo_hmac``.
+      1. JWS compacto RS256 no cabeçalho ``X-AGT-Signature`` (ou no campo
+         ``jwsSignature`` do corpo), verificado com a chave pública da AGT;
+      2. HMAC-SHA256 (compatibilidade) usando ``segredo_hmac``.
 
-    Devolve o payload validado (dict) ou lança ``AGTErro``.
+    Devolve o payload autenticado (dict) ou lança ``AGTErro``. Quando o JWS
+    transporta o próprio evento, é esse payload assinado que é devolvido.
     """
-    if config is not None and getattr(config, 'agt_public_key', ''):
-        token = (header_valor or '').strip()
-        if not token and isinstance(corpo_json, dict):
-            token = (corpo_json.get('jwsSignature') or '').strip()
-        if token:
-            return verificar_jws(token, config.agt_public_key)
-        raise AGTErro('Callback sem assinatura JWS para validar.')
+    token = _extrair_token(header_valor, corpo_json)
+    chave_publica = getattr(config, 'agt_public_key', '') if config is not None else ''
+
+    # Um JWS compacto tem exactamente três segmentos separados por pontos.
+    if chave_publica and token and token.count('.') == 2:
+        payload = verificar_jws(token, chave_publica)
+        if isinstance(payload, dict) and payload:
+            return payload
+        return corpo_json
 
     if segredo_hmac:
-        corpo = json.dumps(corpo_json, separators=(',', ':'), sort_keys=True).encode('utf-8')
-        esperado = hmac.new(segredo_hmac.encode('utf-8'), corpo, hashlib.sha256).hexdigest()
-        recebido = (header_valor or '').strip()
-        if not hmac.compare_digest(esperado, recebido):
-            raise AGTErro('Assinatura HMAC do callback inválida.')
-        return corpo_json
+        recebido = token
+        if not recebido:
+            raise AGTErro('Callback sem assinatura HMAC.')
+        for corpo in _candidatos_hmac(corpo_json, corpo_bruto):
+            esperado = hmac.new(
+                segredo_hmac.encode('utf-8'), corpo, hashlib.sha256
+            ).digest()
+            candidatos = (
+                esperado.hex(),
+                base64.urlsafe_b64encode(esperado).decode('ascii').rstrip('='),
+            )
+            if any(hmac.compare_digest(str(c), recebido) for c in candidatos):
+                return corpo_json
+        raise AGTErro('Assinatura HMAC do callback inválida.')
+
+    if chave_publica:
+        if token:
+            raise AGTErro('Assinatura JWS do callback inválida.')
+        raise AGTErro('Callback sem assinatura JWS para validar.')
 
     # Sem chave pública nem segredo: não há como validar a autenticidade.
     raise AGTErro('Sem chave pública da AGT nem segredo configurado para validar o callback.')
@@ -376,7 +427,8 @@ def enviar_fatura(fatura, config=None):
 
     if resultado.get('rejeitado'):
         fatura.estado = 'Rejeitada AGT'
-        fatura.save(update_fields=['estado', 'resposta_agt'])
+        fatura.data_resposta_agt = timezone.now()
+        fatura.save(update_fields=['estado', 'resposta_agt', 'data_resposta_agt'])
         return {'ok': True, 'estado': 'Rejeitada AGT',
                 'motivo': 'A AGT rejeitou o documento. Consulte os erros no detalhe.'}
 
@@ -508,6 +560,10 @@ def _extrair_estado(dados):
     return None, False
 
 
+# Nome público usado pela fila de callbacks e por outros módulos.
+extrair_estado = _extrair_estado
+
+
 def reconciliar_fatura(fatura, config=None):
     """Consulta a AGT (obterEstado) e sincroniza o estado de uma fatura.
 
@@ -546,7 +602,8 @@ def reconciliar_fatura(fatura, config=None):
     fatura.resposta_agt = json.dumps(dados, ensure_ascii=False)[:20000]
     if estado_novo and estado_novo != estado_anterior:
         fatura.estado = estado_novo
-        fatura.save(update_fields=['estado', 'resposta_agt'])
+        fatura.data_resposta_agt = timezone.now()
+        fatura.save(update_fields=['estado', 'resposta_agt', 'data_resposta_agt'])
         registrar_historico(
             'FaturaEletronica', fatura.pk, fatura.numero_fatura, 'Consulta AGT (obterEstado)',
             estado_anterior=estado_anterior, estado_novo=estado_novo,

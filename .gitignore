@@ -43,3 +43,11 @@ apscheduler.db
 # OS-specific files
 DS_Store
 Thumbs.db
+
+# Chaves e segredos locais (nunca versionar)
+keys/
+*.pem
+
+# Ficheiros de trabalho de agentes e saidas de teste
+.agents/
+test-output.txt
