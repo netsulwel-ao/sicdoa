@@ -49,11 +49,13 @@
           {% if codigo == 'Aprovada AGT' %}bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400
           {% elif codigo == 'Rejeitada AGT' %}bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400
           {% elif codigo == 'Enviada AGT' %}bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400
+          {% elif codigo == 'Em Fila' %}bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400
           {% elif codigo == 'Rascunho' %}bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400
           {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}">
           <i class="{% if codigo == 'Aprovada AGT' %}fas fa-check-circle
           {% elif codigo == 'Rejeitada AGT' %}fas fa-times-circle
           {% elif codigo == 'Enviada AGT' %}fas fa-paper-plane
+          {% elif codigo == 'Em Fila' %}fas fa-hourglass-half
           {% elif codigo == 'Rascunho' %}fas fa-draft-compass
           {% else %}fas fa-ban{% endif %}"></i>
         </div>
@@ -119,6 +121,7 @@
                 {% if fatura.estado == 'Aprovada AGT' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
                 {% elif fatura.estado == 'Rejeitada AGT' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
                 {% elif fatura.estado == 'Enviada AGT' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                {% elif fatura.estado == 'Em Fila' %}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400
                 {% elif fatura.estado == 'Rascunho' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
                 {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
                 {{ fatura.get_estado_display }}

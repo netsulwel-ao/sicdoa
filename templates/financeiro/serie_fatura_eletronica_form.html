@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% if object %}Editar Série{% else %}Nova Série{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto w-full">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+      {% if object %}Editar Série{% else %}Nova Série{% endif %}
+    </h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400">
+      O código fiscal e os limites de numeração são atribuídos pela AGT na comunicação.
+    </p>
+  </div>
+
+  <form method="post" class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="px-6 py-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+      {% for erro in form.non_field_errors %}
+      <p class="text-sm text-red-600 dark:text-red-400">{{ erro }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div>
+        <label for="{{ form.tipo_documento.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.tipo_documento.label }} <span class="text-red-500">*</span></label>
+        {{ form.tipo_documento }}
+        {% for erro in form.tipo_documento.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+      </div>
+      <div>
+        <label for="{{ form.ano.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.ano.label }} <span class="text-red-500">*</span></label>
+        {{ form.ano }}
+        {% for erro in form.ano.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+      </div>
+      <div>
+        <label for="{{ form.referencia.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.referencia.label }} <span class="text-red-500">*</span></label>
+        {{ form.referencia }}
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Identificador interno da série (ex.: NORMAL).</p>
+        {% for erro in form.referencia.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+      </div>
+      <div>
+        <label for="{{ form.estabelecimento.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.estabelecimento.label }}</label>
+        {{ form.estabelecimento }}
+        {% for erro in form.estabelecimento.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+      </div>
+      <div>
+        <label for="{{ form.numero_inicial.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.numero_inicial.label }}</label>
+        {{ form.numero_inicial }}
+        {% for erro in form.numero_inicial.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+      </div>
+      <div class="flex items-center gap-3">
+        {{ form.contingencia }}
+        <label for="{{ form.contingencia.id_for_label }}" class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ form.contingencia.label }}</label>
+        {% for erro in form.contingencia.errors %}<p class="text-red-500 text-xs">{{ erro }}</p>{% endfor %}
+      </div>
+    </div>
+
+    <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3">
+      <a href="{% url 'financeiro:serie_fatura_eletronica_lista' %}"
+         class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        Cancelar
+      </a>
+      <button type="submit"
+              class="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2">
+        <i class="fas fa-save"></i> Guardar
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

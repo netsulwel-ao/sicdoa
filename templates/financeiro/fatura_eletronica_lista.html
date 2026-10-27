@@ -111,6 +111,8 @@
             <td class="px-6 py-4 text-center estado-col">
               {% if fatura.estado == 'Rascunho' %}
                 <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Rascunho</span>
+              {% elif fatura.estado == 'Em Fila' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 animate-pulse">Em Fila</span>
               {% elif fatura.estado == 'Enviada AGT' %}
                 <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 animate-pulse">Enviada AGT</span>
               {% elif fatura.estado == 'Aprovada AGT' %}
@@ -260,9 +262,9 @@
     return true; // prossegue com o submit
   }
 
-  // 2. Short Polling para linhas em estado "Enviada AGT"
+  // 2. Short Polling para linhas em estado "Enviada AGT" ou "Em Fila"
   function executarPollingFaturas() {
-    const linhas = document.querySelectorAll('.linha-fatura[data-estado="Enviada AGT"]');
+    const linhas = document.querySelectorAll('.linha-fatura[data-estado="Enviada AGT"], .linha-fatura[data-estado="Em Fila"]');
     if (linhas.length === 0) return;
 
     const estadosUrl = '{% url "financeiro:fatura_eletronica_estados_json" %}';
@@ -292,6 +294,10 @@
             badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Rejeitada AGT</span>';
           } else if (novoEstado === 'Rascunho') {
             badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Rascunho</span>';
+          } else if (novoEstado === 'Em Fila') {
+            badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 animate-pulse">Em Fila</span>';
+          } else if (novoEstado === 'Enviada AGT') {
+            badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 animate-pulse">Enviada AGT</span>';
           }
           if (badgeHtml) estadoCol.innerHTML = badgeHtml;
 
@@ -339,8 +345,8 @@
       });
   }
 
-  // Corre o polling a cada 4 segundos se houver linhas "Enviada AGT"
-  if (document.querySelectorAll('.linha-fatura[data-estado="Enviada AGT"]').length > 0) {
+  // Corre o polling a cada 4 segundos se houver linhas "Enviada AGT" ou "Em Fila"
+  if (document.querySelectorAll('.linha-fatura[data-estado="Enviada AGT"], .linha-fatura[data-estado="Em Fila"]').length > 0) {
     setInterval(executarPollingFaturas, 4000);
   }
 

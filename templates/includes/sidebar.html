@@ -397,6 +397,22 @@
           <i class="fas fa-file-invoice-dollar text-base"></i>Fatura Eletrónica
         </a>
       </li>
+      <li>
+        <a href="{% url 'financeiro:serie_fatura_eletronica_lista' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'fatura_eletronica_series' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-list-ol text-base"></i>Séries AGT
+        </a>
+      </li>
+      {% if papel == 'Administrador' or papel == 'Super Administrador' or 'gerir_faturacao_agt' in user_permissoes %}
+      <li>
+        <a href="{% url 'financeiro:fatura_eletronica_configuracao' %}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
+                  {% if sub == 'fatura_eletronica_config' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+          <i class="fas fa-gear text-base"></i>Configuração AGT
+        </a>
+      </li>
+      {% endif %}
       {% endif %}
       <li class="border-t border-gray-100 dark:border-gray-700/60 my-1 pt-1"></li>
       {% if papel == 'Administrador' or papel == 'Super Administrador' or papel == 'Despachante Oficial' or 'gerir_financeiro' in user_permissoes or 'ver_conta_corrente' in user_permissoes %}

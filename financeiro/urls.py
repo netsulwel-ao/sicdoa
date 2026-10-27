@@ -105,7 +105,14 @@ urlpatterns = [
     path('fatura-eletronica/<int:pk>/enviar-agt/', views.fatura_eletronica_enviar_agt, name='fatura_eletronica_enviar_agt'),
     path('fatura-eletronica/<int:pk>/cancelar/', views.fatura_eletronica_cancelar, name='fatura_eletronica_cancelar'),
     path('fatura-eletronica/<int:pk>/pdf/', views.fatura_eletronica_pdf, name='fatura_eletronica_pdf'),
+    path('fatura-eletronica/<int:pk>/consultar-estado/', views.fatura_eletronica_consultar_estado, name='fatura_eletronica_consultar_estado'),
     path('fatura-eletronica/api/estados/', views.fatura_eletronica_estados_json, name='fatura_eletronica_estados_json'),
+    path('fatura-eletronica/configuracao/', views.fatura_eletronica_configuracao, name='fatura_eletronica_configuracao'),
+    path('fatura-eletronica/series/', views.SerieFaturaEletronicaListView.as_view(), name='serie_fatura_eletronica_lista'),
+    path('fatura-eletronica/series/criar/', views.SerieFaturaEletronicaCreateView.as_view(), name='serie_fatura_eletronica_criar'),
+    path('fatura-eletronica/series/<int:pk>/editar/', views.SerieFaturaEletronicaUpdateView.as_view(), name='serie_fatura_eletronica_editar'),
+    path('fatura-eletronica/series/<int:pk>/comunicar/', views.serie_fatura_eletronica_comunicar, name='serie_fatura_eletronica_comunicar'),
+    path('fatura-eletronica/series/<int:pk>/eliminar/', views.serie_fatura_eletronica_eliminar, name='serie_fatura_eletronica_eliminar'),
 
     # ─── Conta Corrente ──────────────────────────────────────────────────
     path('conta-corrente/', cc.ContaCorrenteHomeView.as_view(), name='conta_corrente_home'),

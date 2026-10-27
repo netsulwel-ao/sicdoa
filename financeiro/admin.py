@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo,
-    RequisicaoFundo, RequisicaoFundoLinha, FaturaEletronica
+    RequisicaoFundo, RequisicaoFundoLinha, FaturaEletronica,
+    ConfiguracaoAGT, SerieFaturaEletronica
 )
 
 
@@ -67,4 +68,20 @@ class FaturaEletronicaAdmin(admin.ModelAdmin):
         ('AGT', {'fields': ('estado', 'data_envio_agt', 'request_id', 'callback_url', 'observacoes', 'resposta_agt')}),
         ('Metadados', {'fields': ('criado_por_id', 'criado_por_nome')}),
     )
+
+
+@admin.register(ConfiguracaoAGT)
+class ConfiguracaoAGTAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'banca', 'ambiente', 'tax_registration_number', 'ativo', 'atualizado_em')
+    list_filter = ('ambiente', 'ativo', 'banca')
+    search_fields = ('tax_registration_number', 'product_id', 'software_validation_number')
+    readonly_fields = ('criado_em', 'atualizado_em')
+
+
+@admin.register(SerieFaturaEletronica)
+class SerieFaturaEletronicaAdmin(admin.ModelAdmin):
+    list_display = ('tipo_documento', 'ano', 'referencia', 'banca', 'codigo_fiscal', 'estado', 'numero_atual')
+    list_filter = ('estado', 'tipo_documento', 'ano', 'contingencia', 'banca')
+    search_fields = ('codigo_fiscal', 'referencia')
+    readonly_fields = ('codigo_fiscal', 'numero_final', 'numero_atual', 'data_comunicacao', 'erro_comunicacao', 'criado_em')
 

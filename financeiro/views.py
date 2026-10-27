@@ -1,4 +1,4 @@
-﻿import json
+import json
 import io
 import logging
 import html as _html_mod
@@ -27,13 +27,16 @@ from aduaneiro.models import DeclaracaoUnica
 from .models import (
     FacturaCliente, ReciboCliente, NotaCredito, NotaDebito,
     FacturaRecibo, HistoricoFinanceiro, registrar_historico,
-    RequisicaoFundo, RequisicaoFundoLinha, FaturaEletronica
+    RequisicaoFundo, RequisicaoFundoLinha, FaturaEletronica,
+    ConfiguracaoAGT, SerieFaturaEletronica,
 )
 from .forms import (
     FacturaClienteForm, ReciboClienteForm, ReciboClienteUpdateForm,
     NotaCreditoForm, NotaDebitoForm, FacturaReciboForm,
-    RequisicaoFundoForm, RequisicaoFundoLinhaForm, FaturaEletronicaForm
+    RequisicaoFundoForm, RequisicaoFundoLinhaForm, FaturaEletronicaForm,
+    ConfiguracaoAGTForm, SerieFaturaEletronicaForm,
 )
+from . import agt_service
 from utils.format_kz import fmt_kz
 
 logger = logging.getLogger(__name__)
@@ -242,16 +245,23 @@ def safe_pdf(view_func):
     return wrapper
 
 
+def _base_context(request):
+    """Contexto comum com os dados do utilizador e respetivas permissões."""
+    usuario = request.session.get('usuario')
+    from users.permissoes import get_usuario_permissoes
+    return {
+        'usuario': usuario,
+        'papel': (usuario or {}).get('papel', ''),
+        'nome': (usuario or {}).get('nome', ''),
+        'user_permissoes': get_usuario_permissoes(request),
+        'pode_escrever': _pode_escrever(request),
+    }
+
+
 class BaseContextMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        if self.request.session.get('usuario'):
-            context['usuario'] = self.request.session['usuario']
-            context['papel'] = self.request.session['usuario'].get('papel', '')
-            context['nome'] = self.request.session['usuario'].get('nome', '')
-        from users.permissoes import get_usuario_permissoes
-        context['user_permissoes'] = get_usuario_permissoes(self.request)
-        context['pode_escrever'] = _pode_escrever(self.request)
+        context.update(_base_context(self.request))
         return context
 
     def _resolve_usuario_id(self):
@@ -2447,41 +2457,43 @@ def fatura_eletronica_dashboard_json(request):
 
 def _mapear_estado_agt(valor):
     """Normaliza os estados devolvidos pela AGT para o ciclo de vida local."""
-    if not valor:
-        return None
-    valor = str(valor).strip().lower()
-    mapa = {
-        'aprovada': 'Aprovada AGT', 'aprovado': 'Aprovada AGT', 'approved': 'Aprovada AGT',
-        'aceite': 'Aprovada AGT', 'success': 'Aprovada AGT', 'ok': 'Aprovada AGT',
-        'rejeitada': 'Rejeitada AGT', 'rejeitado': 'Rejeitada AGT',
-        'rejected': 'Rejeitada AGT', 'erro': 'Rejeitada AGT', 'error': 'Rejeitada AGT',
-        'cancelada': 'Cancelada', 'cancelado': 'Cancelada',
-        'cancelled': 'Cancelada', 'canceled': 'Cancelada',
-        'enviada': 'Enviada AGT', 'enviado': 'Enviada AGT', 'submitted': 'Enviada AGT',
-        'pendente': 'Enviada AGT', 'processing': 'Enviada AGT', 'em processamento': 'Enviada AGT',
-    }
-    return mapa.get(valor)
+    return agt_service.mapear_estado(valor)
 
 
 @requer_sessao_ativa
 @require_POST
 def fatura_eletronica_enviar_agt(request, pk):
-    """Submete o documento à API de Faturação Eletrónica da AGT.
+    """Coloca o documento na fila de submissão à AGT.
 
-    A AGT confirma o processamento de forma assíncrona no callback público
-    (`fatura_eletronica_callback_agt`). Em caso de falha de comunicação o
-    documento volta a Rascunho para permitir nova tentativa.
+    O envio efectivo é feito em segundo plano pelo comando ``enviar_faturas_agt``
+    (agendado no APScheduler), para não bloquear o pedido HTTP. A AGT confirma o
+    processamento de forma assíncrona no callback público
+    (`fatura_eletronica_callback_agt`).
     """
-    import uuid
-    import requests
-
     fatura = _get_object_or_404_com_scope(request, FaturaEletronica, pk)
 
     if fatura.estado != 'Rascunho':
         messages.error(request, f'A fatura eletrónica já está em estado {fatura.get_estado_display()}.')
         return redirect('financeiro:fatura_eletronica_detalhe', pk=pk)
 
-    callback_url = (fatura.callback_url or getattr(settings, 'AGT_CALLBACK_URL', '') or '').strip()
+    config = ConfiguracaoAGT.obter(fatura.banca_id)
+    if config is None or not config.configurada:
+        messages.error(
+            request,
+            'A integração AGT não está configurada (NIF, nº de certificação do software '
+            'e chaves de assinatura). Configure em Fatura Eletrónica → Configuração AGT.',
+        )
+        return redirect('financeiro:fatura_eletronica_detalhe', pk=pk)
+
+    if agt_service.resolver_serie(fatura) is None:
+        messages.error(
+            request,
+            'Não existe uma série AGT comunicada para este tipo de documento. '
+            'Crie e comunique uma série em Fatura Eletrónica → Séries.',
+        )
+        return redirect('financeiro:fatura_eletronica_detalhe', pk=pk)
+
+    callback_url = (fatura.callback_url or config.get_callback_url()).strip()
     if not callback_url:
         messages.error(request, 'Configure o Callback URL antes de enviar para a AGT.')
         return redirect('financeiro:fatura_eletronica_detalhe', pk=pk)
@@ -2492,7 +2504,6 @@ def fatura_eletronica_enviar_agt(request, pk):
     if not fatura.total_geral:
         fatura.total_geral = fatura.calcular_total()
     else:
-        # Mantém o total sincronizado com a origem, caso esta tenha sido alterada.
         total_atual = fatura.calcular_total()
         if total_atual:
             fatura.total_geral = total_atual
@@ -2500,104 +2511,25 @@ def fatura_eletronica_enviar_agt(request, pk):
         messages.error(request, 'O documento não tem valor associado. Verifique a origem selecionada.')
         return redirect('financeiro:fatura_eletronica_detalhe', pk=pk)
 
-    agt_submit_url = getattr(
-        settings, 'AGT_API_SUBMIT_URL',
-        f"{getattr(settings, 'AGT_API_HML_URL', 'https://portaldoparceiro.hml.minfin.gov.ao')}"
-        '/api/fatura-electronica/submit/',
-    )
-    timeout = getattr(settings, 'AGT_TIMEOUT', 30)
-
-    request_id = str(uuid.uuid4())
-    fatura.request_id = request_id
     fatura.callback_url = callback_url
-    fatura.estado = 'Enviada AGT'
-    fatura.data_envio_agt = timezone.now()
-    fatura.save(update_fields=[
-        'request_id', 'callback_url', 'estado', 'data_envio_agt', 'total_geral',
-    ])
+    fatura.estado = 'Em Fila'
+    fatura.tentativas_envio = 0
+    fatura.save(update_fields=['callback_url', 'estado', 'tentativas_envio', 'total_geral'])
 
-    payload = {
-        'request_id': request_id,
-        'numero_fatura': fatura.numero_fatura,
-        'tipo_documento': fatura.tipo_documento,
-        'data_emissao': fatura.data_emissao.isoformat(),
-        'cliente': {
-            'nome': fatura.cliente.nome,
-            'nif': fatura.cliente.nif or '',
-        },
-        'total': str(fatura.total_geral),
-        'moeda': 'AOA',
-        'callback_url': callback_url,
-    }
-
-    def _registar(accao, estado_novo):
-        registrar_historico(
-            'FaturaEletronica', fatura.pk, fatura.numero_fatura, accao,
-            estado_anterior='Rascunho', estado_novo=estado_novo,
-            valor=fatura.total_geral,
-            utilizador_id=request.session.get('usuario_id'),
-            utilizador_nome=(request.session.get('usuario') or {}).get('nome', ''),
-            cliente_nome=fatura.cliente.nome,
-            banca_id=fatura.banca_id, filial_id=fatura.filial_id,
-        )
-
-    def _reverter_para_rascunho(motivo):
-        fatura.estado = 'Rascunho'
-        fatura.request_id = None
-        fatura.data_envio_agt = None
-        fatura.resposta_agt = str(motivo)[:20000]
-        fatura.save(update_fields=[
-            'estado', 'request_id', 'data_envio_agt', 'resposta_agt',
-        ])
-        _registar('Erro no envio', 'Rascunho')
-
-    try:
-        response = requests.post(agt_submit_url, json=payload, timeout=timeout)
-        fatura.resposta_agt = (response.text or '')[:20000]
-
-        if 200 <= response.status_code < 300:
-            try:
-                data = response.json()
-            except ValueError:
-                data = {}
-            if not isinstance(data, dict):
-                data = {}
-
-            estado = _mapear_estado_agt(data.get('estado') or data.get('status') or data.get('state'))
-            if estado:
-                fatura.estado = estado
-            fatura.save(update_fields=['resposta_agt', 'estado'])
-            _registar('Enviada para AGT', fatura.estado)
-            messages.success(
-                request,
-                f'Documento submetido à AGT. Request ID: {request_id}. '
-                'O estado final será atualizado pelo callback da AGT.',
-            )
-        elif response.status_code in (400, 422):
-            # A AGT processou o pedido e rejeitou o documento.
-            fatura.estado = 'Rejeitada AGT'
-            fatura.save(update_fields=['resposta_agt', 'estado'])
-            _registar('Rejeitada pela AGT', 'Rejeitada AGT')
-            messages.error(
-                request,
-                f'A AGT rejeitou o documento (HTTP {response.status_code}). '
-                'Consulte a resposta no detalhe.',
-            )
-        else:
-            # Falha de infraestrutura/autenticação: permite nova tentativa.
-            _reverter_para_rascunho(
-                f'HTTP {response.status_code}: {(response.text or "")[:1000]}'
-            )
-            messages.error(
-                request,
-                f'Falha de comunicação com a AGT (HTTP {response.status_code}). '
-                'O documento voltou a Rascunho.',
-            )
-    except Exception as exc:  # falha de rede/timeout/JSON inesperado
-        logger.exception('Falha ao submeter fatura eletrónica à AGT')
-        _reverter_para_rascunho(exc)
-        messages.error(request, f'Erro de comunicação com a AGT: {exc}')
-
+    registrar_historico(
+        'FaturaEletronica', fatura.pk, fatura.numero_fatura, 'Adicionada à fila de envio',
+        estado_anterior='Rascunho', estado_novo='Em Fila',
+        valor=fatura.total_geral,
+        utilizador_id=request.session.get('usuario_id'),
+        utilizador_nome=(request.session.get('usuario') or {}).get('nome', ''),
+        cliente_nome=fatura.cliente.nome,
+        banca_id=fatura.banca_id, filial_id=fatura.filial_id,
+    )
+    messages.success(
+        request,
+        'Documento adicionado à fila de envio à AGT. O estado é atualizado '
+        'automaticamente após o registo e validação.',
+    )
     return redirect('financeiro:fatura_eletronica_detalhe', pk=pk)
 
 
@@ -2801,7 +2733,8 @@ def fatura_eletronica_estados_json(request):
         pass
 
     dados = list(
-        qs.values('pk', 'numero_fatura', 'estado', 'resposta_agt', 'observacoes', 'total_geral')
+        qs.values('pk', 'numero_fatura', 'estado', 'resposta_agt', 'observacoes',
+                  'total_geral', 'request_id', 'document_no')
     )
     # Converte Decimal para string para serialização JSON.
     for item in dados:
@@ -2816,22 +2749,14 @@ def fatura_eletronica_callback_agt(request):
     """Webhook público para a AGT confirmar o processamento assíncrono.
 
     Não exige sessão porque a AGT invoca este endpoint servidor-a-servidor.
-    O documento é identificado pelo `request_id`; quando
-    `settings.AGT_CALLBACK_SECRET` está definido, é validada a assinatura
-    HMAC-SHA256 enviada no cabeçalho `X-AGT-Signature`.
+    A assinatura é validada por ordem de preferência:
+      1. JWS RS256 no cabeçalho `X-AGT-Signature` (ou campo `jwsSignature`),
+         verificada com a chave pública da AGT configurada;
+      2. HMAC-SHA256 (`settings.AGT_CALLBACK_SECRET`) como compatibilidade.
+
+    O documento é identificado pelo `request_id` (ou pelo `documentNo`).
     """
     raw = request.body or b''
-
-    secret = (getattr(settings, 'AGT_CALLBACK_SECRET', '') or '').strip()
-    if secret:
-        import hashlib
-        import hmac
-        assinatura = (request.headers.get('X-AGT-Signature') or '').strip().lower()
-        esperado = hmac.new(secret.encode('utf-8'), raw, hashlib.sha256).hexdigest()
-        if not assinatura or not hmac.compare_digest(assinatura, esperado):
-            return JsonResponse(
-                {'status': 'error', 'message': 'Assinatura inválida.'}, status=401
-            )
 
     data = None
     if raw:
@@ -2847,29 +2772,21 @@ def fatura_eletronica_callback_agt(request):
         )
 
     request_id = str(
-        data.get('request_id') or data.get('requestId') or data.get('id') or ''
+        data.get('request_id') or data.get('requestID') or data.get('requestId')
+        or data.get('id') or ''
     ).strip()
-    numero_fatura = str(
-        data.get('numero_fatura') or data.get('numeroFatura')
+    document_no = str(
+        data.get('documentNo') or data.get('numero_fatura') or data.get('numeroFatura')
         or data.get('documento_numero') or ''
     ).strip()
-
-    # Sem assinatura configurada, exige o UUID opaco para evitar spoofing por
-    # número de documento (que é sequencial e adivinhável).
-    if not request_id and not secret:
-        return JsonResponse(
-            {'status': 'error', 'message': 'request_id obrigatório.'}, status=400
-        )
 
     fatura = None
     if request_id:
         fatura = FaturaEletronica.objects.filter(request_id=request_id).first()
-    if fatura is None and numero_fatura:
+    if fatura is None and document_no:
         fatura = (
-            FaturaEletronica.objects
-            .filter(numero_fatura=numero_fatura)
-            .order_by('-pk')
-            .first()
+            FaturaEletronica.objects.filter(document_no=document_no).order_by('-pk').first()
+            or FaturaEletronica.objects.filter(numero_fatura=document_no).order_by('-pk').first()
         )
     if fatura is None:
         return JsonResponse(
@@ -2880,9 +2797,36 @@ def fatura_eletronica_callback_agt(request):
             {'status': 'error', 'message': 'Documento cancelado.'}, status=409
         )
 
+    config = ConfiguracaoAGT.obter(fatura.banca_id)
+    secret = (getattr(settings, 'AGT_CALLBACK_SECRET', '') or '').strip()
+    if config is None and not secret:
+        return JsonResponse(
+            {'status': 'error', 'message': 'Integração AGT não configurada para validar o callback.'},
+            status=401,
+        )
+
+    assinatura = (
+        request.headers.get('X-AGT-Signature')
+        or request.headers.get('X-Signature')
+        or ''
+    )
+    try:
+        agt_service.verificar_assinatura_callback(assinatura, data, config, secret)
+    except agt_service.AGTErro as exc:
+        logger.warning('Callback AGT rejeitado: %s', exc)
+        return JsonResponse({'status': 'error', 'message': str(exc)}, status=401)
+
     estado = _mapear_estado_agt(
         data.get('estado') or data.get('status') or data.get('state')
     )
+    if not estado:
+        # O callback da AGT confirma o pedido: sem estado explícito, deriva
+        # 'Rejeitada AGT' quando há erros no resultado, senão 'Aprovada AGT'.
+        erros = data.get('errorList') or data.get('requestErrorList') or []
+        if erros or data.get('rejectedDocumentNo'):
+            estado = 'Rejeitada AGT'
+        else:
+            estado = 'Aprovada AGT'
     if not estado:
         return JsonResponse(
             {'status': 'error', 'message': 'Estado inválido.'}, status=400
@@ -2912,6 +2856,226 @@ def fatura_eletronica_callback_agt(request):
         'numero_fatura': fatura.numero_fatura,
         'estado': fatura.estado,
     })
+
+
+@requer_sessao_ativa
+@require_POST
+def fatura_eletronica_consultar_estado(request, pk):
+    """Consulta manualmente o estado do documento na AGT (obterEstado).
+
+    Serve de reconciliação quando o callback da AGT não chega: atualiza o
+    estado local (ex.: 'Enviada AGT' -> 'Aprovada AGT' / 'Rejeitada AGT').
+    """
+    fatura = get_object_or_404(FaturaEletronica, pk=pk)
+
+    try:
+        resultado = agt_service.reconciliar_fatura(fatura)
+    except agt_service.AGTErro as exc:
+        messages.error(request, f'Erro ao consultar a AGT: {exc}')
+        return redirect('financeiro:fatura_eletronica_detalhe', pk=fatura.pk)
+
+    if not resultado.get('ok'):
+        messages.warning(request, resultado.get('motivo') or 'Não foi possível consultar o estado.')
+    elif resultado.get('alterado'):
+        messages.success(request, f'Estado atualizado: {resultado.get("estado")}.')
+    else:
+        messages.info(request, resultado.get('motivo') or 'Estado confirmado sem alterações.')
+
+    return redirect('financeiro:fatura_eletronica_detalhe', pk=fatura.pk)
+
+
+# ═══ Configuração AGT ═════════════════════════════════════════════════════════
+
+def _resolver_banca_id(request):
+    """Resolve a banca do utilizador, preenchendo a sessão quando possível."""
+    banca_id = request.session.get('banca_id')
+    if banca_id:
+        return banca_id
+    from rh.models import Colaborador as _Col
+    if request.session.get('tipo_usuario') == 'colaborador':
+        col = _Col.objects.filter(pk=request.session.get('colaborador_id')).first()
+    else:
+        col = _Col.objects.filter(usuario_id=request.session.get('usuario_id')).first()
+    if col and col.banca_id:
+        request.session['banca_id'] = col.banca_id
+        if col.filial_id and not request.session.get('colaborador_filial_id'):
+            request.session['colaborador_filial_id'] = col.filial_id
+        return col.banca_id
+    return None
+
+
+@requer_sessao_ativa
+def fatura_eletronica_configuracao(request):
+    """Edita a configuração da integração AGT da banca (ou a global)."""
+    banca_id = _resolver_banca_id(request)
+    if banca_id:
+        config = (
+            ConfiguracaoAGT.objects.filter(banca_id=banca_id)
+            .order_by('-atualizado_em').first()
+        )
+    else:
+        config = (
+            ConfiguracaoAGT.objects.filter(banca__isnull=True)
+            .order_by('-atualizado_em').first()
+        )
+
+    if request.method == 'POST':
+        form = ConfiguracaoAGTForm(request.POST, instance=config, request=request)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.banca_id = banca_id
+            obj.save()
+            messages.success(request, 'Configuração AGT guardada com sucesso.')
+            return redirect('financeiro:fatura_eletronica_configuracao')
+        messages.error(request, 'Corrija os erros assinalados no formulário.')
+    else:
+        form = ConfiguracaoAGTForm(instance=config, request=request)
+
+    context = _base_context(request)
+    context.update({
+        'form': form,
+        'config': config,
+        'configurada': bool(config and config.configurada),
+        'callback_url_publica': request.build_absolute_uri(
+            reverse('fatura_eletronica_callback_agt')
+        ),
+        'active_menu': 'Financeiro',
+        'active_sub': 'fatura_eletronica_config',
+    })
+    return render(request, 'financeiro/fatura_eletronica_configuracao.html', context)
+
+
+# ═══ Séries de Fatura Eletrónica ═════════════════════════════════════════════
+
+@method_decorator(requer_sessao_ativa, name='dispatch')
+class SerieFaturaEletronicaListView(BaseContextMixin, ListView):
+    model = SerieFaturaEletronica
+    template_name = 'financeiro/serie_fatura_eletronica_lista.html'
+    context_object_name = 'series'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_related('banca')
+        banca_id = self.request.session.get('banca_id')
+        if banca_id:
+            qs = qs.filter(db_models.Q(banca_id=banca_id) | db_models.Q(banca__isnull=True))
+        return qs.order_by('-ano', 'tipo_documento', 'referencia')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_menu'] = 'Financeiro'
+        context['active_sub'] = 'fatura_eletronica_series'
+        context['tipos_documento'] = SerieFaturaEletronica.TIPOS_DOCUMENTO
+        return context
+
+
+class _SerieFaturaEletronicaFormMixin(BaseContextMixin):
+    model = SerieFaturaEletronica
+    form_class = SerieFaturaEletronicaForm
+    template_name = 'financeiro/serie_fatura_eletronica_form.html'
+    success_url = reverse_lazy('financeiro:serie_fatura_eletronica_lista')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_menu'] = 'Financeiro'
+        context['active_sub'] = 'fatura_eletronica_series'
+        return context
+
+
+@method_decorator(requer_sessao_ativa, name='dispatch')
+class SerieFaturaEletronicaCreateView(_SerieFaturaEletronicaFormMixin, CreateView):
+    def form_valid(self, form):
+        banca_id = _resolver_banca_id(self.request)
+        if banca_id:
+            form.instance.banca_id = banca_id
+        form.instance.estado = 'Rascunho'
+        messages.success(
+            self.request,
+            'Série criada. Comunique-a à AGT para obter o código fiscal autorizado.',
+        )
+        return super().form_valid(form)
+
+
+@method_decorator(requer_sessao_ativa, name='dispatch')
+class SerieFaturaEletronicaUpdateView(_SerieFaturaEletronicaFormMixin, UpdateView):
+    def form_valid(self, form):
+        messages.success(self.request, 'Série atualizada com sucesso.')
+        return super().form_valid(form)
+
+
+@requer_sessao_ativa
+@require_POST
+def serie_fatura_eletronica_comunicar(request, pk):
+    """Comunica a série à AGT (serviço solicitarSerie) e guarda o código fiscal."""
+    serie = get_object_or_404(SerieFaturaEletronica, pk=pk)
+
+    if serie.estado == 'Comunicada':
+        messages.error(request, 'Esta série já está comunicada à AGT.')
+        return redirect('financeiro:serie_fatura_eletronica_lista')
+
+    config = ConfiguracaoAGT.obter(serie.banca_id or request.session.get('banca_id'))
+    if config is None or not config.configurada:
+        messages.error(
+            request,
+            'A integração AGT não está configurada (NIF, certificação do software e chaves).',
+        )
+        return redirect('financeiro:fatura_eletronica_configuracao')
+
+    try:
+        resultado = agt_service.solicitar_serie(serie, config)
+    except agt_service.AGTErro as exc:
+        serie.estado = 'Rejeitada'
+        serie.erro_comunicacao = str(exc)[:5000]
+        serie.save(update_fields=['estado', 'erro_comunicacao'])
+        messages.error(request, f'Erro de comunicação com a AGT: {exc}')
+        return redirect('financeiro:serie_fatura_eletronica_lista')
+
+    if resultado.get('ok'):
+        serie.codigo_fiscal = resultado.get('codigo_fiscal') or serie.codigo_fiscal
+        if resultado.get('primeiro_numero'):
+            serie.numero_inicial = int(resultado['primeiro_numero'])
+        serie.numero_final = resultado.get('ultimo_numero') or serie.numero_final
+        serie.estado = 'Comunicada'
+        serie.data_comunicacao = timezone.now()
+        serie.erro_comunicacao = ''
+        serie.save(update_fields=[
+            'codigo_fiscal', 'numero_inicial', 'numero_final',
+            'estado', 'data_comunicacao', 'erro_comunicacao',
+        ])
+        messages.success(
+            request,
+            f'Série comunicada à AGT. Código atribuído: {serie.codigo_fiscal}.',
+        )
+    else:
+        serie.estado = 'Rejeitada'
+        serie.erro_comunicacao = json.dumps(
+            resultado.get('erros') or resultado.get('resposta'), ensure_ascii=False
+        )[:5000]
+        serie.save(update_fields=['estado', 'erro_comunicacao'])
+        messages.error(
+            request,
+            'A AGT rejeitou a comunicação da série. Consulte os erros na lista.',
+        )
+
+    return redirect('financeiro:serie_fatura_eletronica_lista')
+
+
+@requer_sessao_ativa
+@require_POST
+def serie_fatura_eletronica_eliminar(request, pk):
+    """Elimina uma série em Rascunho ou Rejeitada."""
+    serie = get_object_or_404(SerieFaturaEletronica, pk=pk)
+    if serie.estado == 'Comunicada':
+        messages.error(request, 'Não é possível eliminar uma série já comunicada à AGT.')
+        return redirect('financeiro:serie_fatura_eletronica_lista')
+    serie.delete()
+    messages.success(request, 'Série eliminada.')
+    return redirect('financeiro:serie_fatura_eletronica_lista')
 
 
 def _get_object_or_404_com_scope(request, model, pk, scope_field='cliente__usuario_id'):

@@ -23,6 +23,8 @@
       <div>
         {% if fatura_eletronica.estado == 'Rascunho' %}
           <span class="inline-flex px-3 py-1.5 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Rascunho</span>
+        {% elif fatura_eletronica.estado == 'Em Fila' %}
+          <span class="inline-flex px-3 py-1.5 text-sm font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 animate-pulse">Em Fila</span>
         {% elif fatura_eletronica.estado == 'Enviada AGT' %}
           <span class="inline-flex px-3 py-1.5 text-sm font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 animate-pulse">Enviada AGT</span>
         {% elif fatura_eletronica.estado == 'Aprovada AGT' %}
@@ -186,7 +188,17 @@
       </button>
     </form>
     {% endif %}
-    {% if pode_escrever %}{% if fatura_eletronica.estado == 'Rascunho' or fatura_eletronica.estado == 'Rejeitada AGT' %}
+    {% if pode_escrever and fatura_eletronica.estado == 'Enviada AGT' %}
+    <form method="post" action="{% url 'financeiro:fatura_eletronica_consultar_estado' fatura_eletronica.pk %}" class="flex-1">
+      {% csrf_token %}
+      <button type="submit"
+              class="w-full px-4 py-2.5 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-xl font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2"
+              onclick="return confirm('Consultar o estado atual na AGT?');">
+        <i class="fas fa-rotate"></i> Consultar Estado AGT
+      </button>
+    </form>
+    {% endif %}
+    {% if pode_escrever %}{% if fatura_eletronica.estado == 'Rascunho' or fatura_eletronica.estado == 'Em Fila' or fatura_eletronica.estado == 'Rejeitada AGT' %}
     <form method="post" action="{% url 'financeiro:fatura_eletronica_cancelar' fatura_eletronica.pk %}" class="sm:w-48">
       {% csrf_token %}
       <button type="submit"
@@ -268,7 +280,7 @@
           {% if codigo == fatura_eletronica.estado %}bg-primary text-white shadow-lg
           {% elif codigo == 'Rascunho' %}bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300
           {% else %}bg-gray-100 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500{% endif %}">
-          {% if codigo == 'Rascunho' %}1{% elif codigo == 'Enviada AGT' %}2{% elif codigo == 'Aprovada AGT' or codigo == 'Rejeitada AGT' %}3{% else %}X{% endif %}
+          {% if codigo == 'Rascunho' %}1{% elif codigo == 'Em Fila' %}2{% elif codigo == 'Enviada AGT' %}3{% elif codigo == 'Aprovada AGT' or codigo == 'Rejeitada AGT' %}4{% else %}X{% endif %}
         </div>
         <p class="text-xs text-center text-gray-600 dark:text-gray-300 leading-tight">
           {% if codigo == fatura_eletronica.estado %}<strong>{{ label }}</strong>{% else %}{{ label }}{% endif %}
@@ -278,7 +290,7 @@
       {% endfor %}
     </div>
     <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-      Fluxo: Rascunho → Enviada AGT → Aprovada AGT / Rejeitada AGT · Cancelamento permitido apenas em Rascunho ou Rejeitada AGT.
+      Fluxo: Rascunho → Em Fila → Enviada AGT → Aprovada AGT / Rejeitada AGT · Cancelamento permitido em Rascunho, Em Fila ou Rejeitada AGT.
     </p>
   </div>
 

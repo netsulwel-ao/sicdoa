@@ -47,6 +47,34 @@
       </div>
     </div>
 
+    <!-- Passo 1b: Referência ao documento original (NC/ND) -->
+    <div id="blocoReferencia" class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4 hidden">
+      <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+        <i class="fas fa-file-invoice text-primary"></i> Referência ao documento de origem
+      </h3>
+
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        As notas de crédito/débito têm de referenciar o documento fiscal original já registado na AGT.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="{{ form.documento_origem_ref.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Documento Fiscal de Origem <span class="text-red-500">*</span>
+          </label>
+          {{ form.documento_origem_ref }}
+          {% for error in form.documento_origem_ref.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.motivo_ref.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Motivo
+          </label>
+          {{ form.motivo_ref }}
+          {% for error in form.motivo_ref.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
     <!-- Passo 2: Documento de origem -->
     <div class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
       <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
@@ -135,11 +163,28 @@
 
 <script>
   const clienteSelect = document.getElementById('{{ form.cliente.id_for_label }}');
+  const tipoSelect = document.getElementById('{{ form.tipo_documento.id_for_label }}');
   const facturaSelect = document.getElementById('{{ form.factura_cliente.id_for_label }}');
   const requisicaoSelect = document.getElementById('{{ form.requisicao_fundo.id_for_label }}');
   const origemResumo = document.getElementById('origemResumo');
   const origemDetalhe = document.getElementById('origemDetalhe');
   const origemValor = document.getElementById('origemValor');
+  const blocoReferencia = document.getElementById('blocoReferencia');
+
+  // Mostra a referência ao documento original apenas para NC/ND.
+  function atualizarBlocoReferencia() {
+    if (!blocoReferencia || !tipoSelect) return;
+    const tipo = tipoSelect.value;
+    if (tipo === 'NOTA_CREDITO' || tipo === 'NOTA_DEBITO') {
+      blocoReferencia.classList.remove('hidden');
+    } else {
+      blocoReferencia.classList.add('hidden');
+    }
+  }
+  if (tipoSelect) {
+    tipoSelect.addEventListener('change', atualizarBlocoReferencia);
+    atualizarBlocoReferencia();
+  }
 
   const callbackInput = document.getElementById('{{ form.callback_url.id_for_label }}');
   const sugerirBtn = document.getElementById('sugerirCallback');
