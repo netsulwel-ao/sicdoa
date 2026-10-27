@@ -104,6 +104,8 @@ urlpatterns = [
     path('fatura-eletronica/<int:pk>/', views.FaturaEletronicaDetailView.as_view(), name='fatura_eletronica_detalhe'),
     path('fatura-eletronica/<int:pk>/enviar-agt/', views.fatura_eletronica_enviar_agt, name='fatura_eletronica_enviar_agt'),
     path('fatura-eletronica/<int:pk>/cancelar/', views.fatura_eletronica_cancelar, name='fatura_eletronica_cancelar'),
+    path('fatura-eletronica/<int:pk>/pdf/', views.fatura_eletronica_pdf, name='fatura_eletronica_pdf'),
+    path('fatura-eletronica/api/estados/', views.fatura_eletronica_estados_json, name='fatura_eletronica_estados_json'),
 
     # ─── Conta Corrente ──────────────────────────────────────────────────
     path('conta-corrente/', cc.ContaCorrenteHomeView.as_view(), name='conta_corrente_home'),

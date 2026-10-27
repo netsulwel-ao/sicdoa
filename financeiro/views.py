@@ -2640,6 +2640,176 @@ def fatura_eletronica_cancelar(request, pk):
     return redirect('financeiro:fatura_eletronica_detalhe', pk=pk)
 
 
+@requer_sessao_ativa
+def fatura_eletronica_pdf(request, pk):
+    """Gera PDF da Fatura Eletrónica validada pela AGT.
+
+    Só está disponível quando o estado é 'Aprovada AGT' (download condicional).
+    """
+    fatura = _get_object_or_404_com_scope(request, FaturaEletronica, pk)
+
+    if fatura.estado != 'Aprovada AGT':
+        messages.error(
+            request,
+            'O PDF da fatura eletrónica só pode ser gerado após a validação pela AGT '
+            '(estado: Aprovada AGT).'
+        )
+        return redirect('financeiro:fatura_eletronica_detalhe', pk=pk)
+
+    buffer = io.BytesIO()
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import (
+        Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    )
+    from reportlab.platypus.flowables import HRFlowable
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+
+    PAGE_W, PAGE_H = A4
+    MARGIN = 1.2 * cm
+    W = PAGE_W - 2 * MARGIN
+
+    COR_PRETO = colors.HexColor('#0f172a')
+    COR_CINZA = colors.HexColor('#64748b')
+    COR_CLARO = colors.HexColor('#f1f5f9')
+    COR_BORDA = colors.HexColor('#cbd5e1')
+    COR_PRIMARIO = colors.HexColor('#0f172a')
+    COR_VERDE = colors.HexColor('#059669')
+
+    def st(name, **kw):
+        defaults = dict(fontName='Helvetica', fontSize=9, textColor=COR_PRETO, leading=12)
+        defaults.update(kw)
+        return ParagraphStyle(name, **defaults)
+
+    s_titulo = st('titulo', fontName='Helvetica-Bold', fontSize=16, textColor=COR_PRIMARIO, alignment=TA_CENTER, leading=20)
+    s_subtitulo = st('subtitulo', fontSize=10, textColor=COR_CINZA, alignment=TA_CENTER, leading=13)
+    s_normal = st('normal')
+    s_bold = st('bold', fontName='Helvetica-Bold')
+    s_right = st('right', alignment=TA_RIGHT)
+    s_center = st('center', alignment=TA_CENTER)
+    s_th = st('th', fontName='Helvetica-Bold', fontSize=8, textColor=colors.white, alignment=TA_CENTER, leading=10)
+    s_td = st('td', fontSize=8, leading=10)
+    s_td_right = st('td_r', fontSize=8, leading=10, alignment=TA_RIGHT)
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=MARGIN, rightMargin=MARGIN,
+        topMargin=1.0 * cm, bottomMargin=1.2 * cm,
+        title=f'Fatura Eletronica {fatura.numero_fatura}',
+        author='SICDOA',
+    )
+
+    elementos = []
+
+    # ── Cabeçalho ───────────────────────────────────────────────────────────────
+    elementos.append(Paragraph('FATURA ELETRÓNICA — AGT', s_titulo))
+    elementos.append(Paragraph('Documento fiscal validado pela Administração Geral Tributária (AGT)', s_subtitulo))
+    elementos.append(Spacer(1, 0.4 * cm))
+    elementos.append(HRFlowable(width='100%', thickness=1.2, color=COR_PRIMARIO))
+    elementos.append(Spacer(1, 0.4 * cm))
+
+    # ── Dados do documento ──────────────────────────────────────────────────────
+    dados = [
+        ['Número da Fatura', fatura.numero_fatura],
+        ['Tipo de Documento', fatura.get_tipo_documento_display()],
+        ['Estado', 'Aprovada AGT'],
+        ['Cliente', fatura.cliente.nome],
+        ['NIF do Cliente', fatura.cliente.nif or '—'],
+        ['Total', f'{fatura.total_geral:,.2f} KZ'.replace(',', 'X').replace('.', ',').replace('X', '.')],
+        ['Data de Emissão', fatura.data_emissao.strftime('%d/%m/%Y %H:%M')],
+        ['Enviada à AGT em', fatura.data_envio_agt.strftime('%d/%m/%Y %H:%M') if fatura.data_envio_agt else '—'],
+        ['Request ID AGT', fatura.request_id or '—'],
+        ['Banca', fatura.banca.nome if fatura.banca else '—'],
+        ['Filial', fatura.filial.provincia if fatura.filial else '—'],
+        ['Criado por', fatura.criado_por_nome or '—'],
+    ]
+
+    tabela = Table(
+        [[Paragraph(f'<b>{k}</b>', s_td), Paragraph(v, s_td)] for k, v in dados],
+        colWidths=[5.2 * cm, W - 5.2 * cm],
+    )
+    tabela.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, COR_BORDA),
+        ('BACKGROUND', (0, 0), (0, -1), COR_CLARO),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elementos.append(tabela)
+    elementos.append(Spacer(1, 0.5 * cm))
+
+    # ── Resposta da AGT ─────────────────────────────────────────────────────────
+    if fatura.resposta_agt:
+        elementos.append(Paragraph('Resposta da AGT', s_bold))
+        elementos.append(Spacer(1, 0.15 * cm))
+        elementos.append(Paragraph(str(fatura.resposta_agt)[:2000], s_normal))
+        elementos.append(Spacer(1, 0.4 * cm))
+
+    # ── Observações ─────────────────────────────────────────────────────────────
+    if fatura.observacoes:
+        elementos.append(Paragraph('Observações', s_bold))
+        elementos.append(Spacer(1, 0.15 * cm))
+        elementos.append(Paragraph(fatura.observacoes, s_normal))
+        elementos.append(Spacer(1, 0.4 * cm))
+
+    # ── Rodapé ──────────────────────────────────────────────────────────────────
+    elementos.append(HRFlowable(width='100%', thickness=0.8, color=COR_BORDA))
+    elementos.append(Spacer(1, 0.2 * cm))
+    elementos.append(Paragraph(
+        f'Gerado pelo SICDOA em {datetime.now().strftime("%d/%m/%Y %H:%M")} '
+        f'| Documento validado pela AGT — Request ID: {fatura.request_id or "—"}',
+        st('rodape', fontSize=7, textColor=COR_CINZA, alignment=TA_CENTER, leading=9),
+    ))
+
+    doc.build(elementos)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="fatura_eletronica_{fatura.numero_fatura}.pdf"'
+    return response
+
+
+@requer_sessao_ativa
+def fatura_eletronica_estados_json(request):
+    """Endpoint JSON para short polling do frontend.
+
+    Retorna a lista de faturas com pk, estado, resposta_agt e observacoes,
+    permitindo que o frontend atualize as linhas da tabela sem recarregar a página.
+    """
+    qs = FaturaEletronica.objects.all()
+    # Reutiliza a mesma lógica de escopo de cliente/banca da ListView.
+    try:
+        from users.permissoes import get_usuario_permissoes, _tem_escopo_filial
+        banca_usuario_id = request.session.get('banca_usuario_id')
+        usuario_id = banca_usuario_id if banca_usuario_id else request.session.get('usuario_id')
+        perm_set = get_usuario_permissoes(request)
+        banca_id = request.session.get('banca_id')
+        if not banca_id:
+            if usuario_id:
+                qs = qs.filter(cliente__usuario_id=usuario_id)
+        else:
+            qs = qs.filter(banca_id=banca_id)
+            filial_id = request.session.get('colaborador_filial_id')
+            if _tem_escopo_filial(perm_set, filial_id) and filial_id:
+                qs = qs.filter(filial_id=filial_id)
+    except Exception:
+        pass
+
+    dados = list(
+        qs.values('pk', 'numero_fatura', 'estado', 'resposta_agt', 'observacoes', 'total_geral')
+    )
+    # Converte Decimal para string para serialização JSON.
+    for item in dados:
+        if item.get('total_geral') is not None:
+            item['total_geral'] = str(item['total_geral'])
+    return JsonResponse({'faturas': dados})
+
+
 @csrf_exempt
 @require_POST
 def fatura_eletronica_callback_agt(request):
