@@ -6,7 +6,7 @@ from django.shortcuts import render
 from users import views as user_views
 from users import views_session as session_views
 from rh import views_public
-from financeiro.views_agt import faturacao_agt_callback
+from financeiro import views as financeiro_views
 
 
 def _error500(request):
@@ -94,14 +94,14 @@ urlpatterns = [
     # Utilitários (reporte de erros, etc.)
     path('utils/', include('utils.error_urls')),
 
+    # Faturação Eletrónica - callback público (webhook AGT, sem sessão/CSRF).
+    # A rota é registada com e sem barra final para que um POST da AGT nunca
+    # sofra o redireccionamento 301 do APPEND_SLASH (que perderia o corpo).
+    path('api/facturacaoelectronica/callback/', financeiro_views.fatura_eletronica_callback_agt,
+         name='fatura_eletronica_callback_agt'),
+    path('api/facturacaoelectronica/callback', financeiro_views.fatura_eletronica_callback_agt,
+         name='fatura_eletronica_callback_agt_sem_barra'),
+
     # Financeiro
     path('financeiro/', include('financeiro.urls')),
-
-    # AGT Invoicing
-    path('api/agt/', include('agt_invoicing.urls')),
-
-    # ── AGT Callback — URL pública: https://sicdoa.cdoangola.co.ao/api/facturacaoelectronica/callback
-    # Registado aqui no urls raiz (NÃO dentro de /financeiro/) para que o path
-    # seja exactamente /api/facturacaoelectronica/callback sem prefixo adicional.
-    path('api/facturacaoelectronica/callback', faturacao_agt_callback, name='faturacao_agt_callback'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

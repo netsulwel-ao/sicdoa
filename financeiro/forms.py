@@ -8,7 +8,8 @@ from utils.format_kz import fmt_kz, parse_kz
 from .models import (
     FacturaCliente, ReciboCliente,
     NotaCredito, NotaDebito, FacturaRecibo,
-    RequisicaoFundo, RequisicaoFundoLinha
+    RequisicaoFundo, RequisicaoFundoLinha, FaturaEletronica,
+    ConfiguracaoAGT, SerieFaturaEletronica
 )
 
 
@@ -748,3 +749,378 @@ class FacturaReciboForm(forms.ModelForm):
                 self.add_error('valor', f'O valor excede o valor pendente desta factura ({fmt_kz(restante)} Kz).')
 
         return cleaned_data
+
+
+_FE_INPUT_CLASS = (
+    'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border '
+    'border-gray-200 dark:border-gray-600 rounded-xl text-sm '
+    'focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
+)
+
+
+class FaturaEletronicaForm(forms.ModelForm):
+    """Formulário de emissão de documentos para a Faturação Eletrónica da AGT.
+
+    O documento fiscal deve estar ligado a uma Factura Cliente ou a uma
+    Requisição de Fundos já existente; o total é derivado dessa origem.
+    """
+
+    class Meta:
+        model = FaturaEletronica
+        fields = ['cliente', 'tipo_documento', 'requisicao_fundo',
+                  'factura_cliente', 'documento_origem_ref', 'motivo_ref',
+                  'callback_url', 'observacoes']
+        widgets = {
+            'cliente': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'tipo_documento': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'requisicao_fundo': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'factura_cliente': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'documento_origem_ref': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'motivo_ref': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS,
+                'maxlength': '60',
+                'placeholder': 'Ex: Devolução de serviços, correção de valor...',
+            }),
+            'callback_url': forms.URLInput(attrs={
+                'class': _FE_INPUT_CLASS,
+                'placeholder': 'https://meusistema.co.ao/api/facturacaoelectronica/callback',
+            }),
+            'observacoes': forms.Textarea(attrs={
+                'class': _FE_INPUT_CLASS + ' resize-none',
+                'rows': '3',
+                'placeholder': 'Observações adicionais para o documento fiscal...',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+
+        banca_id = None
+        if request is not None:
+            banca_id = request.session.get('banca_id')
+            if not banca_id:
+                from rh.models import Colaborador as _Col
+                tipo = request.session.get('tipo_usuario', '')
+                if tipo == 'colaborador':
+                    col = _Col.objects.filter(pk=request.session.get('colaborador_id')).first()
+                else:
+                    col = _Col.objects.filter(usuario_id=request.session.get('usuario_id')).first()
+                if col and col.banca_id:
+                    banca_id = col.banca_id
+
+        clientes_qs = Cliente.objects.filter(ativo=True)
+        requisicoes_qs = RequisicaoFundo.objects.select_related('cliente')
+        facturas_qs = FacturaCliente.objects.select_related('cliente')
+        # Documentos já registados na AGT, candidatos a referência de NC/ND.
+        refs_qs = (
+            FaturaEletronica.objects
+            .filter(document_no__gt='', estado__in=['Enviada AGT', 'Aprovada AGT'])
+            .select_related('cliente')
+        )
+        if self.instance.pk:
+            refs_qs = refs_qs.exclude(pk=self.instance.pk)
+        if banca_id:
+            clientes_qs = clientes_qs.filter(banca_id=banca_id)
+            requisicoes_qs = requisicoes_qs.filter(banca_id=banca_id)
+            facturas_qs = facturas_qs.filter(banca_id=banca_id)
+            refs_qs = refs_qs.filter(banca_id=banca_id)
+        elif request is not None:
+            # Sem banca resolvida não se expõem dados de outras bancas.
+            clientes_qs = clientes_qs.none()
+            requisicoes_qs = requisicoes_qs.none()
+            facturas_qs = facturas_qs.none()
+            refs_qs = refs_qs.none()
+
+        self.fields['cliente'].queryset = clientes_qs.order_by('nome')
+
+        # Refina os documentos de origem pelo cliente escolhido.
+        cliente_id = self.data.get('cliente') if self.is_bound else None
+        if cliente_id:
+            try:
+                cliente_id = int(cliente_id)
+                requisicoes_qs = requisicoes_qs.filter(cliente_id=cliente_id)
+                facturas_qs = facturas_qs.filter(cliente_id=cliente_id)
+                refs_qs = refs_qs.filter(cliente_id=cliente_id)
+            except (TypeError, ValueError):
+                pass
+
+        self.fields['requisicao_fundo'].queryset = requisicoes_qs.order_by('-data_emissao')
+        self.fields['factura_cliente'].queryset = facturas_qs.order_by('-data_emissao')
+        self.fields['documento_origem_ref'].queryset = refs_qs.order_by('-data_emissao')
+        self.fields['documento_origem_ref'].required = False
+        self.fields['motivo_ref'].required = False
+
+        self.fields['requisicao_fundo'].label_from_instance = lambda obj: (
+            f"{obj.numero_requisicao} - {obj.cliente.nome} - {fmt_kz(obj.total_geral)} KZ"
+        )
+        self.fields['factura_cliente'].label_from_instance = lambda obj: (
+            f"{obj.numero_factura} - {obj.cliente.nome} - {fmt_kz(obj.valor_total)} KZ"
+        )
+        self.fields['documento_origem_ref'].label_from_instance = lambda obj: (
+            f"{obj.document_no} - {obj.cliente.nome} - {fmt_kz(obj.total_geral)} KZ"
+        )
+
+        # Sugere a URL pública de callback configurada para o sistema.
+        if not self.is_bound and not self.instance.callback_url:
+            from django.conf import settings as _settings
+            self.fields['callback_url'].initial = getattr(_settings, 'AGT_CALLBACK_URL', '') or ''
+
+    def clean_callback_url(self):
+        url = (self.cleaned_data.get('callback_url') or '').strip()
+        if url and not url.lower().startswith('https://'):
+            raise forms.ValidationError('O Callback URL deve usar HTTPS (https://...).')
+        return url
+
+    def clean(self):
+        cleaned_data = super().clean()
+        cliente = cleaned_data.get('cliente')
+        requisicao = cleaned_data.get('requisicao_fundo')
+        factura = cleaned_data.get('factura_cliente')
+        tipo = cleaned_data.get('tipo_documento')
+        ref = cleaned_data.get('documento_origem_ref')
+
+        # A referência ao documento original só é exigida (e aplicável) em NC/ND.
+        if tipo in ('NOTA_CREDITO', 'NOTA_DEBITO'):
+            if ref is None:
+                self.add_error(
+                    'documento_origem_ref',
+                    'Escolha o documento fiscal de origem (factura já registada na AGT).',
+                )
+            elif not ref.document_no:
+                self.add_error(
+                    'documento_origem_ref',
+                    'O documento de origem ainda não foi registado na AGT.',
+                )
+            elif cliente and ref.cliente_id != cliente.pk:
+                self.add_error(
+                    'documento_origem_ref',
+                    'O documento de origem pertence a outro cliente.',
+                )
+        else:
+            cleaned_data['documento_origem_ref'] = None
+            cleaned_data['motivo_ref'] = ''
+
+        if not requisicao and not factura:
+            raise forms.ValidationError(
+                'Selecione uma Factura Cliente ou uma Requisição de Fundos como origem do documento.'
+            )
+
+        if requisicao and cliente and requisicao.cliente_id != cliente.pk:
+            self.add_error('requisicao_fundo', 'A requisição selecionada não pertence ao cliente escolhido.')
+
+        if factura and cliente and factura.cliente_id != cliente.pk:
+            self.add_error('factura_cliente', 'A factura selecionada não pertence ao cliente escolhido.')
+
+        if requisicao and factura:
+            self.add_error(
+                'factura_cliente',
+                'Escolha apenas uma origem: Factura Cliente ou Requisição de Fundos.',
+            )
+
+        # Evita emitir dois documentos eletrónicos ativos para a mesma origem.
+        ativos = ['Rascunho', 'Em Fila', 'Enviada AGT', 'Aprovada AGT']
+        duplicados = FaturaEletronica.objects.filter(estado__in=ativos)
+        if self.instance.pk:
+            duplicados = duplicados.exclude(pk=self.instance.pk)
+        if factura and duplicados.filter(factura_cliente=factura).exists():
+            self.add_error('factura_cliente', 'Já existe uma fatura eletrónica ativa para esta factura.')
+        if requisicao and duplicados.filter(requisicao_fundo=requisicao).exists():
+            self.add_error('requisicao_fundo', 'Já existe uma fatura eletrónica ativa para esta requisição.')
+
+        return cleaned_data
+
+
+_FE_KEY_INPUT_CLASS = _FE_INPUT_CLASS + ' font-mono text-xs resize-none'
+
+
+def _validar_pem_privada(valor, rotulo):
+    """Valida que o valor é um PEM de chave privada RSA (>= 2048 bits)."""
+    valor = (valor or '').strip()
+    if not valor:
+        return ''
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    try:
+        chave = serialization.load_pem_private_key(valor.encode('utf-8'), password=None)
+    except Exception:
+        raise forms.ValidationError(f'A {rotulo} não é um PEM de chave privada válido.')
+    if not isinstance(chave, rsa.RSAPrivateKey):
+        raise forms.ValidationError(f'A {rotulo} tem de ser uma chave RSA.')
+    if chave.key_size < 2048:
+        raise forms.ValidationError(
+            f'A {rotulo} tem de ter pelo menos 2048 bits (tem {chave.key_size}).'
+        )
+    return valor
+
+
+class ConfiguracaoAGTForm(forms.ModelForm):
+    """Configuração da integração com a Faturação Eletrónica da AGT.
+
+    A banca é resolvida a partir da sessão (não é escolhida no formulário).
+    As chaves privadas PEM são guardadas cifradas pelo modelo.
+    """
+
+    class Meta:
+        model = ConfiguracaoAGT
+        fields = [
+            'ativo', 'ambiente', 'tax_registration_number',
+            'product_id', 'product_version', 'software_validation_number',
+            'signature_version', 'estabelecimento', 'eac_code',
+            'software_private_key', 'emissor_private_key', 'agt_public_key',
+            'submit_url', 'query_url', 'serie_url', 'callback_url',
+        ]
+        widgets = {
+            'ativo': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary',
+            }),
+            'ambiente': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'tax_registration_number': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS, 'placeholder': 'Ex: 5000123456',
+            }),
+            'product_id': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS, 'placeholder': 'Ex: SICDOA',
+            }),
+            'product_version': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS, 'placeholder': 'Ex: 1.0.0',
+            }),
+            'software_validation_number': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS, 'placeholder': 'Nº de certificação atribuído pela AGT',
+            }),
+            'signature_version': forms.NumberInput(attrs={
+                'class': _FE_INPUT_CLASS, 'min': '1',
+            }),
+            'estabelecimento': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS, 'placeholder': 'Ex: SEDE',
+            }),
+            'eac_code': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS, 'placeholder': 'Ex: 47110',
+            }),
+            'software_private_key': forms.Textarea(attrs={
+                'class': _FE_KEY_INPUT_CLASS, 'rows': '5', 'autocomplete': 'off',
+                'placeholder': '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+            }),
+            'emissor_private_key': forms.Textarea(attrs={
+                'class': _FE_KEY_INPUT_CLASS, 'rows': '5', 'autocomplete': 'off',
+                'placeholder': '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+            }),
+            'agt_public_key': forms.Textarea(attrs={
+                'class': _FE_KEY_INPUT_CLASS, 'rows': '4', 'autocomplete': 'off',
+                'placeholder': '-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----',
+            }),
+            'submit_url': forms.URLInput(attrs={'class': _FE_INPUT_CLASS}),
+            'query_url': forms.URLInput(attrs={'class': _FE_INPUT_CLASS}),
+            'serie_url': forms.URLInput(attrs={'class': _FE_INPUT_CLASS}),
+            'callback_url': forms.URLInput(attrs={
+                'class': _FE_INPUT_CLASS,
+                'placeholder': 'https://meusistema.co.ao/api/facturacaoelectronica/callback',
+            }),
+        }
+        labels = {
+            'tax_registration_number': 'NIF do Contribuinte',
+            'software_validation_number': 'Nº de Certificação do Software',
+            'software_private_key': 'Chave Privada do Software (PEM)',
+            'emissor_private_key': 'Chave Privada do Emissor (PEM)',
+            'agt_public_key': 'Chave Pública da AGT (PEM)',
+            'submit_url': 'URL registarFactura (opcional)',
+            'query_url': 'URL obterEstado (opcional)',
+            'serie_url': 'URL solicitarSerie (opcional)',
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        if not self.is_bound and not self.instance.pk and not self.instance.callback_url:
+            from django.conf import settings as _settings
+            self.fields['callback_url'].initial = getattr(_settings, 'AGT_CALLBACK_URL', '') or ''
+
+    def clean_software_private_key(self):
+        return _validar_pem_privada(self.cleaned_data.get('software_private_key'), 'chave privada do software')
+
+    def clean_emissor_private_key(self):
+        return _validar_pem_privada(self.cleaned_data.get('emissor_private_key'), 'chave privada do emissor')
+
+    def clean_agt_public_key(self):
+        valor = (self.cleaned_data.get('agt_public_key') or '').strip()
+        if not valor:
+            return ''
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        try:
+            chave = serialization.load_pem_public_key(valor.encode('utf-8'))
+        except Exception:
+            raise forms.ValidationError('A chave pública da AGT não é um PEM válido.')
+        if not isinstance(chave, rsa.RSAPublicKey):
+            raise forms.ValidationError('A chave pública da AGT tem de ser uma chave RSA.')
+        if chave.key_size < 2048:
+            raise forms.ValidationError(
+                'A chave pública da AGT tem de ter pelo menos 2048 bits '
+                f'(tem {chave.key_size}).'
+            )
+        return valor
+
+    def clean_callback_url(self):
+        url = (self.cleaned_data.get('callback_url') or '').strip()
+        if url and not url.lower().startswith('https://'):
+            raise forms.ValidationError('O Callback URL deve usar HTTPS (https://...).')
+        return url
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('ativo'):
+            if not (cleaned_data.get('tax_registration_number') or '').strip():
+                self.add_error('tax_registration_number', 'Indique o NIF do contribuinte para ativar a integração.')
+            if not (cleaned_data.get('software_validation_number') or '').strip():
+                self.add_error('software_validation_number', 'Indique o nº de certificação do software.')
+        return cleaned_data
+
+
+class SerieFaturaEletronicaForm(forms.ModelForm):
+    """Criação/edição de uma série de numeração da Faturação Eletrónica.
+
+    O código fiscal e os limites de numeração são atribuídos pela AGT na
+    comunicação (serviço solicitarSerie), por isso não são editáveis aqui.
+    """
+
+    class Meta:
+        model = SerieFaturaEletronica
+        fields = ['tipo_documento', 'ano', 'referencia', 'estabelecimento',
+                  'contingencia', 'numero_inicial']
+        widgets = {
+            'tipo_documento': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'ano': forms.NumberInput(attrs={'class': _FE_INPUT_CLASS, 'min': '2000', 'max': '2100'}),
+            'referencia': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS, 'placeholder': 'Ex: NORMAL',
+            }),
+            'estabelecimento': forms.TextInput(attrs={
+                'class': _FE_INPUT_CLASS, 'placeholder': 'Ex: SEDE',
+            }),
+            'contingencia': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary',
+            }),
+            'numero_inicial': forms.NumberInput(attrs={'class': _FE_INPUT_CLASS, 'min': '1'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        if not self.is_bound and not self.instance.pk:
+            self.fields['ano'].initial = timezone.now().year
+
+    def clean_ano(self):
+        ano = self.cleaned_data.get('ano')
+        if ano and not (2000 <= ano <= 2100):
+            raise forms.ValidationError('Indique um ano civil válido (2000–2100).')
+        return ano
+
+    def clean_numero_inicial(self):
+        numero = self.cleaned_data.get('numero_inicial')
+        if numero is not None and int(numero) < 1:
+            raise forms.ValidationError('O número inicial deve ser no mínimo 1.')
+        return numero
+
+    def clean_referencia(self):
+        referencia = (self.cleaned_data.get('referencia') or '').strip().upper()
+        if not referencia:
+            raise forms.ValidationError('Indique uma referência interna para a série.')
+        return referencia

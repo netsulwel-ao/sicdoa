@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Configuração AGT{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto w-full">
+
+  <!-- Cabeçalho -->
+  <div class="mb-6">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Configuração AGT</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          Credenciais e parâmetros da Faturação Eletrónica (Decreto Executivo n.º 683/25).
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <a href="{% url 'financeiro:serie_fatura_eletronica_lista' %}"
+           class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm">
+          <i class="fas fa-list-ol"></i> Séries
+        </a>
+        <a href="{% url 'financeiro:fatura_eletronica_lista' %}"
+           class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm">
+          <i class="fas fa-arrow-left"></i> Faturas
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado da configuração -->
+  <div class="mb-6 rounded-2xl border p-4 flex items-start gap-3
+              {% if configurada %}bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800{% else %}bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800{% endif %}">
+    <i class="fas {% if configurada %}fa-circle-check text-green-600 dark:text-green-400{% else %}fa-triangle-exclamation text-amber-600 dark:text-amber-400{% endif %} text-lg mt-0.5"></i>
+    <div class="text-sm">
+      {% if configurada %}
+        <p class="font-semibold text-green-800 dark:text-green-300">Integração ativa e pronta a usar.</p>
+        <p class="text-green-700 dark:text-green-400">NIF, certificação do software e chaves de assinatura estão configurados.</p>
+      {% else %}
+        <p class="font-semibold text-amber-800 dark:text-amber-300">Integração incompleta.</p>
+        <p class="text-amber-700 dark:text-amber-400">
+          Preencha o NIF do contribuinte, o nº de certificação do software e as chaves privadas
+          (software e emissor) para poder submeter documentos e comunicar séries à AGT.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Callback público -->
+  <div class="mb-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white">Callback URL (a registar no Portal do Parceiro)</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          A AGT envia para este endereço a confirmação de processamento. Deve ser HTTPS e publicamente acessível.
+        </p>
+      </div>
+    </div>
+    <div class="mt-3 flex items-center gap-2">
+      <code id="callback-publica" class="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-mono text-gray-700 dark:text-gray-300 break-all">{{ callback_url_publica }}</code>
+      <button type="button"
+              onclick="navigator.clipboard.writeText(document.getElementById('callback-publica').innerText); this.classList.add('text-green-600');"
+              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <i class="fas fa-copy"></i> Copiar
+      </button>
+    </div>
+  </div>
+
+  <!-- Formulário -->
+  <form method="post" class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="px-6 py-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+      {% for erro in form.non_field_errors %}
+      <p class="text-sm text-red-600 dark:text-red-400">{{ erro }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Estado e Ambiente -->
+    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-4">Estado e Ambiente</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="flex items-center gap-3">
+          {{ form.ativo }}
+          <label for="{{ form.ativo.id_for_label }}" class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ form.ativo.label }}</label>
+          {% for erro in form.ativo.errors %}<p class="text-red-500 text-xs">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.ambiente.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.ambiente.label }}</label>
+          {{ form.ambiente }}
+          {% for erro in form.ambiente.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Identificação Fiscal -->
+    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-4">Identificação Fiscal</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div>
+          <label for="{{ form.tax_registration_number.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.tax_registration_number.label }} <span class="text-red-500">*</span></label>
+          {{ form.tax_registration_number }}
+          {% for erro in form.tax_registration_number.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.estabelecimento.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.estabelecimento.label }}</label>
+          {{ form.estabelecimento }}
+          {% for erro in form.estabelecimento.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.eac_code.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.eac_code.label }}</label>
+          {{ form.eac_code }}
+          {% for erro in form.eac_code.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Software Certificado -->
+    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-4">Software Certificado</h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div>
+          <label for="{{ form.product_id.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.product_id.label }}</label>
+          {{ form.product_id }}
+          {% for erro in form.product_id.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.product_version.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.product_version.label }}</label>
+          {{ form.product_version }}
+          {% for erro in form.product_version.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.software_validation_number.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.software_validation_number.label }} <span class="text-red-500">*</span></label>
+          {{ form.software_validation_number }}
+          {% for erro in form.software_validation_number.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.signature_version.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.signature_version.label }}</label>
+          {{ form.signature_version }}
+          {% for erro in form.signature_version.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Chaves Criptográficas -->
+    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-1">Chaves Criptográficas (PEM)</h2>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+        As chaves privadas são guardadas cifradas na base de dados e nunca são expostas publicamente.
+      </p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div>
+          <label for="{{ form.software_private_key.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.software_private_key.label }} <span class="text-red-500">*</span></label>
+          {{ form.software_private_key }}
+          {% for erro in form.software_private_key.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.emissor_private_key.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.emissor_private_key.label }} <span class="text-red-500">*</span></label>
+          {{ form.emissor_private_key }}
+          {% for erro in form.emissor_private_key.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div class="lg:col-span-2">
+          <label for="{{ form.agt_public_key.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.agt_public_key.label }}</label>
+          {{ form.agt_public_key }}
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Usada para validar a assinatura JWS dos callbacks recebidos da AGT.</p>
+          {% for erro in form.agt_public_key.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Endpoints -->
+    <div class="px-6 py-5">
+      <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-1">Endpoints (opcional)</h2>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+        Deixe em branco para usar os endpoints oficiais do ambiente selecionado.
+      </p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div>
+          <label for="{{ form.submit_url.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.submit_url.label }}</label>
+          {{ form.submit_url }}
+          {% for erro in form.submit_url.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.query_url.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.query_url.label }}</label>
+          {{ form.query_url }}
+          {% for erro in form.query_url.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.serie_url.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.serie_url.label }}</label>
+          {{ form.serie_url }}
+          {% for erro in form.serie_url.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.callback_url.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ form.callback_url.label }}</label>
+          {{ form.callback_url }}
+          {% for erro in form.callback_url.errors %}<p class="text-red-500 text-xs mt-1">{{ erro }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3">
+      <a href="{% url 'financeiro:fatura_eletronica_lista' %}"
+         class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        Cancelar
+      </a>
+      {% if pode_escrever %}
+      <button type="submit"
+              class="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2">
+        <i class="fas fa-save"></i> Guardar Configuração
+      </button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo,
-    RequisicaoFundo, RequisicaoFundoLinha
+    RequisicaoFundo, RequisicaoFundoLinha, FaturaEletronica,
+    ConfiguracaoAGT, SerieFaturaEletronica, CallbackAGT
 )
 
 
@@ -51,4 +52,52 @@ class FacturaClienteAdmin(admin.ModelAdmin):
         ('Status', {'fields': ('estado',)}),
         ('Metadados', {'fields': ('criado_por_id', 'criado_por_nome')}),
     )
+
+
+@admin.register(FaturaEletronica)
+class FaturaEletronicaAdmin(admin.ModelAdmin):
+    list_display = ('numero_fatura', 'cliente', 'tipo_documento', 'estado', 'total_geral', 'data_emissao')
+    list_filter = ('estado', 'tipo_documento', 'data_emissao')
+    search_fields = ('numero_fatura', 'cliente__nome', 'cliente__nif', 'request_id')
+    readonly_fields = ('numero_fatura', 'data_emissao', 'request_id', 'resposta_agt')
+    ordering = ('-data_emissao',)
+    fieldsets = (
+        ('Documento', {'fields': ('numero_fatura', 'data_emissao', 'tipo_documento', 'total_geral')}),
+        ('Âmbito', {'fields': ('banca', 'filial', 'cliente')}),
+        ('Origem', {'fields': ('requisicao_fundo', 'factura_cliente')}),
+        ('AGT', {'fields': ('estado', 'data_envio_agt', 'request_id', 'callback_url', 'observacoes', 'resposta_agt')}),
+        ('Metadados', {'fields': ('criado_por_id', 'criado_por_nome')}),
+    )
+
+
+@admin.register(CallbackAGT)
+class CallbackAGTAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'request_id', 'document_no', 'fatura', 'estado_processamento',
+                    'assinatura_valida', 'tentativas', 'recebido_em')
+    list_filter = ('estado_processamento', 'assinatura_valida', 'recebido_em')
+    search_fields = ('request_id', 'document_no', 'fatura__numero_fatura')
+    readonly_fields = ('chave_evento', 'request_id', 'document_no', 'fatura',
+                       'assinatura_valida', 'payload_bruto', 'payload',
+                       'cabecalhos', 'origem_ip', 'estado_processamento',
+                       'tentativas', 'erro', 'recebido_em', 'processado_em')
+    ordering = ('-recebido_em',)
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(ConfiguracaoAGT)
+class ConfiguracaoAGTAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'banca', 'ambiente', 'tax_registration_number', 'ativo', 'atualizado_em')
+    list_filter = ('ambiente', 'ativo', 'banca')
+    search_fields = ('tax_registration_number', 'product_id', 'software_validation_number')
+    readonly_fields = ('criado_em', 'atualizado_em')
+
+
+@admin.register(SerieFaturaEletronica)
+class SerieFaturaEletronicaAdmin(admin.ModelAdmin):
+    list_display = ('tipo_documento', 'ano', 'referencia', 'banca', 'codigo_fiscal', 'estado', 'numero_atual')
+    list_filter = ('estado', 'tipo_documento', 'ano', 'contingencia', 'banca')
+    search_fields = ('codigo_fiscal', 'referencia')
+    readonly_fields = ('codigo_fiscal', 'numero_final', 'numero_atual', 'data_comunicacao', 'erro_comunicacao', 'criado_em')
 

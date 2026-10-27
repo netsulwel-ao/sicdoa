@@ -46,6 +46,8 @@ PERMISSOES_BANCA = [
     'gerir_financeiro', 'gerir_financeiro_filial',
     'ver_requisicoes', 'ver_recibos', 'ver_notas_financeiro',
     'ver_facturas', 'ver_conta_corrente', 'ver_relatorios_financeiros',
+    # Faturação Electrónica AGT
+    'gerir_faturacao_agt', 'ver_faturacao_agt',
     # Governança
     'gerir_governanca',
     # Colaborador
@@ -145,6 +147,7 @@ PERMISSOES_POR_MENU_INST = [
         'nome': 'Gestão Financeira',
         'icone': 'fa-credit-card',
         'permissoes': [
+            {'nome': 'Faturação Electrónica AGT', 'descricao': 'Gerir e acompanhar as faturas validadas pela AGT', 'codigo': 'gerir_faturacao_agt'},
             {'nome': 'Relatórios Operacionais', 'descricao': 'Visualizar relatórios com dados de todos os despachantes', 'codigo': 'ver_relatorios_operacionais'},
             {'nome': 'Acesso de Auditoria', 'descricao': 'Acesso de leitura a todos os módulos do sistema', 'codigo': 'acesso_auditoria'},
         ],

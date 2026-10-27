@@ -1,12 +1,484 @@
 from decimal import Decimal
+import base64
+import hashlib
 import json
 
 from django.db import models, transaction, IntegrityError
 from django.db.models import Sum
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from cryptography.fernet import Fernet, InvalidToken
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
+
+
+# ── Cifra das chaves privadas AGT ─────────────────────────────────────
+# As chaves PEM nunca são guardadas em claro; são cifradas com Fernet
+# usando uma chave derivada da SECRET_KEY do projecto.
+
+def _fernet():
+    from django.conf import settings
+    chave = base64.urlsafe_b64encode(
+        hashlib.sha256(settings.SECRET_KEY.encode('utf-8')).digest()
+    )
+    return Fernet(chave)
+
+
+def cifrar_chave(texto):
+    """Cifra um valor sensível (PEM). Vazio devolve vazio."""
+    if not texto:
+        return ''
+    return _fernet().encrypt(texto.encode('utf-8')).decode('ascii')
+
+
+def decifrar_chave(valor):
+    """Decifra um valor. Se não estiver cifrado (ex.: BD legada) devolve no original."""
+    if not valor:
+        return ''
+    try:
+        return _fernet().decrypt(valor.encode('ascii')).decode('utf-8')
+    except (InvalidToken, ValueError, TypeError):
+        return valor
+
+
+class ChaveCifradaField(models.TextField):
+    """TextField que cifra na escrita e decifra na leitura (PEM de chaves AGT)."""
+
+    def from_db_value(self, value, expression, connection):
+        return decifrar_chave(value) if value else value
+
+    def get_prep_value(self, value):
+        value = super().get_prep_value(value)
+        return cifrar_chave(value) if value else value
+
+
+class FaturaEletronica(models.Model):
+    """Documento fiscal submetido à Faturação Eletrónica da AGT.
+
+    O ciclo de vida é: Rascunho -> Enviada AGT -> (Aprovada AGT | Rejeitada AGT).
+    A AGT responde de forma assíncrona através do callback/webhook configurado
+    no Portal do Parceiro (ver `fatura_eletronica_callback_agt`).
+    """
+
+    ESTADOS = [
+        ('Rascunho', 'Rascunho'),
+        ('Em Fila', 'Em Fila'),
+        ('Enviada AGT', 'Enviada AGT'),
+        ('Aprovada AGT', 'Aprovada AGT'),
+        ('Rejeitada AGT', 'Rejeitada AGT'),
+        ('Cancelada', 'Cancelada'),
+    ]
+
+    TIPO_DOCUMENTO = [
+        ('FATURA', 'Fatura'),
+        ('NOTA_DEBITO', 'Nota de Débito'),
+        ('NOTA_CREDITO', 'Nota de Crédito'),
+    ]
+
+    # Âmbito (multi-tenant, igual ao resto do módulo financeiro)
+    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE,
+                              related_name='faturas_eletronicas', null=True, blank=True,
+                              verbose_name='Banca')
+    filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
+                               related_name='faturas_eletronicas', null=True, blank=True,
+                               verbose_name='Filial')
+
+    # Identificação
+    numero_fatura = models.CharField(max_length=50, unique=True, blank=True,
+                                     verbose_name='Número da Fatura')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT,
+                                related_name='faturas_eletronicas', verbose_name='Cliente')
+    tipo_documento = models.CharField(max_length=20, choices=TIPO_DOCUMENTO, default='FATURA',
+                                      verbose_name='Tipo de Documento')
+
+    # Referência ao documento de origem
+    requisicao_fundo = models.ForeignKey('RequisicaoFundo', on_delete=models.SET_NULL,
+                                         null=True, blank=True,
+                                         related_name='faturas_eletronicas',
+                                         verbose_name='Requisição de Fundos')
+    factura_cliente = models.ForeignKey('FacturaCliente', on_delete=models.SET_NULL,
+                                        null=True, blank=True,
+                                        related_name='faturas_eletronicas',
+                                        verbose_name='Factura Cliente')
+
+    # Dados AGT
+    data_emissao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Emissão')
+    data_envio_agt = models.DateTimeField(null=True, blank=True, verbose_name='Data Envio AGT')
+    data_resposta_agt = models.DateTimeField(null=True, blank=True,
+                                             verbose_name='Data de Resposta da AGT')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Rascunho',
+                              db_index=True, verbose_name='Estado')
+
+    # Callback / webhook registado no Portal do Parceiro da AGT
+    callback_url = models.URLField(blank=True, default='', verbose_name='Callback URL')
+    # UUID devolvido/confirmado pela AGT. NULL (não '') para permitir vários rascunhos
+    # sem colidir na restrição UNIQUE.
+    request_id = models.CharField(max_length=100, unique=True, null=True, blank=True,
+                                  default=None, verbose_name='Request ID AGT')
+
+    # Série autorizada da AGT usada na numeração do documento.
+    serie = models.ForeignKey('SerieFaturaEletronica', on_delete=models.SET_NULL,
+                              null=True, blank=True, related_name='faturas_eletronicas',
+                              verbose_name='Série AGT')
+    # UUID único por submissão (campo submissionUUID do schema AGT 2.0).
+    submission_uuid = models.CharField(max_length=36, null=True, blank=True, default=None,
+                                       verbose_name='UUID da Submissão')
+    # Número do documento no formato exigido pela AGT: "CODIGO SERIE/SEQUENCIA".
+    document_no = models.CharField(max_length=60, blank=True, default='',
+                                   verbose_name='Nº do Documento (AGT)')
+
+    # Referência ao documento original — obrigatória para NC/ND (campo referenceInfo da AGT).
+    documento_origem_ref = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='notas_derivadas', verbose_name='Documento Fiscal de Origem')
+    motivo_ref = models.CharField(max_length=60, blank=True, default='',
+                                  verbose_name='Motivo da Referência')
+    # Tentativas de envio à AGT (usadas pela fila de submissão assíncrona).
+    tentativas_envio = models.PositiveSmallIntegerField(default=0,
+                                                        verbose_name='Tentativas de Envio')
+
+    # Resultado do processamento AGT
+    observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
+    resposta_agt = models.TextField(blank=True, default='', verbose_name='Resposta AGT')
+
+    total_geral = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'),
+                                      verbose_name='Total Geral')
+
+    # Metadados
+    criado_por_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador', db_index=True)
+    criado_por_nome = models.CharField(max_length=200, blank=True, default='',
+                                       verbose_name='Nome do Criador')
+
+    class Meta:
+        db_table = 'financeiro_fatura_eletronica'
+        verbose_name = 'Fatura Eletrónica'
+        verbose_name_plural = 'Faturas Eletrónicas'
+        ordering = ['-data_emissao']
+        indexes = [
+            models.Index(fields=['estado', '-data_emissao'], name='fe_estado_data'),
+            models.Index(fields=['cliente', 'estado'], name='fe_cliente_estado'),
+            models.Index(fields=['banca', 'filial'], name='fe_banca_filial'),
+        ]
+
+    def _gerar_numero_fatura(self):
+        """Gera número sequencial: FE-AAAA-NNNN."""
+        ano = timezone.now().year
+        ultimo = (
+            FaturaEletronica.objects
+            .filter(numero_fatura__startswith=f'FE-{ano}-')
+            .order_by('-numero_fatura')
+            .first()
+        )
+        if ultimo and ultimo.numero_fatura:
+            try:
+                seq = int(ultimo.numero_fatura.split('-')[-1]) + 1
+            except ValueError:
+                seq = 1
+        else:
+            seq = 1
+        return f'FE-{ano}-{seq:04d}'
+
+    def calcular_total(self):
+        """Deriva o total do documento de origem (Factura Cliente > Requisição)."""
+        if self.factura_cliente_id:
+            return self.factura_cliente.valor_total or Decimal('0.00')
+        if self.requisicao_fundo_id:
+            return self.requisicao_fundo.total_geral or Decimal('0.00')
+        return Decimal('0.00')
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        # Só recalcula quando o chamador não está a limitar explicitamente os campos.
+        if not update_fields and not self.total_geral:
+            self.total_geral = self.calcular_total()
+
+        for _attempt in range(5):
+            if not self.numero_fatura:
+                self.numero_fatura = self._gerar_numero_fatura()
+            try:
+                # Savepoint garante que um IntegrityError não invalida uma
+                # transacção exterior (ex.: ATOMIC_REQUESTS).
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                return
+            except IntegrityError:
+                self.numero_fatura = ''
+                continue
+        # Última tentativa sem recuperação: deixa a exceção propagar.
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Fatura Eletrónica {self.numero_fatura} - {self.cliente.nome}"
+
+
+class CallbackAGT(models.Model):
+    """Evento recebido no webhook público da AGT (fila persistente).
+
+    O payload bruto é guardado integralmente para auditoria antes de qualquer
+    processamento de negócio. A chave única (`chave_evento`, SHA-256 do corpo)
+    garante idempotência: reenvios do mesmo evento não são processados duas
+    vezes. O processamento pode ser imediato ou assíncrono, através do comando
+    ``processar_callbacks_agt`` (agendado no APScheduler).
+    """
+
+    ESTADOS_PROCESSAMENTO = [
+        ('Pendente', 'Pendente'),
+        ('Processado', 'Processado'),
+        ('Ignorado', 'Ignorado'),
+        ('Erro', 'Erro'),
+    ]
+
+    chave_evento = models.CharField(
+        max_length=64, unique=True, verbose_name='Chave do Evento (SHA-256)')
+    request_id = models.CharField(
+        max_length=100, blank=True, default='', db_index=True,
+        verbose_name='Request ID AGT')
+    document_no = models.CharField(
+        max_length=60, blank=True, default='', db_index=True,
+        verbose_name='Nº do Documento (AGT)')
+    fatura = models.ForeignKey(
+        'FaturaEletronica', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='callbacks_agt', verbose_name='Fatura Eletrónica')
+
+    assinatura_valida = models.BooleanField(
+        default=False, verbose_name='Assinatura Validada')
+    payload_bruto = models.TextField(verbose_name='Payload Bruto')
+    payload = models.JSONField(
+        null=True, blank=True, verbose_name='Payload (JSON)')
+    cabecalhos = models.JSONField(
+        default=dict, blank=True, verbose_name='Cabeçalhos HTTP')
+    origem_ip = models.GenericIPAddressField(
+        null=True, blank=True, verbose_name='IP de Origem')
+
+    estado_processamento = models.CharField(
+        max_length=20, choices=ESTADOS_PROCESSAMENTO, default='Pendente',
+        db_index=True, verbose_name='Estado do Processamento')
+    tentativas = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Tentativas de Processamento')
+    erro = models.TextField(blank=True, default='', verbose_name='Erro')
+
+    recebido_em = models.DateTimeField(
+        auto_now_add=True, verbose_name='Recebido em')
+    processado_em = models.DateTimeField(
+        null=True, blank=True, verbose_name='Processado em')
+
+    class Meta:
+        db_table = 'financeiro_callback_agt'
+        verbose_name = 'Callback AGT'
+        verbose_name_plural = 'Callbacks AGT'
+        ordering = ['-recebido_em']
+        indexes = [
+            models.Index(
+                fields=['estado_processamento', 'recebido_em'],
+                name='fe_callback_estado_data'),
+        ]
+
+    def __str__(self):
+        return f'Callback AGT #{self.pk} ({self.estado_processamento})'
+
+
+class ConfiguracaoAGT(models.Model):
+    """Configuração da integração com a Faturação Eletrónica da AGT.
+
+    Guarda as credenciais e os parâmetros de comunicação de um contribuinte
+    (por banca). As chaves privadas PEM são cifradas na base de dados
+    através de `ChaveCifradaField`.
+    """
+
+    AMBIENTES = [
+        ('hml', 'Homologação'),
+        ('prod', 'Produção'),
+    ]
+
+    # Endpoints oficiais (Decreto Executivo n.º 683/25 / Quiosque AGT)
+    URL_REGISTAR_HML = 'https://sifphml.minfin.gov.ao/sigt/fe/v1/registarFactura'
+    URL_REGISTAR_PROD = 'https://sifp.minfin.gov.ao/sigt/fe/v1/registarFactura'
+    URL_ESTADO_HML = 'https://sifphml.minfin.gov.ao/sigt/fe/v1/obterEstado'
+    URL_ESTADO_PROD = 'https://sifp.minfin.gov.ao/sigt/fe/v1/obterEstado'
+    URL_SERIE_HML = 'https://sifphml.minfin.gov.ao/sigt/fe/v1/solicitarSerie'
+    URL_SERIE_PROD = 'https://sifp.minfin.gov.ao/sigt/fe/v1/solicitarSerie'
+
+    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE, null=True, blank=True,
+                              related_name='configuracoes_agt', verbose_name='Banca')
+    ativo = models.BooleanField(default=True, verbose_name='Ativa')
+
+    ambiente = models.CharField(max_length=10, choices=AMBIENTES, default='hml',
+                                verbose_name='Ambiente')
+    tax_registration_number = models.CharField(max_length=15, blank=True, default='',
+                                               verbose_name='NIF do Contribuinte')
+
+    # Dados do software de facturação (certificado pela AGT)
+    product_id = models.CharField(max_length=120, blank=True, default='SICDOA',
+                                  verbose_name='Nome do Software')
+    product_version = models.CharField(max_length=30, blank=True, default='1.0.0',
+                                       verbose_name='Versão do Software')
+    software_validation_number = models.CharField(max_length=60, blank=True, default='',
+                                                  verbose_name='Nº de Certificação do Software')
+    signature_version = models.PositiveIntegerField(default=1, verbose_name='Versão de Assinatura')
+
+    # Chaves criptográficas (PEM cifrado)
+    software_private_key = ChaveCifradaField(
+        blank=True, default='', verbose_name='Chave Privada do Software')
+    emissor_private_key = ChaveCifradaField(
+        blank=True, default='', verbose_name='Chave Privada do Emissor')
+    agt_public_key = models.TextField(
+        blank=True, default='', verbose_name='Chave Pública da AGT (validação do callback)')
+
+    # Dados fiscais do emissor
+    estabelecimento = models.CharField(max_length=30, blank=True, default='',
+                                       verbose_name='Código de Estabelecimento')
+    eac_code = models.CharField(max_length=5, blank=True, default='',
+                                verbose_name='Código EAC (actividade)')
+
+    # Overrides opcionais dos endpoints (deixa vazio para usar os oficiais)
+    submit_url = models.URLField(blank=True, default='', verbose_name='URL registarFactura')
+    query_url = models.URLField(blank=True, default='', verbose_name='URL obterEstado')
+    serie_url = models.URLField(blank=True, default='', verbose_name='URL solicitarSerie')
+    callback_url = models.URLField(blank=True, default='', verbose_name='Callback URL')
+
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
+    atualizado_em = models.DateTimeField(auto_now=True, verbose_name='Atualizado em')
+
+    class Meta:
+        db_table = 'financeiro_configuracao_agt'
+        verbose_name = 'Configuração AGT'
+        verbose_name_plural = 'Configurações AGT'
+        ordering = ['-atualizado_em']
+
+    def get_submit_url(self):
+        if self.submit_url:
+            return self.submit_url
+        return self.URL_REGISTAR_PROD if self.ambiente == 'prod' else self.URL_REGISTAR_HML
+
+    def get_query_url(self):
+        if self.query_url:
+            return self.query_url
+        return self.URL_ESTADO_PROD if self.ambiente == 'prod' else self.URL_ESTADO_HML
+
+    def get_serie_url(self):
+        if self.serie_url:
+            return self.serie_url
+        return self.URL_SERIE_PROD if self.ambiente == 'prod' else self.URL_SERIE_HML
+
+    def get_callback_url(self):
+        from django.conf import settings as _s
+        return self.callback_url or getattr(_s, 'AGT_CALLBACK_URL', '') or ''
+
+    @property
+    def configurada(self):
+        """True quando os dados mínimos de assinatura estão preenchidos."""
+        return bool(
+            self.ativo
+            and self.tax_registration_number
+            and self.software_validation_number
+            and self.software_private_key
+            and self.emissor_private_key
+        )
+
+    @classmethod
+    def obter(cls, banca_id=None):
+        """Devolve a configuração activa para a banca (ou a global)."""
+        qs = cls.objects.filter(ativo=True)
+        if banca_id:
+            cfg = qs.filter(banca_id=banca_id).order_by('-atualizado_em').first()
+            if cfg:
+                return cfg
+        return qs.filter(banca__isnull=True).order_by('-atualizado_em').first()
+
+    def __str__(self):
+        return f"Configuração AGT ({self.get_ambiente_display()}) — {self.tax_registration_number or 'sem NIF'}"
+
+
+class SerieFaturaEletronica(models.Model):
+    """Série de numeração comunicada à AGT (serviço solicitarSerie).
+
+    O código fiscal da série (`codigo_fiscal`) é atribuído pela AGT na
+    comunicação; a `referencia` é o identificador interno escolhido pelo
+    utilizador (ex.: 'NORMAL', 'CONTINGENCIA').
+    """
+
+    TIPOS_DOCUMENTO = [
+        ('FT', 'Factura'),
+        ('FR', 'Factura/Recibo'),
+        ('FG', 'Factura Global'),
+        ('GF', 'Factura Genérica'),
+        ('RC', 'Recibo Emitido'),
+        ('TV', 'Talão de Venda'),
+        ('NC', 'Nota de Crédito'),
+        ('ND', 'Nota de Débito'),
+    ]
+
+    ESTADOS = [
+        ('Rascunho', 'Rascunho'),
+        ('Comunicada', 'Comunicada à AGT'),
+        ('Rejeitada', 'Rejeitada pela AGT'),
+    ]
+
+    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE, null=True, blank=True,
+                              related_name='series_agt', verbose_name='Banca')
+    tipo_documento = models.CharField(max_length=2, choices=TIPOS_DOCUMENTO, default='FT',
+                                      verbose_name='Tipo de Documento')
+    ano = models.PositiveIntegerField(verbose_name='Ano Civil')
+    referencia = models.CharField(max_length=30, default='NORMAL', verbose_name='Referência Interna')
+    estabelecimento = models.CharField(max_length=30, blank=True, default='SEDE',
+                                       verbose_name='Estabelecimento')
+    contingencia = models.BooleanField(default=False, verbose_name='Série de Contingência')
+
+    # Atribuídos pela AGT na comunicação
+    codigo_fiscal = models.CharField(max_length=60, blank=True, default='',
+                                     verbose_name='Código da Série (AGT)')
+    numero_inicial = models.PositiveIntegerField(default=1, verbose_name='Número Inicial')
+    numero_final = models.PositiveBigIntegerField(null=True, blank=True,
+                                                  verbose_name='Número Final Autorizado')
+    numero_atual = models.PositiveBigIntegerField(default=0, verbose_name='Último Número Atribuído')
+
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Rascunho',
+                              db_index=True, verbose_name='Estado')
+    data_comunicacao = models.DateTimeField(null=True, blank=True, verbose_name='Comunicada em')
+    erro_comunicacao = models.TextField(blank=True, default='', verbose_name='Erro de Comunicação')
+    criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
+
+    class Meta:
+        db_table = 'financeiro_serie_fatura_eletronica'
+        verbose_name = 'Série de Fatura Eletrónica'
+        verbose_name_plural = 'Séries de Faturas Eletrónicas'
+        ordering = ['-ano', 'tipo_documento', 'referencia']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['banca', 'tipo_documento', 'ano', 'referencia'],
+                name='serie_agt_unica_por_banca_tipo_ano_ref',
+            ),
+        ]
+
+    def proximo_numero(self):
+        """Próximo número sequencial da série (começa em numero_inicial)."""
+        ultimo = self.numero_atual or (self.numero_inicial - 1)
+        return max(ultimo + 1, self.numero_inicial)
+
+    def montar_document_no(self, sequencia):
+        """Formato AGT: 'TIPO CODIGO/SEQUENCIA' (sem zeros à esquerda)."""
+        codigo = self.codigo_fiscal or self.referencia
+        return f"{self.tipo_documento} {codigo}/{sequencia}"
+
+    def devolver_numero(self, sequencia):
+        """Devolve à série um número reservado que não chegou a ser registado na AGT.
+
+        Só atua se ``sequencia`` continuar a ser o último número atribuído,
+        evitando reutilizar números de documentos já emitidos.
+        """
+        if not sequencia:
+            return False
+        atualizado = (
+            SerieFaturaEletronica.objects
+            .filter(pk=self.pk, numero_atual=sequencia)
+            .update(numero_atual=sequencia - 1)
+        )
+        if atualizado:
+            self.numero_atual = sequencia - 1
+        return bool(atualizado)
+
+    def __str__(self):
+        return f"{self.get_tipo_documento_display()} {self.codigo_fiscal or self.referencia}/{self.ano} ({self.estado})"
 
 
 class RequisicaoFundo(models.Model):
@@ -1088,6 +1560,7 @@ class HistoricoFinanceiro(models.Model):
         ('NotaCredito', 'Nota de Crédito'),
         ('NotaDebito', 'Nota de Débito'),
         ('FacturaRecibo', 'Factura-Recibo'),
+        ('FaturaEletronica', 'Fatura Eletrónica'),
     ]
 
     tipo_documento = models.CharField(max_length=20, choices=TIPO_DOCUMENTO, db_index=True, verbose_name='Tipo de Documento')
@@ -1136,88 +1609,3 @@ def registrar_historico(tipo_documento, documento_id, documento_numero, accao,
     )
 
 # Fim dos modelos existentes.
-
-
-class FaturaAGT(models.Model):
-    """Fatura submetida/validada pela AGT via Faturação Eletrónica"""
-
-    STATUS_AGT = [
-        ('Pendente', 'Pendente'),
-        ('Processando', 'Processando'),
-        ('Validada', 'Validada'),
-        ('Rejeitada', 'Rejeitada'),
-        ('Erro', 'Erro'),
-    ]
-
-    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE, related_name='faturas_agt', null=True, blank=True)
-    factura = models.OneToOneField('FacturaCliente', on_delete=models.SET_NULL, null=True, blank=True, related_name='fatura_agt', verbose_name='Factura')
-    numero_fatura = models.CharField(max_length=50, unique=True, blank=True, verbose_name='Número da Fatura AGT')
-    serie = models.CharField(max_length=20, blank=True, verbose_name='Série')
-    nif_emitente = models.CharField(max_length=20, blank=True, verbose_name='NIF do Emitente')
-    nif_cliente = models.CharField(max_length=20, blank=True, verbose_name='NIF do Cliente')
-    nome_cliente = models.CharField(max_length=255, blank=True, verbose_name='Nome do Cliente')
-    descricao = models.TextField(blank=True, verbose_name='Descrição')
-    valor_sem_iva = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor sem IVA')
-    valor_iva = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor IVA')
-    valor_total = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), verbose_name='Valor Total')
-    taxa_iva = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('14.00'), verbose_name='Taxa IVA (%)')
-
-    # Campos da API AGT
-    agt_id = models.CharField(max_length=200, blank=True, verbose_name='ID AGT / requestID')
-    agt_request_id = models.CharField(max_length=200, blank=True, verbose_name='Request ID AGT', db_index=True)
-    agt_hash = models.CharField(max_length=500, blank=True, verbose_name='Hash AGT')
-    agt_qr_code = models.TextField(blank=True, verbose_name='QR Code AGT')
-    agt_status = models.CharField(max_length=20, choices=STATUS_AGT, default='Pendente', db_index=True, verbose_name='Status AGT')
-    agt_motivo_rejeicao = models.TextField(blank=True, verbose_name='Motivo de Rejeição AGT')
-    agt_data_validacao = models.DateTimeField(null=True, blank=True, verbose_name='Data de Validação AGT')
-    agt_resposta_raw = models.JSONField(null=True, blank=True, verbose_name='Resposta Raw AGT')
-
-    data_emissao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Emissão', db_index=True)
-    data_atualizacao = models.DateTimeField(auto_now=True, verbose_name='Última Atualização')
-    criado_por_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador')
-    criado_por_nome = models.CharField(max_length=200, blank=True, default='', verbose_name='Nome do Criador')
-
-    class Meta:
-        db_table = 'financeiro_fatura_agt'
-        verbose_name = 'Fatura AGT'
-        verbose_name_plural = 'Faturas AGT'
-        ordering = ['-data_emissao']
-        indexes = [
-            models.Index(fields=['agt_status', '-data_emissao'], name='ix_fatagt_status_data'),
-            models.Index(fields=['banca', 'agt_status'], name='ix_fatagt_banca_status'),
-            models.Index(fields=['nif_cliente'], name='ix_fatagt_nif_cliente'),
-        ]
-
-    def _gerar_numero_fatura(self):
-        """
-        Gera um número de fatura único no padrão FAT-{ano}-{seq:04d}.
-        A sequência é isolada por banca — cada banca tem a sua numeração independente.
-        """
-        ano = timezone.now().year
-        # Isolamento por banca: cada banca tem sequência própria
-        qs = FaturaAGT.objects.filter(numero_fatura__startswith=f'FAT-{ano}-')
-        if self.banca_id:
-            qs = qs.filter(banca_id=self.banca_id)
-        ultimo = qs.order_by('-numero_fatura').first()
-        if ultimo and ultimo.numero_fatura:
-            try:
-                seq = int(ultimo.numero_fatura.split('-')[-1]) + 1
-            except (ValueError, IndexError):
-                seq = 1
-        else:
-            seq = 1
-        return f'FAT-{ano}-{seq:04d}'
-
-    def save(self, *args, **kwargs):
-        for _attempt in range(5):
-            if not self.numero_fatura:
-                self.numero_fatura = self._gerar_numero_fatura()
-            try:
-                super().save(*args, **kwargs)
-                break
-            except IntegrityError:
-                self.numero_fatura = None
-                continue
-
-    def __str__(self):
-        return f"FatAGT {self.numero_fatura or self.agt_id} - {self.nome_cliente}"

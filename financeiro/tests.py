@@ -1,13 +1,11 @@
-import json
-from django.test import TestCase, Client as DjangoClient
-from django.urls import reverse
+from django.test import TestCase
 from decimal import Decimal
 from django.utils import timezone
 from django.contrib.auth.models import User
 from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
 from rh.models import Banca
-from financeiro.models import RequisicaoFundo, RequisicaoFundoLinha, FaturaAGT
+from financeiro.models import RequisicaoFundo, RequisicaoFundoLinha
 
 
 class RequisicaoFundoCalculosTestCase(TestCase):
@@ -262,140 +260,3 @@ class ParseValorMonetarioTestCase(TestCase):
         from financeiro.views import parse_valor_monetario
         resultado = parse_valor_monetario('abc')
         self.assertEqual(resultado, Decimal('0'))
-
-
-# ---------------------------------------------------------------------------
-# FaturaAGT — testes para callback, sincronizar e submeter (Finding 4)
-# ---------------------------------------------------------------------------
-
-def _make_fatura_agt(**kwargs):
-    """Helper: cria uma FaturaAGT mínima para testes."""
-    defaults = {
-        'agt_status': 'Pendente',
-        'nome_cliente': 'Cliente Teste AGT',
-        'nif_cliente': '000111222',
-        'valor_total': Decimal('10000.00'),
-    }
-    defaults.update(kwargs)
-    return FaturaAGT.objects.create(**defaults)
-
-
-class FaturaAGTCallbackTestCase(TestCase):
-    """Testes do endpoint de callback público da AGT."""
-
-    def setUp(self):
-        self.client = DjangoClient()
-        self.url = reverse('financeiro:faturacao_agt_callback')
-
-    def _post_json(self, payload):
-        return self.client.post(
-            self.url,
-            data=json.dumps(payload),
-            content_type='application/json',
-        )
-
-    def test_callback_valid_payload_updates_status(self):
-        """Payload válido com agt_id conhecido actualiza o status da fatura."""
-        fatura = _make_fatura_agt(agt_id='AGT-001', agt_status='Processando')
-        response = self._post_json({
-            'agt_id': 'AGT-001',
-            'status': 'Validada',
-            'hash': 'abc123',
-            'qr_code': 'data:...',
-            'motivo_rejeicao': '',
-        })
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['status'], 'ok')
-        fatura.refresh_from_db()
-        self.assertEqual(fatura.agt_status, 'Validada')
-        self.assertEqual(fatura.agt_hash, 'abc123')
-        self.assertIsNotNone(fatura.agt_data_validacao)
-
-    def test_callback_unknown_agt_id_returns_404(self):
-        """Payload com agt_id desconhecido deve retornar 404."""
-        response = self._post_json({'agt_id': 'INEXISTENTE', 'status': 'Validada'})
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()['status'], 'error')
-
-    def test_callback_invalid_json_returns_400(self):
-        """Corpo não-JSON deve retornar 400."""
-        response = self.client.post(
-            self.url,
-            data='isto não é json {{{',
-            content_type='application/json',
-        )
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()['status'], 'error')
-
-    def test_callback_get_returns_405(self):
-        """GET no callback deve retornar 405."""
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 405)
-
-    def test_callback_rejected_status_sets_motivo(self):
-        """Status 'Rejeitada' com motivo deve persistir o motivo de rejeição."""
-        fatura = _make_fatura_agt(agt_id='AGT-002', agt_status='Processando')
-        response = self._post_json({
-            'agt_id': 'AGT-002',
-            'status': 'Rejeitada',
-            'motivo_rejeicao': 'NIF inválido',
-        })
-        self.assertEqual(response.status_code, 200)
-        fatura.refresh_from_db()
-        self.assertEqual(fatura.agt_status, 'Rejeitada')
-        self.assertEqual(fatura.agt_motivo_rejeicao, 'NIF inválido')
-
-    def test_callback_invalid_status_not_persisted(self):
-        """Status não válido não deve alterar o status da fatura."""
-        fatura = _make_fatura_agt(agt_id='AGT-003', agt_status='Pendente')
-        response = self._post_json({'agt_id': 'AGT-003', 'status': 'ESTADO_INVALIDO'})
-        self.assertEqual(response.status_code, 200)
-        fatura.refresh_from_db()
-        self.assertEqual(fatura.agt_status, 'Pendente')
-
-
-class FaturaAGTSincronizarTestCase(TestCase):
-    """Testes do endpoint de sincronização (POST only após Finding 1)."""
-
-    def setUp(self):
-        self.client = DjangoClient()
-        # Simular sessão activa
-        session = self.client.session
-        session['usuario_id'] = 1
-        session['usuario'] = {'nome': 'Tester', 'papel': 'Administrador'}
-        session.save()
-
-    def _post_sinc(self, pk):
-        url = reverse('financeiro:faturacao_agt_sincronizar', args=[pk])
-        return self.client.post(
-            url,
-            content_type='application/json',
-            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
-        )
-
-    def _get_sinc(self, pk):
-        url = reverse('financeiro:faturacao_agt_sincronizar', args=[pk])
-        return self.client.get(url)
-
-    def test_sincronizar_rejects_get(self):
-        """GET no endpoint sincronizar deve ser rejeitado (Finding 1)."""
-        fatura = _make_fatura_agt(agt_status='Processando')
-        response = self._get_sinc(fatura.pk)
-        self.assertEqual(response.status_code, 405)
-
-    def test_sincronizar_empty_agt_id_returns_ok(self):
-        """Fatura sem agt_id deve retornar ok=True com status inalterado."""
-        fatura = _make_fatura_agt(agt_id='', agt_status='Pendente')
-        response = self._post_sinc(fatura.pk)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertTrue(data['ok'])
-        self.assertEqual(data['status'], 'Pendente')
-
-    def test_sincronizar_nonexistent_pk_returns_error(self):
-        """PK inexistente deve resultar em resposta de erro."""
-        response = self._post_sinc(9999999)
-        # get_object_or_404 inside try/except → status 500 with ok:False
-        self.assertIn(response.status_code, [404, 500])
-

@@ -3,8 +3,6 @@ from . import views
 from . import views_contacorrente as cc
 from . import views_relatorios as rel
 from . import views_relatorio_pdf as rel_pdf
-from . import views_agt as agt
-from . import views_faturacao_eletronica as faturacao_eletronica
 
 
 app_name = 'financeiro'
@@ -35,6 +33,7 @@ urlpatterns = [
     path('api/processos-cliente/', views.api_processos_cliente, name='api_processos_cliente'),
     path('api/dados-processo/', views.api_dados_processo, name='api_dados_processo'),
     path('api/facturas-por-cliente/', views.api_facturas_por_cliente, name='api_facturas_por_cliente'),
+    path('api/requisicoes-por-cliente/', views.api_requisicoes_por_cliente, name='api_requisicoes_por_cliente'),
 
     # Facturas Finais
     path('facturas/', views.FacturaClienteListView.as_view(), name='factura_lista'),
@@ -97,6 +96,24 @@ urlpatterns = [
     path('facturas-recibo/<int:pk>/editar/', views.FacturaReciboUpdateView.as_view(), name='factura_recibo_editar'),
     path('facturas-recibo/<int:pk>/cancelar/', views.cancelar_factura_recibo, name='factura_recibo_cancelar'),
 
+    # ─── Fatura Eletronica ────────────────────────────────────────────────
+    path('fatura-eletronica/', views.FaturaEletronicaListView.as_view(), name='fatura_eletronica_lista'),
+    path('fatura-eletronica/dashboard/', views.FaturaEletronicaDashboardView.as_view(), name='fatura_eletronica_dashboard'),
+    path('fatura-eletronica/dashboard/json/', views.fatura_eletronica_dashboard_json, name='fatura_eletronica_dashboard_json'),
+    path('fatura-eletronica/criar/', views.FaturaEletronicaCreateView.as_view(), name='fatura_eletronica_criar'),
+    path('fatura-eletronica/<int:pk>/', views.FaturaEletronicaDetailView.as_view(), name='fatura_eletronica_detalhe'),
+    path('fatura-eletronica/<int:pk>/enviar-agt/', views.fatura_eletronica_enviar_agt, name='fatura_eletronica_enviar_agt'),
+    path('fatura-eletronica/<int:pk>/cancelar/', views.fatura_eletronica_cancelar, name='fatura_eletronica_cancelar'),
+    path('fatura-eletronica/<int:pk>/pdf/', views.fatura_eletronica_pdf, name='fatura_eletronica_pdf'),
+    path('fatura-eletronica/<int:pk>/consultar-estado/', views.fatura_eletronica_consultar_estado, name='fatura_eletronica_consultar_estado'),
+    path('fatura-eletronica/api/estados/', views.fatura_eletronica_estados_json, name='fatura_eletronica_estados_json'),
+    path('fatura-eletronica/configuracao/', views.fatura_eletronica_configuracao, name='fatura_eletronica_configuracao'),
+    path('fatura-eletronica/series/', views.SerieFaturaEletronicaListView.as_view(), name='serie_fatura_eletronica_lista'),
+    path('fatura-eletronica/series/criar/', views.SerieFaturaEletronicaCreateView.as_view(), name='serie_fatura_eletronica_criar'),
+    path('fatura-eletronica/series/<int:pk>/editar/', views.SerieFaturaEletronicaUpdateView.as_view(), name='serie_fatura_eletronica_editar'),
+    path('fatura-eletronica/series/<int:pk>/comunicar/', views.serie_fatura_eletronica_comunicar, name='serie_fatura_eletronica_comunicar'),
+    path('fatura-eletronica/series/<int:pk>/eliminar/', views.serie_fatura_eletronica_eliminar, name='serie_fatura_eletronica_eliminar'),
+
     # ─── Conta Corrente ──────────────────────────────────────────────────
     path('conta-corrente/', cc.ContaCorrenteHomeView.as_view(), name='conta_corrente_home'),
     path('conta-corrente/cliente/<int:pk>/', cc.ContaCorrenteClienteView.as_view(), name='conta_corrente_cliente'),
@@ -137,20 +154,5 @@ urlpatterns = [
 
     # PDF dos Relatórios
     path('relatorios/<slug:tipo>/pdf/', rel_pdf.relatorio_pdf, name='relatorio_pdf'),
-
-    # ─── Faturação Eletrónica AGT ─────────────────────────────────────────
-    # Novas rotas: agt_invoicing models
-    path('faturacao-eletronica/', faturacao_eletronica.faturacao_eletronica_dashboard, name='faturacao_eletronica_dashboard'),
-    path('faturacao-eletronica/lista/', faturacao_eletronica.faturacao_eletronica_lista, name='faturacao_eletronica_lista'),
-    path('faturacao-eletronica/<int:fatura_id>/', faturacao_eletronica.faturacao_eletronica_detalhe, name='faturacao_eletronica_detalhe'),
-    path('faturacao-eletronica/<int:fatura_id>/sincronizar/', faturacao_eletronica.faturacao_eletronica_sincronizar, name='faturacao_eletronica_sincronizar'),
-
-    # Antigas rotas: FaturaAGT model (financeiro.FaturaAGT)
-    path('faturacao-agt/', agt.faturacao_agt_dashboard, name='faturacao_agt_dashboard'),
-    path('faturacao-agt/lista/', agt.faturacao_agt_lista, name='faturacao_agt_lista'),
-    path('faturacao-agt/<int:pk>/', agt.faturacao_agt_detalhe, name='faturacao_agt_detalhe'),
-    path('faturacao-agt/submeter/<int:factura_pk>/', agt.faturacao_agt_submeter, name='faturacao_agt_submeter'),
-    path('faturacao-agt/<int:pk>/sincronizar/', agt.faturacao_agt_sincronizar, name='faturacao_agt_sincronizar'),
-    # NOTA: o callback AGT está registado no urls.py raiz em /api/facturacaoelectronica/callback
 
 ]

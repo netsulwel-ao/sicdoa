@@ -44,6 +44,10 @@ apscheduler.db
 DS_Store
 Thumbs.db
 
-# Chaves RSA AGT — NUNCA commitar chaves privadas
+# Chaves e segredos locais (nunca versionar)
 keys/
 *.pem
+
+# Ficheiros de trabalho de agentes e saidas de teste
+.agents/
+test-output.txt

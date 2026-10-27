@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Nova Fatura Eletrónica{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto w-full">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Nova Fatura Eletrónica</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400">
+      Emita um documento fiscal para submissão à Faturação Eletrónica da AGT.
+    </p>
+  </div>
+
+  <form method="post" id="faturaEletronicaForm"
+        class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+      {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Passo 1: Cliente e tipo -->
+    <div class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
+      <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+        <i class="fas fa-user text-primary"></i> 1. Cliente e tipo de documento
+      </h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="{{ form.cliente.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Cliente <span class="text-red-500">*</span>
+          </label>
+          {{ form.cliente }}
+          {% for error in form.cliente.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.tipo_documento.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Tipo de Documento <span class="text-red-500">*</span>
+          </label>
+          {{ form.tipo_documento }}
+          {% for error in form.tipo_documento.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Passo 1b: Referência ao documento original (NC/ND) -->
+    <div id="blocoReferencia" class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4 hidden">
+      <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+        <i class="fas fa-file-invoice text-primary"></i> Referência ao documento de origem
+      </h3>
+
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        As notas de crédito/débito têm de referenciar o documento fiscal original já registado na AGT.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="{{ form.documento_origem_ref.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Documento Fiscal de Origem <span class="text-red-500">*</span>
+          </label>
+          {{ form.documento_origem_ref }}
+          {% for error in form.documento_origem_ref.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.motivo_ref.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Motivo
+          </label>
+          {{ form.motivo_ref }}
+          {% for error in form.motivo_ref.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Passo 2: Documento de origem -->
+    <div class="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
+      <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+        <i class="fas fa-link text-primary"></i> 2. Documento de origem
+      </h3>
+
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        Escolha apenas uma origem. O total é calculado automaticamente a partir dela.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="{{ form.factura_cliente.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Factura Cliente
+          </label>
+          {{ form.factura_cliente }}
+          {% for error in form.factura_cliente.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.requisicao_fundo.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Requisição de Fundos
+          </label>
+          {{ form.requisicao_fundo }}
+          {% for error in form.requisicao_fundo.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+
+      <!-- Resumo da origem selecionada (preenchido via JS) -->
+      <div id="origemResumo" class="mt-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 hidden">
+        <p class="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">Origem selecionada</p>
+        <p id="origemDetalhe" class="text-sm text-blue-900 dark:text-blue-100 break-all"></p>
+        <p id="origemTotal" class="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">Total: <span id="origemValor">0,00</span> KZ</p>
+      </div>
+    </div>
+
+    <!-- Passo 3: Callback URL -->
+    <div class="mb-6">
+      <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+        <i class="fas fa-hook text-primary"></i> 3. Callback URL (webhook da AGT)
+      </h3>
+
+      <div class="flex gap-2">
+        {{ form.callback_url }}
+        {% for error in form.callback_url.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+        <button type="button" id="sugerirCallback"
+                class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-1">
+          <i class="fas fa-magic"></i> Sugerir
+        </button>
+      </div>
+      <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+        <p class="text-xs font-medium text-blue-800 dark:text-blue-300">
+          <i class="fas fa-info-circle mr-1"></i>
+          Registe esta URL no Portal do Parceiro da AGT. Tem de ser pública e usar HTTPS.
+        </p>
+        <p class="text-xs text-blue-600 dark:text-blue-400 mt-1 break-all">
+          Exemplo: <code>https://meusistema.co.ao/api/facturacaoelectronica/callback/</code>
+        </p>
+        <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
+          A AGT enviará um POST a esta URL com o resultado do processamento (aprovado/rejeitado),
+          que atualiza automaticamente o estado deste documento.
+        </p>
+      </div>
+    </div>
+
+    <!-- Passo 4: Observações -->
+    <div class="mb-6">
+      <label for="{{ form.observacoes.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        Observações
+      </label>
+      {{ form.observacoes }}
+      {% for error in form.observacoes.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-3">
+      <a href="{% url 'financeiro:fatura_eletronica_lista' %}"
+         class="flex-1 text-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        Cancelar
+      </a>
+      <button type="submit"
+              class="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-sm">
+        <i class="fas fa-save mr-1"></i> Criar Fatura Eletrónica
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const clienteSelect = document.getElementById('{{ form.cliente.id_for_label }}');
+  const tipoSelect = document.getElementById('{{ form.tipo_documento.id_for_label }}');
+  const facturaSelect = document.getElementById('{{ form.factura_cliente.id_for_label }}');
+  const requisicaoSelect = document.getElementById('{{ form.requisicao_fundo.id_for_label }}');
+  const origemResumo = document.getElementById('origemResumo');
+  const origemDetalhe = document.getElementById('origemDetalhe');
+  const origemValor = document.getElementById('origemValor');
+  const blocoReferencia = document.getElementById('blocoReferencia');
+
+  // Mostra a referência ao documento original apenas para NC/ND.
+  function atualizarBlocoReferencia() {
+    if (!blocoReferencia || !tipoSelect) return;
+    const tipo = tipoSelect.value;
+    if (tipo === 'NOTA_CREDITO' || tipo === 'NOTA_DEBITO') {
+      blocoReferencia.classList.remove('hidden');
+    } else {
+      blocoReferencia.classList.add('hidden');
+    }
+  }
+  if (tipoSelect) {
+    tipoSelect.addEventListener('change', atualizarBlocoReferencia);
+    atualizarBlocoReferencia();
+  }
+
+  const callbackInput = document.getElementById('{{ form.callback_url.id_for_label }}');
+  const sugerirBtn = document.getElementById('sugerirCallback');
+  const callbackPadrao = '{{ callback_url_padrao|default:"" }}';
+
+  // Sugere callback URL padrão
+  if (sugerirBtn && callbackPadrao) {
+    sugerirBtn.addEventListener('click', function () {
+      callbackInput.value = callbackPadrao;
+      callbackInput.classList.add('ring-2', 'ring-primary');
+      setTimeout(() => callbackInput.classList.remove('ring-2', 'ring-primary'), 1000);
+    });
+  }
+
+  // Limpa seleções quando o cliente muda
+  clienteSelect.addEventListener('change', function () {
+    facturaSelect.value = '';
+    requisicaoSelect.value = '';
+    origemResumo.classList.add('hidden');
+    origemDetalhe.textContent = '';
+    origemValor.textContent = '0,00';
+
+    const clienteId = this.value;
+    if (!clienteId) return;
+
+    // Busca facturas do cliente via API existente
+    const params = new URLSearchParams({ cliente_id: clienteId });
+
+    fetch('{% url "financeiro:api_facturas_por_cliente" %}?' + params, { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(data => {
+        facturaSelect.innerHTML = '<option value="">---</option>';
+        if (data.success && data.facturas) {
+          data.facturas.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.id;
+            const total = parseFloat(f.valor_total || 0);
+            opt.textContent = f.numero_factura + ' — ' + total.toLocaleString('pt-AO', { minimumFractionDigits: 2 }) + ' KZ';
+            opt.dataset.total = total;
+            facturaSelect.appendChild(opt);
+          });
+        }
+      })
+      .catch(() => {});
+
+    // Requisições do cliente
+    fetch('{% url "financeiro:api_requisicoes_por_cliente" %}?' + params, { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(data => {
+        requisicaoSelect.innerHTML = '<option value="">---</option>';
+        if (data.success && data.requisicoes) {
+          data.requisicoes.forEach(rq => {
+            const opt = document.createElement('option');
+            opt.value = rq.id;
+            const total = parseFloat(rq.total_geral || 0);
+            opt.textContent = rq.numero_requisicao + ' — ' + total.toLocaleString('pt-AO', { minimumFractionDigits: 2 }) + ' KZ';
+            opt.dataset.total = total;
+            requisicaoSelect.appendChild(opt);
+          });
+        }
+      })
+      .catch(() => {});
+  });
+
+  function atualizarResumo(select, tipo) {
+    const opt = select.options[select.selectedIndex];
+    if (!opt || !opt.value) {
+      origemResumo.classList.add('hidden');
+      return;
+    }
+    origemResumo.classList.remove('hidden');
+    origemDetalhe.textContent = tipo + ': ' + opt.textContent;
+    origemValor.textContent = (opt.dataset.total || '0');
+  }
+
+  facturaSelect.addEventListener('change', function () {
+    if (this.value) requisicaoSelect.value = '';
+    atualizarResumo(this, 'Factura');
+  });
+
+  requisicaoSelect.addEventListener('change', function () {
+    if (this.value) facturaSelect.value = '';
+    atualizarResumo(this, 'Requisição');
+  });
+</script>
+{% endblock %}

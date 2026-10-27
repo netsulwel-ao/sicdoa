@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Faturas Eletrónicas{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto w-full">
+
+  <!-- Cabeçalho -->
+  <div class="mb-6">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Faturas Eletrónicas</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          Documentos fiscais submetidos à Faturação Eletrónica da AGT.
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <a href="{% url 'financeiro:fatura_eletronica_dashboard' %}"
+           class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm">
+          <i class="fas fa-chart-pie"></i> Dashboard
+        </a>
+        {% if pode_escrever %}
+        <a href="{% url 'financeiro:fatura_eletronica_criar' %}"
+           class="px-4 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2 text-sm">
+          <i class="fas fa-plus"></i> Nova Fatura
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards de resumo por estado -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    {% for codigo, label in estados %}
+    {% with estado_atual=codigo %}
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow group">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ label }}</p>
+        <a href="{% url 'financeiro:fatura_eletronica_lista' %}?estado={{ codigo }}"
+           class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20"
+           title="Ver {{ label|lower }}">
+          <i class="fas fa-arrow-right text-xs"></i>
+        </a>
+      </div>
+      <p class="text-3xl font-bold text-gray-900 dark:text-white mb-1 contagem-{{ codigo }}">—</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 valor-{{ codigo }}">0,00 KZ</p>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+
+    <!-- Filtros -->
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+      <form method="get" class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1 relative">
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input type="text" name="busca" value="{{ busca }}"
+                 placeholder="Buscar por número, cliente ou NIF..."
+                 class="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+        </div>
+        <select name="estado"
+                class="px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+          <option value="">Todos os estados</option>
+          {% for codigo, label in estados %}
+          <option value="{{ codigo }}" {% if estado_filtro == codigo %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+          Filtrar
+        </button>
+        {% if busca or estado_filtro %}
+        <a href="{% url 'financeiro:fatura_eletronica_lista' %}"
+           class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-center">
+          Limpar
+        </a>
+        {% endif %}
+      </form>
+    </div>
+
+    <!-- Tabela -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+          <tr>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Número</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Cliente</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Tipo</th>
+            <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total</th>
+            <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Estado</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Enviada AGT</th>
+            <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700" id="tabela-faturas">
+          {% for fatura in faturas_eletronicas %}
+          <tr id="fatura-{{ fatura.pk }}"
+              class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors linha-fatura"
+              data-pk="{{ fatura.pk }}"
+              data-estado="{{ fatura.estado }}"
+              data-request-id="{{ fatura.request_id|default:'' }}">
+            <td class="px-6 py-4 font-mono font-bold text-primary">{{ fatura.numero_fatura }}</td>
+            <td class="px-6 py-4">
+              <p class="text-gray-900 dark:text-white font-medium">{{ fatura.cliente.nome }}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">NIF: {{ fatura.cliente.nif|default:"—" }}</p>
+            </td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ fatura.get_tipo_documento_display }}</td>
+            <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ fatura.total_geral|fmtkz }} KZ</td>
+            <td class="px-6 py-4 text-center estado-col">
+              {% if fatura.estado == 'Rascunho' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Rascunho</span>
+              {% elif fatura.estado == 'Em Fila' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 animate-pulse">Em Fila</span>
+              {% elif fatura.estado == 'Enviada AGT' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 animate-pulse">Enviada AGT</span>
+              {% elif fatura.estado == 'Aprovada AGT' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Aprovada AGT</span>
+              {% elif fatura.estado == 'Rejeitada AGT' %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Rejeitada AGT</span>
+              {% else %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">Cancelada</span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400">
+              {{ fatura.data_envio_agt|date:"d/m/Y H:i"|default:"—" }}
+            </td>
+            <td class="px-6 py-4 acoes-col">
+              <div class="flex items-center justify-center gap-1">
+                <a href="{% url 'financeiro:fatura_eletronica_detalhe' fatura.pk %}"
+                   class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Ver">
+                  <i class="fas fa-eye"></i>
+                </a>
+                {% if pode_escrever and fatura.estado == 'Rascunho' %}
+                <form method="post" action="{% url 'financeiro:fatura_eletronica_enviar_agt' fatura.pk %}" class="inline form-enviar-agt"
+                      data-pk="{{ fatura.pk }}">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors border-0 bg-transparent cursor-pointer btn-enviar-agt"
+                          title="Enviar para a AGT"
+                          onclick="return bloquearEnvio(this, '{{ fatura.numero_fatura|escapejs }}');">
+                    <i class="fas fa-paper-plane"></i>
+                  </button>
+                </form>
+                {% endif %}
+                {% if pode_escrever and fatura.estado == 'Aprovada AGT' %}
+                <a href="{% url 'financeiro:fatura_eletronica_pdf' fatura.pk %}"
+                   class="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors" title="Imprimir Factura">
+                  <i class="fas fa-file-pdf"></i>
+                </a>
+                {% endif %}
+                {% if pode_escrever and fatura.estado == 'Rejeitada AGT' %}
+                <button type="button"
+                        class="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Ver detalhes do erro"
+                        onclick="abrirModalErro('{{ fatura.numero_fatura|escapejs }}', '{{ fatura.resposta_agt|default:'Erro não especificado'|escapejs }}', '{{ fatura.request_id|default:'—'|escapejs }}')">
+                  <i class="fas fa-circle-exclamation"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center">
+              <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
+              <p class="text-gray-500 dark:text-gray-400 mb-4">Nenhuma fatura eletrónica encontrada</p>
+              {% if pode_escrever %}
+              <a href="{% url 'financeiro:fatura_eletronica_criar' %}" class="text-primary hover:text-primary/80 font-medium text-sm">
+                Emitir a primeira fatura eletrónica →
+              </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between">
+      <p class="text-sm text-gray-600 dark:text-gray-400">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</p>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if busca %}&busca={{ busca|urlencode }}{% endif %}{% if estado_filtro %}&estado={{ estado_filtro|urlencode }}{% endif %}"
+             class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Anterior</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if busca %}&busca={{ busca|urlencode }}{% endif %}{% if estado_filtro %}&estado={{ estado_filtro|urlencode }}{% endif %}"
+             class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Próxima</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 1. LOADER OVERLAY (bloqueio visual durante envio à AGT) -->
+<div id="loader-overlay" class="hidden fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white">
+  <div class="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center border border-gray-100">
+    <div class="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-4"></div>
+    <h3 class="text-xl font-bold text-gray-900 mb-2">Comunicação com a AGT</h3>
+    <p class="text-sm text-gray-600">"A comunicar com a AGT, por favor aguarde..."</p>
+    <p class="text-xs text-gray-400 mt-3 font-mono">A submeter documento eletrónico</p>
+  </div>
+</div>
+
+<!-- 4. MODAL DE ERRO DE REJEIÇÃO -->
+<div id="modal-erro" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div class="bg-red-600 text-white p-4 flex justify-between items-center">
+      <h3 class="font-bold flex items-center gap-2">
+        ⚠️ Detalhes da Rejeição (AGT)
+      </h3>
+      <button onclick="fecharModalErro()" class="text-white hover:text-gray-200 text-xl font-bold">&times;</button>
+    </div>
+    <div class="p-6">
+      <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">
+        O documento <span id="modal-fatura-num" class="font-semibold text-gray-900 dark:text-white"></span>
+        foi rejeitado pela AGT.
+      </p>
+      <div id="modal-fatura-erro" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-lg font-mono text-xs text-red-800 dark:text-red-200 mb-4 whitespace-pre-wrap"></div>
+      <div class="text-xs text-gray-400 dark:text-gray-500 font-mono">RequestID: <span id="modal-fatura-request-id"></span></div>
+      <div class="mt-6 flex justify-end">
+        <button onclick="fecharModalErro()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white text-xs font-semibold rounded-lg transition-colors">Fechar Janela</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Carrega contadores por estado via JSON para os cards de resumo
+  document.addEventListener('DOMContentLoaded', function () {
+    const dashboardUrl = '{% url "financeiro:fatura_eletronica_dashboard_json" %}';
+    fetch(dashboardUrl, { credentials: 'same-origin' })
+      .then(response => response.json())
+      .then(data => {
+        const porEstado = data.por_estado || {};
+        Object.entries(porEstado).forEach(([estado, info]) => {
+          const countEl = document.querySelector('.contagem-' + estado);
+          const valorEl = document.querySelector('.valor-' + estado);
+          if (countEl) countEl.textContent = info.total;
+          if (valorEl) valorEl.textContent = (info.valor || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' KZ';
+        });
+      })
+      .catch(err => console.error('Erro ao carregar dashboard:', err));
+  });
+
+  // URLs base resolvidas pelo Django (pk=0 placeholder, substituído no JS)
+  const URL_DETALHE_BASE = '{% url "financeiro:fatura_eletronica_detalhe" 0 %}'.replace('/0', '');
+  const URL_PDF_BASE = '{% url "financeiro:fatura_eletronica_pdf" 0 %}'.replace('/0', '');
+
+  // 1. Bloqueio visual contra clique duplo na emissão AGT
+  function bloquearEnvio(btn, numeroFatura) {
+    if (!confirm('Submeter ' + numeroFatura + ' à AGT?')) return false;
+    const overlay = document.getElementById('loader-overlay');
+    overlay.classList.remove('hidden');
+    // Desabilita todos os botões de envio
+    document.querySelectorAll('.btn-enviar-agt').forEach(b => b.disabled = true);
+    return true; // prossegue com o submit
+  }
+
+  // 2. Short Polling para linhas em estado "Enviada AGT" ou "Em Fila"
+  function executarPollingFaturas() {
+    const linhas = document.querySelectorAll('.linha-fatura[data-estado="Enviada AGT"], .linha-fatura[data-estado="Em Fila"]');
+    if (linhas.length === 0) return;
+
+    const estadosUrl = '{% url "financeiro:fatura_eletronica_estados_json" %}';
+    fetch(estadosUrl, { credentials: 'same-origin' })
+      .then(response => response.json())
+      .then(data => {
+        const mapa = {};
+        (data.faturas || []).forEach(f => { mapa[f.pk] = f; });
+
+        linhas.forEach(linha => {
+          const pk = parseInt(linha.getAttribute('data-pk'), 10);
+          const atual = mapa[pk];
+          if (!atual) return;
+
+          const novoEstado = atual.estado;
+          if (novoEstado === linha.getAttribute('data-estado')) return; // sem mudança
+
+          // Atualiza atributo
+          linha.setAttribute('data-estado', novoEstado);
+
+          // Atualiza coluna de estado (span)
+          const estadoCol = linha.querySelector('.estado-col');
+          let badgeHtml = '';
+          if (novoEstado === 'Aprovada AGT') {
+            badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Aprovada AGT</span>';
+          } else if (novoEstado === 'Rejeitada AGT') {
+            badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Rejeitada AGT</span>';
+          } else if (novoEstado === 'Rascunho') {
+            badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Rascunho</span>';
+          } else if (novoEstado === 'Em Fila') {
+            badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 animate-pulse">Em Fila</span>';
+          } else if (novoEstado === 'Enviada AGT') {
+            badgeHtml = '<span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 animate-pulse">Enviada AGT</span>';
+          }
+          if (badgeHtml) estadoCol.innerHTML = badgeHtml;
+
+          // Atualiza coluna de ações
+          const acoesCol = linha.querySelector('.acoes-col');
+          let acoesHtml = '';
+          const pkStr = linha.getAttribute('data-pk');
+          const numFatura = linha.querySelector('td:first-child').textContent.trim();
+
+          acoesHtml += '<a href="' + URL_DETALHE_BASE + pkStr + '"' +
+            ' class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Ver">' +
+            '<i class="fas fa-eye"></i></a> ';
+
+          if (novoEstado === 'Aprovada AGT') {
+            acoesHtml += '<a href="' + URL_PDF_BASE + pkStr + '"' +
+              ' class="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors" title="Imprimir Factura">' +
+              '<i class="fas fa-file-pdf"></i></a> ';
+          }
+          if (novoEstado === 'Rejeitada AGT') {
+            acoesHtml += '<button type="button" class="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Ver detalhes do erro" ' +
+              'onclick="abrirModalErro(\'' + (atual.numero_fatura || '').replace(/'/g, "\\'") + '\', \'' + (atual.resposta_agt || 'Erro não especificado').replace(/'/g, "\\'") + '\', \'' + (atual.request_id || '—').replace(/'/g, "\\'") + '\')">' +
+              '<i class="fas fa-circle-exclamation"></i></button>';
+          }
+          acoesCol.innerHTML = acoesHtml;
+
+          // Re-inicializa contadores de cards após mudança
+          atualizarCards();
+        });
+      })
+      .catch(err => console.error('Erro no polling:', err));
+  }
+
+  function atualizarCards() {
+    const dashboardUrl = '{% url "financeiro:fatura_eletronica_dashboard_json" %}';
+    fetch(dashboardUrl, { credentials: 'same-origin' })
+      .then(response => response.json())
+      .then(data => {
+        const porEstado = data.por_estado || {};
+        Object.entries(porEstado).forEach(([estado, info]) => {
+          const countEl = document.querySelector('.contagem-' + estado);
+          const valorEl = document.querySelector('.valor-' + estado);
+          if (countEl) countEl.textContent = info.total;
+          if (valorEl) valorEl.textContent = (info.valor || 0).toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' KZ';
+        });
+      });
+  }
+
+  // Corre o polling a cada 4 segundos se houver linhas "Enviada AGT" ou "Em Fila"
+  if (document.querySelectorAll('.linha-fatura[data-estado="Enviada AGT"], .linha-fatura[data-estado="Em Fila"]').length > 0) {
+    setInterval(executarPollingFaturas, 4000);
+  }
+
+  // 4. Modal de erro de rejeição
+  function abrirModalErro(numero, erro, requestId) {
+    document.getElementById('modal-fatura-num').textContent = numero;
+    document.getElementById('modal-fatura-erro').textContent = erro || 'Erro interno de processamento na AGT.';
+    document.getElementById('modal-fatura-request-id').textContent = requestId;
+    document.getElementById('modal-erro').classList.remove('hidden');
+  }
+
+  function fecharModalErro() {
+    document.getElementById('modal-erro').classList.add('hidden');
+  }
+
+  // Fecha modal clicando fora
+  document.getElementById('modal-erro').addEventListener('click', function (e) {
+    if (e.target === this) fecharModalErro();
+  });
+</script>
+{% endblock %}

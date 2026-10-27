@@ -25,6 +25,18 @@ def auto_marcar_faltas_task():
     call_command('auto_marcar_faltas')
 
 
+def reconciliar_agt_task():
+    call_command('reconciliar_agt')
+
+
+def enviar_faturas_agt_task():
+    call_command('enviar_faturas_agt')
+
+
+def processar_callbacks_agt_task():
+    call_command('processar_callbacks_agt')
+
+
 def start_scheduler():
     if os.environ.get('RUN_MAIN') != 'true' and 'RUN_MAIN' in os.environ and settings.DEBUG:
         return
@@ -72,5 +84,26 @@ def start_scheduler():
         id='auto_marcar_faltas_diario',
         replace_existing=True,
         day_of_week='mon-fri',
+    )
+    scheduler.add_job(
+        reconciliar_agt_task,
+        'interval',
+        minutes=10,
+        id='reconciliar_agt',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        enviar_faturas_agt_task,
+        'interval',
+        minutes=2,
+        id='enviar_faturas_agt',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        processar_callbacks_agt_task,
+        'interval',
+        minutes=1,
+        id='processar_callbacks_agt',
+        replace_existing=True,
     )
     scheduler.start()
