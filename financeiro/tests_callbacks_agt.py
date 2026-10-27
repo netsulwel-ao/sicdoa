@@ -22,9 +22,11 @@ class CallbackAGTBaseTestCase(TestCase):
         self.banca = Banca.objects.create(
             nome='Banca AGT', nif='123456789',
             email='agt@banca.com', telefone='923000000',
+            usuario_id=1,
         )
         self.cliente = Cliente.objects.create(
             nome='Cliente AGT', nif='987654321',
+            localizacao='Luanda',
             email='cliente@agt.com', telefone='923000001',
         )
         self.fatura = FaturaEletronica.objects.create(
