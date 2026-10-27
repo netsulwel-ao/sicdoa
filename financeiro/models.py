@@ -271,7 +271,6 @@ class CallbackAGT(models.Model):
             models.Index(
                 fields=['estado_processamento', 'recebido_em'],
                 name='fe_callback_estado_data'),
-            models.Index(fields=['request_id'], name='fe_callback_request'),
         ]
 
     def __str__(self):

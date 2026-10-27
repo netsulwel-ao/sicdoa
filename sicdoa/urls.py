@@ -94,9 +94,13 @@ urlpatterns = [
     # Utilitários (reporte de erros, etc.)
     path('utils/', include('utils.error_urls')),
 
-    # Faturação Eletrónica - callback público (webhook AGT, sem sessão/CSRF)
+    # Faturação Eletrónica - callback público (webhook AGT, sem sessão/CSRF).
+    # A rota é registada com e sem barra final para que um POST da AGT nunca
+    # sofra o redireccionamento 301 do APPEND_SLASH (que perderia o corpo).
     path('api/facturacaoelectronica/callback/', financeiro_views.fatura_eletronica_callback_agt,
          name='fatura_eletronica_callback_agt'),
+    path('api/facturacaoelectronica/callback', financeiro_views.fatura_eletronica_callback_agt,
+         name='fatura_eletronica_callback_agt_sem_barra'),
 
     # Financeiro
     path('financeiro/', include('financeiro.urls')),

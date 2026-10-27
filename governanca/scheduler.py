@@ -33,6 +33,10 @@ def enviar_faturas_agt_task():
     call_command('enviar_faturas_agt')
 
 
+def processar_callbacks_agt_task():
+    call_command('processar_callbacks_agt')
+
+
 def start_scheduler():
     if os.environ.get('RUN_MAIN') != 'true' and 'RUN_MAIN' in os.environ and settings.DEBUG:
         return
@@ -93,6 +97,13 @@ def start_scheduler():
         'interval',
         minutes=2,
         id='enviar_faturas_agt',
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        processar_callbacks_agt_task,
+        'interval',
+        minutes=1,
+        id='processar_callbacks_agt',
         replace_existing=True,
     )
     scheduler.start()

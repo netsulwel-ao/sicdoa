@@ -37,6 +37,7 @@ from .forms import (
     ConfiguracaoAGTForm, SerieFaturaEletronicaForm,
 )
 from . import agt_service
+from . import agt_callbacks
 from utils.format_kz import fmt_kz
 
 logger = logging.getLogger(__name__)
@@ -2367,6 +2368,9 @@ class FaturaEletronicaDetailView(BaseContextMixin, DetailView):
             or getattr(settings, 'AGT_CALLBACK_URL', '')
             or self.request.build_absolute_uri(reverse('fatura_eletronica_callback_agt'))
         )
+        context['callbacks_agt'] = (
+            self.object.callbacks_agt.order_by('-recebido_em')[:5]
+        )
         return context
 
 
@@ -2741,6 +2745,14 @@ def fatura_eletronica_estados_json(request):
         if item.get('total_geral') is not None:
             item['total_geral'] = str(item['total_geral'])
     return JsonResponse({'faturas': dados})
+
+
+def _obter_ip_cliente(request):
+    """Devolve o IP de origem, respeitando proxies reversos."""
+    encaminhado = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    if encaminhado:
+        return encaminhado.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR') or None
 
 
 @csrf_exempt

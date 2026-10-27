@@ -935,15 +935,22 @@ _FE_KEY_INPUT_CLASS = _FE_INPUT_CLASS + ' font-mono text-xs resize-none'
 
 
 def _validar_pem_privada(valor, rotulo):
-    """Valida que o valor é um PEM de chave privada (RSA) válido. Vazio é aceite."""
+    """Valida que o valor é um PEM de chave privada RSA (>= 2048 bits)."""
     valor = (valor or '').strip()
     if not valor:
         return ''
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
     try:
-        serialization.load_pem_private_key(valor.encode('utf-8'), password=None)
+        chave = serialization.load_pem_private_key(valor.encode('utf-8'), password=None)
     except Exception:
         raise forms.ValidationError(f'A {rotulo} não é um PEM de chave privada válido.')
+    if not isinstance(chave, rsa.RSAPrivateKey):
+        raise forms.ValidationError(f'A {rotulo} tem de ser uma chave RSA.')
+    if chave.key_size < 2048:
+        raise forms.ValidationError(
+            f'A {rotulo} tem de ter pelo menos 2048 bits (tem {chave.key_size}).'
+        )
     return valor
 
 
@@ -1038,10 +1045,18 @@ class ConfiguracaoAGTForm(forms.ModelForm):
         if not valor:
             return ''
         from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
         try:
-            serialization.load_pem_public_key(valor.encode('utf-8'))
+            chave = serialization.load_pem_public_key(valor.encode('utf-8'))
         except Exception:
             raise forms.ValidationError('A chave pública da AGT não é um PEM válido.')
+        if not isinstance(chave, rsa.RSAPublicKey):
+            raise forms.ValidationError('A chave pública da AGT tem de ser uma chave RSA.')
+        if chave.key_size < 2048:
+            raise forms.ValidationError(
+                'A chave pública da AGT tem de ter pelo menos 2048 bits '
+                f'(tem {chave.key_size}).'
+            )
         return valor
 
     def clean_callback_url(self):

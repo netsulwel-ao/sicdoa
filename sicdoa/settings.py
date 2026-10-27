@@ -272,6 +272,14 @@ AGT_CALLBACK_URL = os.environ.get(
 )
 # Segredo opcional para validar a assinatura HMAC-SHA256 (X-AGT-Signature).
 AGT_CALLBACK_SECRET = os.environ.get('AGT_CALLBACK_SECRET', '')
+# Processamento imediato do callback: True responde já com o estado actualizado;
+# False apenas enfileira (HTTP 202) e deixa o evento para o comando agendado
+# `processar_callbacks_agt`.
+AGT_CALLBACK_PROCESSAR_IMEDIATO = os.environ.get(
+    'AGT_CALLBACK_PROCESSAR_IMEDIATO', '1'
+).strip().lower() not in ('0', 'false', 'no', 'off')
+# Número máximo de tentativas de processamento de um evento da fila.
+AGT_CALLBACK_MAX_TENTATIVAS = int(os.environ.get('AGT_CALLBACK_MAX_TENTATIVAS', '5'))
 
 # LiveKit — videoconferência para plenário virtual
 LIVEKIT_URL = os.environ.get('LIVEKIT_URL', '')
