@@ -246,6 +246,10 @@
       .catch(err => console.error('Erro ao carregar dashboard:', err));
   });
 
+  // URLs base resolvidas pelo Django (pk=0 placeholder, substituído no JS)
+  const URL_DETALHE_BASE = '{% url "financeiro:fatura_eletronica_detalhe" 0 %}'.replace('/0', '');
+  const URL_PDF_BASE = '{% url "financeiro:fatura_eletronica_pdf" 0 %}'.replace('/0', '');
+
   // 1. Bloqueio visual contra clique duplo na emissão AGT
   function bloquearEnvio(btn, numeroFatura) {
     if (!confirm('Submeter ' + numeroFatura + ' à AGT?')) return false;
@@ -297,12 +301,12 @@
           const pkStr = linha.getAttribute('data-pk');
           const numFatura = linha.querySelector('td:first-child').textContent.trim();
 
-          acoesHtml += '<a href="{% url \'financeiro:fatura_eletronica_detalhe\' 0 %}".replace(/0$/, "' + pkStr + '")' +
+          acoesHtml += '<a href="' + URL_DETALHE_BASE + pkStr + '"' +
             ' class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Ver">' +
             '<i class="fas fa-eye"></i></a> ';
 
           if (novoEstado === 'Aprovada AGT') {
-            acoesHtml += '<a href="{% url \'financeiro:fatura_eletronica_pdf\' 0 %}".replace(/0$/, "' + pkStr + '")' +
+            acoesHtml += '<a href="' + URL_PDF_BASE + pkStr + '"' +
               ' class="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors" title="Imprimir Factura">' +
               '<i class="fas fa-file-pdf"></i></a> ';
           }
