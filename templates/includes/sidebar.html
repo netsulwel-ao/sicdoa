@@ -390,9 +390,9 @@
       {% endif %}
       {% if papel == 'Despachante Oficial' or papel == 'Administrador' or papel == 'Super Administrador' or 'gerir_financeiro' in user_permissoes %}
       <li>
-        <a href="{% url 'financeiro:faturacao_agt_dashboard' %}"
+        <a href="{% url 'financeiro:faturacao_eletronica_dashboard' %}"
            class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm
-                  {% if sub == 'faturacao_agt' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+                  {% if sub == 'faturacao_eletronica' %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
           <i class="fas fa-landmark text-base"></i>Faturação Eletrónica AGT
         </a>
       </li>

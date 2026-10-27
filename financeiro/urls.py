@@ -4,6 +4,7 @@ from . import views_contacorrente as cc
 from . import views_relatorios as rel
 from . import views_relatorio_pdf as rel_pdf
 from . import views_agt as agt
+from . import views_faturacao_eletronica as faturacao_eletronica
 
 
 app_name = 'financeiro'
@@ -138,6 +139,13 @@ urlpatterns = [
     path('relatorios/<slug:tipo>/pdf/', rel_pdf.relatorio_pdf, name='relatorio_pdf'),
 
     # ─── Faturação Eletrónica AGT ─────────────────────────────────────────
+    # Novas rotas: agt_invoicing models
+    path('faturacao-eletronica/', faturacao_eletronica.faturacao_eletronica_dashboard, name='faturacao_eletronica_dashboard'),
+    path('faturacao-eletronica/lista/', faturacao_eletronica.faturacao_eletronica_lista, name='faturacao_eletronica_lista'),
+    path('faturacao-eletronica/<int:fatura_id>/', faturacao_eletronica.faturacao_eletronica_detalhe, name='faturacao_eletronica_detalhe'),
+    path('faturacao-eletronica/<int:fatura_id>/sincronizar/', faturacao_eletronica.faturacao_eletronica_sincronizar, name='faturacao_eletronica_sincronizar'),
+
+    # Antigas rotas: FaturaAGT model (financeiro.FaturaAGT)
     path('faturacao-agt/', agt.faturacao_agt_dashboard, name='faturacao_agt_dashboard'),
     path('faturacao-agt/lista/', agt.faturacao_agt_lista, name='faturacao_agt_lista'),
     path('faturacao-agt/<int:pk>/', agt.faturacao_agt_detalhe, name='faturacao_agt_detalhe'),

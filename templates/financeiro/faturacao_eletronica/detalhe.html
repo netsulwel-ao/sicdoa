@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-5xl mx-auto w-full">
+
+  <!-- Breadcrumb & Header -->
+  <div class="mb-5">
+    <div class="flex items-center gap-1.5 text-xs text-gray-400 mb-2 flex-wrap">
+      <span>Financeiro</span>
+      <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+      <a href="{% url 'financeiro:faturacao_eletronica_dashboard' %}" class="hover:text-primary transition-colors">Faturação Eletrónica AGT</a>
+      <i class="fas fa-chevron-right" style="font-size:10px;"></i>
+      <span class="text-primary font-semibold">{{ fatura.numero }}</span>
+    </div>
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{{ fatura.numero }}</h1>
+        <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold
+          {% if fatura.estado == 'EMITIDA' %}bg-green-100 text-green-700
+          {% elif fatura.estado == 'RASCUNHO' %}bg-gray-100 text-gray-700
+          {% elif fatura.estado == 'REJEITADA' %}bg-red-100 text-red-700
+          {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+          {{ fatura.get_estado_display }}
+        </span>
+        <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold
+          {% if fatura.agt_status == 'APROVADA' %}bg-green-100 text-green-700
+          {% elif fatura.agt_status == 'REJEITADA' %}bg-red-100 text-red-700
+          {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+          {{ fatura.get_agt_status_display|default:"-" }}
+        </span>
+      </div>
+      <div class="flex items-center gap-2">
+        <form method="post" action="{% url 'financeiro:faturacao_eletronica_sincronizar' fatura.pk %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all">
+            <i class="fas fa-sync-alt"></i>
+            <span>Sincronizar</span>
+          </button>
+        </form>
+        <a href="{% url 'financeiro:faturacao_eletronica_lista' %}"
+          class="flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-all dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+          <i class="fas fa-arrow-left"></i>
+          <span>Voltar</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid: Two columns -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+    <!-- Left Column: Document Data -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 dark:bg-gray-900 dark:border-gray-700">
+      <h2 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-file-invoice text-primary"></i> Documento
+      </h2>
+
+      <dl class="space-y-3 text-sm">
+        <div class="flex justify-between gap-3">
+          <dt class="text-gray-500">Número</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">{{ fatura.numero }}</dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt class="text-gray-500">Série</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">{{ fatura.serie|default:"-" }}</dd>
+        </div>
+        <div class="border-t border-gray-100 dark:border-gray-700 pt-3 flex justify-between gap-3">
+          <dt class="text-gray-500">Cliente</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">{{ fatura.cliente_designacao }}</dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt class="text-gray-500">NIF Cliente</dt>
+          <dd class="font-mono text-gray-900 dark:text-white text-xs">{{ fatura.cliente_nif }}</dd>
+        </div>
+        <div class="border-t border-gray-100 dark:border-gray-700 pt-3 flex justify-between gap-3">
+          <dt class="text-gray-500">Total</dt>
+          <dd class="font-bold text-gray-900 dark:text-white">{{ fatura.total }} Kz</dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt class="text-gray-500">Data de Emissão</dt>
+          <dd class="text-gray-900 dark:text-white">{{ fatura.criada_em|date:"d/m/Y H:i" }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Right Column: AGT Status -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 dark:bg-gray-900 dark:border-gray-700">
+      <h2 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-landmark text-primary"></i> Status AGT
+      </h2>
+
+      <dl class="space-y-3 text-sm">
+        <div class="flex justify-between gap-3">
+          <dt class="text-gray-500">Status</dt>
+          <dd class="font-medium">
+            <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold
+              {% if fatura.agt_status == 'APROVADA' %}bg-green-100 text-green-700
+              {% elif fatura.agt_status == 'REJEITADA' %}bg-red-100 text-red-700
+              {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+              {{ fatura.get_agt_status_display|default:"-" }}
+            </span>
+          </dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt class="text-gray-500">Request ID</dt>
+          <dd class="font-mono text-xs text-gray-900 dark:text-white">{{ fatura.agt_request_id|default:"-" }}</dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt class="text-gray-500">Hash de Validação</dt>
+          <dd class="font-mono text-xs text-gray-600 dark:text-gray-400 truncate">{{ fatura.agt_hash_validacao|default:"-" }}</dd>
+        </div>
+        <div class="border-t border-gray-100 dark:border-gray-700 pt-3 flex justify-between gap-3">
+          <dt class="text-gray-500">Processada em</dt>
+          <dd class="text-gray-900 dark:text-white">
+            {% if fatura.agt_processada_em %}
+              {{ fatura.agt_processada_em|date:"d/m/Y H:i" }}
+            {% else %}
+              <span class="text-gray-400">—</span>
+            {% endif %}
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+  </grid>
+
+  <!-- Errors Panel (if any) -->
+  {% if fatura.agt_erros %}
+  <div class="mt-5 bg-white rounded-2xl shadow-sm border border-gray-200 p-5 dark:bg-gray-900 dark:border-gray-700">
+    <h2 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+      <i class="fas fa-exclamation-circle text-red-500"></i> Erros AGT
+    </h2>
+    <pre class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-xs overflow-x-auto text-gray-700 dark:text-gray-300">{{ agt_erros_json }}</pre>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
