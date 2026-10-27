@@ -97,6 +97,9 @@ urlpatterns = [
     # Financeiro
     path('financeiro/', include('financeiro.urls')),
 
+    # AGT Invoicing
+    path('api/agt/', include('agt_invoicing.urls')),
+
     # ── AGT Callback — URL pública: https://sicdoa.cdoangola.co.ao/api/facturacaoelectronica/callback
     # Registado aqui no urls raiz (NÃO dentro de /financeiro/) para que o path
     # seja exactamente /api/facturacaoelectronica/callback sem prefixo adicional.

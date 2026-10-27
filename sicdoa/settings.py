@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'clientes',
     'governanca',
     'financeiro',
+    'agt_invoicing',
     'channels',
     'django_apscheduler',
 ]
