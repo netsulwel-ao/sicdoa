@@ -1,7 +1,7 @@
 {% if request.session.tipo_usuario == 'colaborador' %}
   {% include 'colaboradores/sidebar.html' %}
 {% else %}
-{% with active=active_menu|default:'' sub=active_sub|default:'' papel=usuario.papel|default:'Visualizador' papel_display=usuario.papel_display|default:papel %}
+{% with active=active_menu|default:'' sub=active_sub|default:'' papel=usuario.papel|default:'Visualizador' papel_display=usuario.papel_display|default:papel nome=nome|default:'' %}
 <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 transform bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 transition-transform duration-200 -translate-x-full lg:translate-x-0 overflow-y-auto">
 
   <!-- Logo -->

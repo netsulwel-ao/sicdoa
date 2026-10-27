@@ -48,12 +48,17 @@ def faturacao_eletronica_dashboard(request):
     # Recent faturas (last 5, ordered by newest first)
     faturas_recentes = qs.order_by('-criada_em')[:5]
     
+    usuario = request.session.get('usuario', {})
+    from users.permissoes import get_usuario_permissoes
+    
     context = {
         'active_menu': 'Financeiro',
         'active_sub': 'faturacao_eletronica',
         'sub': 'faturacao_eletronica',
-        'usuario': request.session.get('usuario', {}),
-        'papel': request.session.get('usuario', {}).get('papel', ''),
+        'usuario': usuario,
+        'papel': usuario.get('papel', ''),
+        'nome': usuario.get('nome', ''),
+        'user_permissoes': get_usuario_permissoes(request),
         'total_emitidas': total_emitidas,
         'total_rejeitadas': total_rejeitadas,
         'total_pendentes': total_pendentes,
@@ -101,12 +106,14 @@ def faturacao_eletronica_lista(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    usuario = request.session.get('usuario', {})
     context = {
         'active_menu': 'Financeiro',
         'active_sub': 'faturacao_eletronica',
         'sub': 'faturacao_eletronica',
-        'usuario': request.session.get('usuario', {}),
-        'papel': request.session.get('usuario', {}).get('papel', ''),
+        'usuario': usuario,
+        'papel': usuario.get('papel', ''),
+        'nome': usuario.get('nome', ''),
         'page_obj': page_obj,
         'faturas': page_obj,
         'estado': estado,
@@ -139,12 +146,14 @@ def faturacao_eletronica_detalhe(request, fatura_id):
     if fatura.agt_erros:
         agt_erros_json = json.dumps(fatura.agt_erros, indent=2, ensure_ascii=False)
     
+    usuario = request.session.get('usuario', {})
     context = {
         'active_menu': 'Financeiro',
         'active_sub': 'faturacao_eletronica',
         'sub': 'faturacao_eletronica',
-        'usuario': request.session.get('usuario', {}),
-        'papel': request.session.get('usuario', {}).get('papel', ''),
+        'usuario': usuario,
+        'papel': usuario.get('papel', ''),
+        'nome': usuario.get('nome', ''),
         'fatura': fatura,
         'agt_erros_json': agt_erros_json,
     }
