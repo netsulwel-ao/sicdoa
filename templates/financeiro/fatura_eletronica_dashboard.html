@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Dashboard — Faturação Eletrónica AGT{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto w-full">
+
+  <!-- Cabeçalho -->
+  <div class="mb-8">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+          Dashboard — Faturação Eletrónica
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          Acompanhamento de documentos fiscais submetidos à AGT (Faturação Eletrónica).
+          <br>
+          <a href="https://portaldoparceiro.hml.minfin.gov.ao/fatura%C3%A7%C3%A3o-eletronica"
+             target="_blank" rel="noopener noreferrer"
+             class="text-primary hover:underline text-xs font-medium">
+            Portal do Parceiro AGT <i class="fas fa-external-link-alt ml-1"></i>
+          </a>
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <a href="{% url 'financeiro:fatura_eletronica_criar' %}"
+           class="px-4 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2">
+          <i class="fas fa-plus"></i> Nova Fatura
+        </a>
+        <a href="{% url 'financeiro:fatura_eletronica_lista' %}"
+           class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          Lista de Documentos
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards de resumo (dashboard) -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+    {% for codigo, info in dashboard.items %}
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ info.label }}</p>
+          <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1">{{ info.total }}</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center
+          {% if codigo == 'Aprovada AGT' %}bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400
+          {% elif codigo == 'Rejeitada AGT' %}bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400
+          {% elif codigo == 'Enviada AGT' %}bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400
+          {% elif codigo == 'Rascunho' %}bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400
+          {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}">
+          <i class="{% if codigo == 'Aprovada AGT' %}fas fa-check-circle
+          {% elif codigo == 'Rejeitada AGT' %}fas fa-times-circle
+          {% elif codigo == 'Enviada AGT' %}fas fa-paper-plane
+          {% elif codigo == 'Rascunho' %}fas fa-draft-compass
+          {% else %}fas fa-ban{% endif %}"></i>
+        </div>
+      </div>
+      <div class="mt-2">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Valor total</p>
+        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ info.valor|fmtkz }} KZ</p>
+      </div>
+      {% if pode_escrever and codigo != 'Cancelada' and codigo != 'Aprovada AGT' %}
+      <a href="{% url 'financeiro:fatura_eletronica_lista' %}?estado={{ codigo }}"
+         class="mt-3 block text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1">
+        <i class="fas fa-arrow-right"></i> Ver {{ info.label|lower }}
+      </a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Resumo geral -->
+  <div class="bg-gray-50 dark:bg-gray-900/50 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white">Total de documentos</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ total_documentos }}</p>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-gray-900 dark:text-white">Valor global</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ total_geral|fmtkz }} KZ</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela recente -->
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h2 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-history text-primary"></i> Documentos Recentes
+      </h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+          <tr>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Número</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Cliente</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Tipo</th>
+            <th class="px-6 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total</th>
+            <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Estado</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Data</th>
+            <th class="px-6 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Ação</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+          {% if faturas_eletronicas %}
+          {% for fatura in faturas_eletronicas %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <td class="px-6 py-4 font-mono font-bold text-primary">{{ fatura.numero_fatura }}</td>
+            <td class="px-6 py-4 text-gray-900 dark:text-white font-medium">{{ fatura.cliente.nome }}</td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ fatura.get_tipo_documento_display }}</td>
+            <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ fatura.total_geral|fmtkz }} KZ</td>
+            <td class="px-6 py-4 text-center">
+              <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full
+                {% if fatura.estado == 'Aprovada AGT' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                {% elif fatura.estado == 'Rejeitada AGT' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                {% elif fatura.estado == 'Enviada AGT' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+                {% elif fatura.estado == 'Rascunho' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400
+                {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                {{ fatura.get_estado_display }}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ fatura.data_emissao|date:"d/m/Y H:i" }}</td>
+            <td class="px-6 py-4 text-center">
+              <a href="{% url 'financeiro:fatura_eletronica_detalhe' fatura.pk %}"
+                 class="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Ver detalhes">
+                <i class="fas fa-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center">
+              <i class="fas fa-inbox text-4xl text-gray-300 dark:text-gray-600 mb-3 block"></i>
+              <p class="text-gray-500 dark:text-gray-400">Nenhum documento encontrado.</p>
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Atualiza os cards do dashboard via JSON (opcional, para uso futuro com polling)
+  document.addEventListener('DOMContentLoaded', function () {
+    const dashboardUrl = '{% url "financeiro:fatura_eletronica_dashboard_json" %}';
+    // Descomente para atualização automática a cada 30s:
+    /*
+    setInterval(() => {
+      fetch(dashboardUrl, { credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(data => {
+          console.log('Dashboard atualizado:', data);
+        });
+    }, 30000);
+    */
+  });
+</script>
+{% endblock %}

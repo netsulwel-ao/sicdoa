@@ -6,6 +6,7 @@ from django.shortcuts import render
 from users import views as user_views
 from users import views_session as session_views
 from rh import views_public
+from financeiro import views as financeiro_views
 
 
 def _error500(request):
@@ -92,6 +93,10 @@ urlpatterns = [
 
     # Utilitários (reporte de erros, etc.)
     path('utils/', include('utils.error_urls')),
+
+    # Faturação Eletrónica - callback público (webhook AGT, sem sessão/CSRF)
+    path('api/facturacaoelectronica/callback/', financeiro_views.fatura_eletronica_callback_agt,
+         name='fatura_eletronica_callback_agt'),
 
     # Financeiro
     path('financeiro/', include('financeiro.urls')),

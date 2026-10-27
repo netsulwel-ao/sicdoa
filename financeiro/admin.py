@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     FacturaCliente, ReciboCliente, NotaCredito, NotaDebito, FacturaRecibo,
-    RequisicaoFundo, RequisicaoFundoLinha
+    RequisicaoFundo, RequisicaoFundoLinha, FaturaEletronica
 )
 
 
@@ -49,6 +49,22 @@ class FacturaClienteAdmin(admin.ModelAdmin):
         ('Detalhes de Custos', {'fields': ('honorarios_despachante', 'taxas_aduaneiras', 'emolumentos', 'despesas_operacionais', 'iva', 'outros_encargos')}),
         ('Totalizações', {'fields': ('valor_total', 'valor_pago')}),
         ('Status', {'fields': ('estado',)}),
+        ('Metadados', {'fields': ('criado_por_id', 'criado_por_nome')}),
+    )
+
+
+@admin.register(FaturaEletronica)
+class FaturaEletronicaAdmin(admin.ModelAdmin):
+    list_display = ('numero_fatura', 'cliente', 'tipo_documento', 'estado', 'total_geral', 'data_emissao')
+    list_filter = ('estado', 'tipo_documento', 'data_emissao')
+    search_fields = ('numero_fatura', 'cliente__nome', 'cliente__nif', 'request_id')
+    readonly_fields = ('numero_fatura', 'data_emissao', 'request_id', 'resposta_agt')
+    ordering = ('-data_emissao',)
+    fieldsets = (
+        ('Documento', {'fields': ('numero_fatura', 'data_emissao', 'tipo_documento', 'total_geral')}),
+        ('Âmbito', {'fields': ('banca', 'filial', 'cliente')}),
+        ('Origem', {'fields': ('requisicao_fundo', 'factura_cliente')}),
+        ('AGT', {'fields': ('estado', 'data_envio_agt', 'request_id', 'callback_url', 'observacoes', 'resposta_agt')}),
         ('Metadados', {'fields': ('criado_por_id', 'criado_por_nome')}),
     )
 

@@ -8,7 +8,7 @@ from utils.format_kz import fmt_kz, parse_kz
 from .models import (
     FacturaCliente, ReciboCliente,
     NotaCredito, NotaDebito, FacturaRecibo,
-    RequisicaoFundo, RequisicaoFundoLinha
+    RequisicaoFundo, RequisicaoFundoLinha, FaturaEletronica
 )
 
 
@@ -746,5 +746,138 @@ class FacturaReciboForm(forms.ModelForm):
             restante = factura.valor_total - factura.valor_pago
             if valor > restante:
                 self.add_error('valor', f'O valor excede o valor pendente desta factura ({fmt_kz(restante)} Kz).')
+
+        return cleaned_data
+
+
+_FE_INPUT_CLASS = (
+    'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border '
+    'border-gray-200 dark:border-gray-600 rounded-xl text-sm '
+    'focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
+)
+
+
+class FaturaEletronicaForm(forms.ModelForm):
+    """Formulário de emissão de documentos para a Faturação Eletrónica da AGT.
+
+    O documento fiscal deve estar ligado a uma Factura Cliente ou a uma
+    Requisição de Fundos já existente; o total é derivado dessa origem.
+    """
+
+    class Meta:
+        model = FaturaEletronica
+        fields = ['cliente', 'tipo_documento', 'requisicao_fundo',
+                  'factura_cliente', 'callback_url', 'observacoes']
+        widgets = {
+            'cliente': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'tipo_documento': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'requisicao_fundo': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'factura_cliente': forms.Select(attrs={'class': _FE_INPUT_CLASS}),
+            'callback_url': forms.URLInput(attrs={
+                'class': _FE_INPUT_CLASS,
+                'placeholder': 'https://meusistema.co.ao/api/facturacaoelectronica/callback',
+            }),
+            'observacoes': forms.Textarea(attrs={
+                'class': _FE_INPUT_CLASS + ' resize-none',
+                'rows': '3',
+                'placeholder': 'Observações adicionais para o documento fiscal...',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+
+        banca_id = None
+        if request is not None:
+            banca_id = request.session.get('banca_id')
+            if not banca_id:
+                from rh.models import Colaborador as _Col
+                tipo = request.session.get('tipo_usuario', '')
+                if tipo == 'colaborador':
+                    col = _Col.objects.filter(pk=request.session.get('colaborador_id')).first()
+                else:
+                    col = _Col.objects.filter(usuario_id=request.session.get('usuario_id')).first()
+                if col and col.banca_id:
+                    banca_id = col.banca_id
+
+        clientes_qs = Cliente.objects.filter(ativo=True)
+        requisicoes_qs = RequisicaoFundo.objects.select_related('cliente')
+        facturas_qs = FacturaCliente.objects.select_related('cliente')
+        if banca_id:
+            clientes_qs = clientes_qs.filter(banca_id=banca_id)
+            requisicoes_qs = requisicoes_qs.filter(banca_id=banca_id)
+            facturas_qs = facturas_qs.filter(banca_id=banca_id)
+        elif request is not None:
+            # Sem banca resolvida não se expõem dados de outras bancas.
+            clientes_qs = clientes_qs.none()
+            requisicoes_qs = requisicoes_qs.none()
+            facturas_qs = facturas_qs.none()
+
+        self.fields['cliente'].queryset = clientes_qs.order_by('nome')
+
+        # Refina os documentos de origem pelo cliente escolhido.
+        cliente_id = self.data.get('cliente') if self.is_bound else None
+        if cliente_id:
+            try:
+                cliente_id = int(cliente_id)
+                requisicoes_qs = requisicoes_qs.filter(cliente_id=cliente_id)
+                facturas_qs = facturas_qs.filter(cliente_id=cliente_id)
+            except (TypeError, ValueError):
+                pass
+
+        self.fields['requisicao_fundo'].queryset = requisicoes_qs.order_by('-data_emissao')
+        self.fields['factura_cliente'].queryset = facturas_qs.order_by('-data_emissao')
+
+        self.fields['requisicao_fundo'].label_from_instance = lambda obj: (
+            f"{obj.numero_requisicao} - {obj.cliente.nome} - {fmt_kz(obj.total_geral)} KZ"
+        )
+        self.fields['factura_cliente'].label_from_instance = lambda obj: (
+            f"{obj.numero_factura} - {obj.cliente.nome} - {fmt_kz(obj.valor_total)} KZ"
+        )
+
+        # Sugere a URL pública de callback configurada para o sistema.
+        if not self.is_bound and not self.instance.callback_url:
+            from django.conf import settings as _settings
+            self.fields['callback_url'].initial = getattr(_settings, 'AGT_CALLBACK_URL', '') or ''
+
+    def clean_callback_url(self):
+        url = (self.cleaned_data.get('callback_url') or '').strip()
+        if url and not url.lower().startswith('https://'):
+            raise forms.ValidationError('O Callback URL deve usar HTTPS (https://...).')
+        return url
+
+    def clean(self):
+        cleaned_data = super().clean()
+        cliente = cleaned_data.get('cliente')
+        requisicao = cleaned_data.get('requisicao_fundo')
+        factura = cleaned_data.get('factura_cliente')
+
+        if not requisicao and not factura:
+            raise forms.ValidationError(
+                'Selecione uma Factura Cliente ou uma Requisição de Fundos como origem do documento.'
+            )
+
+        if requisicao and cliente and requisicao.cliente_id != cliente.pk:
+            self.add_error('requisicao_fundo', 'A requisição selecionada não pertence ao cliente escolhido.')
+
+        if factura and cliente and factura.cliente_id != cliente.pk:
+            self.add_error('factura_cliente', 'A factura selecionada não pertence ao cliente escolhido.')
+
+        if requisicao and factura:
+            self.add_error(
+                'factura_cliente',
+                'Escolha apenas uma origem: Factura Cliente ou Requisição de Fundos.',
+            )
+
+        # Evita emitir dois documentos eletrónicos ativos para a mesma origem.
+        ativos = ['Rascunho', 'Enviada AGT', 'Aprovada AGT']
+        duplicados = FaturaEletronica.objects.filter(estado__in=ativos)
+        if self.instance.pk:
+            duplicados = duplicados.exclude(pk=self.instance.pk)
+        if factura and duplicados.filter(factura_cliente=factura).exists():
+            self.add_error('factura_cliente', 'Já existe uma fatura eletrónica ativa para esta factura.')
+        if requisicao and duplicados.filter(requisicao_fundo=requisicao).exists():
+            self.add_error('requisicao_fundo', 'Já existe uma fatura eletrónica ativa para esta requisição.')
 
         return cleaned_data

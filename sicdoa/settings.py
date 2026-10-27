@@ -256,6 +256,23 @@ BREVO_SENDER_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', os.environ.get('EMAIL_
 # URL pública do sistema (usada em emails — credenciais, convites, etc.)
 SITE_URL = os.environ.get('SITE_URL', 'https://sicdoa.cdoangola.co.ao').rstrip('/')
 
+# ── Faturação Eletrónica (AGT) ─────────────────────────────────────
+# Portal do Parceiro (homologação): https://portaldoparceiro.hml.minfin.gov.ao
+AGT_API_HML_URL = os.environ.get(
+    'AGT_API_HML_URL', 'https://portaldoparceiro.hml.minfin.gov.ao'
+).rstrip('/')
+AGT_API_SUBMIT_URL = os.environ.get(
+    'AGT_API_SUBMIT_URL',
+    f'{AGT_API_HML_URL}/api/fatura-electronica/submit/',
+)
+AGT_TIMEOUT = int(os.environ.get('AGT_TIMEOUT', '30'))
+# URL pública registada no Portal do Parceiro e usada como callback por omissão.
+AGT_CALLBACK_URL = os.environ.get(
+    'AGT_CALLBACK_URL', f'{SITE_URL}/api/facturacaoelectronica/callback/'
+)
+# Segredo opcional para validar a assinatura HMAC-SHA256 (X-AGT-Signature).
+AGT_CALLBACK_SECRET = os.environ.get('AGT_CALLBACK_SECRET', '')
+
 # LiveKit — videoconferência para plenário virtual
 LIVEKIT_URL = os.environ.get('LIVEKIT_URL', '')
 LIVEKIT_API_KEY = os.environ.get('LIVEKIT_API_KEY', '')

@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Fatura Eletrónica {{ fatura_eletronica.numero_fatura }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto w-full">
+
+  <!-- Cabeçalho -->
+  <div class="mb-6">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <a href="{% url 'financeiro:fatura_eletronica_lista' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary flex items-center gap-1 mb-1">
+          <i class="fas fa-arrow-left"></i> Faturas Eletrónicas
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+          {{ fatura_eletronica.numero_fatura }}
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          {{ fatura_eletronica.get_tipo_documento_display }} · {{ fatura_eletronica.cliente.nome }}
+        </p>
+      </div>
+      <div>
+        {% if fatura_eletronica.estado == 'Rascunho' %}
+          <span class="inline-flex px-3 py-1.5 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Rascunho</span>
+        {% elif fatura_eletronica.estado == 'Enviada AGT' %}
+          <span class="inline-flex px-3 py-1.5 text-sm font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Enviada AGT</span>
+        {% elif fatura_eletronica.estado == 'Aprovada AGT' %}
+          <span class="inline-flex px-3 py-1.5 text-sm font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Aprovada AGT</span>
+        {% elif fatura_eletronica.estado == 'Rejeitada AGT' %}
+          <span class="inline-flex px-3 py-1.5 text-sm font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Rejeitada AGT</span>
+        {% else %}
+          <span class="inline-flex px-3 py-1.5 text-sm font-semibold rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300">Cancelada</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Dados principais -->
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <h2 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-file-invoice text-primary"></i> Dados do documento
+      </h2>
+
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-gray-500 dark:text-gray-400">Cliente</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">{{ fatura_eletronica.cliente.nome }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 dark:text-gray-400">NIF</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">{{ fatura_eletronica.cliente.nif|default:"—" }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 dark:text-gray-400">Total</dt>
+          <dd class="font-semibold text-lg text-gray-900 dark:text-white">{{ fatura_eletronica.total_geral|fmtkz }} KZ</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 dark:text-gray-400">Data de Emissão</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">{{ fatura_eletronica.data_emissao|date:"d/m/Y H:i" }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 dark:text-gray-400">Enviada à AGT em</dt>
+          <dd class="font-medium {% if fatura_eletronica.data_envio_agt %}text-gray-900 dark:text-white{% else %}text-gray-400{% endif %}">
+            {{ fatura_eletronica.data_envio_agt|date:"d/m/Y H:i"|default:"Ainda não enviada" }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 dark:text-gray-400">Banca / Filial</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">
+            {{ fatura_eletronica.banca.nome|default:"—" }}
+            {% if fatura_eletronica.filial %} · {{ fatura_eletronica.filial.provincia }}{% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 dark:text-gray-400">Documento de origem</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">
+            {% if fatura_eletronica.factura_cliente %}
+              <a href="{% url 'financeiro:factura_detalhe' fatura_eletronica.factura_cliente.pk %}" class="text-primary hover:underline">
+                {{ fatura_eletronica.factura_cliente.numero_factura }}
+              </a>
+            {% elif fatura_eletronica.requisicao_fundo %}
+              <a href="{% url 'financeiro:requisicao_detalhe' fatura_eletronica.requisicao_fundo.pk %}" class="text-primary hover:underline">
+                {{ fatura_eletronica.requisicao_fundo.numero_requisicao }}
+              </a>
+            {% else %}
+              —
+            {% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 dark:text-gray-400">Criado por</dt>
+          <dd class="font-medium text-gray-900 dark:text-white">{{ fatura_eletronica.criado_por_nome|default:"—" }}</dd>
+        </div>
+      </dl>
+
+      {% if fatura_eletronica.observacoes %}
+      <div class="mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Observações</p>
+        <p class="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{{ fatura_eletronica.observacoes }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Integração AGT -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <h2 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-server text-primary"></i> Integração AGT
+      </h2>
+
+      <!-- Callback URL com botão copiar -->
+      <div class="mb-4">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+          Callback URL (webhook público)
+        </p>
+        <div class="flex gap-2">
+          <input type="text" id="callbackUrl"
+                 value="{{ callback_url_agt }}"
+                 readonly
+                 class="flex-1 px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-0"
+                 placeholder="https://…">
+          <button type="button"
+                  id="copyCallbackBtn"
+                  title="Copiar URL para a área de transferência"
+                  class="px-3 py-2 bg-primary text-white rounded-xl text-xs font-medium hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-1"
+                  onclick="copiarCallbackUrl()">
+            <i class="fas fa-copy"></i> Copiar
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 break-all">
+          Registe esta URL no Portal do Parceiro da AGT. Tem de ser pública e usar HTTPS.
+          <br>
+          <span id="copyMsg" class="text-xs text-green-600 dark:text-green-400 font-medium hidden">Copiado!</span>
+        </p>
+      </div>
+
+      <div class="mb-4">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Request ID AGT</p>
+        <div class="flex gap-2">
+          <input type="text" id="requestId"
+                 value="{{ fatura_eletronica.request_id|default:'' }}"
+                 readonly
+                 class="flex-1 px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-0"
+                 placeholder="—">
+          {% if fatura_eletronica.request_id %}
+          <button type="button"
+                  title="Copiar Request ID"
+                  class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-1"
+                  onclick="copiarRequestId()">
+            <i class="fas fa-copy"></i>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+
+      <a href="https://portaldoparceiro.hml.minfin.gov.ao/fatura%C3%A7%C3%A3o-eletronica"
+         target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+        <i class="fas fa-external-link-alt"></i> Abrir Portal do Parceiro (AGT)
+      </a>
+
+      {% if fatura_eletronica.resposta_agt %}
+      <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Resposta da AGT</p>
+        <pre class="text-xs rounded-lg bg-gray-100 dark:bg-gray-900 p-3 whitespace-pre-wrap break-all max-h-64 overflow-auto">{{ fatura_eletronica.resposta_agt }}</pre>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Ações -->
+  <div class="mt-6 flex flex-col sm:flex-row gap-3">
+    <a href="{% url 'financeiro:fatura_eletronica_lista' %}"
+       class="flex-1 text-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+      Voltar à Lista
+    </a>
+    {% if pode_escrever and fatura_eletronica.estado == 'Rascunho' %}
+    <form method="post" action="{% url 'financeiro:fatura_eletronica_enviar_agt' fatura_eletronica.pk %}" class="flex-1">
+      {% csrf_token %}
+      <button type="submit"
+              class="w-full px-4 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-sm flex items-center justify-center gap-2"
+              onclick="return confirm('Submeter {{ fatura_eletronica.numero_fatura|escapejs }} à AGT?');">
+        <i class="fas fa-paper-plane"></i> Enviar para a AGT
+      </button>
+    </form>
+    {% endif %}
+    {% if pode_escrever %}{% if fatura_eletronica.estado == 'Rascunho' or fatura_eletronica.estado == 'Rejeitada AGT' %}
+    <form method="post" action="{% url 'financeiro:fatura_eletronica_cancelar' fatura_eletronica.pk %}" class="sm:w-48">
+      {% csrf_token %}
+      <button type="submit"
+              class="w-full px-4 py-2.5 border border-red-300 text-red-600 rounded-xl font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
+              onclick="return confirm('Cancelar a fatura {{ fatura_eletronica.numero_fatura|escapejs }}?');">
+        <i class="fas fa-ban"></i> Cancelar
+      </button>
+    </form>
+    {% endif %}{% endif %}
+  </div>
+
+  <!-- Fluxo de estados -->
+  <div class="mt-8 bg-gray-50 dark:bg-gray-900/50 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <h3 class="font-semibold text-gray-900 dark:text-white mb-3">Ciclo de vida do documento</h3>
+    <div class="flex items-center gap-4 overflow-x-auto pb-2">
+      {% for codigo, label in estados %}
+      <div class="flex flex-col items-center gap-2 min-w-[120px]">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+          {% if codigo == fatura_eletronica.estado %}bg-primary text-white shadow-lg
+          {% elif codigo == 'Rascunho' %}bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300
+          {% else %}bg-gray-100 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500{% endif %}">
+          {% if codigo == 'Rascunho' %}1{% elif codigo == 'Enviada AGT' %}2{% elif codigo == 'Aprovada AGT' or codigo == 'Rejeitada AGT' %}3{% else %}X{% endif %}
+        </div>
+        <p class="text-xs text-center text-gray-600 dark:text-gray-300 leading-tight">
+          {% if codigo == fatura_eletronica.estado %}<strong>{{ label }}</strong>{% else %}{{ label }}{% endif %}
+        </p>
+        {% if not forlast %}<div class="w-full h-0.5 bg-gray-300 dark:bg-gray-600 mx-2"></div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+      Fluxo: Rascunho → Enviada AGT → Aprovada AGT / Rejeitada AGT · Cancelamento permitido apenas em Rascunho ou Rejeitada AGT.
+    </p>
+  </div>
+
+</div>
+
+<script>
+  function copiarCallbackUrl() {
+    const input = document.getElementById('callbackUrl');
+    input.select();
+    document.execCommand('copy');
+    const msg = document.getElementById('copyMsg');
+    msg.classList.remove('hidden');
+    setTimeout(() => msg.classList.add('hidden'), 2000);
+  }
+
+  function copiarRequestId() {
+    const input = document.getElementById('requestId');
+    input.select();
+    document.execCommand('copy');
+    const btn = event.currentTarget;
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i>';
+    btn.classList.replace('bg-gray-200', 'bg-green-500');
+    btn.classList.replace('text-gray-600', 'text-white');
+    setTimeout(() => {
+      btn.innerHTML = original;
+      btn.classList.replace('bg-green-500', 'bg-gray-200');
+      btn.classList.replace('text-white', 'text-gray-600');
+    }, 1500);
+  }
+</script>
+{% endblock %}

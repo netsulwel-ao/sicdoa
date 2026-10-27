@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/processos-cliente/', views.api_processos_cliente, name='api_processos_cliente'),
     path('api/dados-processo/', views.api_dados_processo, name='api_dados_processo'),
     path('api/facturas-por-cliente/', views.api_facturas_por_cliente, name='api_facturas_por_cliente'),
+    path('api/requisicoes-por-cliente/', views.api_requisicoes_por_cliente, name='api_requisicoes_por_cliente'),
 
     # Facturas Finais
     path('facturas/', views.FacturaClienteListView.as_view(), name='factura_lista'),
@@ -94,6 +95,15 @@ urlpatterns = [
     path('facturas-recibo/<int:pk>/enviar-email/', views.factura_recibo_enviar_email, name='factura_recibo_enviar_email'),
     path('facturas-recibo/<int:pk>/editar/', views.FacturaReciboUpdateView.as_view(), name='factura_recibo_editar'),
     path('facturas-recibo/<int:pk>/cancelar/', views.cancelar_factura_recibo, name='factura_recibo_cancelar'),
+
+    # ─── Fatura Eletronica ────────────────────────────────────────────────
+    path('fatura-eletronica/', views.FaturaEletronicaListView.as_view(), name='fatura_eletronica_lista'),
+    path('fatura-eletronica/dashboard/', views.FaturaEletronicaDashboardView.as_view(), name='fatura_eletronica_dashboard'),
+    path('fatura-eletronica/dashboard/json/', views.fatura_eletronica_dashboard_json, name='fatura_eletronica_dashboard_json'),
+    path('fatura-eletronica/criar/', views.FaturaEletronicaCreateView.as_view(), name='fatura_eletronica_criar'),
+    path('fatura-eletronica/<int:pk>/', views.FaturaEletronicaDetailView.as_view(), name='fatura_eletronica_detalhe'),
+    path('fatura-eletronica/<int:pk>/enviar-agt/', views.fatura_eletronica_enviar_agt, name='fatura_eletronica_enviar_agt'),
+    path('fatura-eletronica/<int:pk>/cancelar/', views.fatura_eletronica_cancelar, name='fatura_eletronica_cancelar'),
 
     # ─── Conta Corrente ──────────────────────────────────────────────────
     path('conta-corrente/', cc.ContaCorrenteHomeView.as_view(), name='conta_corrente_home'),

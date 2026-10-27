@@ -9,6 +9,141 @@ from clientes.models import Cliente
 from aduaneiro.models import DeclaracaoUnica
 
 
+class FaturaEletronica(models.Model):
+    """Documento fiscal submetido à Faturação Eletrónica da AGT.
+
+    O ciclo de vida é: Rascunho -> Enviada AGT -> (Aprovada AGT | Rejeitada AGT).
+    A AGT responde de forma assíncrona através do callback/webhook configurado
+    no Portal do Parceiro (ver `fatura_eletronica_callback_agt`).
+    """
+
+    ESTADOS = [
+        ('Rascunho', 'Rascunho'),
+        ('Enviada AGT', 'Enviada AGT'),
+        ('Aprovada AGT', 'Aprovada AGT'),
+        ('Rejeitada AGT', 'Rejeitada AGT'),
+        ('Cancelada', 'Cancelada'),
+    ]
+
+    TIPO_DOCUMENTO = [
+        ('FATURA', 'Fatura'),
+        ('NOTA_DEBITO', 'Nota de Débito'),
+        ('NOTA_CREDITO', 'Nota de Crédito'),
+    ]
+
+    # Âmbito (multi-tenant, igual ao resto do módulo financeiro)
+    banca = models.ForeignKey('rh.Banca', on_delete=models.CASCADE,
+                              related_name='faturas_eletronicas', null=True, blank=True,
+                              verbose_name='Banca')
+    filial = models.ForeignKey('rh.FilialBanca', on_delete=models.SET_NULL,
+                               related_name='faturas_eletronicas', null=True, blank=True,
+                               verbose_name='Filial')
+
+    # Identificação
+    numero_fatura = models.CharField(max_length=50, unique=True, blank=True,
+                                     verbose_name='Número da Fatura')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT,
+                                related_name='faturas_eletronicas', verbose_name='Cliente')
+    tipo_documento = models.CharField(max_length=20, choices=TIPO_DOCUMENTO, default='FATURA',
+                                      verbose_name='Tipo de Documento')
+
+    # Referência ao documento de origem
+    requisicao_fundo = models.ForeignKey('RequisicaoFundo', on_delete=models.SET_NULL,
+                                         null=True, blank=True,
+                                         related_name='faturas_eletronicas',
+                                         verbose_name='Requisição de Fundos')
+    factura_cliente = models.ForeignKey('FacturaCliente', on_delete=models.SET_NULL,
+                                        null=True, blank=True,
+                                        related_name='faturas_eletronicas',
+                                        verbose_name='Factura Cliente')
+
+    # Dados AGT
+    data_emissao = models.DateTimeField(auto_now_add=True, verbose_name='Data de Emissão')
+    data_envio_agt = models.DateTimeField(null=True, blank=True, verbose_name='Data Envio AGT')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='Rascunho',
+                              db_index=True, verbose_name='Estado')
+
+    # Callback / webhook registado no Portal do Parceiro da AGT
+    callback_url = models.URLField(blank=True, default='', verbose_name='Callback URL')
+    # UUID devolvido/confirmado pela AGT. NULL (não '') para permitir vários rascunhos
+    # sem colidir na restrição UNIQUE.
+    request_id = models.CharField(max_length=100, unique=True, null=True, blank=True,
+                                  default=None, verbose_name='Request ID AGT')
+
+    # Resultado do processamento AGT
+    observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
+    resposta_agt = models.TextField(blank=True, default='', verbose_name='Resposta AGT')
+
+    total_geral = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'),
+                                      verbose_name='Total Geral')
+
+    # Metadados
+    criado_por_id = models.IntegerField(null=True, blank=True, verbose_name='ID do Criador', db_index=True)
+    criado_por_nome = models.CharField(max_length=200, blank=True, default='',
+                                       verbose_name='Nome do Criador')
+
+    class Meta:
+        db_table = 'financeiro_fatura_eletronica'
+        verbose_name = 'Fatura Eletrónica'
+        verbose_name_plural = 'Faturas Eletrónicas'
+        ordering = ['-data_emissao']
+        indexes = [
+            models.Index(fields=['estado', '-data_emissao'], name='fe_estado_data'),
+            models.Index(fields=['cliente', 'estado'], name='fe_cliente_estado'),
+            models.Index(fields=['banca', 'filial'], name='fe_banca_filial'),
+        ]
+
+    def _gerar_numero_fatura(self):
+        """Gera número sequencial: FE-AAAA-NNNN."""
+        ano = timezone.now().year
+        ultimo = (
+            FaturaEletronica.objects
+            .filter(numero_fatura__startswith=f'FE-{ano}-')
+            .order_by('-numero_fatura')
+            .first()
+        )
+        if ultimo and ultimo.numero_fatura:
+            try:
+                seq = int(ultimo.numero_fatura.split('-')[-1]) + 1
+            except ValueError:
+                seq = 1
+        else:
+            seq = 1
+        return f'FE-{ano}-{seq:04d}'
+
+    def calcular_total(self):
+        """Deriva o total do documento de origem (Factura Cliente > Requisição)."""
+        if self.factura_cliente_id:
+            return self.factura_cliente.valor_total or Decimal('0.00')
+        if self.requisicao_fundo_id:
+            return self.requisicao_fundo.total_geral or Decimal('0.00')
+        return Decimal('0.00')
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        # Só recalcula quando o chamador não está a limitar explicitamente os campos.
+        if not update_fields and not self.total_geral:
+            self.total_geral = self.calcular_total()
+
+        for _attempt in range(5):
+            if not self.numero_fatura:
+                self.numero_fatura = self._gerar_numero_fatura()
+            try:
+                # Savepoint garante que um IntegrityError não invalida uma
+                # transacção exterior (ex.: ATOMIC_REQUESTS).
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                return
+            except IntegrityError:
+                self.numero_fatura = ''
+                continue
+        # Última tentativa sem recuperação: deixa a exceção propagar.
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Fatura Eletrónica {self.numero_fatura} - {self.cliente.nome}"
+
+
 class RequisicaoFundo(models.Model):
     """Modelo para Requisição de Fundos - Fatura Proforma"""
     
@@ -1088,6 +1223,7 @@ class HistoricoFinanceiro(models.Model):
         ('NotaCredito', 'Nota de Crédito'),
         ('NotaDebito', 'Nota de Débito'),
         ('FacturaRecibo', 'Factura-Recibo'),
+        ('FaturaEletronica', 'Fatura Eletrónica'),
     ]
 
     tipo_documento = models.CharField(max_length=20, choices=TIPO_DOCUMENTO, db_index=True, verbose_name='Tipo de Documento')
