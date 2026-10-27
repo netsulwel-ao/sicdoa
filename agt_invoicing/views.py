@@ -16,7 +16,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Fatura, RegistoAuditoria
+from .models import Fatura, RegistoAuditoria, SubmissaoAgt
 from .permissions import require_financial_permission
 from .serializers import FaturaListSerializer, FaturaDetailSerializer, serialize_stats
 from .services import FaturaService
@@ -180,14 +180,24 @@ def agt_callback(request):
         # Create audit log
         try:
             request_id = payload.get("requestId")
-            RegistoAuditoria.objects.create(
-                banca_id=1,  # FIXME: This should be determined from fatura or config
-                acao="UPDATED",
-                origin_tipo="WEBHOOK",
-                entity_tipo="Callback",
-                entity_id=0,
-                motivo=f"requestId={request_id}, status={payload.get('status')}",
-            )
+            # Try to find the submission to get banca_id
+            banca_id = None
+            try:
+                submissao = SubmissaoAgt.objects.get(codigo_controlo=request_id)
+                banca_id = submissao.banca_id
+            except SubmissaoAgt.DoesNotExist:
+                pass
+            
+            # If we found a banca_id, create audit log with it
+            if banca_id:
+                RegistoAuditoria.objects.create(
+                    banca_id=banca_id,
+                    acao="UPDATED",
+                    origin_tipo="WEBHOOK",
+                    entity_tipo="Callback",
+                    entity_id=0,
+                    motivo=f"requestId={request_id}, status={payload.get('status')}",
+                )
         except Exception as e:
             logger.warning(f"Failed to create audit log for callback: {e}")
 

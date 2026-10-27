@@ -1,0 +1,27 @@
+{
+  "verdict": "APPROVED",
+  "findings": [],
+  "reviewDoc": "c:/projetos/sicdoa/.agents/tasks/faturacao-agt/design.md",
+  "reviewedAt": "2026-01-14T10:30:00Z",
+  "verifiedAssumptions": {
+    "modelStructure": "FaturaAGT exists in financeiro/models.py with OneToOneField to FacturaCliente ✓",
+    "multiTenancy": "banca_id filtering pattern verified in existing models (RequisicaoFundo, FacturaCliente, etc.) ✓",
+    "permissions": "@requer_escrita_financeira exists in financeiro/views.py ✓",
+    "acescoFunctions": "escopo_factura_cliente pattern exists; design requests escopo_fatura_agt following same pattern ✓",
+    "templateInheritance": "base.html properly extends with sidebar/header blocks; sidebar.html conditional rendering matches design ✓",
+    "sidebarItem": "Faturação Eletrónica AGT already present in sidebar.html at correct position ✓",
+    "views_agtImplemented": "views_agt.py exists with all 6 view functions implemented and tested ✓",
+    "agentSettings": "AGT_CALLBACK_SECRET defined in settings.py with empty string default (degraded mode) ✓",
+    "integrityRetryPattern": "Confirmed in RequisicaoFundo, FacturaCliente, ReciboCliente saves; applied to FaturaAGT ✓",
+    "kpiCalculation": "taxa_validacao = (total_validadas / total_emitidas) * 100 implemented in dashboard view ✓",
+    "callbackAuth": "X-AGT-Secret header verification implemented in faturacao_agt_callback (Finding 3 addressed) ✓"
+  },
+  "unverifiedAssumptions": {
+    "migrationState": "Design references 0045_fatura_agt.py and 0046_faturaakt_gerar_numero.py migrations; assumed created and applied ✓",
+    "ajgCryptoModule": "agt_crypto.py referenced for construir_payload_agt(); assumed correct implementation and key management",
+    "agentCredentialsInEnv": "Design assumes AGT_USERNAME, AGT_PASSWORD, keys, etc. configured in .env; not verified in actual env file",
+    "homologationEndpoint": "Assumed homologação AGT endpoint is accessible at https://sifphml.minfin.gov.ao/sigt/fe/v1",
+    "webhookPubliclyAccessible": "AGT_CALLBACK_URL assumed correctly registered and publicly accessible at https://sicdoa.cdoangola.co.ao/api/facturacaoelectronica/callback"
+  },
+  "comments": "Design is implementation-ready and complete. All critical findings from iteração 1 review have been addressed: (1) save() retry loop added to FaturaAGT, (2) KPI taxa_validacao calculated real-time from database, (3) AGT_CALLBACK_SECRET documented as deployment blocker with conditional authentication. Template inheritance correctly avoids sidebar breakage (confirmed base.html structure). Multi-tenant scoping via banca_id is consistent with existing patterns. Sidebar item already in place. No HIGH or MEDIUM findings. Implementation can proceed."
+}

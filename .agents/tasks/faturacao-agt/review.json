@@ -1,0 +1,23 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "LOW",
+      "issue": "Numero_fatura uniqueness under concurrent retry",
+      "suggestion": "Current retry loop (5 attempts) is acceptable for typical transaction volume. If production experiences >5 concurrent invoice creations per second, consider adding a database-level sequence or UUID-based number generation to eliminate retry logic entirely."
+    },
+    {
+      "severity": "LOW",
+      "issue": "Missing centralized escopo_fatura_agt() function",
+      "suggestion": "Extract manual banca_id filtering from views into a reusable escopo_fatura_agt(request, queryset) function in financeiro/acesso.py, following the pattern of escopo_factura_cliente. This is a non-blocking refactor for code consistency."
+    },
+    {
+      "severity": "LOW",
+      "issue": "Callback replay protection not explicit",
+      "suggestion": "Current implementation is idempotent by design (status, hash, QR code are overwritten with identical values on retry). For production, consider tracking event IDs from AGT to reject true duplicates, but current behavior is safe and acceptable."
+    }
+  ],
+  "reviewDoc": "c:/projetos/sicdoa/.agents/tasks/faturacao-agt/review.md",
+  "reviewedAt": "2026-01-14T14:00:00Z",
+  "summary": "Implementation is complete and correct. All three findings from design review have been addressed: (1) save() includes 5-attempt retry loop for IntegrityError on numero_fatura, (2) taxa_validacao is calculated real-time (validadas/total*100), not hardcoded, (3) AGT_CALLBACK_SECRET is implemented with conditional authentication. Template inheritance is correct (no sidebar breakage). Multi-tenant isolation via banca_id filtering is consistent across views. Callback endpoint security is proper. Test coverage is partial but covers critical paths. Production deployment requires AGT credentials and callback secret configuration."
+}

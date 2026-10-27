@@ -1,0 +1,38 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": 1,
+      "label": "Condicional de template com `in` string",
+      "severity": "low",
+      "description": "`{% if submissao.estado in 'Gerado,Validado' %}` em saft_detalhe.html testa pertença de substring, não de lista. Funciona por acidente mas é frágil. Mudar para `{% if submissao.estado == 'Gerado' or submissao.estado == 'Validado' %}`.",
+      "file": "financeiro/templates/financeiro/saft_detalhe.html",
+      "confidence": "confirmed"
+    },
+    {
+      "id": 2,
+      "label": "Validação XSD silenciosa",
+      "severity": "medium",
+      "description": "Sem `SAFT_XSD_PATH` definido ou sem `lxml`, o validador degrada para verificação mínima de cabeçalho sem aviso. O utilizador vê 'Ficheiro válido!' para um XML com possíveis erros estruturais nos SourceDocuments. Documentar como requisito de produção ou emitir aviso no arranque.",
+      "file": "financeiro/saft_validator.py",
+      "confidence": "confirmed"
+    },
+    {
+      "id": 3,
+      "label": "`requer_escrita_financeira` sem `@functools.wraps`",
+      "severity": "low",
+      "description": "O decorator não preserva o nome/docstring da view original. Adicionar `@functools.wraps(view_func)` ao `wrapper` interno.",
+      "file": "financeiro/views.py",
+      "confidence": "confirmed"
+    },
+    {
+      "id": 4,
+      "label": "Reordenação frágil de NumberOfEntries/TotalDebit/TotalCredit",
+      "severity": "low",
+      "description": "O código remove e reinsere todos os filhos de `<SalesInvoices>` para posicionar os totais antes dos `<Invoice>`. Substituir por `sales.insert(0, el)` após o loop para maior clareza e robustez.",
+      "file": "financeiro/saft_generator.py",
+      "confidence": "confirmed"
+    }
+  ],
+  "reviewDoc": "c:\\projetos\\sicdoa\\.agents\\tasks\\saft_review.md"
+}
